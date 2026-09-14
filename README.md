@@ -51,9 +51,12 @@ Custom Copilot agents live in [`.github/agents`](.github/agents):
 | `muna-docs-writer` | Specs, UX copy, i18n strings, release notes |
 | `muna-design-reviewer` | Read-only fidelity/motion/a11y review before merging UI |
 
-To start: open a session on `main`, paste the **M0-E1** prompt from
-[docs/build-plan/m0-foundations.md](docs/build-plan/m0-foundations.md) and pick
-`muna-architect`. Epics inside a milestone can run in parallel sessions.
+To start: open a session on `main`, paste the epic's prompt from
+[docs/build-plan/m0-foundations.md](docs/build-plan/m0-foundations.md) and pick the agent it
+names. **M0-E1** (scaffold) has landed; **M0-E2** (transparent-window spike,
+`muna-shell-engineer`), **M0-E3** (identity spike, `muna-release-engineer`) and **M0-E4**
+(tokens and motion presets, `muna-motion-designer`) are independent and can run in parallel
+sessions.
 
 ## Development
 
