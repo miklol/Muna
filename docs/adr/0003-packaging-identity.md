@@ -1,6 +1,7 @@
 # ADR-0003 · Packaging & identity: MSIX primary, NSIS portable
 
-**Status:** Accepted · **Date:** 2026-09-14
+**Status:** Accepted (pending M0-E3 spike validation, plan in
+[spikes/m0-identity](../spikes/m0-identity.md)) · **Date:** 2026-09-14
 
 ## Context
 
@@ -36,6 +37,6 @@ require a trusted signature.
 
 - Two artifacts to test in CI (install matrix). MSIX runs from a read-only install location →
   all writable state under `%APPDATA%`/`%LOCALAPPDATA%`.
-- Autostart differs: `StartupTask` (packaged) vs `HKCU\…\Run` (unpackaged) — abstracted in
-  `platform::autostart`.
+- Autostart differs: `StartupTask` (packaged) vs `HKCU\…\Run` (unpackaged) — abstracted behind
+  an autostart trait in `muna-platform`.
 - Microsoft Store listing becomes possible later with the same MSIX.

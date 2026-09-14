@@ -10,7 +10,7 @@ Decision record: [ADR-0001 Tech stack](adr/0001-tech-stack.md) ·
 | Layer | Choice | Why |
 | ------- | -------- | ----- |
 | App shell | **Tauri v2** (Rust core + WebView2) | Transparent frameless always-on-top windows with per-pixel alpha, click-through control, tray, autostart, updater, multi-window — at ~1/3 of Electron's RAM. Rust gives direct, safe access to Win32/WinRT via the `windows` crate without a second runtime. |
-| UI | **React 19 + TypeScript 5** | Same stack as the marketing sites; largest ecosystem for motion, headless a11y primitives and design-system tooling; lets the landing page reuse the component library. |
+| UI | **React 19 + TypeScript 6** | Same stack as the marketing sites; largest ecosystem for motion, headless a11y primitives and design-system tooling; lets the landing page reuse the component library. |
 | Styling | **Tailwind CSS v4** + CSS custom-property tokens (`@theme`) | Token-first; zero-runtime; design tokens shared with docs/site. |
 | Motion | **Motion (framer-motion v12+)** as primary; CSS `linear()` springs for micro-states | `layout` morphs, `AnimatePresence`, spring physics with interruptibility — the closest web analogue to SwiftUI's springs. |
 | State | **Zustand** (UI) + **TanStack Query** (remote data) + typed Tauri events | Small, explicit, testable. |
@@ -18,7 +18,7 @@ Decision record: [ADR-0001 Tech stack](adr/0001-tech-stack.md) ·
 | Storage | **SQLite** via `rusqlite` (bundled) + JSON settings (versioned) + Windows Credential Manager | Local-first; migrations in Rust. |
 | Platform | `windows` crate (WinRT + Win32), `windows-core`, `sysinfo`, `cpal`/WASAPI, `image`, `zip`, `notify`, `tokio` | Media (SMTC), Core Audio, Bluetooth, Power, notifications listener, monitors, AppBar, hooks, drag-drop, file ops. |
 | Build/CI | pnpm + Vite, cargo, GitHub Actions (`ubuntu-latest` + `windows-latest`, rules in [11](11-ci-cd.md)), release-please; Tauri updater; MSIX + NSIS | Reproducible signed releases. |
-| Quality | Vitest + React Testing Library, Playwright (WebView2), `cargo test`, `cargo clippy -D warnings`, Biome/ESLint, Storybook for the design system, Lighthouse-style perf script for animation FPS | Budgets from the PRD enforced in CI. |
+| Quality | Vitest + React Testing Library, Playwright (WebView2), `cargo test`, `cargo clippy -D warnings`, ESLint (typed) + Prettier + Stylelint, Storybook for the design system, Lighthouse-style perf script for animation FPS | Budgets from the PRD enforced in CI. |
 
 Escape hatches (see [ADR-0001](adr/0001-tech-stack.md) consequences): if the M0 spike shows
 WebView2 transparency is unreliable for the always-visible strip, render the *collapsed* strip
@@ -66,23 +66,42 @@ flowchart LR
 
 ```text
 apps/
-  desktop/              # Tauri app
-    src-tauri/          # Rust: core, platform, modules
-      src/core/         # lifecycle, windows, scheduler, settings, ipc
-      src/platform/     # smtc.rs, audio.rs, bluetooth.rs, power.rs, notifications.rs, monitors.rs, appbar.rs, hooks.rs, dragdrop.rs, fileops.rs
-      src/modules/      # one folder per module backend
-    src/                # React app: shell + module frontends
-      shell/            # NotchWindow, Strip, Panel, ModuleBar, RightRail, HUD
-      modules/<id>/     # panel.tsx, strip.tsx, widget.tsx, settings.tsx, index.ts
-      settings/         # Settings window app
-  site/                 # Landing page (Vite + React), reuses packages/ui
+  desktop/                    # Tauri app (@muna/desktop)
+    src-tauri/                # Cargo workspace: the `muna` binary + two library crates
+      Cargo.toml              # workspace root; `default-members` covers all three crates
+      src/                    # muna: bootstrap (plugins, windows), AppState, paths, ipc.rs
+      src/modules/            # one folder per module backend (from M1)
+      tests/                  # the muna crate's tests (integration tests, see 09)
+      crates/muna-core/       # scheduler, settings + migrations, SQLite store, Clock
+      crates/muna-platform/   # traits, types, events, fake::FakePlatform, windows/ impls
+      capabilities/           # per-window Tauri capabilities (notch, settings)
+    src/                      # React app
+      shell/                  # NotchWindow (M1: Strip, Panel, ModuleBar, RightRail, HUD)
+      modules/                # registry.ts + <id>/ (panel.tsx, strip.tsx, widget.tsx, settings.tsx, index.ts)
+      settings/               # Settings window app
+      store/                  # Zustand stores
+      lib/                    # typed IPC wrapper (bindings + zod), i18n, query client
+  site/                       # Landing page (Vite + React), reuses packages/ui
 packages/
-  ui/                   # design system: tokens, primitives, motion presets, icons
-  contracts/            # generated TS bindings + zod schemas (from tauri-specta)
-  i18n/                 # message catalogs
-docs/                   # this documentation
-.github/                # agents, instructions, workflows, templates
+  ui/                         # design system: src/tokens (tokens.css, theme.css), primitives, motion, foundations stories
+  contracts/                  # src/bindings.ts (generated by tauri-specta, committed), schemas.ts (zod), result.ts
+  i18n/                       # i18next setup + locales/*.json
+scripts/                      # root scripts the workflows call (see 11)
+docs/                         # this documentation
+.github/                      # agents, instructions, workflows, templates
 ```
+
+### Crate boundaries
+
+| Crate | Owns | May depend on |
+| ------- | ------ | --------------- |
+| `muna-core` | `Activity`, `Notice`, `StripContent`, `Scheduler`, `Settings` + migrations (`settings.json`, atomic write), SQLite `Store` (`muna.db`), `Clock` | serde, specta, rusqlite — **no Tauri, no Win32, no `muna-platform`** |
+| `muna-platform` | `Platform` trait bundle (`Media`, `Audio`, `Bluetooth`, `Power`, `Monitors`, `Foreground`), `PlatformEvent` broadcast, `fake::FakePlatform`, `windows/` implementations behind `cfg(windows)` | `windows` crate (Windows only). The only crate allowed `unsafe` (`muna-core` and `muna` `#![forbid(unsafe_code)]`), inside `windows/` with `// SAFETY:` comments |
+| `muna` (bin + lib) | Tauri bootstrap, `AppState`, `ipc.rs` (the single tauri-specta surface), module backends wiring | `muna-core`, `muna-platform`, Tauri + plugins |
+
+`muna-core` stays renderer- and OS-agnostic on purpose: it is what survives the escape hatches
+above (native strip renderer, or a different shell) unchanged. Module backends that need the
+OS consume `muna-platform` traits, never the `windows` crate directly.
 
 ## Module contract
 
@@ -117,7 +136,8 @@ unit tests with a fake platform.
 
 ## Data flow example — media
 
-1. `platform::smtc` receives `MediaPropertiesChanged` → normalises to `MediaState`.
+1. `muna-platform`'s Windows `Media` implementation (SMTC) receives `MediaPropertiesChanged` →
+   normalises to `MediaSession` and broadcasts `PlatformEvent::MediaSessionsChanged`.
 2. `modules::media` caches artwork, extracts palette, publishes `module:media:state` and an
    `Activity{priority 60, leading: image, trailing: visualizer}`.
 3. Scheduler picks the strip content → `strip:content` event.
@@ -126,8 +146,16 @@ unit tests with a fake platform.
 
 ## Cross-cutting concerns
 
-- **Settings**: single versioned JSON, zod schema shared via `contracts`; per-module namespaces;
-  live updates via `settings:changed`.
+- **IPC contract**: `ipc.rs` is the only tauri-specta surface. `pnpm -w contracts:generate`
+  writes `packages/contracts/src/bindings.ts`; it is committed and drift-checked by
+  `tests/shell.rs` and the `rust` job. Commands return `Result<T, IpcError>` with stable error
+  codes (`Result` itself lives in `packages/contracts/src/result.ts`). No 64-bit integers cross
+  the boundary — specta-typescript rejects them — so use `u32`/`f64`, or strings for ids and
+  timestamps; free-form JSON (per-module settings) goes through the `JsonValue` mirror type.
+  Doc comments on exported Rust types become the TypeScript doc comments: keep them user-facing.
+- **Settings**: single versioned JSON (`%LOCALAPPDATA%\Muna\settings.json`, written atomically),
+  zod schema shared via `contracts`; per-module namespaces; live updates via
+  `settings-changed`.
 - **Secrets**: Windows Credential Manager (`CredWriteW`) under `Muna/<integration>`.
 - **Logging**: `tracing` → rolling files in `%LOCALAPPDATA%\Muna\logs`, redaction filter.
 - **Errors**: never modal; inline empty/error states + notices; diagnostics bundle.

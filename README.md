@@ -7,9 +7,10 @@ stats, drop-anything file tiles and a shelf, window snapping, GitHub/GitLab and 
 status — everything the macOS notch apps do, rebuilt for Windows 10/11 with Apple-grade
 motion and a near-zero footprint.
 
-> Status: **planning complete, build not started.** This repository currently contains the
-> full research-backed plan, design system, module specs and agent configuration needed to
-> start building. See [docs/README.md](docs/README.md).
+> Status: **M0 (foundations) in progress.** The monorepo scaffold, Tauri desktop shell,
+> `@muna/ui` and `@muna/contracts` packages and the CI parity scripts have landed; the window,
+> identity and token spikes come next. Plan, design system, module specs and agent
+> configuration live in [docs/README.md](docs/README.md).
 
 ## Highlights
 
@@ -50,11 +51,83 @@ Custom Copilot agents live in [`.github/agents`](.github/agents):
 | `muna-docs-writer` | Specs, UX copy, i18n strings, release notes |
 | `muna-design-reviewer` | Read-only fidelity/motion/a11y review before merging UI |
 
-To start: open a session on `main`, paste the **M0-E1** prompt from
-[docs/build-plan/m0-foundations.md](docs/build-plan/m0-foundations.md) and pick
-`muna-architect`. Epics inside a milestone can run in parallel sessions.
+To start: open a session on `main`, paste the epic's prompt from
+[docs/build-plan/m0-foundations.md](docs/build-plan/m0-foundations.md) and pick the agent it
+names. **M0-E1** (scaffold) has landed; **M0-E2** (transparent-window spike,
+`muna-shell-engineer`), **M0-E3** (identity spike, `muna-release-engineer`) and **M0-E4**
+(tokens and motion presets, `muna-motion-designer`) are independent and can run in parallel
+sessions. The spikes fill in the exit-criteria tables prepared in
+[docs/spikes](docs/spikes/README.md).
 
-## Contributing
+## Development
+
+### Prerequisites (Windows 10/11)
+
+| Tool | Version | Notes |
+| ------ | --------- | ------- |
+| Node.js | 22 LTS | Pinned in `.node-version`; use `fnm`/`nvm-windows` or the installer. |
+| pnpm | 10 | `corepack enable`, or `npm i -g pnpm`. The `packageManager` field pins the exact version and pnpm switches to it automatically. |
+| Rust | stable (MSVC) | `rustup` reads `rust-toolchain.toml` and installs the pinned toolchain plus `rustfmt` and `clippy`. |
+| Visual Studio Build Tools | 2022 | "Desktop development with C++" workload (MSVC linker + Windows SDK). |
+| WebView2 Runtime | evergreen | Preinstalled on Windows 11 and on Windows 10 with Edge; otherwise install from Microsoft. |
+| cargo-deny | latest | `cargo install cargo-deny --locked` — only needed for `pnpm -w ci:deps`. |
+
+### First run
+
+```powershell
+pnpm install
+pnpm -w contracts:generate     # compiles the Rust core once and writes packages/contracts/src/bindings.ts
+.\scripts\dev.ps1              # tauri dev with WEBVIEW2_DEFAULT_BACKGROUND_COLOR=00000000
+```
+
+`contracts:generate` is required before the first `typecheck`/`build`: the TypeScript bindings
+are generated from the Rust command and event definitions by tauri-specta and are committed, so
+CI fails if they drift from the Rust source. Re-run it whenever you change anything under
+`apps/desktop/src-tauri/src/ipc.rs` or the exported types in `muna-core`/`muna-platform`.
+
+`scripts/dev.ps1` forwards extra arguments to `tauri dev` (for example
+`.\scripts\dev.ps1 --no-watch`). The notch window is created off-screen until M0-E2 places it
+on the primary monitor, so the settings window is shown at start-up for now.
+
+### Repository layout
+
+| Path | Package | What lives here |
+| ------ | --------- | ----------------- |
+| `apps/desktop` | `@muna/desktop` | Tauri v2 app: React shell (`src/`) and the Rust binary (`src-tauri/`). |
+| `apps/desktop/src-tauri/crates/muna-platform` | `muna-platform` | Platform traits, `FakePlatform` for tests, Windows implementations behind `cfg(windows)`. |
+| `apps/desktop/src-tauri/crates/muna-core` | `muna-core` | Strip scheduler, settings + migrations, SQLite store. No Tauri or Win32 dependency. |
+| `apps/site` | `@muna/site` | Placeholder marketing site (Vite). |
+| `packages/ui` | `@muna/ui` | Design tokens (`src/tokens`), primitives, motion presets, Storybook. |
+| `packages/contracts` | `@muna/contracts` | tauri-specta generated bindings (`src/bindings.ts`) and zod schemas. |
+| `packages/i18n` | `@muna/i18n` | i18next setup and `locales/*.json`. |
+| `scripts` | — | Root scripts the CI workflows call; see [docs/11-ci-cd.md](docs/11-ci-cd.md#root-scripts-the-workflows-call). |
+
+### Everyday commands
+
+```powershell
+pnpm -w lint                   # eslint (typed, --max-warnings 0) + stylelint + prettier --check
+pnpm -w typecheck              # tsc --noEmit in every package
+pnpm -w test                   # vitest (watch); `pnpm -w test --run --coverage` for CI parity
+pnpm -w storybook              # @muna/ui Storybook on http://localhost:6006
+pnpm -w docs:check             # markdownlint + relative-link check
+pnpm -w format                 # prettier --write
+
+cargo fmt    --manifest-path apps/desktop/src-tauri/Cargo.toml --all
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+cargo test   --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features
+```
+
+`pnpm -w ci`, `ci:rust`, `ci:deps` and `ci:app` mirror the four required workflow jobs
+one-to-one; run the one that failed before pushing a fix. `storybook:ci` downloads a Chromium
+build through Playwright the first time it runs.
+
+Dependency patches live in `patches/` and are declared in `pnpm-workspace.yaml` with the reason
+and the upstream issue to watch; pnpm refuses to install when a patched version no longer
+matches, so bumping such a dependency means re-checking whether the patch is still needed.
+
+Rust tests run against `muna_platform::fake::FakePlatform` by default. Tests that need real
+Windows APIs are `#[ignore]`d unless the `platform-tests` feature is enabled
+(`cargo test --all-features` does this, as CI does on `windows-latest`).
 
 Trunk-based: short-lived branches, squash-merged into `main` behind the required checks in
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml). PR titles are Conventional Commits and

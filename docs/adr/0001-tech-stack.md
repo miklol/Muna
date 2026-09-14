@@ -1,6 +1,7 @@
 # ADR-0001 · Tech stack: Tauri v2 + Rust core + React/TypeScript UI
 
-**Status:** Accepted (pending M1 spike validation) · **Date:** 2026-09-14
+**Status:** Accepted (pending M0-E2 spike validation, plan in
+[spikes/m0-window](../spikes/m0-window.md)) · **Date:** 2026-09-14
 
 ## Context
 
@@ -51,9 +52,10 @@ Windows API, and one component library for app + site.
   WebView for expanded states. Full WPF fallback remains the last resort.
 - Tauri has no MSIX bundler (tauri #4818) → custom `MakeAppx` script (ADR-0003).
 
-## Validation (exit criteria of the M1 spike)
+## Validation (exit criteria of the M0-E2 spike)
 
 Transparent notch window on 2 monitors with different DPI, on Win10 22H2 and Win11 24H2;
 spring morph strip→panel at ≥ 58 fps; idle CPU ≤ 0.3 %; RSS ≤ 120 MB; no first-frame flash
 across 100 collapse/expand cycles and 20 monitor-change events; click-through verified;
-capture-exclusion verified.
+capture-exclusion verified. Methods, environment table and measured values:
+[spikes/m0-window.md](../spikes/m0-window.md).

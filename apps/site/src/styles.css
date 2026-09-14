@@ -1,0 +1,48 @@
+@import '@muna/ui/tokens.css';
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--panel-bottom);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  -webkit-font-smoothing: antialiased;
+}
+
+.hero {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-5);
+  text-align: center;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: var(--text-display);
+  font-weight: var(--text-display--font-weight);
+  line-height: var(--text-display--line-height);
+  letter-spacing: var(--text-display--letter-spacing);
+}
+
+.hero p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+}
+
+.strip {
+  width: var(--size-strip-width);
+  height: var(--size-strip-height);
+  margin: 0 auto var(--space-6);
+  background: var(--notch-black);
+  border-radius: 0 0 var(--radius-strip) var(--radius-strip);
+}

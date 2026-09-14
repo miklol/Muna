@@ -1,0 +1,70 @@
+# cargo-deny configuration — enforced by the `deps` CI job (docs/11-ci-cd.md#quality-gates).
+# The allow-list below is the one tabled in docs/11-ci-cd.md; per-crate exceptions carry a reason
+# and are reviewed by the maintainer (CODEOWNERS). Never widen this to get a PR green.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+db-path = "$CARGO_HOME/advisory-dbs"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+# Every entry needs a reason and is re-evaluated on each Tauri/specta bump (an ignored advisory
+# that stops matching is reported as `advisory-not-detected`, so stale entries surface).
+ignore = [
+  # `paste` is archived by its author; compile-time proc-macro pulled in by specta (bindings
+  # generator), never linked into the shipped binary.
+  { id = "RUSTSEC-2024-0436", reason = "paste: unmaintained proc-macro used by specta at compile time only" },
+  # Only reachable through Tauri's Linux GTK stack (glib-macros), which Muna never builds.
+  { id = "RUSTSEC-2024-0370", reason = "proc-macro-error: Linux-only (glib-macros via gtk); Muna ships for Windows" },
+  # rust-unic crates arrive through tauri-utils → urlpattern; no maintained replacement upstream yet.
+  { id = "RUSTSEC-2025-0075", reason = "unic-char-range: transitive via tauri-utils → urlpattern" },
+  { id = "RUSTSEC-2025-0080", reason = "unic-common: transitive via tauri-utils → urlpattern" },
+  { id = "RUSTSEC-2025-0081", reason = "unic-char-property: transitive via tauri-utils → urlpattern" },
+  { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version: transitive via tauri-utils → urlpattern" },
+  { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident: transitive via tauri-utils → urlpattern" },
+]
+
+[licenses]
+version = 2
+# Workspace crates carry no licence yet (decided before the first public release; README).
+private = { ignore = true }
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "MPL-2.0",
+  "Zlib",
+  "Unicode-3.0",
+  "CC0-1.0",
+  "OFL-1.1",
+]
+confidence-threshold = 0.8
+# The allow-list is policy, not an inventory: fonts (OFL) arrive with M0-E4.
+unused-allowed-license = "allow"
+exceptions = [
+  # Apache-2.0 plus the LLVM linking exception; Linux-only build dependency (system-deps →
+  # cfg-expr) of Tauri's GTK stack, never compiled for Windows.
+  { crate = "target-lexicon", allow = ["Apache-2.0 WITH LLVM-exception"] },
+  # Mozilla's root-certificate bundle (data, not code) used by rustls through reqwest for the
+  # updater's HTTPS check. CDLA-Permissive-2.0 is a permissive data licence.
+  { crate = "webpki-root-certs", allow = ["CDLA-Permissive-2.0"] },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "all"
+deny = [
+  # No GPL-family or copyleft-at-runtime crates; licences are also checked above.
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

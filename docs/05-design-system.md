@@ -9,9 +9,10 @@ Sources: the UI anatomy measured from the reference screenshots
 Guidelines (Live Activities, typography, materials), and Windows conventions where the two
 conflict (Settings window follows Windows theme; the notch never does).
 
-Implementation: `packages/ui/tokens.css` (CSS custom properties) → Tailwind v4 `@theme` →
-primitives in `packages/ui/src/primitives`. **No hard-coded colours, radii, sizes or durations
-in module code.**
+Implementation: `packages/ui/src/tokens/tokens.css` (CSS custom properties, exported as
+`@muna/ui/tokens.css`) → Tailwind v4 `@theme` (`theme.css`) → primitives in
+`packages/ui/src/primitives`. **No hard-coded colours, radii, sizes or durations in module
+code.**
 
 ## Principles
 

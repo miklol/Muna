@@ -1,0 +1,24 @@
+# Formatting is checked by `pnpm -w lint`; everything listed here is generated, owned by
+# another tool, or maintainer-only (.github/workflows must not be edited by agents).
+node_modules/
+dist/
+target/
+coverage/
+storybook-static/
+playwright-report/
+test-results/
+pnpm-lock.yaml
+CHANGELOG.md
+packages/contracts/src/bindings.ts
+packages/ui/src/tokens/__snapshots__/
+apps/desktop/src-tauri/gen/
+.github/
+docs/
+*.md
+*.ps1
+# Owned by release-please / markdownlint; keep their own formatting.
+.release-please-manifest.json
+release-please-config.json
+.markdownlint-cli2.jsonc
+# Pre-dates the scaffold and is validated by the `docs` check; formatted by its owner.
+scripts/check-links.mjs

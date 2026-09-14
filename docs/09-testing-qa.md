@@ -13,7 +13,7 @@ click-through, focus), **it never slows the machine** (budgets), and **it feels 
 | Contract | tauri-specta snapshot + zod parse tests | TS ↔ Rust types never drift | Every PR |
 | Component visual | Storybook + `@storybook/test-runner` + Playwright screenshots | Every module state (empty/loading/error/long/RTL/200 %) | Every PR |
 | Integration (Windows) | Playwright over CDP against the debug build | Settings window flows; notch harness page driving the state machine | Every PR on `windows-latest` |
-| Platform integration | `cargo test --features real-platform -- --ignored` | Real SMTC/Core Audio/Bluetooth on a self-hosted lab machine | Nightly |
+| Platform integration | `cargo test --features platform-tests -- --ignored` | Real SMTC/Core Audio/Bluetooth on a self-hosted lab machine | Nightly |
 | Performance | `scripts/perf` (CDP metrics + PDH counters) | Idle CPU, RSS, fps during morph, start time | Nightly + release |
 | Manual QA | `docs/qa/checklists/*.md` | Yield scenarios, multi-monitor, OSD, installers | Milestone close |
 
@@ -21,11 +21,23 @@ click-through, focus), **it never slows the machine** (budgets), and **it feels 
 
 - Fake time everywhere: `vi.useFakeTimers()`; Rust `tokio::time::pause()`; the scheduler takes a
   `Clock` trait.
-- Fake platform: `FakePlatform` implements every `platform::*` trait with scripted events
+- Fake platform: `FakePlatform` implements every `muna_platform` trait (`Media`, `Audio`,
+  `Bluetooth`, `Power`, `Monitors`, `Foreground`) with scripted events
   (`push_media_session`, `set_battery`, `foreground_changed`). No test touches real OS APIs
   unless `--ignored`.
 - Fixed viewport, DPI and reduced-motion flags in visual tests; fonts bundled.
 - No sleeps; wait on events.
+
+## Where Rust tests live
+
+- `muna-core` and `muna-platform`: ordinary `#[cfg(test)]` modules next to the code.
+- The `muna` crate (Tauri binary): **integration tests in `apps/desktop/src-tauri/tests/`
+  only**. Its lib and bin are built with `test = false` because a test harness that links Tauri
+  needs the comctl32 v6 manifest, which `build.rs` can embed only for `[[test]]` targets
+  (otherwise the harness aborts with `STATUS_ENTRYPOINT_NOT_FOUND`). A `#[cfg(test)]` module
+  added inside `muna` would silently never run.
+- Run everything with `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+  --all-features`; `default-members` makes that cover all three crates.
 
 ## What must be tested per module
 

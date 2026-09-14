@@ -9,7 +9,7 @@ an empty repo to 1.0. Read in order the first time; afterwards jump by role.
 | --- | ---------- | ----------------- |
 | 01 | [Product vision](01-product-vision.md) | What Muna is, for whom, non-goals, Windows-specific decisions, performance budgets, success metrics |
 | 02 | [Feature catalog](02-feature-catalog.md) | Every module and feature with tier (P0–P3) and Windows approach |
-| 03 | [Architecture](03-architecture.md) | Stack, process/window model, monorepo layout, module contract, data flows |
+| 03 | [Architecture](03-architecture.md) | Stack, process/window model, monorepo layout and crate boundaries, module contract, IPC conventions, data flows |
 | 04 | [Windows platform APIs](04-windows-platform-apis.md) | The API for each feature, identity/undocumented caveats, repos to study |
 | 05 | [Design system](05-design-system.md) | Tokens, materials, shape, type, icons, components, accessibility, writing |
 | 06 | [Motion spec](06-motion-spec.md) | Spring presets, timings, choreography, reduced motion, performance rules |
@@ -28,6 +28,12 @@ an empty repo to 1.0. Read in order the first time; afterwards jump by role.
 | [0003](adr/0003-packaging-identity.md) | MSIX primary, NSIS with external-location identity, polling fallbacks |
 | [0004](adr/0004-module-contract.md) | Module registries and the live-activity scheduler |
 
+## Spikes
+
+[`spikes/README.md`](spikes/README.md) — time-boxed experiments that validate an ADR with
+numbers: plan and exit criteria by `muna-architect`, measurements by the implementing agent
+([m0-window](spikes/m0-window.md), [m0-identity](spikes/m0-identity.md)).
+
 ## Module specs
 
 [`modules/README.md`](modules/README.md) indexes all 26 specs (shell, live activities, media,
@@ -38,7 +44,8 @@ progress, screen time, health, AI coding, translation, mirror, support) and the 
 ## Build plan
 
 [`build-plan/README.md`](build-plan/README.md) — paste-ready kickoff prompts per milestone and
-epic, mapped to the custom agents in [`../.github/agents`](../.github/agents).
+epic, mapped to the custom agents in [`../.github/agents`](../.github/agents). Toolchain, first
+run and everyday commands for the code itself: [root README › Development](../README.md#development).
 
 ## Reference
 
@@ -53,6 +60,8 @@ epic, mapped to the custom agents in [`../.github/agents`](../.github/agents).
 - Every spec has a **Status** line (Draft → Accepted → Implemented → Shipped).
 - Changes to tokens, presets, budgets or ADRs go through a PR that updates the doc *and* the
   code in the same change.
-- Docs are linted in CI (`docs` check): `npx --yes markdownlint-cli2@0.23.2` (config in
-  [`.markdownlint-cli2.jsonc`](../.markdownlint-cli2.jsonc)) and `node scripts/check-links.mjs`
-  (relative links and heading anchors). Run both before pushing.
+- Docs are linted in CI (`docs` check) with `markdownlint-cli2` (config in
+  [`.markdownlint-cli2.jsonc`](../.markdownlint-cli2.jsonc)) and `scripts/check-links.mjs`
+  (relative links and heading anchors). Run `pnpm -w docs:check` before pushing; without the
+  workspace installed, `npx --yes markdownlint-cli2@0.23.2 && node scripts/check-links.mjs` is
+  the same thing.

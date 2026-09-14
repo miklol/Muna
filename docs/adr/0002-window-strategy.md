@@ -1,6 +1,7 @@
 # ADR-0002 · Window strategy: one transparent WebView per monitor, DOM-shaped hit-testing
 
-**Status:** Accepted · **Date:** 2026-09-14
+**Status:** Accepted (pending M0-E2 spike validation, plan in
+[spikes/m0-window](../spikes/m0-window.md)) · **Date:** 2026-09-14
 
 ## Context
 

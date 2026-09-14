@@ -1,9 +1,10 @@
 # 04 · Windows platform API map
 
 Every OS touchpoint Muna needs, the API that provides it, its constraints, and the open-source
-reference that proves it works. Platform code lives in `apps/desktop/src-tauri/src/platform/`
-behind the `Platform` trait; **undocumented** APIs live in `platform/undocumented/` behind
-feature flags and must fail soft.
+reference that proves it works. Platform code lives in the `muna-platform` crate
+(`apps/desktop/src-tauri/crates/muna-platform/`): traits in `src/traits.rs`, Windows
+implementations in `src/windows/` behind `cfg(windows)`; **undocumented** APIs live in
+`src/windows/undocumented/` behind feature flags and must fail soft.
 
 Research basis: verified primary sources (Microsoft Learn, GitHub issues) gathered 2026-09-14;
 items marked *(undocumented)* or *(community)* are reverse-engineered or anecdotal.
