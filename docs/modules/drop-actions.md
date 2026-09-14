@@ -10,7 +10,7 @@ subtitle; disabled tiles dimmed; *Expand* tile reveals a second row on hover.
 ## Tiles (Windows mapping)
 
 | Tile | Action |
-|------|--------|
+| ------ | -------- |
 | Shelf | stash in Shelf module |
 | Nearby Share | `DataTransferManager.ShowShareUI` with `StorageItems` (Windows Nearby sharing) |
 | Cloud | copy/move to a configured folder (OneDrive, Google Drive, Dropbox, custom) |

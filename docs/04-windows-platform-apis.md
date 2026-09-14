@@ -11,7 +11,7 @@ items marked *(undocumented)* or *(community)* are reverse-engineered or anecdot
 ## Legend
 
 | Symbol | Meaning |
-|--------|---------|
+| -------- | --------- |
 | 🪪 | Requires package identity (MSIX or external-location package) — see [ADR-0003](adr/0003-packaging-identity.md) |
 | ⚠️ | Undocumented / reverse-engineered — isolate, feature-flag, watchdog |
 | 🔁 | No change event exists — poll |
@@ -21,7 +21,7 @@ items marked *(undocumented)* or *(community)* are reverse-engineered or anecdot
 Shell-level facts that shape every window decision (details in [ADR-0001](adr/0001-tech-stack.md)).
 
 | Topic | Fact | Muna rule |
-|-------|------|-----------|
+| ------- | ------ | ----------- |
 | Transparent undecorated window | `shadow:true` adds 1 px white border + rounded corners on Win11 | `shadow:false`; paint our own shadow |
 | First-frame flash | White flash on `show()` since WebView2 ≥ 144 (tauri #15490/#14831); fixed by `noRedirectionBitmap` only in Tauri 3.0.0-alpha (PR #15410) | Never hide/show; park at (−10000,−10000). Set `WEBVIEW2_DEFAULT_BACKGROUND_COLOR=00000000` env before WebView2 creation. Adopt `noRedirectionBitmap` when it reaches stable |
 | Win10 black render | tauri #15947 — `DwmEnableBlurBehindWindow` hack races with `WS_EX_LAYERED` toggles | Don't touch `WS_EX_LAYERED`/`WS_EX_TRANSPARENT` at runtime; use `set_ignore_cursor_events` only |
@@ -35,7 +35,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Shell & window management
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | Overlay window styles | `SetWindowLongPtrW(GWL_EXSTYLE, WS_EX_TOOLWINDOW \| WS_EX_NOACTIVATE)` | Hide from Alt-Tab, never steal focus. Clear `NOACTIVATE` only in Pinned state with a text field |
 | Always on top | `SetWindowPos(HWND_TOPMOST)` re-asserted after `EVENT_SYSTEM_FOREGROUND` | eIsland uses Electron `screen-saver` level for the same reason |
 | Pre-size before paint | `SetWindowPos(SWP_ASYNCWINDOWPOS \| SWP_NOZORDER)` at startup | Avoids visible resize (onlytrisdev pattern) |
@@ -54,7 +54,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Media
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | Now playing | `Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager` (1809+): `RequestAsync`, `GetSessions`, `CurrentSessionChanged`, `SessionsChanged`; per session `TryGetMediaPropertiesAsync` (title/artist/album/`Thumbnail`), `GetTimelineProperties`, `GetPlaybackInfo`, `TryPlay/Pause/SkipNext/Previous`, `TryChangeShuffle/AutoRepeatMode` | `windows` feature `Media_Control` + `Storage_Streams`. Capability `globalMediaControl` listed for packaged apps; unpackaged apps call it freely |
 | Staleness | Manager instances go stale (cppwinrt #1310); autoplay state stale (eIsland #41) | Re-`RequestAsync()` every 60 s and on `SessionsChanged`; **score sessions** (playing > paused > last-changed) and verify with WASAPI peak meters (`IAudioMeterInformation`) per session app |
 | Timeline | Spotify/browsers publish coarse positions 🔁 | 1 s tick interpolated in UI while `Playing` |
@@ -67,7 +67,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## HUD (volume, brightness, keyboard)
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | Volume keys | Mirror via `IAudioEndpointVolumeCallback` (no key hook needed) | Muna shows HUD on any level change, including mouse/tray |
 | Brightness (internal) | WMI `root\wmi` `WmiMonitorBrightness` (read) / `WmiMonitorBrightnessMethods.WmiSetBrightness(timeout, pct)`; `WmiMonitorBrightnessEvent` for changes | `wmi` crate |
 | Brightness (external) | DDC/CI `GetPhysicalMonitorsFromHMONITOR` → `GetVCPFeatureAndVCPFeatureReply(0x10)` / `SetVCPFeature(0x10)` (`dxva2.dll`) | ~50 ms/call; many monitors non-compliant → per-monitor capability probe, opt-in |
@@ -77,7 +77,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Notifications & focus
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | Listen 🪪 | `Windows.UI.Notifications.Management.UserNotificationListener.Current`: `RequestAccessAsync`, `GetNotificationsAsync(NotificationKinds.Toast)`, `NotificationChanged`, `RemoveNotification`, `ClearNotifications`; text via `Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric).GetTextElements()`; `AppInfo.DisplayInfo` for name/logo | Capability `userNotificationListener`. **Unpackaged:** `RequestAccessAsync`/`GetNotificationsAsync` work, `NotificationChanged` throws `0x80070490` (WindowsAppSDK #6172) → 1 s polling fallback (Seelen-UI, NetSpeed-Dynamic) |
 | Focus Assist state | Win11 23H2+: `Windows.UI.Shell.FocusSessionManager.GetDefault()` → `IsFocusActive`, `IsFocusActiveChanged` (`IsSupported` check) | Toggle needs a Limited Access Feature token → deep-link `ms-settings:quiethours` instead |
 | Focus Assist (Win10) ⚠️ | WNF `WNF_SHEL_QUIETHOURS_ACTIVE_PROFILE_CHANGED` via `NtQueryWnfStateData` | Read-only, optional |
@@ -86,7 +86,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Calendar, reminders, to-do
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | Microsoft 365 / Outlook.com | Microsoft Graph `GET /me/calendarView?startDateTime&endDateTime` (+ `Prefer: outlook.timezone`), `/me/events` for create; MSAL **PKCE loopback** or device-code flow | Delegated `Calendars.ReadWrite`, `offline_access`. Tokens in Credential Manager |
 | Google | Calendar API v3 `events.list(singleEvents, orderBy=startTime)`, `events.insert`; OAuth loopback PKCE | Needs Google Cloud project + verification for public release |
 | ICS subscriptions | HTTPS fetch + `ical` crate parse, RRULE expansion (`rrule` crate) | Zero-auth path; refresh 15 min |
@@ -97,7 +97,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Devices & power
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | Battery state | `Windows.System.Power.PowerManager`: `BatteryStatus`, `PowerSupplyStatus`, `RemainingChargePercent`, `RemainingDischargeTime`, `EnergySaverStatus` + `*Changed` events | "Charging" live activity on `PowerSupplyStatusChanged → Adequate`. `Battery.AggregateBattery.GetReport()` for mWh rates |
 | Bluetooth enumerate | `DeviceInformation.CreateWatcher(BluetoothDevice.GetDeviceSelectorFromPairingState(true), [System.Devices.Aep.IsConnected, …], AssociationEndpoint)`; LE via `BluetoothLEDevice.GetDeviceSelectorFromPairingState`; `BluetoothDevice.ConnectionStatusChanged` | Capability `bluetooth` (declared in MSIX). Seelen-UI `radios/bluetooth/classic.rs` |
 | Bluetooth battery (LE) | GATT Battery Service `0x180F` / characteristic `0x2A19`, subscribe notifications | Standard |
@@ -110,7 +110,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## System stats
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | CPU / RAM / disk / net | `sysinfo` crate or PDH counters, `GlobalMemoryStatusEx` | 1 Hz visible, 10 s otherwise |
 | GPU | `nvml-wrapper` (NVIDIA); PDH `\GPU Engine(*)\Utilization Percentage` fallback for AMD/Intel | Best effort |
 | Temperatures | Kernel-driver territory (LibreHardwareMonitor) — never in main process | Optional elevated sidecar, P3 |
@@ -119,7 +119,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Files, clipboard, sharing, capture
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | Inbound drop | Tauri `onDragDropEvent` (native OLE `IDropTarget`, `CF_HDROP`) | Enter/over/drop/leave with screen coords |
 | Outbound drag (Shelf) | `tauri-plugin-drag` / `drag::start_drag(DragItem::Files, preview)` → `DoDragDrop` | Drag files out to Explorer, browsers, Teams |
 | File ops | `IFileOperation` (copy/move with shell progress, undo) via `windows` crate; `SHOpenFolderAndSelectItems`; recycle via `FOF_ALLOWUNDO` | Never `std::fs::remove_file` for user files |
@@ -132,7 +132,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Window snap
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | Move/resize | `SetWindowPos` with `DWMWA_EXTENDED_FRAME_BOUNDS` offset compensation; `ShowWindow(SW_RESTORE)` first if maximized | Account for invisible resize borders |
 | Drag tracking | `EVENT_SYSTEM_MOVESIZESTART/END` + `GetCursorPos` | Snap zones appear only while dragging |
 | Eligible windows | `IsWindowVisible`, no `WS_EX_TOOLWINDOW`, not cloaked (`DWMWA_CLOAKED`), has caption or `WS_THICKFRAME` | Skip UWP frame hosts unless `ApplicationFrameWindow` with content |
@@ -141,7 +141,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Code hosting & AI coding
 
 | Need | API | Notes |
-|------|-----|-------|
+| ------ | ----- | ------- |
 | GitHub | REST/GraphQL with **device flow** OAuth (`client_id` public); notifications `GET /notifications`, PRs `search/issues`, checks `GET /repos/{o}/{r}/commits/{sha}/check-runs`; ETag + `X-Poll-Interval` | Token in Credential Manager |
 | GitLab | REST v4 PAT or OAuth PKCE; `/merge_requests?scope=assigned_to_me`, `/todos` | Self-hosted URL supported |
 | Claude Code / Codex / Copilot CLI status | Watch local session files (`%USERPROFILE%\.claude\projects\**\*.jsonl`), terminal titles via `EVENT_OBJECT_NAMECHANGE` on console/WT windows, optional local HTTP webhook (`127.0.0.1:port`) posted by hooks | Best effort; per-tool adapter |
@@ -149,7 +149,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Packaging, update, signing
 
 | Need | API / tool | Notes |
-|------|------------|-------|
+| ------ | ------------ | ------- |
 | MSIX | `MakeAppx pack /nv` + `AppxManifest.xml` + `signtool sign /fd SHA256` | Publisher == cert subject; CI script |
 | External-location identity (NSIS) | `Add-AppxPackage -ExternalLocation` with `uap10:AllowExternalContent="true"` manifest | Post-install step in NSIS hook |
 | Updater | `tauri-plugin-updater` (minisign `TAURI_SIGNING_PRIVATE_KEY`, static `latest.json`) for NSIS; App Installer / Store for MSIX | Separate channels |
@@ -170,7 +170,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Repositories to study (not copy)
 
 | Repo | Why |
-|------|-----|
+| ------ | ----- |
 | [eythaann/Seelen-UI](https://github.com/eythaann/Seelen-UI) (AGPL) | `AppxManifest.xml`, MSIX script, notifications polling fallback, BT classic connect, `IPolicyConfig` port, `FocusSessionManager` |
 | [WinIslandProject/WinIsland](https://github.com/WinIslandProject/WinIsland) | Overlay styles, host-backdrop blur companion HWND, working-set trimming |
 | [GEORGEWWWU/NetSpeed-Dynamic](https://github.com/GEORGEWWWU/NetSpeed-Dynamic) | Tauri 2 island: SMTC + notification polling in `windows` crate, `cpal`+`realfft` spectrum, fullscreen auto-hide |

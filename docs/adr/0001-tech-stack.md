@@ -13,7 +13,7 @@ system quickly and reuse it for the marketing site.
 ## Options considered
 
 | Option | Transparency & overlay | Motion fidelity | Footprint | Platform API access | Team velocity |
-|--------|------------------------|-----------------|-----------|---------------------|---------------|
+| -------- | ------------------------ | ----------------- | ----------- | --------------------- | --------------- |
 | **Tauri v2 (Rust + WebView2)** | ✅ `transparent`, `decorations:false`, `alwaysOnTop`, `setIgnoreCursorEvents`; WebView2 supports transparent background | ✅ web motion libs, compositor-backed transforms | ✅ ~60–110 MB | ✅ `windows` crate covers WinRT + Win32 | ✅ React/TS + Rust |
 | Electron | ✅ mature transparent windows, `setIgnoreMouseEvents(…, {forward:true})` | ✅ | ❌ 150–250 MB, Chromium per app | ⚠️ needs native addons (N-API/C++) or koffi for WinRT | ✅ JS-only |
 | WPF (.NET 8) | ✅ `AllowsTransparency` + layered windows; mature overlay ecosystem (EarTrumpet, ModernFlyouts) | ⚠️ good but hand-rolled springs; no `layout` morph equivalents | ✅ ~50–90 MB | ✅ C#/WinRT projections | ⚠️ XAML design-system cost high; no reuse for site |

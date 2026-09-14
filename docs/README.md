@@ -6,7 +6,7 @@ an empty repo to 1.0. Read in order the first time; afterwards jump by role.
 ## Core documents
 
 | # | Document | What it answers |
-|---|----------|-----------------|
+| --- | ---------- | ----------------- |
 | 01 | [Product vision](01-product-vision.md) | What Muna is, for whom, non-goals, Windows-specific decisions, performance budgets, success metrics |
 | 02 | [Feature catalog](02-feature-catalog.md) | Every module and feature with tier (P0–P3) and Windows approach |
 | 03 | [Architecture](03-architecture.md) | Stack, process/window model, monorepo layout, module contract, data flows |
@@ -17,11 +17,12 @@ an empty repo to 1.0. Read in order the first time; afterwards jump by role.
 | 08 | [Risk register](08-risk-register.md) | Scored risks, mitigations, assumptions |
 | 09 | [Testing & QA](09-testing-qa.md) | Test pyramid, determinism rules, shell scenario suite, perf harness, QA matrix |
 | 10 | [Release & distribution](10-release-distribution.md) | Artifacts, versioning, signing, pipeline, installer/update behaviour |
+| 11 | [CI/CD rules](11-ci-cd.md) | Branching, PR titles, rulesets, required checks, quality/perf gates, supply chain, secrets, release automation, runbooks, rules for agents |
 
 ## Decisions (ADRs)
 
 | ADR | Decision |
-|-----|----------|
+| ----- | ---------- |
 | [0001](adr/0001-tech-stack.md) | Tauri v2 + Rust core + React/TypeScript UI (with native-pill escape hatch) |
 | [0002](adr/0002-window-strategy.md) | One transparent window per monitor, DOM-shaped hit-testing in Rust |
 | [0003](adr/0003-packaging-identity.md) | MSIX primary, NSIS with external-location identity, polling fallbacks |
@@ -52,3 +53,6 @@ epic, mapped to the custom agents in [`../.github/agents`](../.github/agents).
 - Every spec has a **Status** line (Draft → Accepted → Implemented → Shipped).
 - Changes to tokens, presets, budgets or ADRs go through a PR that updates the doc *and* the
   code in the same change.
+- Docs are linted in CI (`docs` check): `npx --yes markdownlint-cli2@0.23.2` (config in
+  [`.markdownlint-cli2.jsonc`](../.markdownlint-cli2.jsonc)) and `node scripts/check-links.mjs`
+  (relative links and heading anchors). Run both before pushing.

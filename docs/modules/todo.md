@@ -11,6 +11,7 @@ trash with retention/restore. Strip: "Tasks" collapsed view (count or next due).
 
 Local-first SQLite table (`tasks`: id, title, notes, due, completed_at, deleted_at, list_id,
 remote_id, provider). Optional two-way sync:
+
 - Microsoft To Do (Graph `/me/todo/lists/{id}/tasks`, delta).
 - Google Tasks (`tasks.list`).
 Conflict rule: last-write-wins by `updated_at`; deletions soft for 30 days (retention setting).

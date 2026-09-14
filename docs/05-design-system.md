@@ -36,7 +36,7 @@ in module code.**
 Notch surfaces are dark regardless of OS theme. The Settings window gets both themes.
 
 | Token | Value (dark) | Use |
-|-------|--------------|-----|
+| ------- | -------------- | ----- |
 | `--notch-black` | `#000000` | Collapsed strip fill (matches a hardware notch) |
 | `--panel-top` | `#0C0C0E` | Panel gradient start |
 | `--panel-bottom` | `#050506` | Panel gradient end |
@@ -77,7 +77,7 @@ wallpapers.
 ### Materials
 
 | Material | Recipe |
-|----------|--------|
+| ---------- | -------- |
 | **Strip** | `background: var(--notch-black)`; no border; bottom corners only |
 | **Panel** | `background: linear-gradient(180deg, var(--panel-top), var(--panel-bottom))`; `box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06)` (top catch-light); 1 px `--hairline` border except the top edge; outer shadow is the layered `--shadow-panel` (below), painted by us (Tauri `shadow:false`) inside a 20 px transparent window margin |
 | **Island** (floating shape) | Panel material plus all four corners; 1 px hairline all round |
@@ -89,7 +89,7 @@ wallpapers.
 Shadows (only three exist):
 
 | Token | Value |
-|-------|-------|
+| ------- | ------- |
 | `--shadow-panel` | `0 1px 2px rgb(0 0 0 / .35), 0 6px 16px rgb(0 0 0 / .35), 0 20px 40px rgb(0 0 0 / .30)` — three layers read as one soft contact shadow plus ambient depth |
 | `--shadow-popover` | `0 1px 2px rgb(0 0 0 / .35), 0 12px 32px rgb(0 0 0 / .50)` |
 | `--shadow-drag` | `0 8px 24px rgb(0 0 0 / .45)` (drag previews only) |
@@ -111,7 +111,7 @@ with 16 px padding gives cards 12; a 12 px card with 12 px padding gives control
 floor.
 
 | Token | px | Where |
-|-------|----|-------|
+| ------- | ---- | ------- |
 | `--radius-strip` | 14 | Strip bottom corners (Notch shape); the top edge is flush with the screen and flares outward (below) |
 | `--radius-panel` | 28 | Expanded panel bottom corners |
 | `--radius-island` | 32 | Island shape, all corners, **constant** in every state — 32 clamps to a full capsule on the 36 px collapsed pill and reads as a 32 px corner when expanded, so the radius never animates |
@@ -148,7 +148,7 @@ module via specta.
 4 px grid. `--space-1 … --space-8` = 4, 8, 12, 16, 20, 24, 32, 40.
 
 | Element | Size |
-|---------|------|
+| --------- | ------ |
 | Strip | height 32 (user 28–36), width 200 default (presets 180/200/240/280; reference apps 185–200), two 20 px slots inset 10 px from each edge |
 | Island (collapsed) | 120 × 36 pill, 6–8 px top offset; hover reveal 160 × 40; expanded ≤ 380 × 340 |
 | Peek | 6 px tall, same width |
@@ -185,7 +185,7 @@ applied (Windows ClearType). When Inter fails to load, Segoe UI Variable's optic
 layouts hold.
 
 | Token | Size / line | Weight | Tracking | Use |
-|-------|-------------|--------|----------|-----|
+| ------- | ------------- | -------- | ---------- | ----- |
 | `--text-caption2` | 10 / 12 | 500 | +0.01em | Ring labels, tiny units |
 | `--text-caption` | 11 / 13 | 500 | 0 | Timestamps, chip meta |
 | `--text-footnote` | 12 / 16 | 400 / 600 | 0 | Card body, list secondary |
@@ -277,15 +277,15 @@ non-concentric nested corners · squircle paths regenerated per frame.
 ## References
 
 - Apple Human Interface Guidelines — Live Activities (Dynamic Island sizes and 44 pt radius):
-  https://developer.apple.com/design/human-interface-guidelines/live-activities
+  <https://developer.apple.com/design/human-interface-guidelines/live-activities>
 - Apple Human Interface Guidelines — Typography, Color, Materials:
-  https://developer.apple.com/design/human-interface-guidelines
+  <https://developer.apple.com/design/human-interface-guidelines>
 - Figma — "Desperately seeking squircles" (corner smoothing model):
-  https://www.figma.com/blog/desperately-seeking-squircles/
-- figma-squircle (`clip-path` fallback algorithm): https://github.com/phamfoo/figma-squircle
-- CSS `corner-shape` (CSS Borders Level 4): https://drafts.csswg.org/css-borders-4/#corner-shaping
-- Inter (features `cv11`, `ss01`): https://rsms.me/inter/ · Geist: https://vercel.com/font
-- Lucide icons: https://lucide.dev · Simple Icons: https://simpleicons.org
+  <https://www.figma.com/blog/desperately-seeking-squircles/>
+- figma-squircle (`clip-path` fallback algorithm): <https://github.com/phamfoo/figma-squircle>
+- CSS `corner-shape` (CSS Borders Level 4): <https://drafts.csswg.org/css-borders-4/#corner-shaping>
+- Inter (features `cv11`, `ss01`): <https://rsms.me/inter/> · Geist: <https://vercel.com/font>
+- Lucide icons: <https://lucide.dev> · Simple Icons: <https://simpleicons.org>
 - Reference notch/island implementations studied for proportions:
   [boring.notch](https://github.com/TheBoredTeam/boring.notch) (notch path radii),
   [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit),

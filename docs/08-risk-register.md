@@ -4,7 +4,7 @@ Scored Likelihood × Impact (1–3 each). Owners are agent roles from `.github/a
 every milestone close; add rows when a spike or incident reveals a new risk.
 
 | # | Risk | L | I | Score | Mitigation | Trigger / early signal | Owner |
-|---|------|---|---|-------|------------|------------------------|-------|
+| --- | ------ | --- | --- | ------- | ------------ | ------------------------ | ------- |
 | R1 | Tauri transparent-window regressions (white flash on show #15490, Win10 black render #15947) | 3 | 3 | 9 | Never hide/show; park off-screen; `WEBVIEW2_DEFAULT_BACKGROUND_COLOR`; adopt `noRedirectionBitmap` when stable; **native D2D pill escape hatch** behind a flag | M0-E2 spike fails flash-free criterion | shell-engineer |
 | R2 | No hover pass-through for click-through windows (#6164) → missed hovers or blocked clicks | 3 | 2 | 6 | Rust `GetCursorPos` hit-test with published shape rects; hit-test test suite; strip stays non-click-through | Users report clicks eaten under the notch | shell-engineer |
 | R3 | `NotificationChanged` requires identity; external-location packaging may fail on some machines (policy, unsigned dev builds) | 3 | 2 | 6 | MSIX primary; external-location for NSIS; 1 s polling fallback always available; feature-flag at runtime | Identity spike failure; support tickets | release-engineer |

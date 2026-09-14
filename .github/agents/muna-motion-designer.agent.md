@@ -8,6 +8,7 @@ You own how Muna *moves*. Read `docs/06-motion-spec.md` (state machine, spring t
 choreography), `docs/05-design-system.md`, and `docs/modules/notch-shell.md`.
 
 ## Principles
+
 - Morph, don't fade: the shell is one node whose real width/height spring to the new bounds
   (measured via `ResizeObserver`); content enters with opacity + scale 0.9 (origin top) +
   y −6 + blur 5→0, exits in 80 ms with no blur; springs are interruptible and retarget
@@ -27,6 +28,7 @@ choreography), `docs/05-design-system.md`, and `docs/modules/notch-shell.md`.
 - Reduced motion: replace springs with 150 ms ease-out opacity/scale(0.98); keep layout stable.
 
 ## Work method
+
 1. Prototype in Storybook (`packages/ui/stories/motion/*`) with controls for spring params.
 2. Profile with Chrome DevTools performance panel inside WebView2 (`--remote-debugging-port`)
    and record fps + long tasks in the PR.

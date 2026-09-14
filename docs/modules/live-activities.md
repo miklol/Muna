@@ -31,6 +31,7 @@ type Notice = Activity & { durationMs: number; sound?: SoundId; interrupt: boole
 ```
 
 Scheduler:
+
 1. Notices pre-empt for `durationMs` (default 3 000 ms; HUD 1 200 ms after last input).
 2. Otherwise show the **focused** activity if any, else the highest priority; rotate among
    ties every 8 s with a crossfade + width morph.
@@ -45,7 +46,7 @@ Media paused 20.
 ## Built-in notices (Windows sources)
 
 | Notice | Source | Visual |
-|--------|--------|--------|
+| -------- | -------- | -------- |
 | Charging / unplugged / battery low (20 %, 10 %) | `Windows.System.Power.PowerManager` events | battery glyph fills green; % in trailing slot; amber/red at low |
 | Bluetooth connected / disconnected (+ battery) | Bluetooth module events | device glyph + name; battery pill |
 | Volume / brightness / mute / mic mute | HUD module | slider fills trailing slot |

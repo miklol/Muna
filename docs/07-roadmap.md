@@ -50,7 +50,11 @@ Epics
 
 Exit criteria
 
-- [ ] `pnpm -w lint typecheck test` and `cargo clippy -D warnings` pass in CI.
+- [ ] All required checks in `ci.yml` (`web`, `rust`, `deps`, `app`) run and pass on
+  `windows-latest`/`ubuntu-latest`; root parity scripts from [11](11-ci-cd.md#local-parity) exist.
+- [ ] `main` ruleset, `v*` tag ruleset, `release` environment and Dependabot configured per
+  [11](11-ci-cd.md#protection-rules) (maintainer task; checklist delivered by M0-E3).
+- [ ] `release.yml` dry run produces unsigned NSIS + MSIX artifacts.
 - [ ] Spike app shows a black strip on 2 monitors (mixed DPI) with zero flashes over 100 cycles;
   idle CPU ≤ 0.3 %, RSS ≤ 120 MB (numbers in `docs/spikes/m0-window.md`).
 - [ ] Identity spike report with pass/fail per API (`docs/spikes/m0-identity.md`).
@@ -162,7 +166,7 @@ receive, Store listing.
 ## Status tracking
 
 | Milestone | Status | Started | Done | Notes |
-|-----------|--------|---------|------|-------|
+| ----------- | -------- | --------- | ------ | ------- |
 | M0 | Not started | | | |
 | M1 | Not started | | | |
 | M2 | Not started | | | |

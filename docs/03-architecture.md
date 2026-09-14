@@ -8,7 +8,7 @@ Decision record: [ADR-0001 Tech stack](adr/0001-tech-stack.md) ·
 ## Stack at a glance
 
 | Layer | Choice | Why |
-|-------|--------|-----|
+| ------- | -------- | ----- |
 | App shell | **Tauri v2** (Rust core + WebView2) | Transparent frameless always-on-top windows with per-pixel alpha, click-through control, tray, autostart, updater, multi-window — at ~1/3 of Electron's RAM. Rust gives direct, safe access to Win32/WinRT via the `windows` crate without a second runtime. |
 | UI | **React 19 + TypeScript 5** | Same stack as the marketing sites; largest ecosystem for motion, headless a11y primitives and design-system tooling; lets the landing page reuse the component library. |
 | Styling | **Tailwind CSS v4** + CSS custom-property tokens (`@theme`) | Token-first; zero-runtime; design tokens shared with docs/site. |
@@ -17,7 +17,7 @@ Decision record: [ADR-0001 Tech stack](adr/0001-tech-stack.md) ·
 | IPC types | **tauri-specta** (Rust → TS bindings) + **zod** at boundaries | One source of truth for commands/events. |
 | Storage | **SQLite** via `rusqlite` (bundled) + JSON settings (versioned) + Windows Credential Manager | Local-first; migrations in Rust. |
 | Platform | `windows` crate (WinRT + Win32), `windows-core`, `sysinfo`, `cpal`/WASAPI, `image`, `zip`, `notify`, `tokio` | Media (SMTC), Core Audio, Bluetooth, Power, notifications listener, monitors, AppBar, hooks, drag-drop, file ops. |
-| Build/CI | pnpm + Vite, cargo, GitHub Actions `windows-latest`, `tauri-action`; Velopack/Tauri updater; MSIX + NSIS | Reproducible signed releases. |
+| Build/CI | pnpm + Vite, cargo, GitHub Actions (`ubuntu-latest` + `windows-latest`, rules in [11](11-ci-cd.md)), release-please; Tauri updater; MSIX + NSIS | Reproducible signed releases. |
 | Quality | Vitest + React Testing Library, Playwright (WebView2), `cargo test`, `cargo clippy -D warnings`, Biome/ESLint, Storybook for the design system, Lighthouse-style perf script for animation FPS | Budgets from the PRD enforced in CI. |
 
 Escape hatches (see [ADR-0001](adr/0001-tech-stack.md) consequences): if the M0 spike shows
@@ -64,7 +64,7 @@ flowchart LR
 
 ## Repository layout (monorepo)
 
-```
+```text
 apps/
   desktop/              # Tauri app
     src-tauri/          # Rust: core, platform, modules

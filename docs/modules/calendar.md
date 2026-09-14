@@ -12,7 +12,7 @@ countdown ("Team standup in 10m") — becomes high priority ≤ 10 min before st
 ## Providers
 
 | Provider | Auth | API | Notes |
-|----------|------|-----|-------|
+| ---------- | ------ | ----- | ------- |
 | Microsoft 365 / Outlook.com | MSAL device-code or PKCE (public client) | Graph `/me/calendarView`, `/me/calendars`, delta queries, `onlineMeeting.joinUrl` | Teams join links |
 | Google Calendar | OAuth PKCE (loopback) | `events.list` with `syncToken`, `conferenceData` | Meet links |
 | ICS / CalDAV | URL (+ basic auth) | periodic fetch, `ical` parse; CalDAV `REPORT` | read-only |

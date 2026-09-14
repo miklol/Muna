@@ -6,7 +6,7 @@ criteria. Run them in order inside a milestone; epics inside a milestone can run
 sessions (one branch each).
 
 | Milestone | File | Epics |
-|-----------|------|-------|
+| ----------- | ------ | ------- |
 | M0 Foundations | [m0-foundations.md](m0-foundations.md) | Scaffold · Transparent-window spike · Identity spike · Tokens & presets |
 | M1 Shell | [m1-shell.md](m1-shell.md) | Notch shell · Live activities · Settings · Panel chrome · Onboarding |
 | M2 Media & HUD | [m2-media-hud.md](m2-media-hud.md) | Media backend · Media UI · HUD · Perf harness |
@@ -18,14 +18,16 @@ sessions (one branch each).
 
 1. Create a session (worktree) from `main`; name it after the epic id (e.g. `m1-e1-notch-shell`).
 2. Paste the prompt. Choose the agent named in the prompt (or `@muna-architect` when unsure).
-3. The agent must finish with: passing CI, evidence (recording/numbers) in the PR, updated
-   spec status, and an entry in the milestone's status table in [`../07-roadmap.md`](../07-roadmap.md).
+3. The agent must finish with: all required checks green (never skipped or weakened — see
+   [`../11-ci-cd.md`](../11-ci-cd.md#rules-for-agents)), a Conventional-Commit PR title,
+   evidence (recording/numbers) in the PR, updated spec status, and an entry in the
+   milestone's status table in [`../07-roadmap.md`](../07-roadmap.md).
 4. Request `@muna-design-reviewer` on any PR touching UI; `@muna-qa-engineer` on any PR
-   touching the shell, scheduler or a platform API.
+   touching the shell, scheduler or a platform API. A human approves and merges (squash).
 
 ## Conventions every prompt assumes
 
-- Repo rules: `.github/copilot-instructions.md`.
+- Repo rules: `.github/copilot-instructions.md`; CI/CD rules: `docs/11-ci-cd.md`.
 - Stack and layout: `docs/03-architecture.md`; decisions: `docs/adr/`.
 - Platform APIs: `docs/04-windows-platform-apis.md`.
 - Design: `docs/05-design-system.md`; motion: `docs/06-motion-spec.md`.

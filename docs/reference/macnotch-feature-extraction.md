@@ -1,5 +1,9 @@
 # Reference · MacNotch feature extraction
 
+<!-- markdownlint-disable MD013 MD029 -->
+<!-- Dense extraction notes: one line per module, numbered 1–23 across groups, keeps the
+     catalog diff-able against the source. -->
+
 > Research notes, **not product copy**. Extracted Sept 2026 from the MacNotch marketing site
 > (`macnotch.io`, React/i18next bundle, English locale) and the "Notch for Windows" site
 > (`apple-notch.vercel.app`). Descriptions are condensed paraphrases; the sites remain the
@@ -8,7 +12,7 @@
 ## MacNotch — site structure
 
 | Section | Purpose |
-|---------|---------|
+| --------- | --------- |
 | Hero | "Your notch, your productivity hub." macOS 14+, Apple Silicon & Intel, physical notch optional, multiple displays. Free 14-day trial; one-time licence or subscription; also on Setapp. |
 | Quick modules (bento) | Tag per module → screenshot carousel. "MacNotch is modular. Keep only the modules you want active in Settings." |
 | Customize | Three tabs: **Modules** (toggle/reorder, default module), **Dashboard** (4 widget slots, profiles incl. time-based switching, collapsed-strip content), **Displays** (Multiple Screens, appearance, Drop Actions, Snap Zones). |
@@ -23,6 +27,7 @@
 ## MacNotch — module catalog (4 groups, 21 modules)
 
 ### Productivity & daily rhythm ("Daily & work")
+
 1. **Dashboard** — profiles (Focus + time-based switching); widgets: weather, media cards (Spotify, Apple Music, Plex, NetEase, VLC), app/folder launcher (icons/list/paginated), Actions shortcuts, extra scan folders, quotes, day progress, screen time, quick toggles (Persist Never Sleep + Launch at Login), shortcuts & events, mirror. **Four widget slots.**
 2. **Media** — album art & gradients; reliable Apple Music artwork; full transport for Spotify/Apple Music/Plex/NetEase/VOX/VLC via Now Playing + browsers + system audio; bars or spectrum visualiser; optional hover-reveal prev/play/next in the strip.
 3. **Calendar** — events & reminders from macOS; search by title/location/notes/calendar; overdue filters; countdowns; details; meeting awareness via Focus.
@@ -38,11 +43,13 @@
 13. **App language** — EN, FR, DE, ES, PT-BR, IT, JA, NL, KO, PL, ZH-Hans or System; relaunch to apply; first-expand language prompt.
 
 ### Code, AI & language ("Code & AI")
+
 14. **AI Coding (Beta)** — Claude Code & Cursor Agent sessions with live status, recent messages, quick Allow/Deny when CLI waits; expandable list height.
 15. **Code hosting** — GitHub PRs, GitLab MRs, Bitbucket PRs awaiting review (+ opened ones); Jira issues via JQL with status transitions; provider/repo selection; refresh.
 16. **Translation** — LLM translation via OpenAI or Ollama; provider/model/languages in Settings.
 
 ### Notch workflow & system ("Notch & system")
+
 17. **Live Activities** — strip rotation (media, timers, calendar, Bluetooth, app updates); per-source media filters; wider layout on track change; unread glance; Volume & Brightness HUD; short notices; external displays.
 18. **Drop Actions** — Shelf, AirDrop, cloud, zip, unzip, image convert, move, copy, open with, Music, trash, eject; *Expand* tile splits rows; "Expand Notch" unlocks >4 actions; order/folders/dividers/width.
 19. **Shelf** — carousel stash; drop in, drag out; optional Shelf tile.
@@ -51,12 +58,13 @@
 22. **System Monitor** — CPU, RAM, storage with visual indicators.
 
 ### Help & feedback
+
 23. **Support** — feedback w/ reply email, app help, reviews/Setapp rating, resources.
 
 ## MacNotch — screenshot index (local copies in the session research folder)
 
 | Module | Screenshots (macnotch.io/images-features/…) |
-|--------|---------------------------------------------|
+| -------- | --------------------------------------------- |
 | Dashboard | demo-04, demo-06, demo-05, dashboard-feature-2, dashboard-feature-3 |
 | Media | media-feature, demo-02, media-feature-2…5 (media-feature-5 = collapsed hover-reveal) |
 | Calendar | demo-09, demo-10, demo-13, demo-17, demo-27, calendar-feature-2 |

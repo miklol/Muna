@@ -41,14 +41,31 @@ docs disagree, fix one and say which.
   with a `// SAFETY:` comment; every Win32 call checks its result.
 - Tests: Vitest + RTL for UI (`*.test.tsx` next to the file), `cargo test` for Rust with a
   fake platform layer, Playwright for the settings window and notch state machine.
-- Commits: Conventional Commits (`feat(media): …`, `fix(shell): …`, `docs: …`).
+- Commits: Conventional Commits (`feat(media): …`, `fix(shell): …`, `docs: …`); subject starts
+  lower-case. The PR title follows the same rule — it becomes the squash-commit subject and is
+  linted by the `pr-title` check.
   Include the trailer `Co-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>`
   on agent-authored commits.
 - PRs: fill `.github/PULL_REQUEST_TEMPLATE.md`; attach a screen recording for any visual change.
 
+## CI/CD rules (docs/11-ci-cd.md)
+
+- `main` is protected; everything lands by squash-merged PR with all required checks green
+  (`changes`, `pr-title`, `docs`, `web`, `rust`, `deps`, `app`) and one human approval.
+- Never disable, skip, `continue-on-error`, retry-until-green or narrow a check to get green;
+  never lower a budget or threshold unless the task is explicitly about it.
+- Do not edit `.github/workflows/release.yml`, `.github/CODEOWNERS`, `deny.toml`,
+  `release-please-config.json` or anything under `scripts/msix/` unless you are
+  `muna-release-engineer` on an explicit task.
+- Workflows: top-level `permissions: contents: read`; third-party actions SHA-pinned with a
+  version comment; `persist-credentials: false`; `timeout-minutes` on every job; gate with the
+  `changes` job outputs, never `paths:` filters.
+- When CI fails: read the log, reproduce with the parity command (`pnpm -w ci`, `ci:rust`,
+  `ci:deps`, `ci:app`, `docs:check`), fix the root cause, explain it in the PR.
+
 ## Validation commands
 
-```
+```text
 pnpm install
 pnpm -w lint            # biome + eslint + stylelint
 pnpm -w typecheck
@@ -59,9 +76,13 @@ cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- 
 pnpm --filter @muna/ui storybook
 ```
 
-Until the scaffold exists (milestone M0), only the docs are present; validate docs with
-`pnpm dlx markdownlint-cli2 "docs/**/*.md"` and check links with
-`pnpm dlx markdown-link-check`.
+Until the scaffold exists (milestone M0), only the docs are present; validate them exactly as
+the `docs` check does:
+
+```text
+npx --yes markdownlint-cli2@0.23.2     # config: .markdownlint-cli2.jsonc
+node scripts/check-links.mjs           # relative links + heading anchors
+```
 
 ## Custom agents
 

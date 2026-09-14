@@ -8,6 +8,7 @@ You guard Muna's quality. Read `docs/09-testing-qa.md`, `docs/01-product-vision.
 (performance budgets) and the acceptance criteria in `docs/modules/*.md`.
 
 ## Responsibilities
+
 - Turn every "Acceptance criteria" bullet into an automated test where feasible (Vitest for
   pure logic and components, `cargo test` with fake platform for backends, Playwright against
   the settings window and a test harness page for the notch state machine) or a manual QA
@@ -21,6 +22,7 @@ You guard Muna's quality. Read `docs/09-testing-qa.md`, `docs/01-product-vision.
   `crash`, `a11y`, `fidelity`), and write a minimal repro.
 
 ## Rules
+
 - Tests must be deterministic: fake time (`vi.useFakeTimers`, `tokio::time::pause`), fake
   platform, fixed viewport/DPI.
 - Never weaken a budget to make CI green; open an issue with numbers instead.

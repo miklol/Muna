@@ -41,7 +41,7 @@ footprint of a tray utility.
 ## Personas
 
 | Persona | Needs | Modules they live in |
-|---------|-------|----------------------|
+| --------- | ------- | ---------------------- |
 | **Developer "Mika"** — 2 monitors, Spotify, GitHub/GitLab, Claude Code/Copilot CLI | glanceable PR queue, agent status, media control without alt-tab, pomodoro | Media, Code hosting, AI Coding, Pomodoro, Dashboard |
 | **Knowledge worker "Sam"** — laptop + dock, Teams/Outlook, AirPods | next meeting & join link, notifications triage, Bluetooth battery, quick toggles | Calendar, Notifications, Bluetooth, Dashboard, Health |
 | **Enthusiast "Lee"** — customises everything, Rainmeter/PowerToys user | beautiful notch, adaptive album colours, drop shelf, snap zones | Media, Live Activities, Shelf, Drop Actions, Window snap, Weather |
@@ -62,7 +62,7 @@ footprint of a tray utility.
 ## Windows-specific product decisions
 
 | Problem | Decision |
-|---------|----------|
+| --------- | ---------- |
 | Windows has no menu bar; title bars & browser tabs sit exactly under the notch. | Two placement modes. **Overlay (default):** strip is 32 px tall, click-through except on its own pixels, and *auto-yields* (fades to a 6 px "peek" line) when the foreground window's caption/tab area intersects it, when a fullscreen/borderless-fullscreen app is active, or while the user drags a window across it. **Reserved strip:** Muna registers as a top AppBar so maximised windows start below it — the macOS menu-bar experience, at the cost of 32 px of screen. Per-monitor choice. Design research recommends the floating Island (with a small top offset) as the least intrusive default on Windows; Muna keeps the **Notch shape as the default identity** because auto-yield removes the tab-strip conflict, and onboarding presents Island as an equal, one-click alternative (recommended for browser-heavy users). |
 | No physical notch anywhere. | Always draw the notch; offer **Notch** (flush, with the flared outward top fillets of a real MacBook notch) and **Island** (floating pill with a user-adjustable 6–8 px top offset, all corners rounded) shapes. |
 | Windows volume/brightness flyouts. | Hide the native OSD host window and render Muna's HUD; restore on exit/crash via a watchdog. |
@@ -72,7 +72,7 @@ footprint of a tray utility.
 ## Performance & quality budgets (enforced in CI where possible)
 
 | Metric | Budget |
-|--------|--------|
+| -------- | -------- |
 | Idle RSS (collapsed, media playing) | ≤ 120 MB total across processes |
 | Idle CPU | ≤ 0.3 % averaged over 60 s |
 | Expand/collapse animation | ≥ 58 fps at 60 Hz, no long tasks > 50 ms |

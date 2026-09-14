@@ -42,7 +42,7 @@ hover-reveal: title + ⏮ ⏸ ⏭. Dashboard: media card.
 ## States
 
 | State | Strip | Panel |
-|-------|-------|-------|
+| ------- | ------- | ------- |
 | Playing | art + bars | full |
 | Paused | art (dimmed) + ▶ glyph | full, play button prominent |
 | Track change | wide form 2.5 s | art crossfade + gradient morph |

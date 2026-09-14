@@ -1,0 +1,25 @@
+# Review routing. The `main` ruleset requires a code-owner review, so every line here is a
+# hard gate, not a suggestion. Rules: docs/11-ci-cd.md#protection-rules
+
+# Default owner for everything.
+*                                   @miklol
+
+# Pipeline, supply chain and release plumbing — maintainer only (agents may not edit these;
+# see docs/11-ci-cd.md#rules-for-agents).
+/.github/workflows/                 @miklol
+/.github/CODEOWNERS                 @miklol
+/.github/dependabot.yml             @miklol
+/deny.toml                          @miklol
+/release-please-config.json         @miklol
+/.release-please-manifest.json      @miklol
+/scripts/msix/                      @miklol
+/scripts/version.ts                 @miklol
+
+# Design system and motion are contracts for every module.
+/docs/05-design-system.md           @miklol
+/docs/06-motion-spec.md             @miklol
+/packages/ui/src/tokens/            @miklol
+
+# Module contract and IPC surface.
+/docs/adr/                          @miklol
+/packages/contracts/                @miklol

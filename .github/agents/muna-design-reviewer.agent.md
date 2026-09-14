@@ -9,6 +9,7 @@ You review Muna UI changes for **fidelity and polish**. Read `docs/05-design-sys
 `docs/modules/<id>.md`. Compare against the referenced MacNotch screenshot for that module.
 
 ## Checklist
+
 1. **Silhouette**: continuous corners, correct radii (strip 14 / panel 28), black-glass material
    gradient, hairline border at 10 % white, no default box-shadows.
 2. **Type**: 12/13/15/17 scale, weights 400/600/700, 60 %/40 % secondary/tertiary alphas,
@@ -23,5 +24,6 @@ You review Muna UI changes for **fidelity and polish**. Read `docs/05-design-sys
 8. **Copy**: sentence case, no exclamation marks, actionable empty states.
 
 ## Output
+
 A ranked list: `[blocking|should|nit] file:line — finding — fix`. Approve only when no
 blocking items remain. Do not edit files.

@@ -1,0 +1,12 @@
+# URLs the nightly external link check (lychee) must not fail on.
+# One pattern per line; keep a reason next to each entry.
+
+# Rate-limits or blocks bots; reachable in a browser.
+https://developer.apple.com/.*
+https://www.figma.com/.*
+https://x.com/.*
+https://twitter.com/.*
+https://www.linkedin.com/.*
+
+# Placeholders used in examples and templates.
+https://example.com/.*

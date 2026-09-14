@@ -11,7 +11,7 @@ provider logo, ↗. Header chip `All ›` (filter: to review / mine / all).
 ## Providers
 
 | Provider | Auth | Data |
-|----------|------|------|
+| ---------- | ------ | ------ |
 | GitHub | OAuth device flow (Muna app) or PAT | GraphQL `search(review-requested:@me)`, `author:@me`, checks status, notifications |
 | GitLab | PAT / OAuth PKCE | `/merge_requests?reviewer_id=me`, pipelines |
 | Bitbucket Cloud | app password / OAuth | pull-requests `reviewers`, pipelines |

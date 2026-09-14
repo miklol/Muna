@@ -16,7 +16,7 @@ MacNotch screenshots `demo-01`, `live-feature-3/4`, `media-feature-5`; anatomy i
 ## Windows & processes
 
 | Window | Purpose | Flags |
-|--------|---------|-------|
+| -------- | --------- | ------- |
 | `notch-<monitorId>` | One per enabled monitor. Hosts strip + panel + module bar in a single transparent WebView, sized to the max expanded bounds; hit-testing limited to painted regions. | `WS_EX_TOOLWINDOW`, `WS_EX_NOACTIVATE` (until a text field is focused), `WS_EX_TOPMOST`, `WS_EX_LAYERED`; `transparent: true`, `decorations: false`, `shadow: false`, `skipTaskbar: true`; `WDA_EXCLUDEFROMCAPTURE` when *Hide from captures* is on |
 | `settings` | Standard decorated window (Mica if available). | normal |
 | `overlay-eyebreak` | Full-screen dim overlay for Health eye breaks / Timer Done. | topmost, transparent, click-through except buttons |
@@ -48,6 +48,7 @@ stateDiagram-v2
 ```
 
 Rules:
+
 - Hover-intent uses the pointer's **velocity**: fast pass-throughs (> 800 px/s) never trigger
   HoverReveal. Reference apps use 300 ms intent (boring.notch) and 100 ms hover-out grace;
   Muna uses 250 ms / 300 ms with a 30 px extended hover padding around the shape so small

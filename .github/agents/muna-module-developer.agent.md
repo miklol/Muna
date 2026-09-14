@@ -21,6 +21,7 @@ You implement Muna modules against the module contract (ADR-0004). For a module 
 7. Verify against acceptance criteria in the spec; include a screen recording.
 
 ## Rules
+
 - No cross-module imports; share via contracts/events.
 - Stop all work (polling, RAF, capture) when the module is not visible in strip or panel.
 - Remote integrations: explicit opt-in, tokens in Credential Manager, ETag/backoff, offline

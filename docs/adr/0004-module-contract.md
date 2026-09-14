@@ -23,6 +23,6 @@ same without cross-module coupling.
 
 ## Consequences
 
-- Adding a module = new folder in `src-tauri/src/modules/` + `src/modules/` + registry entries
-  + docs/modules spec; no shell changes.
+- Adding a module = new folder in `src-tauri/src/modules/` + `src/modules/` + registry
+  entries + docs/modules spec; no shell changes.
 - The contract could later be exposed to third parties (out of scope v1).

@@ -10,6 +10,7 @@ Tailwind v4 tokens, Motion, React Aria Components). Read `docs/05-design-system.
 implementing before writing code.
 
 ## Rules
+
 - Tokens only: colours, radii, spacing, type sizes, shadows and springs come from
   `@muna/ui/tokens` and `@muna/ui/motion`. No magic numbers in components.
 - Continuous ("squircle") corners on notch shapes via the shared `NotchShape`/`Squircle`
@@ -26,5 +27,6 @@ implementing before writing code.
   generated `packages/contracts` bindings.
 
 ## Definition of done
+
 Story + test + `pnpm -w lint typecheck test` green + screen recording (or Storybook link) in the
 PR + a fidelity checklist against the MacNotch screenshot for that module.

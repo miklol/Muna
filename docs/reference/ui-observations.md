@@ -6,7 +6,7 @@
 
 ## 1. Collapsed strip
 
-```
+```text
 ┌──────────────────────────────────────────────┐   ← flush with the top screen edge
 │ [◼ app icon 20px]                 ▮▮▮▯▮ / 27:33 │   height ≈ 32 px (macOS menu bar height)
 └──────────────────────────────────────────────┘   width ≈ 200–300 px, bottom radii ≈ 14 px
@@ -22,7 +22,7 @@
 
 ## 2. Expanded panel
 
-```
+```text
 ╭────────────────────────────────────────────────────────────────────╮  ← flush with top edge,
 │ Title 17px semibold   [chip ▾]              (◯)(◯)(◯)(◯)(◯)  ▎ ♪   │    top corners square
 │                                                                  ▎ ⌁   │
@@ -52,7 +52,7 @@
 ## 3. Module layouts observed
 
 | Module | Layout |
-|--------|--------|
+| -------- | -------- |
 | **Media** | Left: 72 px album art (radius 10) + title 17/700 + artist·album 11/400; progress bar 3 px + times 10 px; transport row: shuffle, ⏮, ⏸ (36 px white circle, black glyph), ⏭, repeat, output-device. Right: **Lyrics** column (label 10/600 caps at 50 %, current line 17/600 white, next lines 13 at 50 %). Header chip = source app (`YT Music` with icon). |
 | **Dashboard** | 2×4 grid of widgets in a 4-slot layout: Events list (icon, title 14/600, time 12 at 60 %), Launcher (row of 6 app icons, "Set 1 of 2" pager dots), Pomodoro card (25:00 ring/paused, ↺ ▶ ⏭), Day Progress ("Starts in 3h 24m" + quote), second row: Reminders/Tasks with radio circles, PR review queue, "No reminders — All caught up for today!" empty state, **Quick toggles** (6 × 32 px circular toggles). Header chip: profile `Work ›` + ⚡ (Focus). |
 | **Calendar** | Left: vertical month-jumper (JUL 07 / **AUG 08** / SEP 09) + month grid (7 cols, 13 px, today = white filled circle w/ black digit, event dots). Right: agenda list (time range column in blue 12/600, title 15/600, location 12 at 60 % with ↑ icon, unread dot). Header: title + month, `Today` chip, icon buttons (grid/list/screenshot/refresh/‹ ›/search). |

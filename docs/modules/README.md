@@ -5,7 +5,7 @@ independently against the **module contract** defined in
 [`../03-architecture.md`](../03-architecture.md#module-contract).
 
 | Tier | Module | Spec |
-|------|--------|------|
+| ------ | -------- | ------ |
 | P0 | Notch shell (strip, panel, module bar, placement, capture-hiding) | [notch-shell.md](notch-shell.md) |
 | P0 | Live Activities & notices | [live-activities.md](live-activities.md) |
 | P0 | Media | [media.md](media.md) |

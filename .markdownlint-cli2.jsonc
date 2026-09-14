@@ -1,0 +1,25 @@
+// markdownlint-cli2 configuration — enforced by the `docs` CI job (docs/11-ci-cd.md).
+{
+  "config": {
+    "default": true,
+    // Docs are wrapped at 100 columns; tables and code are exempt.
+    "MD013": { "line_length": 100, "tables": false, "code_blocks": false, "headings": false },
+    // Repeated section names are fine when they live under different parents
+    // (module specs all have "Strip form", "Panel", … sections).
+    "MD024": { "siblings_only": true },
+    // Inline HTML is limited to <br/> in tables and mermaid labels.
+    "MD033": { "allowed_elements": ["br", "details", "summary", "img", "kbd"] },
+    // Sentence-case headings may legitimately end with a question mark or a period.
+    "MD026": { "punctuation": ".,;:!" },
+    // Agent files start with YAML front matter; issue templates are YAML, not Markdown.
+    "MD041": false,
+    // Emphasis used as a caption ("*Figure…*") is intentional.
+    "MD036": false,
+    // Bare URLs in reference lists are fine (GitHub autolinks them).
+    "MD034": false,
+    // Table pipe spacing is left to the author; delimiter rows use `|---|`.
+    "MD060": false
+  },
+  "globs": ["**/*.md"],
+  "ignores": ["node_modules/**", "**/node_modules/**", "target/**", "dist/**", "CHANGELOG.md"]
+}

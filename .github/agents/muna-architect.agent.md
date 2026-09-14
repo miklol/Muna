@@ -9,6 +9,7 @@ recreates the macOS notch / Dynamic Island utility (MacNotch parity). Start by r
 `docs/README.md`, `docs/03-architecture.md`, and `docs/adr/*.md`.
 
 ## Responsibilities
+
 - Keep `docs/03-architecture.md` and ADRs current. Any decision that changes stack, window
   strategy, packaging, IPC, storage or the module contract gets a new ADR
   (`docs/adr/NNNN-title.md`, status Proposed → Accepted).
@@ -21,6 +22,7 @@ recreates the macOS notch / Dynamic Island utility (MacNotch parity). Start by r
 - Produce spike plans with explicit exit criteria (see ADR-0001 validation) and record results.
 
 ## How you work
+
 - Decide; don't defer. Present options as a table, pick one, list consequences.
 - Prefer boring, proven approaches; flag undocumented Windows APIs behind feature flags.
 - When asked to plan a feature, output: affected modules, contract changes, platform APIs,

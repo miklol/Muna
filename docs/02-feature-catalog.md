@@ -9,7 +9,7 @@
 ## Priority tiers
 
 | Tier | Meaning | Ships in |
-|------|---------|----------|
+| ------ | --------- | ---------- |
 | **P0** | Core notch experience. Without it Muna is not a product. | M1–M2 |
 | **P1** | Parity with MacNotch's daily-driver modules. | M3–M4 |
 | **P2** | Differentiating / power-user modules. | M5 |
@@ -24,7 +24,7 @@ module that opens on expand.
 ## A. Notch shell (the product itself)
 
 | # | Feature | MacNotch behaviour | Muna on Windows | Tier |
-|---|---------|--------------------|-----------------|------|
+| --- | --------- | -------------------- | ----------------- | ------ |
 | A1 | **Collapsed strip** | Black pill flush with the top edge; rotates *live activities* (media, timers, events, Bluetooth, unread notifications). Left slot = icon/artwork, right slot = status (visualizer bars, timer digits, battery). | Same. Two-slot layout, content driven by a live-activity priority queue. Configurable height (Windows has no menu bar: default 32 px, "compact" 24 px). | P0 |
 | A2 | **Hover-reveal strip** | Hovering the strip briefly widens it to show title + prev/play/next (media) or reset/pause/skip/close (Pomodoro). | Same, gated by hover-intent delay. | P0 |
 | A3 | **Expanded panel** | Hover/click expands into a ~ 960×300 pt black-glass panel hanging from the top edge with large bottom radii; header = module title + context chips + circular icon buttons; right-side vertical icon rail for quick module jumps; collapse button (⤡) bottom-right. | Same anatomy. Panel is a separate always-on-top layered window sized to content; spring-morphs from the strip. | P0 |
@@ -41,7 +41,7 @@ module that opens on expand.
 ## B. Productivity & daily rhythm
 
 | # | Module | MacNotch description (condensed) | Muna on Windows | Tier |
-|---|--------|----------------------------------|-----------------|------|
+| --- | -------- | ---------------------------------- | ----------------- | ------ |
 | B1 | **Dashboard** | Four widget slots; *profiles* with Focus and time-based switching; widgets: weather, media cards (Spotify/Apple Music/Plex/NetEase/VLC), app & folder launcher (icons / list / paginated sets), Actions shortcuts, quotes, day progress, screen time, quick toggles (incl. *Persist Never Sleep*), shortcuts & events, mirror. Header: profile chip, edit, screenshot, info, settings, collapse. | Same 4-slot grid (2×2 on the panel) with profiles; quick toggles map to Windows: Focus Assist / Do Not Disturb, Night light, Bluetooth, Wi-Fi, Keep-awake (`SetThreadExecutionState`), Dark mode, Screen capture. Launcher scans Start Menu shortcuts + custom folders. | P1 |
 | B2 | **Media** | Album art + adaptive gradients; full transport for Spotify, Apple Music, Plex, NetEase, VOX, VLC, browsers, system audio; bars or spectrum visualiser; lyrics pane; hover-reveal transport in the strip; output-device picker. | `GlobalSystemMediaTransportControlsSessionManager` (SMTC) covers Spotify, Apple Music for Windows, Edge/Chrome/Firefox, VLC, Groove, foobar (plugin), MPC. Album art via SMTC thumbnail; adaptive gradient from artwork; visualiser from WASAPI loopback (real audio). Optional Spotify Web API for lyrics/like/queue. Output-device switching via Core Audio. | **P0** |
 | B3 | **Calendar** | Month grid + day agenda; events & reminders from macOS; search; overdue filters; countdowns; meeting awareness via Focus. | Providers: Microsoft Graph (Outlook/M365 personal & work via MSAL), Google Calendar, ICS/CalDAV subscriptions. Windows Calendar (`AppointmentManager`) only as an optional packaged-mode provider. Join-meeting deep links (Teams/Zoom/Meet). | P1 |
@@ -57,7 +57,7 @@ module that opens on expand.
 ## C. Code, AI & language
 
 | # | Module | MacNotch description (condensed) | Muna on Windows | Tier |
-|---|--------|----------------------------------|-----------------|------|
+| --- | -------- | ---------------------------------- | ----------------- | ------ |
 | C1 | **AI Coding (Beta)** | Claude Code & Cursor Agent sessions in one list with live status (Running/Waiting), model badge, branch, current file, elapsed time, message/token counts, quick Allow/Deny when the CLI waits; Recent section. | Watch Claude Code / Codex / Copilot CLI / Cursor Agent session logs & hooks (Claude Code hooks → local HTTP/IPC). Allow/Deny via terminal keystroke injection or hook response. | P2 |
 | C2 | **Code hosting** | GitHub PRs, GitLab MRs, Bitbucket PRs awaiting review (+ ones you opened); pipelines; Jira issues via JQL with status transitions; provider/repo selection; manual refresh. | Same via REST/GraphQL with PAT/OAuth device flow. | P1 |
 | C3 | **Translation** | LLM translation via OpenAI or Ollama; language pickers, swap, copy, dictation. | Same (+ Azure OpenAI / any OpenAI-compatible endpoint). Dictation via Windows Speech (`Windows.Media.SpeechRecognition`). | P2 |
@@ -65,7 +65,7 @@ module that opens on expand.
 ## D. Notch workflow & system
 
 | # | Module | MacNotch description (condensed) | Muna on Windows | Tier |
-|---|--------|----------------------------------|-----------------|------|
+| --- | -------- | ---------------------------------- | ----------------- | ------ |
 | D1 | **Live Activities** | Strip rotation across media, timers, calendar, Bluetooth, app updates; per-source media filters; brief wider layout on track change; unread-notifications glance; Volume & Brightness HUD; short notices; same on external displays. Expanded view lists activities with Focus/Unfocus pins. | Same. Live activities are a first-class runtime concept (see architecture). HUD replaces the Windows volume/brightness flyout (hide native flyout, hook volume keys, listen to `IAudioEndpointVolume`). Charging / battery-low / Bluetooth-connect notices. | **P0** |
 | D2 | **Drop Actions** | Drop files on the notch to reveal action tiles: Shelf, AirDrop, cloud (iCloud), zip, unzip, image convert, move, copy, open with, Music, trash, eject; *Expand* tile for a second row; ordering/folders/dividers/width in Settings. | Same tile UI. AirDrop → **Nearby Share** (`DataTransferManager`); iCloud → OneDrive / Google Drive / Dropbox folder targets; trash → Recycle Bin (`IFileOperation`); eject → `CM_Request_Device_Eject`. | P1 |
 | D3 | **Shelf** | Carousel stash: drop in, drag out later; select/copy/trash; item count in header; optional Shelf tile. | Same. Native drag-out via OLE `DoDragDrop` from the Rust side. | P1 |
@@ -87,7 +87,7 @@ module that opens on expand.
 ## Features unique to "Notch for Windows" (apple-notch.vercel.app) to keep
 
 | Feature | Notes |
-|---------|-------|
+| --------- | ------- |
 | Album-art colour blending ("magical color effects") | Covered by B2 adaptive gradients — make it a signature Muna moment. |
 | Camera mirror | D8. |
 | Battery indicators | D9. |
@@ -104,8 +104,12 @@ Media · Notifications · Calendar (event) · Tasks · Bluetooth · System HUD �
 
 ## Drop-action tiles (from the MacNotch preview)
 
-Shelf (Store files) · iCloud→**Cloud** (Save to Drive) · AirDrop→**Nearby Share** (Send nearby) · Open with (Smart app) · Expand (Show second row) · Convert (Convert image) · Zip (Compress) · Move to (Move files) · Copy to (Duplicate) · Music (Play in Music) · Trash / Eject (Delete files or eject disks).
+Shelf (Store files) · iCloud→**Cloud** (Save to Drive) · AirDrop→**Nearby Share** (Send
+nearby) · Open with (Smart app) · Expand (Show second row) · Convert (Convert image) · Zip
+(Compress) · Move to (Move files) · Copy to (Duplicate) · Music (Play in Music) · Trash / Eject
+(Delete files or eject disks).
 
 ## Snap zones (from the MacNotch preview)
 
-Top Left · Bottom Left · Left Half · Maximize · Right Half · Top Right · Bottom Right · Thirds (L/C/R) · custom zones. Up to 10 enabled, ≥ 1.
+Top Left · Bottom Left · Left Half · Maximize · Right Half · Top Right · Bottom Right · Thirds
+(L/C/R) · custom zones. Up to 10 enabled, ≥ 1.

@@ -28,8 +28,12 @@ Deliver, in one PR:
    Storybook 8 with a "Foundations/Tokens" story, Vitest + Testing Library setup.
 4. Fake platform: `muna-platform::fake::FakePlatform` implementing every trait with scripted
    events, used by all tests.
-5. CI: make .github/workflows/ci.yml `app` job pass on windows-latest (it is gated on
-   apps/desktop/package.json existing). Cache pnpm + cargo.
+5. CI: the `web`, `rust`, `deps` and `app` jobs in .github/workflows/ci.yml are gated on
+   apps/desktop/package.json existing and will start running on your PR. Provide every root
+   script listed in docs/11-ci-cd.md#root-scripts-the-workflows-call (stubs that exit 0 with a
+   clear message are fine where the feature does not exist yet), plus `deny.toml` with the
+   licence allowlist from that document. Make all required checks green without editing the
+   workflows; if a workflow assumption is wrong, say so in the PR and let the maintainer decide.
 6. `scripts/dev.ps1` that runs `pnpm tauri dev` with WEBVIEW2_DEFAULT_BACKGROUND_COLOR=00000000.
 
 Do not implement features. Do not copy code from AGPL repositories. Finish with `pnpm -w lint
@@ -63,8 +67,9 @@ Finish with a recommendation section and the ADR status updated (validated / ame
 ## M0-E3 · Identity & packaging spike — agent: `muna-release-engineer`
 
 ```text
-Validate ADR-0003. Read docs/adr/0003-packaging-identity.md, docs/10-release-distribution.md
-and docs/04-windows-platform-apis.md (Notifications, Packaging).
+Validate ADR-0003. Read docs/adr/0003-packaging-identity.md, docs/10-release-distribution.md,
+docs/11-ci-cd.md (release rules, secrets table) and docs/04-windows-platform-apis.md
+(Notifications, Packaging).
 
 1. Write scripts/msix/AppxManifest.xml (publisher placeholder, capabilities: runFullTrust,
    unvirtualizedResources, userNotificationListener, globalMediaControl, bluetooth, radios,
@@ -82,7 +87,11 @@ and docs/04-windows-platform-apis.md (Notifications, Packaging).
    pass/fail table in docs/spikes/m0-identity.md. Verify Azure Artifact Signing / SignPath
    eligibility for the project owner and note cost.
 
-Finish with ADR-0003 status updated and .github/workflows/release.yml skeleton (no secrets).
+Finish with ADR-0003 status updated, a dry run of .github/workflows/release.yml (workflow_dispatch,
+dry_run=true) producing unsigned NSIS + MSIX artifacts, and the `msix:build`, `release:*` and
+`sbom` root scripts implemented against the contract in docs/11-ci-cd.md. Do not add secrets;
+write the maintainer a checklist of the environment, secrets, variables and rulesets to create
+(docs/11-ci-cd.md#protection-rules and #secrets-and-environments).
 ```
 
 ## M0-E4 · Design tokens & motion presets — agent: `muna-motion-designer`

@@ -9,6 +9,7 @@ Tauri v2, `windows` crate). Read `docs/03-architecture.md`, `docs/04-windows-pla
 `docs/modules/notch-shell.md`, `docs/modules/hud.md`, and the ADRs before coding.
 
 ## Rules
+
 - All OS access lives in `src-tauri/src/platform/*`; modules consume it through traits so tests
   can use fakes. `unsafe` only here, each block with a `// SAFETY:` comment; check every HRESULT/
   BOOL; convert to `thiserror` errors.
@@ -22,10 +23,12 @@ Tauri v2, `windows` crate). Read `docs/03-architecture.md`, `docs/04-windows-pla
 - Measure: add `tracing` spans; report CPU/RSS in the PR for idle and animating states.
 
 ## Deliverables per task
+
 - Code + unit tests (fake platform) + a short note in the relevant `docs/modules/*.md`
   "Platform" section if behaviour differs from spec.
 - For spikes: a `docs/spikes/<topic>.md` with numbers against the ADR-0001 exit criteria.
 
 ## Commands
+
 `cargo build/test/clippy --manifest-path apps/desktop/src-tauri/Cargo.toml`, `pnpm --filter
 @muna/desktop tauri dev`. Use `cargo clippy --all-targets -- -D warnings` before finishing.

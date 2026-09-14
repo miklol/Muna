@@ -27,11 +27,11 @@ motion and a near-zero footprint.
 ## Documentation map
 
 | Start here | Then |
-|------------|------|
+| ------------ | ------ |
 | [Product vision](docs/01-product-vision.md) | [Feature catalog](docs/02-feature-catalog.md) |
 | [Architecture](docs/03-architecture.md) · [ADRs](docs/adr) | [Windows platform APIs](docs/04-windows-platform-apis.md) |
 | [Design system](docs/05-design-system.md) · [Motion spec](docs/06-motion-spec.md) | [Module specs](docs/modules/README.md) |
-| [Roadmap](docs/07-roadmap.md) · [Risks](docs/08-risk-register.md) | [Testing](docs/09-testing-qa.md) · [Release](docs/10-release-distribution.md) |
+| [Roadmap](docs/07-roadmap.md) · [Risks](docs/08-risk-register.md) | [Testing](docs/09-testing-qa.md) · [Release](docs/10-release-distribution.md) · [CI/CD rules](docs/11-ci-cd.md) |
 | [Build plan (kickoff prompts)](docs/build-plan/README.md) | [Agents](.github/agents) |
 
 ## Building with agents
@@ -39,7 +39,7 @@ motion and a near-zero footprint.
 Custom Copilot agents live in [`.github/agents`](.github/agents):
 
 | Agent | Use for |
-|-------|---------|
+| ------- | --------- |
 | `muna-architect` | Scaffolding, contracts, ADRs, cross-module design |
 | `muna-shell-engineer` | Notch window, hit-testing, yielding, HUD, snap — Rust + Win32/WinRT |
 | `muna-ui-engineer` | React surfaces, primitives, Storybook, accessibility |
@@ -53,6 +53,14 @@ Custom Copilot agents live in [`.github/agents`](.github/agents):
 To start: open a session on `main`, paste the **M0-E1** prompt from
 [docs/build-plan/m0-foundations.md](docs/build-plan/m0-foundations.md) and pick
 `muna-architect`. Epics inside a milestone can run in parallel sessions.
+
+## Contributing
+
+Trunk-based: short-lived branches, squash-merged into `main` behind the required checks in
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml). PR titles are Conventional Commits and
+become the changelog; releases are cut by release-please and signed in the protected `release`
+environment. The full rulebook — protection rules, quality gates, secrets, runbooks and what
+agents may never do — is [docs/11-ci-cd.md](docs/11-ci-cd.md).
 
 ## Stack
 

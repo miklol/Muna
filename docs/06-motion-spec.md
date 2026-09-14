@@ -36,7 +36,7 @@ The Apple columns are exact conversions for reviewers who think in SwiftUI:
 Apple-style shorthand is `{ visualDuration: response / 1.2, bounce: 1 − ζ }`.
 
 | Preset | stiffness / damping / mass | response / ζ | SwiftUI equivalent | Use | Source |
-|--------|---------------------------|--------------|--------------------|-----|--------|
+| -------- | --------------------------- | -------------- | -------------------- | ----- | -------- |
 | `expand` | 224 / 24 / 1 | 0.42 / 0.80 | `.spring(response: .42, dampingFraction: .8)` | Strip → panel, strip → wide form, drop-tile row | boring.notch open |
 | `collapse` | 224 / 30 / 1 | 0.42 / 1.00 | `.smooth(duration: .42)` | Panel → strip, wide → strip, dismiss (same spring as `expand`, critically damped) | boring.notch close (.45/1.0), DynamicNotchKit `.smooth(.4)` |
 | `reveal` | 300 / 28 / 0.8 | 0.32 / 0.90 | `.snappy(duration: .3)` | Hover reveal (+16 w, +4 h), peek ↔ strip | PILLAR `snappy` |
@@ -60,7 +60,7 @@ Tuning happens only in the Storybook "Motion" playground and lands as a change t
 ## Timings (non-spring)
 
 | Event | Value |
-|-------|-------|
+| ------- | ------- |
 | Hover intent before reveal | 250 ms; ignored if cursor velocity > 800 px/s (boring.notch: 300 ms) |
 | Reveal → expand | 600 ms continuous hover, or click/scroll immediately |
 | Hover-out grace | 150 ms from reveal, 300 ms from expanded; 30 px extended hover padding around the shape (boring.notch: 100 ms / 30 px) |
@@ -87,7 +87,6 @@ Every piece of content that appears inside the shell uses the same enter/exit:
 - **Exit**: `opacity → 0`, `scale → 0.96`, **no blur**, 80 ms ease-out — content must be gone
   before the shell clips it. `AnimatePresence mode="popLayout"` so exits don't push layout.
 - Blur is applied only to nodes ≤ 320 × 160 px; larger bodies enter with opacity + scale only.
-
 
 ## Choreography
 
@@ -233,12 +232,12 @@ mode.
 ## References
 
 - Apple Human Interface Guidelines — Live Activities (Dynamic Island behaviour):
-  https://developer.apple.com/design/human-interface-guidelines/live-activities
+  <https://developer.apple.com/design/human-interface-guidelines/live-activities>
 - Apple `Spring` API (`duration`/`bounce`, `smooth`/`snappy`/`bouncy`):
-  https://developer.apple.com/documentation/swiftui/spring
-- Motion transitions (`visualDuration`, `bounce`, `layout`): https://motion.dev/docs/react-transitions
-- Motion layout animations: https://motion.dev/docs/react-layout-animations
-- Motion `spring()` → CSS `linear()` generator: https://motion.dev/docs/spring
+  <https://developer.apple.com/documentation/swiftui/spring>
+- Motion transitions (`visualDuration`, `bounce`, `layout`): <https://motion.dev/docs/react-transitions>
+- Motion layout animations: <https://motion.dev/docs/react-layout-animations>
+- Motion `spring()` → CSS `linear()` generator: <https://motion.dev/docs/spring>
 - Reference implementations whose spring values were measured for the preset table:
   [boring.notch](https://github.com/TheBoredTeam/boring.notch) (open/close/interactive springs,
   hover timings, notch path), [NotchDrop](https://github.com/Lakr233/NotchDrop) (drop

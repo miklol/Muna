@@ -7,7 +7,7 @@ click-through, focus), **it never slows the machine** (budgets), and **it feels 
 ## Test pyramid
 
 | Layer | Tool | Scope | Runs |
-|-------|------|-------|------|
+| ------- | ------ | ------- | ------ |
 | Unit (TS) | Vitest + Testing Library | State machines, schedulers, selectors, formatters, components | Every PR |
 | Unit (Rust) | `cargo test` with `FakePlatform` | Backends: SMTC session scoring, notification parsing, BT battery decoding, settings migrations | Every PR |
 | Contract | tauri-specta snapshot + zod parse tests | TS ↔ Rust types never drift | Every PR |
@@ -42,7 +42,7 @@ Derived from the spec template in [`modules/README.md`](modules/README.md):
 The harness mounts the real shell with `FakePlatform` and asserts state + shape rects:
 
 | # | Scenario | Expected |
-|---|----------|----------|
+| --- | ---------- | ---------- |
 | S1 | Cursor enters strip, waits 250 ms | HoverReveal; shape rects grow |
 | S2 | Cursor crosses strip at 1200 px/s | Stays Collapsed |
 | S3 | Hover 600 ms | Expanded, default module |
@@ -68,12 +68,14 @@ The harness mounts the real shell with `FakePlatform` and asserts state + shape 
    `Tracing` frame events → assert p95 frame ≤ 17 ms (≥ 58 fps).
 5. `Process.WorkingSet64` after collapse → assert ≤ 120 MB.
 6. Cold start to first strip paint (log timestamp diff) → assert ≤ 1.5 s.
-7. Emit `perf.json`; CI comments the trend on the PR; nightly fails on breach.
+7. Emit `perf.json`; CI comments the trend on the PR; nightly fails on breach. Which steps run
+   on PRs (`perf:smoke`) versus nightly (`perf:full`), and the regression rule, are defined in
+   [11-ci-cd.md](11-ci-cd.md#performance-gates).
 
 ## Manual QA matrix (milestone close)
 
 | Dimension | Values |
-|-----------|--------|
+| ----------- | -------- |
 | OS | Win10 22H2, Win11 24H2, Win11 Insider (informational) |
 | Scaling | 100 / 125 / 150 / 200 % |
 | Monitors | 1; 2 mixed DPI; 3 with one portrait; projector duplicate |
