@@ -32,12 +32,12 @@ stateDiagram-v2
   Collapsed --> Peek: yield rule active (title bar under notch / fullscreen / window drag)
   Peek --> Collapsed: rule clears
   Collapsed --> HoverReveal: pointer in strip ≥ 250 ms
-  HoverReveal --> Collapsed: pointer leaves ≥ 300 ms
+  HoverReveal --> Collapsed: pointer leaves shape + 30 px padding ≥ 150 ms
   HoverReveal --> Expanded: pointer stays ≥ 600 ms total | click | hotkey
   Collapsed --> Expanded: click | hotkey | scroll-down gesture
   Expanded --> Pinned: click pin / focus a text field
   Pinned --> Expanded: unpin & blur
-  Expanded --> Collapsed: pointer leaves panel+bar ≥ 800 ms | Esc | click outside | collapse button
+  Expanded --> Collapsed: pointer leaves panel+bar+30 px ≥ 300 ms | Esc | click outside | collapse button
   Collapsed --> Drop: file drag enters hot zone
   Expanded --> Drop: file drag enters panel
   Drop --> Collapsed: drag leaves / drop handled
@@ -49,12 +49,15 @@ stateDiagram-v2
 
 Rules:
 - Hover-intent uses the pointer's **velocity**: fast pass-throughs (> 800 px/s) never trigger
-  HoverReveal.
+  HoverReveal. Reference apps use 300 ms intent (boring.notch) and 100 ms hover-out grace;
+  Muna uses 250 ms / 300 ms with a 30 px extended hover padding around the shape so small
+  pointer excursions don't collapse the panel.
 - Expanded panel is dismissed by `Esc`, clicking outside, or the ⤡ button. `Pinned` (when a
   text field has focus or the user clicks the pin) disables auto-collapse.
 - While `Expanded`, module switching via module bar, right rail, `Ctrl+Tab`/`Ctrl+Shift+Tab`,
-  and per-module hotkeys.
+  and per-module hotkeys. Global toggle hotkey default `Ctrl+Alt+Space`.
 - Muna never steals focus unless the user clicks a text field (`WS_EX_NOACTIVATE` toggled).
+- Hide/park transitions are debounced 500 ms so flapping fullscreen detection never flickers.
 
 ## Placement
 
@@ -65,13 +68,21 @@ Rules:
   `ABM_QUERYPOS`, `ABM_SETPOS` on `ABE_TOP`; released on exit).
 - **Yield rules (Overlay mode)**: foreground window rect (via `DwmGetWindowAttribute
   DWMWA_EXTENDED_FRAME_BOUNDS`) whose top ≤ strip bottom and horizontally overlapping the strip
-  by > 40 % → `Peek`; `SHQueryUserNotificationState` ∈ {BUSY, RUNNING_D3D_FULL_SCREEN,
-  PRESENTATION_MODE} → hide; `EVENT_SYSTEM_MOVESIZESTART` on any window → `Peek` unless the
-  Window-snap module wants the hot zone.
-- **Shapes**: *Notch* (square top corners, bottom radius 14 collapsed / 28 expanded) or *Island*
-  (8 px top margin, all radii continuous).
+  by > 40 % → `Peek`; fullscreen → hide (park), detected by `SHQueryUserNotificationState` ∈
+  {BUSY, RUNNING_D3D_FULL_SCREEN, PRESENTATION_MODE} **or** the PILLAR heuristic: foreground
+  rect covers ≥ 90 % of `rcMonitor` and the window has `WS_POPUP` or lacks `WS_CAPTION`
+  (borderless video/game fullscreen; a maximised browser keeps its caption style and only
+  triggers `Peek`); `EVENT_SYSTEM_MOVESIZESTART` on any window → `Peek` unless the Window-snap
+  module wants the hot zone.
+- **Shapes**: *Notch* (flush to the top edge with 6 px *outward* top fillets — the flare of a
+  real MacBook notch — and bottom radius 14 collapsed / 28 expanded, drawn as one SVG path with
+  animatable radii) or *Island* (6–8 px top offset, all radii continuous; a constant 32 px
+  `border-radius` is clamped to a capsule when collapsed and reads as 32 px corners when
+  expanded, so the radius never needs animating).
 - **Sizes**: strip height 32 (Default) · 26 (Compact) · 38 (Comfortable); strip width auto
-  (min 190). Panel width clamps to `min(1000, monitorWidth − 80)`.
+  (min 190; reference apps use 185–200 × 32). Panel width clamps to `min(1000, monitorWidth −
+  80)`. The window is sized to the maximum expanded bounds **plus 20 px shadow padding on every
+  side and 8 % overshoot allowance** so springs and shadows are never clipped.
 
 ## Rendering & hit-testing
 

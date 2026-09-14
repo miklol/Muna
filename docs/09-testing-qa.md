@@ -46,7 +46,7 @@ The harness mounts the real shell with `FakePlatform` and asserts state + shape 
 | S1 | Cursor enters strip, waits 250 ms | HoverReveal; shape rects grow |
 | S2 | Cursor crosses strip at 1200 px/s | Stays Collapsed |
 | S3 | Hover 600 ms | Expanded, default module |
-| S4 | Click outside | Collapsed within 800 ms |
+| S4 | Click outside | Collapsed immediately (shape settles within 600 ms) |
 | S5 | Foreground window caption overlaps strip (Overlay mode) | Peek (6 px) |
 | S6 | Fullscreen state reported | Parked; renderer paused |
 | S7 | Move/size start → end | Peek during drag, restored after |

@@ -95,12 +95,17 @@ Deliver in packages/ui:
 1. `tokens.css`: every CSS custom property from the design system (colour, alpha surfaces,
    type scale, radii, spacing, shadows, materials) with `@media (prefers-color-scheme)` and
    `[data-contrast=more]` variants; Tailwind v4 `@theme` mapping.
-2. `motion/presets.ts`: spring presets (and their duration fallbacks for reduced motion)
-   exported as Motion `Transition` objects; `useMotionPreset(name)` honouring the app's
-   reduced-motion setting; `MotionConfig` wrapper.
-3. Primitives: `NotchSurface` (black-glass material, continuous corners via CSS
-   `corner-shape: superellipse()` with a mask-image fallback), `Hairline`, `IconButton`
-   (28 px), `Chip`, `ProgressTrack`, `Text` (type-scale variants), `Ring`.
+2. `motion/presets.ts`: spring presets as **physics springs** (`stiffness / damping / mass`
+   exactly as tabled in the motion spec, plus derived `response`/`dampingFraction` helpers
+   and a `toLinearEasing()` export for pure-CSS hovers) exported as Motion `Transition`
+   objects; `useMotionPreset(name)` honouring the app's reduced-motion setting;
+   `MotionConfig` wrapper. Never emit `{ duration, bounce }` for shell presets — they must
+   inherit velocity when interrupted.
+3. Primitives: `NotchSurface` (black material; continuous corners via
+   `CSS.supports("corner-shape","squircle")` → `corner-shape: squircle`, else figma-squircle
+   `clip-path: path()` at smoothing 0.6, swapped in only at rest; `shape="notch" | "island"`
+   where notch renders the flared-fillet SVG path), `Hairline`, `IconButton` (28 px), `Chip`,
+   `ProgressTrack`, `Text` (type-scale variants), `Ring`.
 4. Storybook "Foundations" pages: Colour, Type, Radii, Materials, Motion (interactive spring
    playground comparing presets side by side), Reduced motion.
 5. Vitest snapshot of the token list so unintended token changes fail CI.

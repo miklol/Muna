@@ -52,7 +52,7 @@ footprint of a tray utility.
    visualiser. Battery hits 20 % → amber notice pill for 4 s.
 2. **Peek** — Cursor rests on the strip 250 ms → hover-reveal transport; click ⏭.
 3. **Open** — Cursor rests 600 ms or click → panel springs open to the default module; module
-   bar appears; switch modules via bar/rail/hotkey; move away → auto-collapse after 800 ms.
+   bar appears; switch modules via bar/rail/hotkey; move away → auto-collapse after 300 ms.
 4. **Drop** — Drag files toward the strip → panel morphs into Drop Actions; drop on *Shelf* →
    files stashed; later drag them out into an email.
 5. **Snap** — Drag a window toward the top → Snap zone tiles; release on *Left half*.
@@ -63,10 +63,10 @@ footprint of a tray utility.
 
 | Problem | Decision |
 |---------|----------|
-| Windows has no menu bar; title bars & browser tabs sit exactly under the notch. | Two placement modes. **Overlay (default):** strip is 32 px tall, click-through except on its own pixels, and *auto-yields* (fades to a 6 px "peek" line) when the foreground window's caption/tab area intersects it, when a fullscreen/borderless-fullscreen app is active, or while the user drags a window across it. **Reserved strip:** Muna registers as a top AppBar so maximised windows start below it — the macOS menu-bar experience, at the cost of 32 px of screen. Per-monitor choice. |
-| No physical notch anywhere. | Always draw the notch; offer **Notch** (flush, square top corners) and **Island** (floating pill with 8 px top margin, all corners rounded) shapes. |
+| Windows has no menu bar; title bars & browser tabs sit exactly under the notch. | Two placement modes. **Overlay (default):** strip is 32 px tall, click-through except on its own pixels, and *auto-yields* (fades to a 6 px "peek" line) when the foreground window's caption/tab area intersects it, when a fullscreen/borderless-fullscreen app is active, or while the user drags a window across it. **Reserved strip:** Muna registers as a top AppBar so maximised windows start below it — the macOS menu-bar experience, at the cost of 32 px of screen. Per-monitor choice. Design research recommends the floating Island (with a small top offset) as the least intrusive default on Windows; Muna keeps the **Notch shape as the default identity** because auto-yield removes the tab-strip conflict, and onboarding presents Island as an equal, one-click alternative (recommended for browser-heavy users). |
+| No physical notch anywhere. | Always draw the notch; offer **Notch** (flush, with the flared outward top fillets of a real MacBook notch) and **Island** (floating pill with a user-adjustable 6–8 px top offset, all corners rounded) shapes. |
 | Windows volume/brightness flyouts. | Hide the native OSD host window and render Muna's HUD; restore on exit/crash via a watchdog. |
-| Notification listener needs package identity. | Ship MSIX (signed) as the primary installer so identity exists; NSIS build for portable users hides the Notifications module with an explanatory Settings note. |
+| Notification listener needs package identity. | Ship MSIX (signed) as the primary installer so identity exists; the NSIS build registers an external-location identity and otherwise falls back to 1 s polling (see ADR-0003). |
 | Exclusive-fullscreen games. | Cannot be overlaid; detect and suspend rendering (also protects perf). |
 
 ## Performance & quality budgets (enforced in CI where possible)

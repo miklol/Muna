@@ -43,7 +43,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | Reserved-strip mode | `SHAppBarMessage(ABM_NEW / ABM_QUERYPOS / ABM_SETPOS, ABE_TOP)` | Per monitor. Shrinks `rcWork`; maximized windows respect it |
 | Foreground / move-size | `SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MOVESIZESTART/END, EVENT_SYSTEM_MINIMIZESTART)` out-of-context | Drives yield rules in [notch-shell](modules/notch-shell.md) |
 | Caption overlap check | `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` on foreground HWND | Compare against strip rect |
-| Fullscreen detection 🔁 | `SHQueryUserNotificationState` → `QUNS_RUNNING_D3D_FULL_SCREEN`, `QUNS_BUSY`, `QUNS_PRESENTATION_MODE`; cross-check foreground rect == `rcMonitor` | Poll 500 ms while any window is foreground on that monitor. Exclusive-fullscreen games cannot be overlaid by anyone — document it |
+| Fullscreen detection 🔁 | `SHQueryUserNotificationState` → `QUNS_RUNNING_D3D_FULL_SCREEN`, `QUNS_BUSY`, `QUNS_PRESENTATION_MODE`; **or** PILLAR heuristic on the foreground HWND: `GetWindowRect` covers ≥ 90 % of `rcMonitor` **and** (`GetWindowLongPtr(GWL_STYLE)` has `WS_POPUP` or lacks `WS_CAPTION`) — catches borderless video/game fullscreen while a maximised browser (which keeps `WS_CAPTION`) only triggers *Peek* | Poll 500 ms while any window is foreground on that monitor; debounce park/unpark 500 ms. Exclusive-fullscreen games cannot be overlaid by anyone — document it |
 | Cursor sampling | `GetCursorPos` 60 Hz inside window bounds, 10 Hz outside | Do **not** use `WH_MOUSE_LL` (hook removed silently if callback exceeds `LowLevelHooksTimeout`) |
 | Hide from capture | `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` (Win10 2004+) | Setting toggle; per top-level window |
 | Session events | `WTSRegisterSessionNotification` (`WM_WTSSESSION_CHANGE` lock/unlock), `WM_POWERBROADCAST` | Lock live activity, suspend polling while locked |
@@ -180,7 +180,14 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | [ModernFlyouts-Community/ModernFlyouts](https://github.com/ModernFlyouts-Community/ModernFlyouts) | `NativeFlyoutHandler.cs` OSD suppression, z-band handling |
 | [File-New-Project/EarTrumpet](https://github.com/File-New-Project/EarTrumpet) | Production Core Audio + `IPolicyConfig`, MSIX/Store |
 | [FlorianButz/DynamicWin](https://github.com/FlorianButz/DynamicWin) | UX reference (binaries only) |
-| [Lakr233/NotchDrop](https://github.com/Lakr233/NotchDrop) | macOS shelf interaction design |
+| [warpirate/pillar-dynamic-island-for-windows](https://github.com/warpirate/pillar-dynamic-island-for-windows) | Windows island: fullscreen heuristic (≥ 90 % rect + `WS_POPUP`/no `WS_CAPTION`), spring presets, slide-away park |
+| [devcode90/Dynamic-Island-for-Windows](https://github.com/devcode90/Dynamic-Island-for-Windows) | Windows pill proportions and top-offset placement |
+| [TheBoredTeam/boring.notch](https://github.com/TheBoredTeam/boring.notch) (macOS) | Notch SVG path with outward top fillets, open/close/interactive springs, hover intent & grace timings, sneak-peek |
+| [Lakr233/NotchDrop](https://github.com/Lakr233/NotchDrop) (macOS) | Shelf interaction design, drop animation |
+| [MrKai77/DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) (macOS) | Content blur/scale enter transition, `.smooth` collapse |
+| [arihantcodes/spectrum-ui](https://github.com/arihantcodes/spectrum-ui) | React + Motion Dynamic Island component (size-morph + `AnimatePresence` pattern) |
+| [UselessToys/Ecosystem_WebUI](https://github.com/UselessToys/Ecosystem_WebUI) | Web island toast spring physics (measured for `notice`/`content` presets) |
+| [phamfoo/figma-squircle](https://github.com/phamfoo/figma-squircle) | `clip-path` squircle fallback algorithm |
 | [cembaylam/peripheral-battery](https://github.com/cembaylam/peripheral-battery) | BT battery DEVPKEY reader |
 | [crabnebula-dev/drag-rs](https://github.com/crabnebula-dev/drag-rs) | Out-of-app file drag |
 | [UnlimitedStack/HideVolumeOSD](https://github.com/UnlimitedStack/HideVolumeOSD) | Minimal OSD hide |

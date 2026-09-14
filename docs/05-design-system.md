@@ -69,19 +69,34 @@ Light-theme Settings window: neutrals invert (`--bg #F5F5F7`, `--surface-1 rgb(0
 light-appearance variants (`#007AFF`, `#34C759`, `#FF9500`, `#FF3B30`, `#AF52DE`, `#32ADE6`).
 
 Contrast: `--text-2` on `--panel-bottom` ≈ 7.5:1, `--text-3` ≈ 4.6:1 — both pass AA for body
-text; `--text-3` is never used below 12 px.
+text; `--text-3` is never used below 12 px. Under `prefers-contrast: more` (Windows "Contrast
+themes" / high-contrast) the tokens shift: `--hairline` → 0.24, `--text-2` → 0.72, `--text-3` →
+0.56, and the strip gains a 1 px `--hairline` outline so the black shape stays visible on dark
+wallpapers.
 
 ### Materials
 
 | Material | Recipe |
 |----------|--------|
 | **Strip** | `background: var(--notch-black)`; no border; bottom corners only |
-| **Panel** | `background: linear-gradient(180deg, var(--panel-top), var(--panel-bottom))`; `box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06)` (top catch-light); 1 px `--hairline` border except the top edge; outer shadow `0 18px 48px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.35)` painted by us (Tauri `shadow:false`) |
+| **Panel** | `background: linear-gradient(180deg, var(--panel-top), var(--panel-bottom))`; `box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06)` (top catch-light); 1 px `--hairline` border except the top edge; outer shadow is the layered `--shadow-panel` (below), painted by us (Tauri `shadow:false`) inside a 20 px transparent window margin |
 | **Island** (floating shape) | Panel material plus all four corners; 1 px hairline all round |
 | **Module bar** | `--surface-2` on `--notch-black`, radius 20, hairline |
-| **Card** | `--surface-1`, radius 16, no border; hover → `--surface-2` |
-| **Popover** (device picker, menus) | `#141416` at 96 %, radius 14, hairline, shadow `0 12px 32px rgb(0 0 0 / .5)` |
+| **Card** | `--surface-1`, radius 12, no border; hover → `--surface-2` |
+| **Popover** (device picker, menus) | `#141416` at 96 %, radius 14, hairline, `--shadow-popover` |
 | **Scrim** | `--scrim`, no blur |
+
+Shadows (only three exist):
+
+| Token | Value |
+|-------|-------|
+| `--shadow-panel` | `0 1px 2px rgb(0 0 0 / .35), 0 6px 16px rgb(0 0 0 / .35), 0 20px 40px rgb(0 0 0 / .30)` — three layers read as one soft contact shadow plus ambient depth |
+| `--shadow-popover` | `0 1px 2px rgb(0 0 0 / .35), 0 12px 32px rgb(0 0 0 / .50)` |
+| `--shadow-drag` | `0 8px 24px rgb(0 0 0 / .45)` (drag previews only) |
+
+Cards, chips and rows have no shadow. Because the notch window is transparent, the window
+rect includes a **20 px shadow padding** on every side so `--shadow-panel` (and spring
+overshoot) is never clipped by the window edge.
 
 No `backdrop-filter` on the notch (it cannot blur other apps under a transparent window;
 see [ADR-0001](adr/0001-tech-stack.md)). Inside the panel, `backdrop-filter: blur(20px)` is
@@ -89,24 +104,44 @@ allowed only on popovers over panel content (small area).
 
 ### Shape
 
-Continuous ("squircle") corners everywhere the silhouette is visible.
+Continuous ("squircle") corners everywhere the silhouette is visible, and **concentric
+corners** everywhere one rounded shape sits inside another: `inner radius = outer radius −
+margin`, clamped to a minimum of 8. This is why the tokens below are not arbitrary — panel 28
+with 16 px padding gives cards 12; a 12 px card with 12 px padding gives controls the 8 px
+floor.
 
 | Token | px | Where |
 |-------|----|-------|
-| `--radius-strip` | 14 | Strip bottom corners; the top corners are square (flush with screen edge) |
-| `--radius-panel` | 28 | Expanded panel bottom corners; Island all corners |
-| `--radius-bar` | 20 | Module bar pill |
-| `--radius-card` | 16 | Cards, widgets |
-| `--radius-popover` | 14 | Popovers, menus |
-| `--radius-control` | 12 | Chips, segmented controls, inputs |
-| `--radius-tile` | 18 | Drop-action tiles |
+| `--radius-strip` | 14 | Strip bottom corners (Notch shape); the top edge is flush with the screen and flares outward (below) |
+| `--radius-panel` | 28 | Expanded panel bottom corners |
+| `--radius-island` | 32 | Island shape, all corners, **constant** in every state — 32 clamps to a full capsule on the 36 px collapsed pill and reads as a 32 px corner when expanded, so the radius never animates |
+| `--radius-bar` | 20 | Module bar pill (active pill inside it: 16) |
+| `--radius-card` | 12 | Cards, widgets, list groups (= panel 28 − padding 16) |
+| `--radius-tile` | 12 | Drop-action tiles (same maths inside the wide strip) |
+| `--radius-popover` | 14 | Popovers, menus (menu items inside: 10) |
+| `--radius-control` | 8 | Chips, segmented controls, inputs, buttons inside cards |
 | `--radius-thumb` | 999 | Circles: icon buttons, avatars, rings |
 
-Implementation: `corner-shape: superellipse(1.6)` with `border-radius` (Chromium ≥ 139, so
-WebView2 Evergreen has it); fallback for older runtimes is a generated squircle
-`clip-path: path()` from `packages/ui/src/shape/squircle.ts` (Figma-style corner smoothing
-0.6). The notch outer silhouette must use the same function in the Rust-side shape rects
-(hit-testing) — export the path points from the same TS module via specta.
+Apple reference (HIG Live Activities): the Dynamic Island uses a 44 pt radius on a 250 × 36.67
+compact / 408 × 84–160 expanded island; Muna's 32 px on a 36 px pill is the same
+"fully-rounded when compact, visibly rounded when expanded" idea at Windows UI scale.
+
+**Notch flare.** A real MacBook notch does not have square top corners: the top edge curves
+*outward* into the bezel. Notch shape is therefore drawn as a single SVG `<path>` with four
+radii (top-outer fillets 6 px collapsed → 19 px expanded; bottom corners 14 → 28 — the
+proportions boring.notch uses), animated via `motion.path` on the same spring as the size.
+Island shape uses plain `border-radius`.
+
+Implementation of continuous corners: feature-detect
+`CSS.supports("corner-shape", "squircle")` (Chromium 139+ behind a flag at research time; the
+Evergreen WebView2 will pick it up) and use `corner-shape: squircle` with `border-radius`;
+otherwise generate a Figma-style smoothed path (`corner-smoothing: 0.6`) with the
+figma-squircle algorithm in `packages/ui/src/shape/squircle.ts` and apply it as
+`clip-path: path()`. **Never regenerate the squircle path per animation frame** — morphs run
+with plain `border-radius` and the smoothed mask is swapped in at rest (see
+[motion spec](06-motion-spec.md#strip--panel-expand)). The notch outer silhouette must use
+the same function in the Rust-side hit-test rects — export the path points from the same TS
+module via specta.
 
 ### Spacing & sizing
 
@@ -114,16 +149,17 @@ WebView2 Evergreen has it); fallback for older runtimes is a generated squircle
 
 | Element | Size |
 |---------|------|
-| Strip | height 32 (user 28–36), width 200 default (presets 180/200/240/280), two 20 px slots inset 10 px from each edge |
+| Strip | height 32 (user 28–36), width 200 default (presets 180/200/240/280; reference apps 185–200), two 20 px slots inset 10 px from each edge |
+| Island (collapsed) | 120 × 36 pill, 6–8 px top offset; hover reveal 160 × 40; expanded ≤ 380 × 340 |
 | Peek | 6 px tall, same width |
 | Wide strip | up to 420 wide during wide form |
 | Panel | width `clamp(720, monitor − 80, 1000)`; height by content, min 190, max 360 |
-| Panel padding | 20 horizontal, 16 vertical; header 44 tall |
+| Panel padding | 16 all round (keeps card corners concentric); header 44 tall |
 | Module bar | 640 × 40, 12 px gap below panel; icons 20, gap 8, active pill 32 × 32 |
 | Icon button | 28 circle, icon 16; large 36 circle, icon 20 |
 | Chip | height 24, padding 0 10, icon 12, text 12/600 |
 | List row | height 44; leading icon 20; trailing value `--text-2` |
-| Card | padding 16; header 13/600; body 12 |
+| Card | padding 12; header 13/600; body 12 |
 | Progress track | height 4, radius 2; thumb 12 on hover |
 | Slider (HUD) | track 96 × 6, radius 3 |
 | Ring | stroke 8 (S: 6), gap between rings 4 |
@@ -132,28 +168,37 @@ WebView2 Evergreen has it); fallback for older runtimes is a generated squircle
 | Drop tile | 112 × 88, icon 24, label 12 |
 | Tooltip | height 24, padding 0 8, `#000 / .9`, radius 8, 11/500 |
 | Min hit area | 28 × 28 visual; 36 × 36 effective via padding; 44 on touch |
+| Window rect | maximum expanded bounds + 20 px shadow padding per side + ~8 % overshoot headroom |
 
 ### Typography
 
 Font stack: `"Inter Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif`.
-Inter Variable is bundled (`font-display: block`, subset Latin + Latin-ext + Cyrillic; other
-scripts fall to Segoe/Noto). Features: `font-feature-settings: "cv11", "ss03", "calt"`;
-`font-variant-numeric: tabular-nums` on any number that changes (timers, percentages,
-counters). `-webkit-font-smoothing: antialiased` is *not* applied (Windows ClearType).
+SF Pro is **not** an option (Apple's licence limits it to Apple platforms); Inter is the
+closest open alternative and is bundled (`font-display: block`, subset Latin + Latin-ext +
+Cyrillic; other scripts fall to Segoe/Noto). Geist (also OFL) is the sanctioned alternative if
+the team prefers its tighter rhythm — swap the bundle, not the tokens. Features:
+`font-feature-settings: "cv11", "ss01", "calt"` (single-storey *a*, open digits — the two
+Inter options that read most like SF); `font-variant-numeric: tabular-nums` on any number that
+changes (timers, percentages, counters). `-webkit-font-smoothing: antialiased` is *not*
+applied (Windows ClearType). When Inter fails to load, Segoe UI Variable's optical sizes
+(Small/Text/Display) are chosen by the browser automatically; metrics are close enough that
+layouts hold.
 
 | Token | Size / line | Weight | Tracking | Use |
 |-------|-------------|--------|----------|-----|
 | `--text-caption2` | 10 / 12 | 500 | +0.01em | Ring labels, tiny units |
-| `--text-caption` | 11 / 14 | 500 | 0 | Timestamps, chip meta |
+| `--text-caption` | 11 / 13 | 500 | 0 | Timestamps, chip meta |
 | `--text-footnote` | 12 / 16 | 400 / 600 | 0 | Card body, list secondary |
 | `--text-body` | 13 / 18 | 400 / 600 | 0 | Default UI text, list primary, settings |
 | `--text-callout` | 15 / 20 | 600 | −0.005em | Panel titles, card values |
-| `--text-title3` | 17 / 22 | 600 / 700 | −0.01em | Module headers, big values |
-| `--text-title2` | 22 / 28 | 700 | −0.015em | Dashboard totals |
-| `--text-display` | 34 / 40 | 700 | −0.02em | HUD percentage, Pomodoro countdown, clock |
+| `--text-title3` | 17 / 22 | 600 | −0.01em | Module headers, big values |
+| `--text-title2` | 22 / 28 | 600 | −0.015em | Dashboard totals |
+| `--text-title1` | 28 / 34 | 600 | −0.02em | Clock in expanded panel |
+| `--text-display` | 34 / 40 | 700 | −0.02em | HUD percentage, Pomodoro countdown |
 
-Rules: max two weights per surface; secondary text is `--text-2`, never a smaller size at
-full white; truncate with ellipsis at one line for names, two lines for bodies
+Rules: max two weights per surface; **prefer 600 over 700** (Inter Bold looks heavy at UI
+sizes; 700 is reserved for `--text-display`); secondary text is `--text-2`, never a smaller
+size at full white; truncate with ellipsis at one line for names, two lines for bodies
 (`text-wrap: pretty`, `-webkit-line-clamp: 2`); sentence case everywhere; no all-caps labels
 except 10 px ring labels (`letter-spacing: .06em`).
 
@@ -167,8 +212,8 @@ a single cyan dot — `packages/ui/assets/mark.svg`.
 
 ### Elevation & focus
 
-- Only three shadows exist: panel/island (above), popover, and drag preview
-  (`0 8px 24px rgb(0 0 0 / .45)`). Cards have none.
+- Only the three shadow tokens above exist (`--shadow-panel`, `--shadow-popover`,
+  `--shadow-drag`). Cards have none.
 - Focus ring: `outline: 2px solid var(--accent); outline-offset: 2px; border-radius: inherit`,
   shown for keyboard focus (`:focus-visible`) only.
 - Pressed state: scale 0.96 + `--surface-3` (see motion spec); hover: tint only, no lift.
@@ -204,9 +249,17 @@ LongContent / RTL / ReducedMotion, and a Vitest render test.
 ## Accessibility
 
 Contrast ≥ 4.5:1 for text, 3:1 for icons/controls; names on every icon button; focus order
-follows layout; Esc always collapses/closes; `[data-contrast=more]` raises `--text-2` to 0.78
-and `--hairline` to 0.3 and removes tints; reduced motion per the [motion spec](06-motion-spec.md);
-no information conveyed by colour alone (rings carry labels; status has icon + text).
+follows layout; Esc always collapses/closes; `prefers-contrast: more` **or** the app's
+`[data-contrast=more]` applies the values in the Colour section (`--hairline` 0.24, `--text-2`
+0.72, `--text-3` 0.56, strip outline) and removes media tints; reduced motion per the
+[motion spec](06-motion-spec.md); no information conveyed by colour alone (rings carry labels;
+status has icon + text).
+
+Screen readers: the collapsed strip and live activities are one `role="status"` region with
+`aria-live="polite"` so a track change or "AirPods connected" is announced without stealing
+focus; HUD value changes are announced at most once per second (`aria-atomic`, throttled);
+the expanded panel is `role="dialog" aria-modal="false"` labelled by the module title; the
+module bar is `role="tablist"`. Nothing inside the notch ever traps focus.
 
 ## Writing
 
@@ -218,4 +271,25 @@ space ("64 %", "2 h 15 min"); times in the user's Windows locale via `Intl`.
 
 Gradient text · glows/neon borders · glassmorphism blur on the strip · drop shadows on cards ·
 emoji in UI · linear/ease-in-out easings on shape changes · mixed icon sets · uppercase labels ·
-tinted text on media surfaces · anything that animates while the notch is collapsed and idle.
+tinted text on media surfaces · anything that animates while the notch is collapsed and idle ·
+non-concentric nested corners · squircle paths regenerated per frame.
+
+## References
+
+- Apple Human Interface Guidelines — Live Activities (Dynamic Island sizes and 44 pt radius):
+  https://developer.apple.com/design/human-interface-guidelines/live-activities
+- Apple Human Interface Guidelines — Typography, Color, Materials:
+  https://developer.apple.com/design/human-interface-guidelines
+- Figma — "Desperately seeking squircles" (corner smoothing model):
+  https://www.figma.com/blog/desperately-seeking-squircles/
+- figma-squircle (`clip-path` fallback algorithm): https://github.com/phamfoo/figma-squircle
+- CSS `corner-shape` (CSS Borders Level 4): https://drafts.csswg.org/css-borders-4/#corner-shaping
+- Inter (features `cv11`, `ss01`): https://rsms.me/inter/ · Geist: https://vercel.com/font
+- Lucide icons: https://lucide.dev · Simple Icons: https://simpleicons.org
+- Reference notch/island implementations studied for proportions:
+  [boring.notch](https://github.com/TheBoredTeam/boring.notch) (notch path radii),
+  [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit),
+  [PILLAR](https://github.com/warpirate/pillar-dynamic-island-for-windows) and
+  [Dynamic-Island-for-Windows](https://github.com/devcode90/Dynamic-Island-for-Windows)
+  (Windows pill sizes), [spectrum-ui](https://github.com/arihantcodes/spectrum-ui) (React
+  Dynamic Island component).
