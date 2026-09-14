@@ -1,0 +1,58 @@
+# Rules: docs/11-ci-cd.md#dependencies-and-supply-chain
+# Weekly, Monday 06:00 UTC; minor+patch grouped per ecosystem, majors as separate PRs.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    commit-message:
+      prefix: ci
+      include: scope
+    labels: [dependencies, ci]
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    commit-message:
+      prefix: build
+      prefix-development: chore
+      include: scope
+    labels: [dependencies, npm]
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Pinned deliberately; bump by hand together with the Tauri upgrade guide.
+      - dependency-name: "@tauri-apps/*"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: cargo
+    directory: /apps/desktop/src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    commit-message:
+      prefix: build
+      include: scope
+    labels: [dependencies, cargo]
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: tauri*
+        update-types: [version-update:semver-major]
+      - dependency-name: windows*
+        update-types: [version-update:semver-major]

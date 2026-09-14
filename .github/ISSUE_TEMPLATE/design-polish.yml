@@ -1,0 +1,21 @@
+name: Design polish
+description: A fidelity, motion or copy issue against the design system
+title: "[polish] <what feels off>"
+labels: ["fidelity"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What feels off
+      description: Screenshot/recording of Muna and, if relevant, the MacNotch reference from docs/reference.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: ["silhouette / radii", "material / colour", "type / spacing", "motion / timing", "copy", "accessibility"]
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed fix (token / preset / component)

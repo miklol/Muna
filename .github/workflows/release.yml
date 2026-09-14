@@ -1,0 +1,214 @@
+# Tag → signed installers → GitHub Release. Steps mirror docs/10-release-distribution.md#releaseyml-steps;
+# rules (environments, dry runs, rollback, what may never be skipped) are in docs/11-ci-cd.md#release-rules.
+# Only `muna-release-engineer` (or a human) may edit this file.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build unsigned artifacts only; never publishes or touches the release environment
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 22
+  CARGO_TERM_COLOR: always
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      dry_run: ${{ steps.meta.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: meta
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          test -f apps/desktop/package.json || { echo "::error::apps/desktop does not exist yet (milestone M0)"; exit 1; }
+          dry_run=true
+          if [ "$REF_TYPE" = "tag" ] && [ "$DRY_RUN_INPUT" != "true" ]; then dry_run=false; fi
+          tag="$REF_NAME"
+          if [ "$REF_TYPE" = "tag" ]; then
+            [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]] || { echo "::error::tag '$tag' is not vX.Y.Z or vX.Y.Z-beta.N"; exit 1; }
+            version="${tag#v}"
+            pkg=$(node -p "require('./apps/desktop/package.json').version")
+            [ "$pkg" = "$version" ] || { echo "::error::package.json version $pkg != tag $version (run scripts/version.ts)"; exit 1; }
+            # Releases build only from commits already on main.
+            git fetch --quiet origin main
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::tag commit is not on main"; exit 1; }
+          else
+            version="$(node -p "require('./apps/desktop/package.json').version")-dry.${GITHUB_SHA::7}"
+            tag="dry-run"
+          fi
+          prerelease=false; [[ "$version" == *-* ]] && prerelease=true
+          {
+            echo "version=$version"; echo "tag=$tag"; echo "prerelease=$prerelease"; echo "dry_run=$dry_run"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: preflight
+    runs-on: windows-latest
+    timeout-minutes: 60
+    # Real releases run inside the protected `release` environment (required reviewer, OIDC to
+    # Azure Artifact Signing, minisign key). Dry runs use an unprotected environment with no secrets.
+    environment: ${{ needs.preflight.outputs.dry_run == 'true' && 'release-dry-run' || 'release' }}
+    permissions:
+      contents: read
+      id-token: write # OIDC for Azure login + build provenance
+      attestations: write
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+      TAG: ${{ needs.preflight.outputs.tag }}
+      DRY_RUN: ${{ needs.preflight.outputs.dry_run }}
+      MUNA_CHANNEL: ${{ needs.preflight.outputs.prerelease == 'true' && 'beta' || 'stable' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable, 2026-09
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop/src-tauri
+          shared-key: release
+      - run: pnpm install --frozen-lockfile
+
+      # 1. Binary first, so it can be Authenticode-signed before it is packaged.
+      - name: Build binary
+        run: pnpm --filter @muna/desktop tauri build --no-bundle
+
+      - name: Azure login (OIDC)
+        if: env.DRY_RUN != 'true'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Sign muna.exe
+        if: env.DRY_RUN != 'true'
+        uses: azure/trusted-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.AZURE_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\apps\desktop\src-tauri\target\release\muna.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      # 2–3. Installers: NSIS via Tauri, MSIX via MakeAppx.
+      - name: Bundle NSIS installer
+        run: pnpm --filter @muna/desktop tauri bundle --bundles nsis
+      - name: Build MSIX
+        run: pnpm -w msix:build -- --version "$env:VERSION" --out dist/release
+      - name: Collect installers
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/release | Out-Null
+          Copy-Item apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe dist/release/
+          Get-ChildItem dist/release
+
+      # 4. Sign installers (Authenticode), then 5. minisign the NSIS installer for the updater.
+      - name: Sign installers
+        if: env.DRY_RUN != 'true'
+        uses: azure/trusted-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.AZURE_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\dist\release
+          files-folder-filter: exe,msix
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Updater signature + latest.json
+        if: env.DRY_RUN != 'true'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm -w release:updater -- --version "$env:VERSION" --tag "$env:TAG" --dir dist/release
+
+      # 6. App Installer feed.
+      - name: Generate Muna.appinstaller
+        run: pnpm -w release:appinstaller -- --version "$env:VERSION" --tag "$env:TAG" --dir dist/release
+
+      # Supply chain: SBOMs and build provenance for everything we publish.
+      - name: SBOM (CycloneDX)
+        run: pnpm -w sbom -- --out dist/release
+      - name: Verify signatures
+        if: env.DRY_RUN != 'true'
+        run: pnpm -w release:verify -- --dir dist/release
+      - uses: actions/attest-build-provenance@v4
+        if: env.DRY_RUN != 'true'
+        with:
+          subject-path: |
+            dist/release/*.exe
+            dist/release/*.msix
+            dist/release/latest.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ env.VERSION }}
+          path: dist/release
+          retention-days: ${{ env.DRY_RUN == 'true' && 7 || 90 }}
+          if-no-files-found: error
+
+  publish:
+    needs: [preflight, build]
+    if: needs.preflight.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # create/upload the GitHub Release
+      actions: write # trigger the site deploy
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.preflight.outputs.tag }}
+      VERSION: ${{ needs.preflight.outputs.version }}
+      PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-${{ env.VERSION }}
+          path: dist/release
+      - name: Create or update the GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          flags=(); [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
+          # release-please usually created the release already; a manual tag gets one generated here.
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --generate-notes --verify-tag "${flags[@]}"
+          gh release upload "$TAG" dist/release/* --clobber
+          gh release edit "$TAG" --draft=false "${flags[@]}"
+      - name: Trigger site deploy
+        if: hashFiles('.github/workflows/site.yml') != ''
+        run: gh workflow run site.yml -f version="$VERSION"

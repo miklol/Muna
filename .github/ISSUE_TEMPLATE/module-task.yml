@@ -1,0 +1,44 @@
+name: Module task
+description: Implement or extend a Muna module against its spec
+title: "[module] <id>: <task>"
+labels: ["module"]
+body:
+  - type: input
+    id: module
+    attributes:
+      label: Module id
+      description: Folder name under docs/modules (e.g. media, calendar)
+    validations:
+      required: true
+  - type: dropdown
+    id: tier
+    attributes:
+      label: Tier
+      options: ["P0", "P1", "P2", "P3"]
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Which surfaces (strip / panel / widget / settings / backend) and which acceptance criteria from the spec.
+    validations:
+      required: true
+  - type: textarea
+    id: platform
+    attributes:
+      label: Windows APIs & permissions
+      description: From docs/04-windows-platform-apis.md — list APIs, identity requirements, feature flags.
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      value: |
+        - [ ] Backend + fake-platform tests
+        - [ ] Frontend + Storybook stories per state + Vitest
+        - [ ] Settings schema + defaults (+ migration)
+        - [ ] i18n keys
+        - [ ] Acceptance criteria verified (recording attached)
+        - [ ] Perf budget checked (idle CPU, RSS, fps)
+        - [ ] Design review passed
+        - [ ] Spec status updated

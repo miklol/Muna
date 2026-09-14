@@ -1,0 +1,187 @@
+# Slow, flaky-by-nature and platform-only checks that must not block PRs. Rules: docs/11-ci-cd.md.
+# Failures open/refresh a `ci:nightly` issue instead of paging anyone.
+
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # 03:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 22
+  CARGO_TERM_COLOR: always
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - id: filter
+        shell: bash
+        run: |
+          if [ -f apps/desktop/package.json ]; then echo "app=true"; else echo "app=false"; fi >> "$GITHUB_OUTPUT"
+
+  # External URLs in docs. Network-dependent → nightly only, never a required check.
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --no-progress --cache --max-cache-age 1d
+            --accept 200..=299,403,429
+            --exclude-path node_modules --exclude-path CHANGELOG.md
+            './**/*.md'
+          fail: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Full performance harness against the budgets in docs/09-testing-qa.md.
+  perf:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable, 2026-09
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop/src-tauri
+          shared-key: desktop
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @muna/desktop tauri build --debug --no-bundle
+      - name: Perf harness (full)
+        run: pnpm -w perf:full -- --out perf-nightly.json --markdown perf-nightly.md
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-nightly
+          path: |
+            perf-nightly.json
+            perf-nightly.md
+          retention-days: 90
+
+  # Tests that need real Windows APIs (SMTC, WinRT capture, Toast, DPI) — see docs/09-testing-qa.md.
+  platform:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable, 2026-09
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop/src-tauri
+          shared-key: desktop
+      - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --features platform-tests -- --include-ignored
+
+  # Advisories can appear without a code change → re-check daily.
+  deps:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: apps/desktop/src-tauri/Cargo.toml
+          command: check advisories
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --prod --audit-level high
+
+  # Unsigned portable zip for testers. Tray tooltip shows the "nightly" channel label.
+  nightly-zip:
+    needs: [changes, perf, platform]
+    if: needs.changes.outputs.app == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable, 2026-09
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop/src-tauri
+          shared-key: desktop
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @muna/desktop tauri build --no-bundle
+        env:
+          MUNA_CHANNEL: nightly
+      - shell: pwsh
+        run: |
+          New-Item -ItemType Directory portable | Out-Null
+          Copy-Item apps/desktop/src-tauri/target/release/muna.exe portable/
+          Compress-Archive -Path portable/* -DestinationPath "Muna_nightly_$($env:GITHUB_SHA.Substring(0,7))_x64-portable.zip"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nightly-portable
+          path: Muna_nightly_*_x64-portable.zip
+          retention-days: 14
+
+  # One tracking issue per failure streak; closes itself is a human's job (see runbook in doc 11).
+  report:
+    needs: [links, perf, platform, deps, nightly-zip]
+    if: always() && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          failed=$(echo "$RESULTS" | jq -r 'to_entries[] | select(.value.result=="failure") | .key' | paste -sd, -)
+          title="Nightly failed: $failed"
+          body="Run: $RUN_URL"$'\n\n'"Failed jobs: $failed"$'\n\n'"Triage per docs/11-ci-cd.md#runbooks."
+          existing=$(gh issue list -R "$REPO" --label ci:nightly --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" -R "$REPO" --body "$body"
+          else
+            gh issue create -R "$REPO" --title "$title" --body "$body" --label ci:nightly
+          fi

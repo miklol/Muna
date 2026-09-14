@@ -1,0 +1,242 @@
+# Required checks for `main`. Rules and rationale: docs/11-ci-cd.md.
+# Job ids (changes, pr-title, docs, web, rust, deps, app) are the required status-check names in
+# the `main` ruleset — do not rename a job without updating the ruleset in the same change.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # Supersede stale runs on PRs only; never cancel a run on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: 22
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Computes the gates once so downstream jobs can be *skipped* (which satisfies the ruleset)
+  # instead of never starting (which would block the PR). Never use workflow-level `paths:`.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      app: ${{ steps.filter.outputs.app }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: filter
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          # app: does the desktop scaffold exist yet (milestone M0)?
+          if [ -f apps/desktop/package.json ]; then echo "app=true"; else echo "app=false"; fi >> "$GITHUB_OUTPUT"
+          # code: did anything other than Markdown/docs change? Unknown base → assume yes.
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
+             | grep -Evq '^(docs/|README\.md$|\.github/(agents|ISSUE_TEMPLATE)/|\.markdownlint|.*\.md$)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # PR title becomes the squash-commit subject → must be a Conventional Commit.
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            docs
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" must start lower-case and be written in the imperative
+            (e.g. "feat(media): add album-art tint"). See docs/11-ci-cd.md#commits-and-pr-titles.
+
+  # Deterministic docs checks: lint + relative links/anchors. External URLs run nightly.
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: markdownlint
+        run: npx --yes markdownlint-cli2@0.23.2
+      - name: Relative links and heading anchors
+        run: node scripts/check-links.mjs
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        # version comes from the root package.json `packageManager` field
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -w lint
+      - run: pnpm -w typecheck
+      - run: pnpm -w test -- --run --coverage
+      - run: pnpm -w i18n:check
+      - name: Storybook build + a11y tests
+        run: pnpm -w storybook:ci
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: storybook-static
+          path: packages/ui/storybook-static
+          retention-days: 7
+          if-no-files-found: ignore
+
+  rust:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.app == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable, 2026-09
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop/src-tauri
+          shared-key: desktop
+      - run: pnpm install --frozen-lockfile
+      # tauri-build embeds `frontendDist`, so the web bundle must exist before cargo runs.
+      - run: pnpm --filter @muna/desktop build
+      - run: cargo fmt --all --check --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+      - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features
+      - name: Contracts drift (tauri-specta bindings are committed)
+        run: |
+          pnpm -w contracts:generate
+          git diff --exit-code -- packages/contracts
+
+  # Licences, advisories and bans for both ecosystems (cargo-deny is a Docker action → Linux).
+  deps:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: apps/desktop/src-tauri/Cargo.toml
+          command: check
+          arguments: --all-features
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --prod --audit-level high
+      - run: pnpm -w licenses:check
+
+  # Debug build, shell scenario suite and perf smoke on Windows.
+  app:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.app == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      pull-requests: write # perf-smoke comment; skipped for fork PRs
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable, 2026-09
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop/src-tauri
+          shared-key: desktop
+      - run: pnpm install --frozen-lockfile
+      - name: Tauri debug build
+        run: pnpm --filter @muna/desktop tauri build --debug --no-bundle
+      - name: Bundle size budget
+        run: pnpm -w bundle:check
+      - name: Shell scenario suite (Playwright S1–S14)
+        run: pnpm -w e2e
+      - name: Perf smoke (startup, idle CPU, RSS)
+        run: pnpm -w perf:smoke -- --out perf-smoke.json --markdown perf-smoke.md
+      - name: Comment perf numbers on the PR
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr comment "$PR" --body-file perf-smoke.md --edit-last || gh pr comment "$PR" --body-file perf-smoke.md
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: muna-debug-build
+          path: |
+            apps/desktop/src-tauri/target/debug/muna.exe
+            perf-smoke.json
+          retention-days: 7
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/desktop/playwright-report
+          retention-days: 14
+          if-no-files-found: ignore

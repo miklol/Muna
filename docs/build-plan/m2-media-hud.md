@@ -1,0 +1,66 @@
+# M2 · Media & HUD
+
+Read `docs/07-roadmap.md#m2--media--hud-3-weeks`. Requires M1 merged.
+
+---
+
+## M2-E1 · Media backend — agent: `muna-module-developer`
+
+```text
+Implement the Rust side of docs/modules/media.md. Read docs/04-windows-platform-apis.md#media
+carefully (staleness, session scoring, WASAPI verification).
+
+Scope in `muna-platform::media` + `muna-core::media`:
+- GSMTC manager with re-RequestAsync every 60 s and on SessionsChanged; session scoring
+  (Playing > Paused > most recently changed; WASAPI IAudioMeterInformation peak per session
+  process as tie-breaker); events: NowPlayingChanged, PlaybackChanged, TimelineChanged.
+- Thumbnail pipeline: stream → PNG bytes → cache by (title, artist, album) hash in
+  %LOCALAPPDATA%\Muna\cache\art; palette (3 colours, k-means) computed in a blocking thread.
+- Transport commands, shuffle/repeat, seek (TryChangePlaybackPositionAsync).
+- Volume: IAudioEndpointVolume + callback; devices via IMMDeviceEnumerator; default-device
+  switch through the isolated `undocumented::policy_config` module, executed via helper process
+  when packaged (ADR-0003).
+- Visualizer: WASAPI loopback + realfft, 20 bands at 30 Hz, only while `visible` flag set.
+- Lyrics: LRCLIB client with SQLite cache (optional feature flag).
+- Tests with FakePlatform: scoring, staleness recovery, palette determinism, cache eviction.
+```
+
+## M2-E2 · Media UI — agent: `muna-ui-engineer`
+
+```text
+Implement the media surfaces from docs/modules/media.md using the reference layout in
+docs/reference/ui-observations.md (media panel). Read docs/06-motion-spec.md (track-change
+choreography, waveform).
+
+Scope: strip form (art 20 px + 4-bar waveform, palette-tinted glow), wide form on track change
+(title/artist marquee only if overflow), panel: art 96 px with palette gradient bleed, title/
+artist/album, progress with scrubbing, transport (prev/play/next 28 px), shuffle/repeat chips,
+volume slider, output device popover, visualizer toggle, lyrics drawer. Empty state "Nothing
+playing". Storybook stories for all states; Vitest for scrub math and marquee gating. Request
+@muna-design-reviewer.
+```
+
+## M2-E3 · HUD — agent: `muna-shell-engineer`
+
+```text
+Implement docs/modules/hud.md. Read docs/04-windows-platform-apis.md#hud-volume-brightness-
+keyboard for the exact (undocumented) flyout suppression procedure and caveats.
+
+Scope: HUD live-activity source (volume/mute/brightness) with the 1.5 s timing; brightness
+backend (WMI internal + DDC/CI external with capability probe, opt-in per monitor); flyout
+suppression in `platform::undocumented::flyout` (build-specific classes, explorer PID and
+GetWindowBand checks, WinEvent re-hook, 3 s timer) with a watchdog process that restores the
+flyout if Muna dies; scroll-on-strip volume; settings toggles. Tests: suppression state
+machine with FakePlatform; manual checklist docs/qa/checklists/hud.md (Win10/Win11, kill -9
+restore).
+```
+
+## M2-E4 · Performance harness — agent: `muna-qa-engineer`
+
+```text
+Build scripts/perf per docs/09-testing-qa.md#performance-harness-scriptsperf and wire it to
+a nightly workflow (.github/workflows/nightly.yml on windows-latest). Bundle a tiny test media
+player (Rust binary using SystemMediaTransportControls) so SMTC tests run on CI runners.
+Output perf.json + markdown summary; fail on budget breach; post trend comment on PRs labelled
+`perf`. Add the fps overlay dev tool (`MUNA_FPS=1`) if not present.
+```

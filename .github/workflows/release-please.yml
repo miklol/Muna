@@ -1,0 +1,35 @@
+# Maintains the release PR (CHANGELOG + version bumps) from Conventional Commits on main and
+# tags `vX.Y.Z` when it merges — which triggers release.yml. Rules: docs/11-ci-cd.md#release-rules.
+#
+# Gated on repository variable RELEASE_AUTOMATION=true so nothing happens before milestone M0.
+# Uses a fine-grained PAT (secret RELEASE_PLEASE_TOKEN) so the tag push triggers other workflows;
+# GITHUB_TOKEN-created events do not.
+
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    if: vars.RELEASE_AUTOMATION == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
