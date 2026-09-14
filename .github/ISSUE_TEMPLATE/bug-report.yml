@@ -1,0 +1,42 @@
+name: Bug report
+description: Something in Muna misbehaves
+title: "[bug] <short description>"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Muna version & installer type (MSIX / NSIS)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Windows build (winver) & WebView2 version
+  - type: textarea
+    id: monitors
+    attributes:
+      label: Monitor setup
+      description: Count, resolutions, scaling %, which one shows the notch, placement mode (Overlay / Reserved).
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / diagnostics bundle
+      description: Settings → Diagnostics → Export bundle. Remove anything private.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["shell / placement", "animation / jank", "media", "hud", "notifications", "calendar", "bluetooth", "drop actions / shelf", "window snap", "settings", "installer / update", "other"]

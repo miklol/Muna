@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Docs lint & links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: markdownlint
+        run: npx --yes markdownlint-cli2 "docs/**/*.md" "README.md" ".github/**/*.md"
+      - name: link check
+        run: |
+          npx --yes markdown-link-check --config .github/markdown-link-check.json README.md
+          find docs -name "*.md" -print0 | xargs -0 -n1 npx --yes markdown-link-check --config .github/markdown-link-check.json
+
+  # Enabled automatically once apps/desktop exists (milestone M0).
+  app:
+    name: App build & test (Windows)
+    runs-on: windows-latest
+    if: ${{ hashFiles('apps/desktop/package.json') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -w lint
+      - run: pnpm -w typecheck
+      - run: pnpm -w test -- --run
+      - run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - name: Tauri debug build
+        run: pnpm --filter @muna/desktop tauri build --debug --no-bundle
+      - name: Storybook build
+        run: pnpm --filter @muna/ui build-storybook

@@ -1,0 +1,11 @@
+{
+  "ignorePatterns": [
+    { "pattern": "^https://macnotch.io" },
+    { "pattern": "^https://apple-notch.vercel.app" },
+    { "pattern": "^https://github.com/miklol/Muna" },
+    { "pattern": "^http://127.0.0.1" }
+  ],
+  "timeout": "20s",
+  "retryOn429": true,
+  "aliveStatusCodes": [200, 206, 301, 302, 403, 429]
+}
