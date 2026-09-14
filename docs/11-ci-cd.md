@@ -163,7 +163,7 @@ without updating the ruleset in the same change.
 | `changes` | ubuntu | always | Probe: outputs `code` and `app` for the gates below |
 | `pr-title` | ubuntu | every PR | Conventional Commit title with an allowed type; subject starts lower-case |
 | `docs` | ubuntu | every PR/push | `markdownlint-cli2` with `.markdownlint-cli2.jsonc`; `scripts/check-links.mjs` (relative links + heading anchors; deterministic, no network) |
-| `web` | ubuntu | code changed and `apps/desktop` exists | `pnpm install --frozen-lockfile`, `lint` (Biome/ESLint/Stylelint), `typecheck`, `test` (Vitest incl. tokens snapshot, coverage report), `i18n:check`, `storybook:ci` (`build-storybook` + `test-storybook` with axe on every story) |
+| `web` | ubuntu | code changed and `apps/desktop` exists | `pnpm install --frozen-lockfile`, `lint` (ESLint/Stylelint/Prettier), `typecheck`, `test` (Vitest incl. tokens snapshot, coverage report), `i18n:check`, `storybook:ci` (`build-storybook` + `test-storybook` with axe on every story) |
 | `rust` | windows | code changed and `apps/desktop` exists | web build (tauri-build embeds `frontendDist`), `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (fake platform), contracts drift (`contracts:generate` then `git diff --exit-code -- packages/contracts`; tauri-specta needs the Rust toolchain) |
 | `deps` | ubuntu | code changed and `apps/desktop` exists | `cargo deny check` (advisories, licences, bans, sources — Docker action, hence Linux), `pnpm audit --prod --audit-level high`, `licenses:check` |
 | `app` | windows | code changed and `apps/desktop` exists | `tauri build --debug --no-bundle`, `bundle:check`, Playwright shell scenario suite S1–S14 against the debug build, perf smoke (`perf:smoke`: startup, idle CPU, RSS) posted as a PR comment, upload debug exe + traces on failure |
@@ -175,7 +175,7 @@ satisfied.
 
 | Gate | Tool | Threshold | Where |
 | ------ | ------ | ----------- | ------- |
-| Formatting | Biome / Prettier, `cargo fmt` | Zero diffs | `web`, `rust` |
+| Formatting | Prettier, `cargo fmt` | Zero diffs | `web`, `rust` |
 | Lint | ESLint strict-type-checked + jsx-a11y + react-hooks, Stylelint, Clippy | Zero warnings (`-D warnings`) | `web`, `rust` |
 | Types | `tsc --noEmit` (strict, `noUncheckedIndexedAccess`) | Zero errors | `web` |
 | Unit tests | Vitest, `cargo test` | All pass; no `.only`, no `skip` without an issue link | `web`, `rust` |
