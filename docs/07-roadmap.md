@@ -45,8 +45,8 @@ Epics
 - **M0-E3 Identity spike** — MSIX via `MakeAppx` + external-location manifest for NSIS;
   verify `NotificationChanged` fires; verify `StartupTask`; sign with a test cert. Verify
   Azure Artifact Signing / SignPath eligibility.
-- **M0-E4 Design tokens & motion presets** — `packages/ui/tokens.css`, spring presets in
-  `motion/presets.ts`, Storybook "Foundations" pages, reduced-motion switch.
+- **M0-E4 Design tokens & motion presets** — `packages/ui/src/tokens/tokens.css`, spring
+  presets in `motion/presets.ts`, Storybook "Foundations" pages, reduced-motion switch.
 
 Exit criteria
 
@@ -167,7 +167,7 @@ receive, Store listing.
 
 | Milestone | Status | Started | Done | Notes |
 | ----------- | -------- | --------- | ------ | ------- |
-| M0 | Not started | | | |
+| M0 | In progress | 2026-09-14 | | M0-E1 scaffold landed (monorepo, Tauri shell, `@muna/ui`, `@muna/contracts`, CI parity scripts). Spikes E2–E4 pending. |
 | M1 | Not started | | | |
 | M2 | Not started | | | |
 | M3 | Not started | | | |

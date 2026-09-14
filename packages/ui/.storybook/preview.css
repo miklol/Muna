@@ -1,0 +1,9 @@
+/* Storybook canvas defaults: the panel material with the token font stack. */
+
+body {
+  background: var(--panel-bottom);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  margin: 0;
+}

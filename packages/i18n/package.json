@@ -1,0 +1,21 @@
+{
+  "name": "@muna/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Message catalogs (English first) and the shared i18next instance factory",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./locales/*": "./src/locales/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "i18next": "^26.4.2"
+  },
+  "devDependencies": {
+    "vitest": "5.0.0"
+  }
+}

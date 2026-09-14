@@ -1,0 +1,5 @@
+# Pinned deliberately (docs/11-ci-cd.md#dependencies-and-supply-chain). Bump in its own PR.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

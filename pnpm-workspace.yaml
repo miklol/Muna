@@ -1,0 +1,22 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Packages whose install scripts are only a fallback for prebuilt binaries that already arrive
+# through optional platform dependencies; skipping them is safe and keeps installs hermetic.
+ignoredBuiltDependencies:
+  - "@parcel/watcher" # Storybook file watching; prebuilt via @parcel/watcher-* optional deps
+  - "@swc/core" # Storybook/Vite transforms; prebuilt via @swc/core-* optional deps
+  - esbuild # Vite/Vitest dependency; prebuilt via @esbuild/* optional deps
+  - unrs-resolver # eslint-import resolver; prebuilt via @unrs/resolver-binding-* optional deps
+
+# pnpm 10 blocks dependency lifecycle scripts unless allow-listed here (supply-chain rule).
+# Add a package only with a one-line reason.
+onlyBuiltDependencies: []
+# Temporary: jest >= 30.5 (pulled in by @storybook/test-runner) throws when Storybook's
+# `importModule` registers its TypeScript loader hook inside the jest sandbox, so every story
+# suite fails at setup. The patch mirrors the fix proposed upstream (try/catch around
+# `register()`); drop it once storybookjs/storybook#36116 / #36269 ship. pnpm fails the install
+# when the pinned version no longer matches, which forces this to be re-evaluated on bumps.
+patchedDependencies:
+  storybook@10.6.0: patches/storybook@10.6.0.patch

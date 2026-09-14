@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+@import '@muna/ui/tokens.css';
+@import '@muna/ui/theme.css';
+
+/* Tailwind scans the design system too so its utilities are available to both packages. */
+@source '../../../packages/ui/src';
+
+/* Both windows render into a transparent WebView2 surface; the material is painted by the
+   components themselves (black-glass strip, panel gradient). */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+}
+
+body {
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+body[data-window='settings'] {
+  background: var(--panel-bottom);
+  user-select: text;
+}

@@ -1,0 +1,51 @@
+/* Foundations pages only (Storybook). Product surfaces use tokens through Tailwind utilities. */
+
+.token-table {
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+}
+
+.token-table h2 {
+  font-size: var(--text-title3);
+  font-weight: var(--text-title3--font-weight);
+  letter-spacing: var(--text-title3--letter-spacing);
+  line-height: var(--text-title3--line-height);
+  margin: 0 0 var(--space-4);
+}
+
+.token-table table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.token-table th,
+.token-table td {
+  border-bottom: 1px solid var(--hairline);
+  height: var(--size-list-row);
+  padding: 0 var(--space-3);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.token-table thead th {
+  color: var(--text-2);
+  font-size: var(--text-footnote);
+  font-weight: 600;
+}
+
+.token-table code {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: var(--text-footnote);
+}
+
+.token-preview {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  display: inline-block;
+  height: 32px;
+  min-width: 8px;
+  width: 96px;
+}

@@ -13,7 +13,7 @@ click-through, focus), **it never slows the machine** (budgets), and **it feels 
 | Contract | tauri-specta snapshot + zod parse tests | TS ↔ Rust types never drift | Every PR |
 | Component visual | Storybook + `@storybook/test-runner` + Playwright screenshots | Every module state (empty/loading/error/long/RTL/200 %) | Every PR |
 | Integration (Windows) | Playwright over CDP against the debug build | Settings window flows; notch harness page driving the state machine | Every PR on `windows-latest` |
-| Platform integration | `cargo test --features real-platform -- --ignored` | Real SMTC/Core Audio/Bluetooth on a self-hosted lab machine | Nightly |
+| Platform integration | `cargo test --features platform-tests -- --ignored` | Real SMTC/Core Audio/Bluetooth on a self-hosted lab machine | Nightly |
 | Performance | `scripts/perf` (CDP metrics + PDH counters) | Idle CPU, RSS, fps during morph, start time | Nightly + release |
 | Manual QA | `docs/qa/checklists/*.md` | Yield scenarios, multi-monitor, OSD, installers | Milestone close |
 

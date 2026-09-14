@@ -1,0 +1,14 @@
+{
+  "app": {
+    "name": "Muna"
+  },
+  "notch": {
+    "placeholder": "Muna is running. The notch shell lands with M1."
+  },
+  "settings": {
+    "title": "Muna settings",
+    "version": "Version {{version}}",
+    "loading": "Loading settings…",
+    "error": "Settings could not be loaded. Restart Muna and try again."
+  }
+}

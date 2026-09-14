@@ -1,0 +1,91 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Muna",
+  "mainBinaryName": "muna",
+  "version": "0.0.0",
+  "identifier": "com.miklol.muna",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "notch",
+        "title": "Muna",
+        "url": "index.html",
+        "windowClassname": "MunaNotch",
+        "width": 1000,
+        "height": 440,
+        "x": -10000,
+        "y": -10000,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "focusable": false,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "closable": false,
+        "dragDropEnabled": true,
+        "visible": true,
+        "backgroundThrottling": "disabled"
+      },
+      {
+        "label": "settings",
+        "title": "Muna settings",
+        "url": "settings.html",
+        "width": 900,
+        "height": 640,
+        "minWidth": 720,
+        "minHeight": 480,
+        "center": true,
+        "visible": false,
+        "decorations": true,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": false,
+    "category": "Utility",
+    "shortDescription": "A notch for Windows",
+    "longDescription": "A quiet black strip at the top of the screen that morphs into a productivity hub: media, notifications, calendar, timers and more.",
+    "publisher": "miklol",
+    "copyright": "Copyright © 2026 miklol",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English"],
+        "displayLanguageSelector": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/miklol/Muna/releases/latest/download/latest.json"],
+      "pubkey": "REPLACE_WITH_MINISIGN_PUBLIC_KEY_BEFORE_FIRST_RELEASE",
+      "windows": { "installMode": "passive" }
+    }
+  }
+}
