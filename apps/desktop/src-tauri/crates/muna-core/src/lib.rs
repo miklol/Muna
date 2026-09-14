@@ -2,6 +2,9 @@
 //! store. Nothing in this crate touches the OS or Tauri, so every type is testable with plain
 //! `cargo test` (docs/09-testing-qa.md).
 
+// `unsafe` belongs to `muna-platform::windows` only (docs/03-architecture.md, crate boundaries).
+#![forbid(unsafe_code)]
+
 pub mod clock;
 pub mod scheduler;
 pub mod settings;
