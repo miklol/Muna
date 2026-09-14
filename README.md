@@ -56,7 +56,8 @@ To start: open a session on `main`, paste the epic's prompt from
 names. **M0-E1** (scaffold) has landed; **M0-E2** (transparent-window spike,
 `muna-shell-engineer`), **M0-E3** (identity spike, `muna-release-engineer`) and **M0-E4**
 (tokens and motion presets, `muna-motion-designer`) are independent and can run in parallel
-sessions.
+sessions. The spikes fill in the exit-criteria tables prepared in
+[docs/spikes](docs/spikes/README.md).
 
 ## Development
 

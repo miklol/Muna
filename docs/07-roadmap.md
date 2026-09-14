@@ -50,8 +50,9 @@ Epics
 
 Exit criteria
 
-- [ ] All required checks in `ci.yml` (`web`, `rust`, `deps`, `app`) run and pass on
-  `windows-latest`/`ubuntu-latest`; root parity scripts from [11](11-ci-cd.md#local-parity) exist.
+- [x] All required checks in `ci.yml` (`web`, `rust`, `deps`, `app`) run and pass on
+  `windows-latest`/`ubuntu-latest`; root parity scripts from [11](11-ci-cd.md#local-parity) exist
+  (M0-E1, [PR #3](https://github.com/miklol/Muna/pull/3)).
 - [ ] `main` ruleset, `v*` tag ruleset, `release` environment and Dependabot configured per
   [11](11-ci-cd.md#protection-rules) (maintainer task; checklist delivered by M0-E3).
 - [ ] `release.yml` dry run produces unsigned NSIS + MSIX artifacts.
@@ -167,7 +168,7 @@ receive, Store listing.
 
 | Milestone | Status | Started | Done | Notes |
 | ----------- | -------- | --------- | ------ | ------- |
-| M0 | In progress | 2026-09-14 | | M0-E1 scaffold landed (monorepo, Tauri shell, `@muna/ui`, `@muna/contracts`, CI parity scripts). Spikes E2–E4 pending. |
+| M0 | In progress | 2026-09-14 | | M0-E1 scaffold landed (monorepo, Tauri shell, `@muna/ui`, `@muna/contracts`, CI parity scripts; exit criterion 1 met). Spike plans with exit criteria ready in [`spikes/`](spikes/README.md); E2 (`muna-shell-engineer`), E3 (`muna-release-engineer`), E4 (`muna-motion-designer`) not started — run in parallel from [build-plan/m0-foundations.md](build-plan/m0-foundations.md). |
 | M1 | Not started | | | |
 | M2 | Not started | | | |
 | M3 | Not started | | | |

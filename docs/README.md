@@ -28,6 +28,12 @@ an empty repo to 1.0. Read in order the first time; afterwards jump by role.
 | [0003](adr/0003-packaging-identity.md) | MSIX primary, NSIS with external-location identity, polling fallbacks |
 | [0004](adr/0004-module-contract.md) | Module registries and the live-activity scheduler |
 
+## Spikes
+
+[`spikes/README.md`](spikes/README.md) — time-boxed experiments that validate an ADR with
+numbers: plan and exit criteria by `muna-architect`, measurements by the implementing agent
+([m0-window](spikes/m0-window.md), [m0-identity](spikes/m0-identity.md)).
+
 ## Module specs
 
 [`modules/README.md`](modules/README.md) indexes all 26 specs (shell, live activities, media,
