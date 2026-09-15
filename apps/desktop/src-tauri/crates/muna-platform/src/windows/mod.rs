@@ -1,27 +1,52 @@
-//! Real Windows implementation. Only the power service is wired in M0 (it is the one API a
-//! CI runner can call without hardware); every other service reports
+//! Real Windows implementation. M0 wires the services the notch shell needs (power, monitors,
+//! foreground tracking and window affinities, ADR-0002); every other service reports
 //! [`PlatformError::Unsupported`] until its module milestone lands (docs/07-roadmap.md).
 //!
 //! Every Win32 call in this module checks its result and every `unsafe` block carries a
 //! `// SAFETY:` comment (repository rule).
 
+mod foreground;
+mod monitors;
 mod power;
+mod pump;
+pub mod webview;
+mod window;
 
 use tokio::sync::broadcast;
+use tracing::warn;
+use windows::Win32::Foundation::GetLastError;
 
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
-use crate::traits::{Audio, Bluetooth, Foreground, Media, Monitors, Platform, Power};
+use crate::traits::{Audio, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing};
 use crate::types::{
     AudioDevice, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand, MediaSession,
-    MonitorInfo,
+    MonitorInfo, Rect, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
 
+/// [`PlatformError::Os`] from `GetLastError` for APIs that report failure through a BOOL.
+fn last_error(api: &'static str) -> PlatformError {
+    // SAFETY: `GetLastError` has no preconditions; it reads the calling thread's last error.
+    #[allow(unsafe_code)]
+    let code = unsafe { GetLastError() };
+    PlatformError::Os { api, code: code.0 }
+}
+
+/// [`PlatformError::Os`] from a `windows::core::Error` (HRESULT-returning APIs).
+fn os_error(api: &'static str, error: &windows::core::Error) -> PlatformError {
+    PlatformError::Os {
+        api,
+        code: error.code().0.cast_unsigned(),
+    }
+}
+
 #[derive(Debug)]
 pub struct WindowsPlatform {
     events: broadcast::Sender<PlatformEvent>,
+    /// `None` when the pump could not start; polling still works, only push events are lost.
+    _pump: Option<pump::Pump>,
 }
 
 impl Default for WindowsPlatform {
@@ -34,7 +59,17 @@ impl WindowsPlatform {
     #[must_use]
     pub fn new() -> Self {
         let (events, _) = broadcast::channel(EVENT_CAPACITY);
-        Self { events }
+        let pump = match pump::Pump::start(events.clone()) {
+            Ok(pump) => Some(pump),
+            Err(error) => {
+                warn!(%error, "platform pump unavailable; monitor and foreground events disabled");
+                None
+            }
+        };
+        Self {
+            events,
+            _pump: pump,
+        }
     }
 }
 
@@ -88,13 +123,55 @@ impl Power for WindowsPlatform {
 
 impl Monitors for WindowsPlatform {
     fn all(&self) -> PlatformResult<Vec<MonitorInfo>> {
-        Err(PlatformError::Unsupported("monitors"))
+        monitors::enumerate()
     }
 }
 
 impl Foreground for WindowsPlatform {
     fn current(&self) -> PlatformResult<Option<ForegroundWindow>> {
-        Err(PlatformError::Unsupported("foreground tracking"))
+        Ok(foreground::current())
+    }
+}
+
+impl Windowing for WindowsPlatform {
+    fn extended_style(&self, window: WindowHandle) -> PlatformResult<u32> {
+        window::extended_style(window)
+    }
+
+    fn move_async(&self, window: WindowHandle, rect: Rect) -> PlatformResult<()> {
+        window::move_async(window, rect)
+    }
+
+    fn assert_topmost(&self, window: WindowHandle) -> PlatformResult<()> {
+        window::assert_topmost(window)
+    }
+
+    fn set_tool_window(&self, window: WindowHandle) -> PlatformResult<u32> {
+        window::set_tool_window(window)
+    }
+
+    fn set_click_through(&self, window: WindowHandle, click_through: bool) -> PlatformResult<()> {
+        window::set_click_through(window, click_through)
+    }
+
+    fn set_capture_exclusion(&self, window: WindowHandle, excluded: bool) -> PlatformResult<()> {
+        window::set_capture_exclusion(window, excluded)
+    }
+
+    fn window_rect(&self, window: WindowHandle) -> PlatformResult<Rect> {
+        window::window_rect(window)
+    }
+
+    fn cursor_position(&self) -> PlatformResult<(i32, i32)> {
+        window::cursor_position()
+    }
+
+    fn window_at(&self, x: i32, y: i32) -> PlatformResult<WindowHandle> {
+        Ok(window::window_at(x, y))
+    }
+
+    fn user_notification_state(&self) -> PlatformResult<UserNotificationState> {
+        window::user_notification_state()
     }
 }
 
@@ -123,6 +200,10 @@ impl Platform for WindowsPlatform {
         self
     }
 
+    fn windowing(&self) -> &dyn Windowing {
+        self
+    }
+
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent> {
         self.events.subscribe()
     }
@@ -144,7 +225,7 @@ mod tests {
             Err(PlatformError::Unsupported(_))
         ));
         assert!(matches!(
-            platform.monitors().all(),
+            platform.bluetooth().devices(),
             Err(PlatformError::Unsupported(_))
         ));
     }

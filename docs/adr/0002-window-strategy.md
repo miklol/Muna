@@ -1,7 +1,9 @@
 # ADR-0002 · Window strategy: one transparent WebView per monitor, DOM-shaped hit-testing
 
-**Status:** Accepted (pending M0-E2 spike validation, plan in
-[spikes/m0-window](../spikes/m0-window.md)) · **Date:** 2026-09-14
+**Status:** Accepted (validated on Win11 25H2 by the M0-E2 spike, results in
+[spikes/m0-window](../spikes/m0-window.md); Win10 22H2 column pending) · **Date:** 2026-09-14
+· **Amended:** 2026-09-15 (WebView2 process switches, top-most re-assertion, cursor-poll
+thread)
 
 ## Context
 
@@ -20,7 +22,9 @@ Because Tauri has no Electron-style `forward: true` hover pass-through (tauri #6
 cursor is sampled in Rust with a **60 Hz `GetCursorPos` poll that runs only while the cursor is
 inside the window bounds** (cheap; ~0.05 % CPU) and idles to 10 Hz otherwise. A `WH_MOUSE_LL`
 hook is *not* used: Windows silently removes hooks whose callback exceeds
-`LowLevelHooksTimeout`, which a busy WebView process can trigger.
+`LowLevelHooksTimeout`, which a busy WebView process can trigger. The poll runs on a dedicated
+OS thread with `std::thread::sleep` (high-resolution waitable timer): a tokio timer parks on
+the 15.6 ms system tick and turned a 16.7 ms period into 31 ms in the spike.
 
 ## Why
 
@@ -38,6 +42,22 @@ hook is *not* used: Windows silently removes hooks whose callback exceeds
   overlays.
 - The window is pre-sized with `SetWindowPos(SWP_ASYNCWINDOWPOS | SWP_NOZORDER)` before the
   first paint and re-asserted `HWND_TOPMOST` after every `EVENT_SYSTEM_FOREGROUND` (fullscreen
-  apps and UAC-band windows can otherwise cover it).
+  apps and UAC-band windows can otherwise cover it). The assert runs **three times: on the
+  hook, 20 ms later and 250 ms later** — Windows raises a newly activated topmost window
+  *after* delivering the event, so the immediate assert alone lost every time in the spike.
+  A topmost window that appears without a foreground change is not covered by this rule
+  (M1 follow-up: `EVENT_OBJECT_SHOW` / `EVENT_OBJECT_REORDER` filtered to topmost windows).
+- Click-through is `WS_EX_LAYERED | WS_EX_TRANSPARENT` toggled with `SetWindowLongPtr` (no
+  `SWP_FRAMECHANGED`); `WS_EX_TRANSPARENT` alone does not pass clicks through a top-level
+  window. The shell owns `GWL_EXSTYLE` after creation because tao rewrites it wholesale.
 - Hiding the notch (fullscreen game, monitor removed) moves the window to (−10000, −10000)
   rather than hiding it — see ADR-0001 consequences.
+- **WebView2 runs with `--in-process-gpu --process-per-site` and
+  `SpareRendererForSitePerProcess` disabled** (`additionalBrowserArgs`, the identical string
+  on every window — WebView2 shares one browser process per user data folder and rejects a
+  second environment with different switches). In the default process model the idle tree
+  measured 181–223 MB against the 120 MB budget, the GPU process alone 66–117 MB; with the
+  switches it is ≈ 100 MB and morphs lost no frame time (spike W5/W6). Costs: a GPU-driver
+  crash takes the browser process down (`ProcessFailed` → the watchdog recreates the windows),
+  and the switches are Chromium command-line flags a runtime update may ignore, so the perf
+  harness asserts the process shape and total on every run (risk R19).

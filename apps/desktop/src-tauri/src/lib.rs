@@ -7,9 +7,11 @@
 
 pub mod ipc;
 pub mod paths;
+pub mod shell;
 pub mod state;
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher;
@@ -24,6 +26,7 @@ use state::AppState;
 ///
 /// Panics when Tauri fails to start, which is unrecoverable for a tray utility.
 pub fn run() {
+    let started_at = Instant::now();
     let specta = ipc::builder();
 
     // Keep the bindings on disk in sync while developing; CI enforces this with
@@ -34,6 +37,17 @@ pub fn run() {
     }
 
     let profile_dir = paths::profile_dir();
+
+    // Managed state must exist before the config windows are created: wry pumps messages
+    // while it waits for each WebView2 controller, so a webview declared in tauri.conf.json
+    // can invoke commands before `setup` runs (observed in docs/spikes/m0-window.md).
+    let platform = muna_platform::default_platform();
+    let mut state =
+        AppState::open(&profile_dir, platform).expect("failed to open the Muna profile");
+    if shell::spike::enabled() {
+        state = state.with_spike(started_at, &profile_dir);
+    }
+    let state = Arc::new(state);
 
     tauri::Builder::default()
         // Must be the first plugin so a second launch is intercepted before anything else.
@@ -66,17 +80,20 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(specta.invoke_handler())
+        .manage(Arc::clone(&state))
         .setup(move |app| {
             specta.mount_events(app);
+            tracing::info!(platform = state.platform.name(), profile = %profile_dir.display(), "starting");
 
-            let platform = muna_platform::default_platform();
-            tracing::info!(platform = platform.name(), profile = %profile_dir.display(), "starting");
+            if let Some(spike) = &state.spike {
+                // The spike owns the notch windows; the settings window stays hidden so the
+                // measurements see nothing but the notch.
+                shell::spike::start(app.handle(), Arc::clone(spike));
+                return Ok(());
+            }
 
-            let state = AppState::open(&profile_dir, platform)?;
-            app.manage(Arc::new(state));
-
-            // The notch window starts off-screen (placed by M0-E2) and there is no tray icon
-            // yet (M1-E1), so the settings window is the only visible surface for now.
+            // The notch window starts off-screen (placed by the shell once M1 lands) and there
+            // is no tray icon yet (M1-E1), so the settings window is the only visible surface.
             if let Some(window) = app.get_webview_window("settings") {
                 window.show()?;
             }

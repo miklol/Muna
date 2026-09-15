@@ -12,10 +12,18 @@ export const commands = {
 	/**  Persists the whole settings document and broadcasts `SettingsChanged`. */
 	updateSettings: (settings: Settings) => typedError<Settings, IpcError>(__TAURI_INVOKE("update_settings", { settings })),
 	getStripContent: () => __TAURI_INVOKE<StripContent>("get_strip_content"),
+	getShellMode: () => __TAURI_INVOKE<ShellMode>("get_shell_mode"),
+	/**  The UI has painted its first frame; the shell may move the window into place. */
+	shellReady: () => typedError<null, IpcError>(__TAURI_INVOKE("shell_ready")),
+	/**  Publishes the painted shapes so pointer events outside them pass through. */
+	publishShapeRects: (rects: ShapeRect[]) => typedError<null, IpcError>(__TAURI_INVOKE("publish_shape_rects", { rects })),
+	/**  Records the frame statistics of one morph. */
+	reportMorph: (report: MorphReport) => typedError<null, IpcError>(__TAURI_INVOKE("report_morph", { report })),
 };
 
 /** Events */
 export const events = {
+	morphRequested: makeEvent<MorphRequested>("morph-requested"),
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
 	stripContentChanged: makeEvent<StripContentChanged>("strip-content-changed"),
 };
@@ -65,6 +73,24 @@ export type IpcError = {
  */
 export type JsonValue = null | boolean | number | null | string | JsonValue[] | { [key in string]: JsonValue };
 
+/**
+ *  Frame statistics the UI measured during one strip ↔ panel morph. Integers only: specta
+ *  exports floats as `number | null`.
+ */
+export type MorphReport = {
+	expanded: boolean,
+	frames: number,
+	durationUs: number,
+	maxFrameUs: number,
+	/**  Frames whose delta exceeded 1.5 × 16.7 ms. */
+	droppedFrames: number,
+};
+
+/**  Asks every notch window to morph (spike shortcut `Ctrl+Alt+M` or scripted run). */
+export type MorphRequested = {
+	expanded: boolean,
+};
+
 /**  Short, self-dismissing strip content. */
 export type Notice = {
 	id: string,
@@ -89,6 +115,25 @@ export type Settings = {
 export type SettingsChanged = {
 	settings: Settings,
 };
+
+/**
+ *  A painted shape in whole CSS pixels relative to the window's client area (the UI rounds
+ *  `DOMRect`s). Rust converts it to physical screen pixels for hit-testing
+ *  (docs/modules/notch-shell.md).
+ */
+export type ShapeRect = {
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+};
+
+/**  Which UI the notch window should render. */
+export type ShellMode = 
+/**  The product shell. */
+"normal" | 
+/**  The M0-E2 window spike (`MUNA_SPIKE=window`, docs/spikes/m0-window.md). */
+"spikeWindow";
 
 /**  What the closed strip renders right now. */
 export type StripContent = { kind: "idle" } | { kind: "activity"; activity: Activity } | { kind: "notice"; notice: Notice };

@@ -2,10 +2,13 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Instant;
 
 use muna_core::{Scheduler, Settings, SettingsStore, Store};
 use muna_platform::Platform;
 use parking_lot::Mutex;
+
+use crate::shell::spike::Spike;
 
 pub struct AppState {
     pub platform: Arc<dyn Platform>,
@@ -13,6 +16,8 @@ pub struct AppState {
     pub settings: Mutex<Settings>,
     pub scheduler: Mutex<Scheduler>,
     pub store: Store,
+    /// Present only when started with `MUNA_SPIKE=window` (docs/spikes/m0-window.md).
+    pub spike: Option<Arc<Spike>>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -20,6 +25,7 @@ impl std::fmt::Debug for AppState {
         f.debug_struct("AppState")
             .field("platform", &self.platform.name())
             .field("settings_path", &self.settings_store.path())
+            .field("spike", &self.spike.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -37,7 +43,19 @@ impl AppState {
             settings: Mutex::new(settings),
             scheduler: Mutex::new(Scheduler::default()),
             store,
+            spike: None,
         })
+    }
+
+    /// Attaches the window spike (`MUNA_SPIKE=window`). `started_at` is the process start.
+    #[must_use]
+    pub fn with_spike(mut self, started_at: Instant, profile_dir: &Path) -> Self {
+        self.spike = Some(Arc::new(Spike::new(
+            Arc::clone(&self.platform),
+            started_at,
+            profile_dir,
+        )));
+        self
     }
 
     /// State over the fake platform and an in-memory database. Nothing is written to
@@ -49,6 +67,7 @@ impl AppState {
             settings: Mutex::new(Settings::default()),
             scheduler: Mutex::new(Scheduler::default()),
             store: Store::open_in_memory()?,
+            spike: None,
         })
     }
 }

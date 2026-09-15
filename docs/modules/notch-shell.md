@@ -99,7 +99,15 @@ Rules:
   #15490) — "hidden" states park it off-screen; `noRedirectionBitmap` adopted once stable.
 - Fullscreen exclusive apps → window parked, renderer paused (`document.hidden`-like IPC
   event) to save CPU. Fullscreen is detected by a 500 ms `SHQueryUserNotificationState` poll
-  plus foreground-rect == monitor-rect check (no change event exists).
+  plus foreground-rect == monitor-rect check (no change event exists). `QUNS_BUSY` alone is
+  only a hint: other layered topmost utilities keep it set permanently (M0-E2 finding).
+- Spike-validated numbers (Win11 25H2, [spikes/m0-window](../spikes/m0-window.md)): first
+  paint 345 ms, park/unpark flash-free over 100 cycles and 22 monitor changes, click-through
+  toggle ≈ 12–15 ms (median), top-most recovery ≈ 31 ms, quiet-state park ≈ 190 ms after the
+  fullscreen window takes foreground, idle tree ≈ 100 MB private working set — but only with
+  WebView2 launched as `--in-process-gpu --process-per-site` and the spare renderer disabled
+  (`additionalBrowserArgs` on every window, ADR-0002); the default process model idles at
+  181–223 MB.
 
 ## Settings (pane: Layout · Multiple Screens · Notch positioning · General)
 

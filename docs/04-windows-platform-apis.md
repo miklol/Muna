@@ -32,20 +32,21 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | `backgroundColor` alpha | Ignored for the window layer on Windows | Transparent via `transparent:true` only |
 | MSIX | No bundler (tauri #4818) | `MakeAppx` script in CI |
 | DPI | tao runs Per-Monitor V2; `WM_DPICHANGED` handled | Re-layout on `scaleFactorChanged` |
+| WebView2 process tree | Default model idles at 181–223 MB on an Intel iGPU (GPU process 66–117 MB, one renderer per window plus a spare); `additionalBrowserArgs` *replaces* Tauri's default switch list and must be identical on every window (one browser process per user data folder) | `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,SpareRendererForSitePerProcess --process-per-site --in-process-gpu` on every window (≈ 100 MB measured, ADR-0002); perf harness asserts no `--type=gpu-process` child (risk R19) |
 
 ## Shell & window management
 
 | Need | API | Notes |
 | ------ | ----- | ------- |
 | Overlay window styles | `SetWindowLongPtrW(GWL_EXSTYLE, WS_EX_TOOLWINDOW \| WS_EX_NOACTIVATE)` | Hide from Alt-Tab, never steal focus. Clear `NOACTIVATE` only in Pinned state with a text field |
-| Always on top | `SetWindowPos(HWND_TOPMOST)` re-asserted after `EVENT_SYSTEM_FOREGROUND` | eIsland uses Electron `screen-saver` level for the same reason |
+| Always on top | `SetWindowPos(HWND_TOPMOST)` re-asserted after `EVENT_SYSTEM_FOREGROUND` — on the hook, +20 ms and +250 ms (the activation raise lands after the event; measured in [spikes/m0-window](spikes/m0-window.md) W12) | eIsland uses Electron `screen-saver` level for the same reason |
 | Pre-size before paint | `SetWindowPos(SWP_ASYNCWINDOWPOS \| SWP_NOZORDER)` at startup | Avoids visible resize (onlytrisdev pattern) |
 | Monitors | `EnumDisplayMonitors` + `GetMonitorInfoW` → `rcMonitor` (place notch) vs `rcWork` (AppBars/taskbar excluded); `WM_DISPLAYCHANGE` | One notch window per monitor; Tauri `available_monitors()` gives the same data |
 | Reserved-strip mode | `SHAppBarMessage(ABM_NEW / ABM_QUERYPOS / ABM_SETPOS, ABE_TOP)` | Per monitor. Shrinks `rcWork`; maximized windows respect it |
 | Foreground / move-size | `SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MOVESIZESTART/END, EVENT_SYSTEM_MINIMIZESTART)` out-of-context | Drives yield rules in [notch-shell](modules/notch-shell.md) |
 | Caption overlap check | `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` on foreground HWND | Compare against strip rect |
 | Fullscreen detection 🔁 | `SHQueryUserNotificationState` → `QUNS_RUNNING_D3D_FULL_SCREEN`, `QUNS_BUSY`, `QUNS_PRESENTATION_MODE`; **or** PILLAR heuristic on the foreground HWND: `GetWindowRect` covers ≥ 90 % of `rcMonitor` **and** (`GetWindowLongPtr(GWL_STYLE)` has `WS_POPUP` or lacks `WS_CAPTION`) — catches borderless video/game fullscreen while a maximised browser (which keeps `WS_CAPTION`) only triggers *Peek* | Poll 500 ms while any window is foreground on that monitor; debounce park/unpark 500 ms. Exclusive-fullscreen games cannot be overlaid by anyone — document it |
-| Cursor sampling | `GetCursorPos` 60 Hz inside window bounds, 10 Hz outside | Do **not** use `WH_MOUSE_LL` (hook removed silently if callback exceeds `LowLevelHooksTimeout`) |
+| Cursor sampling | `GetCursorPos` 60 Hz inside window bounds, 10 Hz outside, on a dedicated OS thread (`std::thread::sleep`; a tokio timer runs at the 15.6 ms tick) | Do **not** use `WH_MOUSE_LL` (hook removed silently if callback exceeds `LowLevelHooksTimeout`) |
 | Hide from capture | `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` (Win10 2004+) | Setting toggle; per top-level window |
 | Session events | `WTSRegisterSessionNotification` (`WM_WTSSESSION_CHANGE` lock/unlock), `WM_POWERBROADCAST` | Lock live activity, suspend polling while locked |
 | Single instance / tray / autostart | `tauri-plugin-single-instance`, `tray-icon`, `tauri-plugin-autostart` (`HKCU\…\Run`) or 🪪 `StartupTask.RequestEnableAsync` | `platform::autostart` abstracts both |

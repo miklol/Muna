@@ -79,6 +79,7 @@ tauri-plugin-single-instance = "2.4"
 tauri-plugin-updater = "2.11"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 thiserror.workspace = true
+tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]

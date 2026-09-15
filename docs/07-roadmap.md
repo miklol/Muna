@@ -56,8 +56,11 @@ Exit criteria
 - [ ] `main` ruleset, `v*` tag ruleset, `release` environment and Dependabot configured per
   [11](11-ci-cd.md#protection-rules) (maintainer task; checklist delivered by M0-E3).
 - [ ] `release.yml` dry run produces unsigned NSIS + MSIX artifacts.
-- [ ] Spike app shows a black strip on 2 monitors (mixed DPI) with zero flashes over 100 cycles;
-  idle CPU ≤ 0.3 %, RSS ≤ 120 MB (numbers in `docs/spikes/m0-window.md`).
+- [x] Spike app shows a black strip on 2 monitors (mixed DPI) with zero flashes over 100 cycles;
+  idle CPU ≤ 0.3 %, RSS ≤ 120 MB (numbers in `docs/spikes/m0-window.md`; Win11 25H2 — the
+  Win10 22H2 column is a maintainer runbook). RSS passes only with the WebView2 switch set
+  recorded in ADR-0002 (`--in-process-gpu`, one shared renderer); the default process model
+  measured 181–223 MB — decision and guard in the spike's recommendation and risk R19.
 - [ ] Identity spike report with pass/fail per API (`docs/spikes/m0-identity.md`).
 - [ ] ADR-0001/0002/0003 updated to *Accepted (validated)* or amended.
 
@@ -168,7 +171,7 @@ receive, Store listing.
 
 | Milestone | Status | Started | Done | Notes |
 | ----------- | -------- | --------- | ------ | ------- |
-| M0 | In progress | 2026-09-14 | | M0-E1 scaffold landed (monorepo, Tauri shell, `@muna/ui`, `@muna/contracts`, CI parity scripts; exit criterion 1 met). Spike plans with exit criteria ready in [`spikes/`](spikes/README.md); E2 (`muna-shell-engineer`), E3 (`muna-release-engineer`), E4 (`muna-motion-designer`) not started — run in parallel from [build-plan/m0-foundations.md](build-plan/m0-foundations.md). |
+| M0 | In progress | 2026-09-14 | | M0-E1 scaffold landed (monorepo, Tauri shell, `@muna/ui`, `@muna/contracts`, CI parity scripts; exit criterion 1 met). M0-E2 window spike recorded: W1–W12 pass on Win11 25H2, WebView strip confirmed, ADR-0001/0002 validated with one amendment — idle memory needs WebView2's `--in-process-gpu` + one shared renderer (181–223 MB without, ≈ 100 MB with; risk R19) ([`spikes/m0-window`](spikes/m0-window.md); Win10 22H2 column open). E3 (`muna-release-engineer`) and E4 (`muna-motion-designer`) next — [build-plan/m0-foundations.md](build-plan/m0-foundations.md). |
 | M1 | Not started | | | |
 | M2 | Not started | | | |
 | M3 | Not started | | | |

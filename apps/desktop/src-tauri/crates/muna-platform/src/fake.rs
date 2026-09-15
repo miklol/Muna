@@ -9,13 +9,23 @@ use tokio::sync::broadcast;
 
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
-use crate::traits::{Audio, Bluetooth, Foreground, Media, Monitors, Platform, Power};
+use crate::traits::{Audio, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing};
 use crate::types::{
     AudioDevice, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand, MediaSession,
-    MonitorInfo, PowerSource, Rect,
+    MonitorInfo, PowerSource, Rect, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
+
+/// One recorded [`Windowing`] call, in order, for assertions in shell tests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WindowingCall {
+    MoveAsync(WindowHandle, Rect),
+    AssertTopmost(WindowHandle),
+    SetToolWindow(WindowHandle),
+    SetClickThrough(WindowHandle, bool),
+    SetCaptureExclusion(WindowHandle, bool),
+}
 
 #[derive(Debug)]
 struct State {
@@ -28,6 +38,10 @@ struct State {
     monitors: Vec<MonitorInfo>,
     foreground: Option<ForegroundWindow>,
     sent_media_commands: Vec<(String, MediaCommand)>,
+    cursor: (i32, i32),
+    quiet: UserNotificationState,
+    window_rects: Vec<(WindowHandle, Rect)>,
+    windowing_calls: Vec<WindowingCall>,
 }
 
 impl Default for State {
@@ -56,6 +70,10 @@ impl Default for State {
             }],
             foreground: None,
             sent_media_commands: Vec::new(),
+            cursor: (0, 0),
+            quiet: UserNotificationState::AcceptsNotifications,
+            window_rects: Vec::new(),
+            windowing_calls: Vec::new(),
         }
     }
 }
@@ -151,6 +169,99 @@ impl FakePlatform {
     #[must_use]
     pub fn sent_media_commands(&self) -> Vec<(String, MediaCommand)> {
         self.state.lock().sent_media_commands.clone()
+    }
+
+    /// Scripts the cursor position returned by [`Windowing::cursor_position`].
+    pub fn set_cursor(&self, x: i32, y: i32) {
+        self.state.lock().cursor = (x, y);
+    }
+
+    /// Scripts [`Windowing::user_notification_state`].
+    pub fn set_user_notification_state(&self, state: UserNotificationState) {
+        self.state.lock().quiet = state;
+    }
+
+    /// [`Windowing`] calls received so far, in order.
+    #[must_use]
+    pub fn windowing_calls(&self) -> Vec<WindowingCall> {
+        self.state.lock().windowing_calls.clone()
+    }
+}
+
+impl Windowing for FakePlatform {
+    fn extended_style(&self, _window: WindowHandle) -> PlatformResult<u32> {
+        // WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, the shape the shell wants.
+        Ok(0x0000_0008 | 0x0000_0080 | 0x0800_0000)
+    }
+
+    fn set_tool_window(&self, window: WindowHandle) -> PlatformResult<u32> {
+        self.state
+            .lock()
+            .windowing_calls
+            .push(WindowingCall::SetToolWindow(window));
+        self.extended_style(window)
+    }
+
+    fn set_click_through(&self, window: WindowHandle, click_through: bool) -> PlatformResult<()> {
+        self.state
+            .lock()
+            .windowing_calls
+            .push(WindowingCall::SetClickThrough(window, click_through));
+        Ok(())
+    }
+
+    fn move_async(&self, window: WindowHandle, rect: Rect) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        state.window_rects.retain(|(handle, _)| *handle != window);
+        state.window_rects.push((window, rect));
+        state
+            .windowing_calls
+            .push(WindowingCall::MoveAsync(window, rect));
+        Ok(())
+    }
+
+    fn assert_topmost(&self, window: WindowHandle) -> PlatformResult<()> {
+        self.state
+            .lock()
+            .windowing_calls
+            .push(WindowingCall::AssertTopmost(window));
+        Ok(())
+    }
+
+    fn set_capture_exclusion(&self, window: WindowHandle, excluded: bool) -> PlatformResult<()> {
+        self.state
+            .lock()
+            .windowing_calls
+            .push(WindowingCall::SetCaptureExclusion(window, excluded));
+        Ok(())
+    }
+
+    fn window_rect(&self, window: WindowHandle) -> PlatformResult<Rect> {
+        self.state
+            .lock()
+            .window_rects
+            .iter()
+            .find(|(handle, _)| *handle == window)
+            .map(|(_, rect)| *rect)
+            .ok_or_else(|| PlatformError::NotFound(format!("window {window}")))
+    }
+
+    fn cursor_position(&self) -> PlatformResult<(i32, i32)> {
+        Ok(self.state.lock().cursor)
+    }
+
+    fn window_at(&self, x: i32, y: i32) -> PlatformResult<WindowHandle> {
+        Ok(self
+            .state
+            .lock()
+            .window_rects
+            .iter()
+            .find(|(_, rect)| rect.contains(x, y))
+            .map_or(0, |(handle, _)| *handle))
+    }
+
+    fn user_notification_state(&self) -> PlatformResult<UserNotificationState> {
+        Ok(self.state.lock().quiet)
     }
 }
 
@@ -278,6 +389,10 @@ impl Platform for FakePlatform {
         self
     }
 
+    fn windowing(&self) -> &dyn Windowing {
+        self
+    }
+
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent> {
         self.events.subscribe()
     }
@@ -389,6 +504,38 @@ mod tests {
         fake.set_session_locked(true);
         let mut rx = fake.subscribe();
         assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn windowing_records_calls_and_answers_hit_tests_from_moved_rects() {
+        let fake = FakePlatform::new();
+        let windowing = fake.windowing();
+        windowing
+            .move_async(7, Rect::new(100, 0, 1000, 440))
+            .unwrap();
+        windowing.assert_topmost(7).unwrap();
+
+        assert_eq!(
+            windowing.window_rect(7).unwrap(),
+            Rect::new(100, 0, 1000, 440)
+        );
+        assert_eq!(windowing.window_at(500, 10).unwrap(), 7);
+        assert_eq!(windowing.window_at(5, 10).unwrap(), 0);
+        assert_eq!(
+            fake.windowing_calls(),
+            vec![
+                WindowingCall::MoveAsync(7, Rect::new(100, 0, 1000, 440)),
+                WindowingCall::AssertTopmost(7),
+            ]
+        );
+
+        fake.set_user_notification_state(UserNotificationState::Busy);
+        assert!(
+            windowing
+                .user_notification_state()
+                .unwrap()
+                .suppresses_overlay()
+        );
     }
 
     #[test]

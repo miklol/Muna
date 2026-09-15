@@ -1,7 +1,8 @@
 # ADR-0001 · Tech stack: Tauri v2 + Rust core + React/TypeScript UI
 
-**Status:** Accepted (pending M0-E2 spike validation, plan in
-[spikes/m0-window](../spikes/m0-window.md)) · **Date:** 2026-09-14
+**Status:** Accepted (validated on Win11 25H2 by the M0-E2 spike, results in
+[spikes/m0-window](../spikes/m0-window.md); Win10 22H2 column pending) · **Date:** 2026-09-14
+· **Validated:** 2026-09-15
 
 ## Context
 
@@ -59,3 +60,15 @@ spring morph strip→panel at ≥ 58 fps; idle CPU ≤ 0.3 %; RSS ≤ 120 MB; no
 across 100 collapse/expand cycles and 20 monitor-change events; click-through verified;
 capture-exclusion verified. Methods, environment table and measured values:
 [spikes/m0-window.md](../spikes/m0-window.md).
+
+**Result (2026-09-15, Win11 25H2, 2560 × 1600 @ 150 % + 1920 × 1080 @ 100 %):** all criteria
+pass with one configuration amendment — 0 flashes over 100 park cycles and 22 monitor changes,
+first paint median 345 ms, idle CPU ≈ 0.1–0.26 % (single-core basis), morphs at 167–168 fps
+with no frame over 6.4 ms, click-through toggles in ≈ 12–15 ms (median), capture exclusion
+effective. **Idle memory failed in WebView2's default process model (181–223 MB; the GPU
+process alone is 66–117 MB on the Intel iGPU) and passes at ≈ 100 MB only with WebView2
+launched as `--in-process-gpu --process-per-site` with the spare renderer disabled** (now in
+`tauri.conf.json`; consequences in ADR-0002 and risk R19). The budget was not changed. The
+escape hatch was not built. Two further operational findings are recorded in ADR-0002
+(top-most re-assertion, cursor-poll thread). Win10 22H2 has not been run yet (runbook in the
+spike file).
