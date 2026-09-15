@@ -8,6 +8,11 @@ export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 
 export const isWindows = process.platform === 'win32';
 
+/** True when the module at `metaUrl` is the script Node was started with (not an import). */
+export function isMain(metaUrl) {
+  return Boolean(process.argv[1]) && path.resolve(process.argv[1]) === fileURLToPath(metaUrl);
+}
+
 /** Drops a leading `--` that pnpm may or may not forward, then parses `--key value` pairs. */
 export function parseArgs(argv = process.argv.slice(2)) {
   const args = argv[0] === '--' ? argv.slice(1) : argv;
@@ -68,6 +73,30 @@ export function run(command, args, { cwd = repoRoot, env = {}, allowFailure = fa
     process.exit(result.status ?? 1);
   }
   return result.status ?? 0;
+}
+
+/** Runs a command and returns its stdout; exits the process on failure unless `allowFailure`. */
+export function capture(command, args, { cwd = repoRoot, env = {}, allowFailure = false } = {}) {
+  const resolved = resolveCommand(command, args);
+  const result = spawnSync(resolved.command, resolved.args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 256 * 1024 * 1024,
+    env: { ...process.env, ...env },
+    ...resolved.options,
+  });
+  const printable = [command, ...args].join(' ');
+  if (result.error) {
+    console.error(`failed to start ${printable}: ${result.error.message}`);
+    process.exit(1);
+  }
+  if (result.status !== 0 && !allowFailure) {
+    console.error(result.stderr);
+    console.error(`${printable} exited with code ${result.status ?? 'unknown'}`);
+    process.exit(result.status ?? 1);
+  }
+  return result.stdout;
 }
 
 /**

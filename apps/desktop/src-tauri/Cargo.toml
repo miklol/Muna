@@ -1,7 +1,7 @@
 [workspace]
-members = ["crates/muna-platform", "crates/muna-core"]
+members = ["crates/muna-platform", "crates/muna-core", "crates/muna-probe"]
 # `cargo test`/`clippy` on this manifest (the CI commands) cover every crate, not just `muna`.
-default-members = [".", "crates/muna-platform", "crates/muna-core"]
+default-members = [".", "crates/muna-platform", "crates/muna-core", "crates/muna-probe"]
 resolver = "3"
 
 [workspace.package]

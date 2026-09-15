@@ -1,0 +1,31 @@
+[package]
+name = "muna-probe"
+description = "M0-E3 identity spike: reports whether identity-dependent WinRT APIs work in the current process (unpackaged, external location, MSIX)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "muna-probe"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+muna-platform.workspace = true
+windows = { version = "0.62", features = [
+  "ApplicationModel",
+  "ApplicationModel_Appointments",
+  "Data_Xml_Dom",
+  "Foundation",
+  "Foundation_Collections",
+  "UI_Notifications",
+  "UI_Notifications_Management",
+] }
+
+[lints]
+workspace = true

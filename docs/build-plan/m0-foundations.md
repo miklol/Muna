@@ -129,6 +129,18 @@ Finish with the recommendation section filled in and ADR-0001/0002 status update
 
 ## M0-E3 · Identity & packaging spike — agent: `muna-release-engineer`
 
+**Done** (2026-09-15, run by `muna-architect`): I1–I8 and I10 pass on Win11 25H2, ADR-0003
+validated with two amendments — see [spikes/m0-identity.md](../../docs/spikes/m0-identity.md).
+With identity (full MSIX or external location) `NotificationChanged` fires in 8–10 ms and
+`StartupTask` toggles; unpackaged only those two fail (`0x80070490`), so the polling fallback
+covers the gap. Signed sideload needs machine-wide certificate trust (`0x800B0109` with per-user
+trust), so local installs use Developer-Mode `-Register`. Delivered: `scripts/msix/`
+(manifest, `identity.json`, `build.mjs`, `test-cert.ps1`), `scripts/identity/`
+(external-location manifest, fail-soft register/remove script), `crates/muna-probe`, the
+`msix:build`, `release:*` and `sbom` scripts with tests, and the maintainer checklist in the
+spike file. Leftovers: I9 (`release.yml` dry run, triggered after the merge; URL goes into the
+M0 closing PR) and I11 (signing route — maintainer decision).
+
 ```text
 Validate ADR-0003. Read docs/adr/0003-packaging-identity.md, docs/10-release-distribution.md,
 docs/11-ci-cd.md (release rules, secrets table), docs/04-windows-platform-apis.md

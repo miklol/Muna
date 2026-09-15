@@ -61,8 +61,11 @@ Exit criteria
   Win10 22H2 column is a maintainer runbook). RSS passes only with the WebView2 switch set
   recorded in ADR-0002 (`--in-process-gpu`, one shared renderer); the default process model
   measured 181–223 MB — decision and guard in the spike's recommendation and risk R19.
-- [ ] Identity spike report with pass/fail per API (`docs/spikes/m0-identity.md`).
-- [ ] ADR-0001/0002/0003 updated to *Accepted (validated)* or amended.
+- [x] Identity spike report with pass/fail per API (`docs/spikes/m0-identity.md`; Win11 25H2 —
+  I1–I8 and I10 pass on both identity routes, `NotificationChanged` 8–10 ms with identity, polling
+  fallback validated unpackaged; I9 dry run and I11 signing route still open).
+- [ ] ADR-0001/0002/0003 updated to *Accepted (validated)* or amended (0001/0002 done by M0-E2,
+  0003 amended by M0-E3; final tick when the M0 closing PR lands).
 
 ## M1 · Shell & live activities (3 weeks)
 
@@ -171,7 +174,7 @@ receive, Store listing.
 
 | Milestone | Status | Started | Done | Notes |
 | ----------- | -------- | --------- | ------ | ------- |
-| M0 | In progress | 2026-09-14 | | M0-E1 scaffold landed (monorepo, Tauri shell, `@muna/ui`, `@muna/contracts`, CI parity scripts; exit criterion 1 met). M0-E2 window spike recorded: W1–W12 pass on Win11 25H2, WebView strip confirmed, ADR-0001/0002 validated with one amendment — idle memory needs WebView2's `--in-process-gpu` + one shared renderer (181–223 MB without, ≈ 100 MB with; risk R19) ([`spikes/m0-window`](spikes/m0-window.md); Win10 22H2 column open). E3 (`muna-release-engineer`) and E4 (`muna-motion-designer`) next — [build-plan/m0-foundations.md](build-plan/m0-foundations.md). |
+| M0 | In progress | 2026-09-14 | | M0-E1 scaffold landed (monorepo, Tauri shell, `@muna/ui`, `@muna/contracts`, CI parity scripts; exit criterion 1 met). M0-E2 window spike recorded: W1–W12 pass on Win11 25H2, WebView strip confirmed, ADR-0001/0002 validated with one amendment — idle memory needs WebView2's `--in-process-gpu` + one shared renderer (181–223 MB without, ≈ 100 MB with; risk R19) ([`spikes/m0-window`](spikes/m0-window.md); Win10 22H2 column open). M0-E3 identity spike recorded: I1–I8, I10 pass on Win11 25H2 for both identity routes, ADR-0003 amended (identity gates only `NotificationChanged` + `StartupTask`; sideload trust is machine-wide), `msix:build`/`release:*`/`sbom` implemented, maintainer checklist delivered ([`spikes/m0-identity`](spikes/m0-identity.md); I9 dry run after merge, I11 signing route open). E4 (`muna-motion-designer`) next — [build-plan/m0-foundations.md](build-plan/m0-foundations.md). |
 | M1 | Not started | | | |
 | M2 | Not started | | | |
 | M3 | Not started | | | |

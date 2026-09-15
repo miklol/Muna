@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Muna MSIX manifest template (ADR-0003, docs/10-release-distribution.md). Rendered by
+  scripts/msix/build.mjs: the double-brace placeholders come from scripts/msix/identity.json and
+  the build version (4-part, see scripts/version.mjs). Capabilities are the ADR-0003 list;
+  restricted ones (rescap) are allowed for sideloaded packages and reviewed on Store submission.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap7="http://schemas.microsoft.com/appx/manifest/uap/windows10/7"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  IgnorableNamespaces="uap uap3 uap7 uap10 rescap desktop desktop6">
+
+  <Identity
+    Name="{{NAME}}"
+    Publisher="{{PUBLISHER}}"
+    Version="{{VERSION}}"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>{{DISPLAY_NAME}}</DisplayName>
+    <PublisherDisplayName>{{PUBLISHER_DISPLAY_NAME}}</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>{{DESCRIPTION}}</Description>
+    <!-- unvirtualizedResources: settings live in %APPDATA%\Muna for both installers. -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily
+      Name="Windows.Desktop"
+      MinVersion="{{MIN_VERSION}}"
+      MaxVersionTested="{{MAX_VERSION_TESTED}}" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="{{APP_ID}}"
+      Executable="muna.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="{{DISPLAY_NAME}}"
+        Description="{{DESCRIPTION}}"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Square71x71Logo="Assets\Square71x71Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <!-- Disabled until the user opts in (docs/10 "Installer behaviour"). -->
+        <desktop:Extension
+          Category="windows.startupTask"
+          Executable="muna.exe"
+          EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask
+            TaskId="{{STARTUP_TASK_ID}}"
+            Enabled="false"
+            DisplayName="{{DISPLAY_NAME}}" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+    <rescap:Capability Name="appointmentsSystem" />
+    <uap3:Capability Name="userNotificationListener" />
+    <uap7:Capability Name="globalMediaControl" />
+    <DeviceCapability Name="bluetooth" />
+    <DeviceCapability Name="radios" />
+    <DeviceCapability Name="webcam" />
+    <DeviceCapability Name="microphone" />
+    <DeviceCapability Name="location" />
+  </Capabilities>
+</Package>
