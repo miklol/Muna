@@ -7,10 +7,11 @@ stats, drop-anything file tiles and a shelf, window snapping, GitHub/GitLab and 
 status — everything the macOS notch apps do, rebuilt for Windows 10/11 with Apple-grade
 motion and a near-zero footprint.
 
-> Status: **M0 (foundations) in progress.** The monorepo scaffold, Tauri desktop shell,
-> `@muna/ui` and `@muna/contracts` packages, the CI parity scripts and the window and identity
-> spikes have landed; the design-token and motion-preset epic comes next. Plan, design system,
-> module specs and agent configuration live in [docs/README.md](docs/README.md).
+> Status: **M0 (foundations) done, M1 (shell & live activities) next.** The monorepo scaffold,
+> Tauri desktop shell, `@muna/ui` (tokens, motion presets, primitives) and `@muna/contracts`
+> packages, the CI parity and release scripts, and the window and identity spikes have landed;
+> the `release.yml` dry run is green. Plan, design system, module specs and agent configuration
+> live in [docs/README.md](docs/README.md).
 
 ## Highlights
 
@@ -51,11 +52,11 @@ Custom Copilot agents live in [`.github/agents`](.github/agents):
 | `muna-docs-writer` | Specs, UX copy, i18n strings, release notes |
 | `muna-design-reviewer` | Read-only fidelity/motion/a11y review before merging UI |
 
-To start: open a session on `main`, paste the epic's prompt from
-[docs/build-plan/m0-foundations.md](docs/build-plan/m0-foundations.md) and pick the agent it
-names. **M0-E1** (scaffold), **M0-E2** (transparent-window spike) and **M0-E3** (identity
-spike) have landed; **M0-E4** (tokens and motion presets, `muna-motion-designer`) is next. The
-spikes filled in the exit-criteria tables in [docs/spikes](docs/spikes/README.md).
+To start: open a session on `main`, paste the epic's prompt from the milestone's build plan and
+pick the agent it names. **M0** is closed — all four epics landed and the spikes filled in the
+exit-criteria tables in [docs/spikes](docs/spikes/README.md); what carried over is listed in
+the [roadmap status table](docs/07-roadmap.md#status-tracking). **M1** starts with
+[docs/build-plan/m1-shell.md](docs/build-plan/m1-shell.md).
 
 ## Development
 

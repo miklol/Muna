@@ -73,25 +73,38 @@ and security updates on, "Require approval for all outside collaborators" for Ac
 PRs, default workflow permissions **read**, "Allow GitHub Actions to create and approve pull
 requests" **off** (release-please uses a fine-grained PAT stored as `RELEASE_PLEASE_TOKEN`).
 
+**Plan limitation (recorded 2026-09-15 by the M0 closing PR).** On the GitHub Free plan a
+*private* repository cannot have rulesets, protected environments, secret scanning, push
+protection or private vulnerability reporting — the API answers `403 Upgrade to GitHub Pro or
+make this repository public`. Until the repository is public or on a paid plan, `main` is
+protected by convention only (squash-only merges, the required checks `ci.yml` reports, and
+the rules for agents below), and the `release` environment cannot get its required reviewer.
+Unprotected environments do work: `release-dry-run` was created on first use by the I9 dry
+run. Everything that needs no plan change is already in place — see the ticks below.
+
 ### Bootstrap checklist (maintainer, once)
 
 Nothing in this list can be done from a PR; the repository owner performs it and ticks it in
-the M0 exit criteria.
+the M0 exit criteria. Ticks below were verified through the REST API on 2026-09-15; items
+marked *plan* wait for a public repository or a paid plan.
 
-- [ ] Ruleset `main` as in the table above; required checks `changes`, `pr-title`, `docs`,
-      `web`, `rust`, `deps`, `app` (add them only after the first `ci.yml` run has reported them)
-- [ ] Ruleset `v*` tags: restrict creation, block deletion and updates
-- [ ] Merge settings: squash only, default squash message = PR title + body, auto-delete branches
-- [ ] Actions settings: default permissions read-only, PR creation by Actions off, fork PRs
-      require approval
-- [ ] Security: secret scanning, push protection, Dependabot alerts/security updates, private
-      vulnerability reporting
-- [ ] Environment `release`: required reviewer (maintainer), deployment tags `v*`, secrets and
-      variables from the [table](#secrets-and-environments); Azure federated credential with
-      subject `repo:miklol/Muna:environment:release`
+- [ ] *plan* Ruleset `main` as in the table above; required checks `changes`, `pr-title`,
+      `docs`, `web`, `rust`, `deps`, `app` (all seven have reported since PR #3)
+- [ ] *plan* Ruleset `v*` tags: restrict creation, block deletion and updates
+- [x] Merge settings: squash only (merge commits and rebase-merge off), default squash message
+      = PR title + body, auto-delete branches
+- [x] Actions settings: default permissions read-only, PR creation by Actions off. Fork-PR
+      approval is not a setting on private repositories (GitHub rejects it) — turn it on the
+      day the repository goes public
+- [ ] Security: Dependabot alerts and security updates **on**; *plan* secret scanning, push
+      protection, private vulnerability reporting
+- [ ] *plan* Environment `release`: required reviewer (maintainer), deployment tags `v*`,
+      secrets and variables from the [table](#secrets-and-environments); Azure federated
+      credential with subject `repo:miklol/Muna:environment:release`. (`release-dry-run`
+      exists — auto-created by the I9 dry run, no protection, no secrets, as designed)
 - [ ] Repository secret `RELEASE_PLEASE_TOKEN`, repository variable `RELEASE_AUTOMATION=true`
-      (after M0 lands), labels `ci:nightly`, `dependencies`, `ci`, `npm`, `cargo`,
-      `perf-regression`, `flaky-test`
+      (M0 has landed — set both now). Labels `ci:nightly`, `dependencies`, `ci`, `npm`,
+      `cargo`, `perf-regression`, `flaky-test` exist
 - [ ] Verify `releases/latest/download/latest.json` resolves after the first stable release
 
 ## Workflows
@@ -223,6 +236,13 @@ budgets. Gates are never lowered to unblock a PR.
 - **`cargo deny`** with `deny.toml` (licences allowlist above, `wildcards = "deny"`,
   `multiple-versions = "warn"`, advisory database) runs on every code PR in the `deps` job and
   again nightly, because advisories appear without a code change.
+- **Advisories in dev-only transitive packages** (`pnpm audit --prod` ignores them, Dependabot
+  does not): fix them with an entry in `overrides` in `pnpm-workspace.yaml` that names the
+  advisory and the dependant pinning the old range, then verify the tool that uses the package
+  still runs; drop the entry once the dependant moves on. Linux-only crates that reach
+  `Cargo.lock` through Tauri's gtk chain (never compiled for the Windows target) are dismissed
+  in the Dependabot UI as "vulnerable code is not actually used", with the reason in the
+  dismissal comment.
 - **New dependencies** need a one-line justification in the PR ("why not the platform API /
   an existing dep"). Anything with native code, network access at runtime, or > 200 kB
   gzipped needs `muna-architect` review.
