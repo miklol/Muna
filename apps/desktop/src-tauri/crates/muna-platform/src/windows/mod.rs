@@ -6,6 +6,7 @@
 //! `// SAFETY:` comment (repository rule).
 
 mod foreground;
+pub mod identity;
 mod monitors;
 mod power;
 mod pump;

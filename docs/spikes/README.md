@@ -8,7 +8,7 @@ agent fills in the measurements in the same file; the numbers then flip the ADR 
 | Spike | Validates | Epic · agent | Status |
 | ------- | ----------- | -------------- | -------- |
 | [m0-window](m0-window.md) | [ADR-0001](../adr/0001-tech-stack.md), [ADR-0002](../adr/0002-window-strategy.md) | M0-E2 · `muna-shell-engineer` | Recorded (Win11 25H2 pass with the WebView2 switch amendment; Win10 22H2 open) |
-| [m0-identity](m0-identity.md) | [ADR-0003](../adr/0003-packaging-identity.md) | M0-E3 · `muna-release-engineer` | Planned |
+| [m0-identity](m0-identity.md) | [ADR-0003](../adr/0003-packaging-identity.md) | M0-E3 · `muna-release-engineer` | Recorded (Win11 25H2: I1–I8, I10 pass, two amendments; I9 dry run after merge, I11 maintainer decision) |
 
 ## Rules
 

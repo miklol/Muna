@@ -65,7 +65,7 @@ is granted to nobody; emergencies use the revert runbook below.
 | -------- | ------- |
 | `main` | Require a pull request · 1 approving review · dismiss stale approvals on push · require review from code owners (`.github/CODEOWNERS`) · require conversation resolution · require the status checks listed below (strict: branch up to date) · require linear history · block force pushes · block deletion · require signed commits *recommended* (enable once all maintainers sign) |
 | `v*` tags | Restrict creation to the `release-please` bot and the maintainer · block deletion · block updates (tags are immutable — a bad release gets a new patch version, never a moved tag) |
-| Workflows | `.github/workflows/**`, `.github/CODEOWNERS`, `.github/dependabot.yml`, `deny.toml`, `release-please-config.json`, `scripts/msix/**`, `scripts/version.ts`, the design/motion contracts (`docs/05`, `docs/06`, `packages/ui/src/tokens/`) and the module contract (`docs/adr/**`, `packages/contracts/**`) are code-owned by the maintainer in [`.github/CODEOWNERS`](../.github/CODEOWNERS); changes need their explicit review |
+| Workflows | `.github/workflows/**`, `.github/CODEOWNERS`, `.github/dependabot.yml`, `deny.toml`, `release-please-config.json`, `scripts/msix/**`, `scripts/version.mjs`, the design/motion contracts (`docs/05`, `docs/06`, `packages/ui/src/tokens/`) and the module contract (`docs/adr/**`, `packages/contracts/**`) are code-owned by the maintainer in [`.github/CODEOWNERS`](../.github/CODEOWNERS); changes need their explicit review |
 
 Repository settings that back the rules: squash-merge only (merge commits and rebase-merge
 disabled), auto-delete head branches, secret scanning + push protection on, Dependabot alerts
@@ -276,7 +276,7 @@ promotion); releases rebuild from the tag.
   `fix`/`perf` → patch, `!` → major (pre-1.0: major bumps are mapped to minor via
   `bump-minor-pre-major`). The release PR updates `apps/desktop/package.json`, `Cargo.toml`
   and `tauri.conf.json` (`extra-files` in `release-please-config.json`) and `CHANGELOG.md`;
-  `scripts/version.ts` derives the 4-part MSIX version at build time. The `v*` tag it pushes
+  `scripts/version.mjs` derives the 4-part MSIX version at build time. The `v*` tag it pushes
   triggers `release.yml`.
 - **Preflight** in `release.yml` refuses to build when the tag is not `vX.Y.Z[-beta.N]`, the
   package version does not match the tag, or the tagged commit is not on `main`.
@@ -346,11 +346,11 @@ feature it checks exists). Renaming one is a `ci` change that updates the workfl
 | `bundle:check` | `scripts/bundle-size.mjs` against the budgets above |
 | `e2e` | Playwright shell scenario suite S1–S14 against the debug build; report in `apps/desktop/playwright-report` |
 | `perf:smoke`, `perf:full` | `scripts/perf` with `--out <json> --markdown <md>`; non-zero exit on budget breach |
-| `msix:build` | `scripts/msix/build.ts --version <v> --out <dir>` |
+| `msix:build` | `scripts/msix/build.mjs --version <v> --out <dir>`: renders both manifests from `scripts/msix/identity.json`, `MakeAppx pack /nv` → `Muna_<v>_x64.msix` + `Muna_<v>_x64-external.msix`, unsigned (`--test-sign` only for local installs) |
 | `release:updater` | `tauri signer sign` on the NSIS installer and writes `latest.json` (`--version --tag --dir`) |
 | `release:appinstaller` | Writes `Muna.appinstaller` (`--version --tag --dir`) |
-| `release:verify` | `signtool verify /pa` on every exe/msix and `tauri signer verify` on the updater signature |
-| `sbom` | CycloneDX SBOMs for npm and cargo into `--out <dir>` |
+| `release:verify` | `signtool verify /pa` on every exe/msix, minisign verification of the updater signature in Node (`scripts/release/minisign.mjs` — the Tauri CLI has no `signer verify`) against `plugins.updater.pubkey`, and `.appinstaller` ↔ MSIX consistency (`--dir`, optional `--version`) |
+| `sbom` | CycloneDX 1.5 SBOMs for npm and cargo into `--out <dir>` (`scripts/sbom.mjs`, from `pnpm list`/`pnpm licenses` and `cargo metadata`) |
 
 ## Rules for agents
 

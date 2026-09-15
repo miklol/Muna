@@ -1,0 +1,14 @@
+{
+  "$comment": "MSIX package identity (ADR-0003, docs/10-release-distribution.md). `publisher` must equal the Subject of the release signing certificate exactly (signtool refuses otherwise); the maintainer replaces the placeholder before the first real release. `testPublisher` is the Subject of the ephemeral self-signed certificate `scripts/msix/test-cert.ps1` creates for local installs; it never signs anything that is published.",
+  "name": "miklol.Muna",
+  "publisher": "CN=REPLACE-WITH-SIGNING-CERTIFICATE-SUBJECT",
+  "publisherDisplayName": "miklol",
+  "displayName": "Muna",
+  "description": "A notch for Windows: a quiet black strip that morphs into a productivity hub.",
+  "applicationId": "Muna",
+  "startupTaskId": "MunaStartup",
+  "minVersion": "10.0.19041.0",
+  "maxVersionTested": "10.0.26100.0",
+  "testPublisher": "CN=Muna Test Signing",
+  "repository": "https://github.com/miklol/Muna"
+}

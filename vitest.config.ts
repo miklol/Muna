@@ -4,7 +4,11 @@ import { defineConfig } from 'vitest/config';
 // runs them all; CI adds `--run --coverage` (docs/11-ci-cd.md#required-checks).
 export default defineConfig({
   test: {
-    projects: ['packages/*/vitest.config.ts', 'apps/*/vitest.config.ts'],
+    projects: [
+      'packages/*/vitest.config.ts',
+      'apps/*/vitest.config.ts',
+      'scripts/vitest.config.ts',
+    ],
     passWithNoTests: true,
     coverage: {
       provider: 'v8',

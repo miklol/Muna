@@ -8,9 +8,9 @@ status — everything the macOS notch apps do, rebuilt for Windows 10/11 with Ap
 motion and a near-zero footprint.
 
 > Status: **M0 (foundations) in progress.** The monorepo scaffold, Tauri desktop shell,
-> `@muna/ui` and `@muna/contracts` packages and the CI parity scripts have landed; the window,
-> identity and token spikes come next. Plan, design system, module specs and agent
-> configuration live in [docs/README.md](docs/README.md).
+> `@muna/ui` and `@muna/contracts` packages, the CI parity scripts and the window and identity
+> spikes have landed; the design-token and motion-preset epic comes next. Plan, design system,
+> module specs and agent configuration live in [docs/README.md](docs/README.md).
 
 ## Highlights
 
@@ -53,11 +53,9 @@ Custom Copilot agents live in [`.github/agents`](.github/agents):
 
 To start: open a session on `main`, paste the epic's prompt from
 [docs/build-plan/m0-foundations.md](docs/build-plan/m0-foundations.md) and pick the agent it
-names. **M0-E1** (scaffold) has landed; **M0-E2** (transparent-window spike,
-`muna-shell-engineer`), **M0-E3** (identity spike, `muna-release-engineer`) and **M0-E4**
-(tokens and motion presets, `muna-motion-designer`) are independent and can run in parallel
-sessions. The spikes fill in the exit-criteria tables prepared in
-[docs/spikes](docs/spikes/README.md).
+names. **M0-E1** (scaffold), **M0-E2** (transparent-window spike) and **M0-E3** (identity
+spike) have landed; **M0-E4** (tokens and motion presets, `muna-motion-designer`) is next. The
+spikes filled in the exit-criteria tables in [docs/spikes](docs/spikes/README.md).
 
 ## Development
 
@@ -128,6 +126,22 @@ matches, so bumping such a dependency means re-checking whether the patch is sti
 Rust tests run against `muna_platform::fake::FakePlatform` by default. Tests that need real
 Windows APIs are `#[ignore]`d unless the `platform-tests` feature is enabled
 (`cargo test --all-features` does this, as CI does on `windows-latest`).
+
+### Packaging (local test only)
+
+```powershell
+pnpm --filter @muna/desktop tauri build --no-bundle                       # target/release/muna.exe
+pnpm -w msix:build -- --version 0.0.0 --out dist/local --test-sign --keep-stage
+Add-AppxPackage -Register dist\local\.msix-stage\full\AppxManifest.xml    # Developer Mode, no elevation
+Remove-AppxPackage (Get-AppxPackage -Name miklol.Muna).PackageFullName
+```
+
+`msix:build` renders the manifests from `scripts/msix/identity.json` and packs both the full
+MSIX and the external-location package (`scripts/identity/`). `--test-sign` uses an ephemeral
+self-signed certificate that never leaves the machine; a *signed* package only installs when
+its chain is trusted machine-wide, so local tests register the loose layout instead
+([docs/spikes/m0-identity.md](docs/spikes/m0-identity.md)). `cargo run -p muna-probe` reports
+which identity-dependent APIs work in the current process.
 
 Trunk-based: short-lived branches, squash-merged into `main` behind the required checks in
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml). PR titles are Conventional Commits and

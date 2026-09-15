@@ -1,7 +1,7 @@
 # ADR-0003 · Packaging & identity: MSIX primary, NSIS portable
 
-**Status:** Accepted (pending M0-E3 spike validation, plan in
-[spikes/m0-identity](../spikes/m0-identity.md)) · **Date:** 2026-09-14
+**Status:** Accepted (validated with amendments by the M0-E3 spike, 2026-09-15 — results in
+[spikes/m0-identity](../spikes/m0-identity.md)) · **Date:** 2026-09-14 · **Amended:** 2026-09-15
 
 ## Context
 
@@ -32,6 +32,32 @@ require a trusted signature.
   feature-flag identity-dependent modules.
 - Undocumented COM such as `IPolicyConfig` (default audio device switching) misbehaves under
   MSIX virtualisation → invoked through a tiny unpackaged helper process.
+
+## Amendments (M0-E3 spike, 2026-09-15)
+
+Measured on Windows 11 25H2 with the probe in `crates/muna-probe`, unpackaged, under
+external-location identity and inside the MSIX ([spikes/m0-identity](../spikes/m0-identity.md)):
+
+- **The identity flag gates only `NotificationChanged` and `StartupTask`.** `RequestAccessAsync`
+  returns `Allowed`, `GetNotificationsAsync` works and `AppointmentManager.RequestStoreAsync`
+  is granted *without* identity; unpackaged, subscribing to `NotificationChanged` fails with
+  `0x80070490` and `StartupTask.GetAsync` fails the same way. The Notifications module must
+  probe the subscription itself (not `RequestAccessAsync`) and fall back to 1 s polling on that
+  error; with identity the event fired 8–10 ms after a foreign toast on both routes.
+- **Sideload trust is machine-wide.** `Add-AppxPackage` (full or `-ExternalLocation`) rejects a
+  package whose certificate is trusted only per user (`0x800B0109`); the trust store that
+  counts needs elevation. Consequences: release artefacts must carry a publicly trusted
+  signature before the first beta (the code-signing decision in the spike's I11 gates M5),
+  the NSIS external-location step fails soft on unsigned builds (`scripts/identity/
+  register-external-location.ps1` — rollback, exit 0), and local installs use Developer-Mode
+  `Add-AppxPackage -Register` of the loose layout (`msix:build --keep-stage`).
+- **Scripts:** `scripts/msix/build.mjs` renders both manifests from `scripts/msix/identity.json`
+  (`Publisher` must equal the certificate `Subject`); `release:verify` re-implements minisign
+  verification in Node because the Tauri CLI has no `signer verify`; the version plumbing is
+  `scripts/version.mjs`.
+- Not exercised yet: the unpackaged `IPolicyConfig` helper (M2-E3 HUD) and virtualisation under
+  a *signed* install (the loose-layout runs wrote to the real `%LOCALAPPDATA%\Muna`; re-check on
+  the first signed beta).
 
 ## Consequences
 

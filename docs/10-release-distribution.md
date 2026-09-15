@@ -17,9 +17,9 @@ touch — live in [11-ci-cd.md](11-ci-cd.md); this document describes the artifa
 
 ## Versioning
 
-- SemVer; single source of truth `version` in `apps/desktop/package.json`, propagated by a
-  `scripts/version.ts` to `Cargo.toml`, `tauri.conf.json`, `AppxManifest.xml` (MSIX needs
-  4-part `x.y.z.0`).
+- SemVer; single source of truth `version` in `apps/desktop/package.json`, propagated by
+  `scripts/version.mjs` to `Cargo.toml`, `tauri.conf.json`, `Cargo.lock` (`--set`, `--check`)
+  and derived as the 4-part `x.y.z.0` the MSIX manifest needs (`--msix`).
 - Conventional Commits → `CHANGELOG.md` via `release-please` (or `changesets`).
 - Channels: `stable` (tags `vX.Y.Z`), `beta` (`vX.Y.Z-beta.N`), `nightly` (unsigned, CI only,
   labelled in the tray tooltip).
@@ -49,8 +49,10 @@ The workflow lives at [`.github/workflows/release.yml`](../.github/workflows/rel
    OIDC) so the packaged executable carries a signature, then `tauri bundle --bundles nsis` →
    NSIS installer (`bundle.windows.nsis`, `webviewInstallMode: downloadBootstrapper`,
    `installMode: currentUser`).
-3. `scripts/msix/build.ts`: stage the built `apps/desktop/src-tauri/target/release/` output,
-   render `AppxManifest.xml` (version, publisher, capabilities), `MakeAppx pack /nv`.
+3. `scripts/msix/build.mjs`: stage the built `apps/desktop/src-tauri/target/release/` output,
+   render `AppxManifest.xml` and the external-location manifest from `scripts/msix/identity.json`
+   (version, publisher, capabilities), `MakeAppx pack /nv` → `Muna_<ver>_x64.msix` and
+   `Muna_<ver>_x64-external.msix`, both unsigned.
 4. Sign installers: `signtool sign /fd SHA256 /tr <tsa> /td SHA256` through the
    `azure/trusted-signing-action` (OIDC federated credential from GitHub Environment `release`).
 5. `tauri signer sign` (minisign) on the *signed* NSIS installer; generate `latest.json`.
