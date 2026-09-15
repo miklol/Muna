@@ -1,0 +1,19 @@
+/* Hairline primitive — 1 px borders and dividers (docs/05-design-system.md#colour). */
+
+.muna-hairline {
+  flex: none;
+  inline-size: 100%;
+  block-size: 1px;
+  background: var(--hairline);
+}
+
+.muna-hairline--vertical {
+  inline-size: 1px;
+  block-size: auto;
+  align-self: stretch;
+  min-block-size: 1em;
+}
+
+.muna-hairline--strong {
+  background: var(--hairline-strong);
+}

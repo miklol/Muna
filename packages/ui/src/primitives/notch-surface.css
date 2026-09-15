@@ -1,0 +1,126 @@
+/*
+ * NotchSurface primitive — materials and silhouette from docs/05-design-system.md.
+ * `__shadow` paints `--shadow-panel` under the body (inset by the flare so it hugs the black,
+ * not the bezel fillets); `__shape` carries the material, clips content and, when a clip-path
+ * mask is active, draws the hairline as an SVG stroke along the identical path (a CSS border
+ * cannot follow a clip-path). With `corner-shape` support or while morphing, plain
+ * `border-radius` + CSS border do the job.
+ */
+
+.muna-notch-surface {
+  --muna-notch-flare: 0px;
+
+  position: relative;
+  box-sizing: border-box;
+  display: block;
+}
+
+.muna-notch-surface__shadow {
+  position: absolute;
+  inset: 0 var(--muna-notch-flare);
+  pointer-events: none;
+}
+
+.muna-notch-surface__shape {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  overflow: clip;
+  contain: layout paint style;
+}
+
+.muna-notch-surface__content {
+  box-sizing: border-box;
+  block-size: 100%;
+  padding-inline: var(--muna-notch-flare);
+}
+
+.muna-notch-surface__outline {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--hairline);
+
+  /* Half the stroke is clipped away by the mask, leaving exactly 1 px inside the shape. */
+  stroke-width: 2px;
+}
+
+/* Island: panel material, all four corners, hairline all round, constant radius. */
+.muna-notch-surface--island .muna-notch-surface__shadow {
+  border-radius: var(--radius-island);
+  box-shadow: var(--shadow-panel);
+}
+
+.muna-notch-surface--island .muna-notch-surface__shape {
+  background: var(--material-panel);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-island);
+  box-shadow: var(--catch-light);
+}
+
+/* Strip: black, no border, bottom corners only; the outline appears only in contrast themes. */
+.muna-notch-surface--notch.muna-notch-surface--collapsed .muna-notch-surface__shape {
+  background: var(--notch-black);
+  border-radius: 0 0 var(--radius-strip) var(--radius-strip);
+}
+
+.muna-notch-surface--notch.muna-notch-surface--collapsed .muna-notch-surface__outline {
+  display: none;
+}
+
+/* Panel: gradient, top catch-light, hairline except the top edge, painted shadow. */
+.muna-notch-surface--notch.muna-notch-surface--expanded .muna-notch-surface__shadow {
+  border-radius: 0 0 var(--radius-panel) var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.muna-notch-surface--notch.muna-notch-surface--expanded .muna-notch-surface__shape {
+  background: var(--material-panel);
+  border: 1px solid var(--hairline);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-panel) var(--radius-panel);
+  box-shadow: var(--catch-light);
+}
+
+/* Clip-path masks replace border-radius and the CSS border; the SVG outline takes over. */
+.muna-notch-surface.muna-notch-surface--clipped .muna-notch-surface__shape {
+  border: 0;
+  border-radius: 0;
+}
+
+/* Contrast themes: the strip gains a 1 px hairline so black stays visible on dark wallpapers. */
+@media (prefers-contrast: more) {
+  .muna-notch-surface--notch.muna-notch-surface--collapsed .muna-notch-surface__shape {
+    box-shadow: inset 0 0 0 1px var(--hairline);
+  }
+
+  .muna-notch-surface--clipped.muna-notch-surface--collapsed .muna-notch-surface__shape {
+    box-shadow: none;
+  }
+
+  .muna-notch-surface--notch.muna-notch-surface--collapsed .muna-notch-surface__outline {
+    display: block;
+  }
+}
+
+[data-contrast='more']
+  .muna-notch-surface--notch.muna-notch-surface--collapsed
+  .muna-notch-surface__shape {
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+[data-contrast='more']
+  .muna-notch-surface--clipped.muna-notch-surface--collapsed
+  .muna-notch-surface__shape {
+  box-shadow: none;
+}
+
+[data-contrast='more']
+  .muna-notch-surface--notch.muna-notch-surface--collapsed
+  .muna-notch-surface__outline {
+  display: block;
+}

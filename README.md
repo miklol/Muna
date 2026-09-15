@@ -95,7 +95,7 @@ on the primary monitor, so the settings window is shown at start-up for now.
 | `apps/desktop/src-tauri/crates/muna-platform` | `muna-platform` | Platform traits, `FakePlatform` for tests, Windows implementations behind `cfg(windows)`. |
 | `apps/desktop/src-tauri/crates/muna-core` | `muna-core` | Strip scheduler, settings + migrations, SQLite store. No Tauri or Win32 dependency. |
 | `apps/site` | `@muna/site` | Placeholder marketing site (Vite). |
-| `packages/ui` | `@muna/ui` | Design tokens (`src/tokens`), primitives, motion presets, Storybook. |
+| `packages/ui` | `@muna/ui` | Design system: tokens (`src/tokens`, `@muna/ui/tokens.css` + `fonts.css`), primitives (`@muna/ui/primitives`), motion presets and reduced-motion provider (`@muna/ui/motion`), squircle and notch path helpers (`@muna/ui/shape`), Storybook. |
 | `packages/contracts` | `@muna/contracts` | tauri-specta generated bindings (`src/bindings.ts`) and zod schemas. |
 | `packages/i18n` | `@muna/i18n` | i18next setup and `locales/*.json`. |
 | `scripts` | — | Root scripts the CI workflows call; see [docs/11-ci-cd.md](docs/11-ci-cd.md#root-scripts-the-workflows-call). |
@@ -117,7 +117,12 @@ cargo test   --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features
 
 `pnpm -w ci`, `ci:rust`, `ci:deps` and `ci:app` mirror the four required workflow jobs
 one-to-one; run the one that failed before pushing a fix. `storybook:ci` downloads a Chromium
-build through Playwright the first time it runs.
+build through Playwright the first time it runs and fails on any axe violation; a story may
+opt out of a single rule through `parameters.a11y.config.rules` with a comment saying why.
+
+Windows import `@muna/ui/fonts.css` (Inter Variable, bundled) and `@muna/ui/tokens.css` once,
+wrap their tree in `MunaMotionProvider` from `@muna/ui/motion`, and read every spring or timing
+from `springs` / `timings` / `useMotionPreset` — never a literal duration.
 
 Dependency patches live in `patches/` and are declared in `pnpm-workspace.yaml` with the reason
 and the upstream issue to watch; pnpm refuses to install when a patched version no longer

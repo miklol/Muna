@@ -1,0 +1,38 @@
+/*
+ * Ring primitive — stroke 8 (small 6), round caps, starts at 12 o'clock. The track is the tint
+ * at 20 % so the ring reads in colour before any value arrives; the value stroke is the tint.
+ */
+
+.muna-ring {
+  --muna-tint: var(--accent);
+
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+
+.muna-ring__svg {
+  display: block;
+  grid-area: 1 / 1;
+  transform: rotate(-90deg);
+}
+
+.muna-ring__track {
+  fill: none;
+  stroke: color-mix(in oklab, var(--muna-tint) 20%, transparent);
+}
+
+.muna-ring__value {
+  fill: none;
+  stroke: var(--muna-tint);
+  stroke-linecap: round;
+}
+
+.muna-ring__content {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}

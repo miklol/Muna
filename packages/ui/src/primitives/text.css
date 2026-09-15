@@ -1,0 +1,112 @@
+/* Text primitive — every value is a token from docs/05-design-system.md#typography. */
+
+.muna-text {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  color: var(--text-1);
+  text-wrap: pretty;
+}
+
+.muna-text--caption2 {
+  font-size: var(--text-caption2);
+  line-height: var(--text-caption2--line-height);
+  font-weight: var(--text-caption2--font-weight);
+  letter-spacing: var(--text-caption2--letter-spacing);
+}
+
+.muna-text--caption {
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
+  font-weight: var(--text-caption--font-weight);
+  letter-spacing: var(--text-caption--letter-spacing);
+}
+
+.muna-text--footnote {
+  font-size: var(--text-footnote);
+  line-height: var(--text-footnote--line-height);
+  font-weight: var(--text-footnote--font-weight);
+  letter-spacing: var(--text-footnote--letter-spacing);
+}
+
+.muna-text--body {
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-weight: var(--text-body--font-weight);
+  letter-spacing: var(--text-body--letter-spacing);
+}
+
+.muna-text--callout {
+  font-size: var(--text-callout);
+  line-height: var(--text-callout--line-height);
+  font-weight: var(--text-callout--font-weight);
+  letter-spacing: var(--text-callout--letter-spacing);
+}
+
+.muna-text--title3 {
+  font-size: var(--text-title3);
+  line-height: var(--text-title3--line-height);
+  font-weight: var(--text-title3--font-weight);
+  letter-spacing: var(--text-title3--letter-spacing);
+}
+
+.muna-text--title2 {
+  font-size: var(--text-title2);
+  line-height: var(--text-title2--line-height);
+  font-weight: var(--text-title2--font-weight);
+  letter-spacing: var(--text-title2--letter-spacing);
+}
+
+.muna-text--title1 {
+  font-size: var(--text-title1);
+  line-height: var(--text-title1--line-height);
+  font-weight: var(--text-title1--font-weight);
+  letter-spacing: var(--text-title1--letter-spacing);
+}
+
+.muna-text--display {
+  font-size: var(--text-display);
+  line-height: var(--text-display--line-height);
+  font-weight: var(--text-display--font-weight);
+  letter-spacing: var(--text-display--letter-spacing);
+}
+
+.muna-text--tone-secondary {
+  color: var(--text-2);
+}
+
+.muna-text--tone-tertiary {
+  color: var(--text-3);
+}
+
+.muna-text--weight-400 {
+  font-weight: 400;
+}
+
+.muna-text--weight-600 {
+  font-weight: 600;
+}
+
+.muna-text--tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.muna-text--truncate-1 {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muna-text--truncate-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.muna-text--caps {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}

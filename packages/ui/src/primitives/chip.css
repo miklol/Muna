@@ -1,0 +1,92 @@
+/*
+ * Chip primitive — height 24, padding 0 10, icon 12, text 12/600 on `--surface-2`; selected
+ * chips use `--surface-3`. Selection colour follows the `toggle` preset as linear() easing.
+ */
+
+.muna-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  block-size: var(--size-chip-height);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  font-size: var(--text-footnote);
+  line-height: var(--text-footnote--line-height);
+  font-weight: 600;
+  white-space: nowrap;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muna-chip--selectable {
+  cursor: default;
+  transition:
+    background-color var(--muna-motion-toggle),
+    transform var(--muna-motion-press);
+}
+
+.muna-chip__icon {
+  display: inline-flex;
+  inline-size: 12px;
+  block-size: 12px;
+  color: var(--text-2);
+}
+
+.muna-chip__icon > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.muna-chip[data-hovered] {
+  background: var(--surface-3);
+}
+
+.muna-chip[data-selected],
+.muna-chip[data-pressed] {
+  background: var(--surface-3);
+}
+
+.muna-chip[data-selected] .muna-chip__icon {
+  color: var(--text-1);
+}
+
+.muna-chip[data-pressed] {
+  transform: scale(0.96);
+}
+
+.muna-chip[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-chip[data-disabled] {
+  color: var(--text-3);
+}
+
+.muna-chip[data-disabled] .muna-chip__icon {
+  color: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-chip--selectable {
+    transition: none;
+  }
+
+  .muna-chip[data-pressed] {
+    transform: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-chip--selectable {
+  transition: none;
+}
+
+:root[data-reduce-motion] .muna-chip[data-pressed] {
+  transform: none;
+}

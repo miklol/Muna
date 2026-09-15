@@ -57,6 +57,32 @@ easing (Chromium ≥ 113) exported from the same preset module.
 
 Tuning happens only in the Storybook "Motion" playground and lands as a change to this table.
 
+### Presets in code
+
+`@muna/ui/motion` (M0-E4) is the only place these numbers live:
+
+- `springs[name]` — the table above as `{ type: 'spring', stiffness, damping, mass }`;
+  `springResponse` / `springDampingRatio` / `toAppleSpring` compute the derived columns, and
+  the Foundations → Motion → Springs story renders the table from the code so a drift between
+  this document and the presets is visible.
+- `timings` — every value in the next section, in milliseconds (`hoverIntentMs`,
+  `noticeHoldMs`, …); module code reads these instead of writing numbers.
+- `MunaMotionProvider` at the root of each window, `useMotionPreset(name)` in components
+  (returns the spring, or the reduced-motion transition when either switch is on),
+  `resolveMotionPreset(name, reduceMotion)` for code outside React, `useHoldTime(ms)` for the
+  1.5 × hold rule.
+
+### Presets in CSS
+
+Hover tint, press scale and chip select are pure CSS. `toLinearEasing(preset)` renders a spring
+as `"<ms>ms linear(…)"` (Motion's `spring().toString()`), and `MunaMotionProvider` publishes
+three of them on `<html>`: `--muna-motion-press`, `--muna-motion-toggle`,
+`--muna-motion-reveal`. Primitives write `transition: transform var(--muna-motion-press)`.
+Without a provider the properties are undefined and the state change is instant — never a
+literal fallback. CSS transitions cannot inherit velocity, so they are used only for states that
+are never interrupted mid-flight; anything that can be retargeted (shape, values) is driven by
+Motion.
+
 ## Timings (non-spring)
 
 | Event | Value |
@@ -186,6 +212,14 @@ countdowns (Pomodoro), otherwise crossfade — never for percentages that change
 
 `useMotionPreset(name)` returns the correct transition; `MotionConfig reducedMotion="user"`
 is set at the root, and the app setting overrides via context.
+
+As built (M0-E4): `MunaMotionProvider reduceMotion={setting}` renders `MotionConfig
+reducedMotion={setting ? 'always' : 'user'}`, so Motion follows the OS and the app setting can
+only add to it. The outermost provider mirrors the setting as `data-reduce-motion` on `<html>`
+so pure-CSS states can switch off their transitions and press scale alongside the media query
+(`:root[data-reduce-motion]` and `@media (prefers-reduced-motion: reduce)` carry the same
+rules). Nested providers (Storybook comparisons, previews) affect only JS-driven motion in
+their subtree. The Storybook toolbar "Motion" switch drives the same prop for every story.
 
 ## Performance rules
 

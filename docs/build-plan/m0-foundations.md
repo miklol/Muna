@@ -173,6 +173,27 @@ environment, secrets, variables and rulesets to create (docs/11-ci-cd.md#protect
 
 ## M0-E4 · Design tokens & motion presets — agent: `muna-motion-designer`
 
+**Done** (2026-09-15, run by `muna-architect`): `@muna/ui` now carries the motion module
+(`springs`, `timings`, `toAppleSpring`, `toLinearEasing`, `MunaMotionProvider`,
+`useMotionPreset`, `useHoldTime`), the shape module (`squirclePath`, `supportsCornerShape`,
+`notchPath`, `notchOutline`), bundled Inter Variable (`@muna/ui/fonts.css`) and the seven
+primitives `NotchSurface`, `Hairline`, `Text`, `IconButton`, `Chip`, `ProgressTrack`, `Ring` on
+React Aria Components, each with a render test and stories (Default / Disabled / LongContent /
+RTL / ReducedMotion where applicable; hover, press and focus are live in the canvas).
+Foundations gained Motion (all-preset playground, shell and content subsets, Springs and
+Timings tables rendered from the code) and Reduced motion (side-by-side) pages; the Storybook
+toolbar has Motion and Direction switches and every story runs inside `MunaMotionProvider`.
+78 Vitest tests, 58 stories under axe with zero violations. Values added to the docs with
+rationale: the flare path uses circular arcs, the hairline on clipped surfaces is an SVG
+stroke, the shadow node is inset by the flare (design system → Shape "As built"), icon-button
+and chip state recipes and the ring track at 20 % tint (→ Components), `--size-*` tokens for
+chip, progress track, ring strokes (tokens.css), presets-in-code / presets-in-CSS and the
+`<html>` mirroring rule (motion spec). Findings for design review: `--text-3` measures 3.7:1
+on the panel (design system → Accessibility); React Aria's `Meter` emits `role="meter
+progressbar"`, which axe-core 4.13 rejects, so `Ring` renders `role="meter"` itself.
+Deferred to M1-E1: animating the flare path during the morph (the primitive drops its masks
+while `morphing` and runs on `border-radius`).
+
 ```text
 Turn docs/05-design-system.md and docs/06-motion-spec.md into code. Read both fully, plus
 docs/reference/ui-observations.md and docs/build-plan/m0-foundations.md#working-in-the-scaffold.
