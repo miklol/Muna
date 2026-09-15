@@ -2,6 +2,9 @@
 
 Read `docs/07-roadmap.md#m0--foundations--spikes-2-weeks` for exit criteria.
 
+**Status:** closed 2026-09-15 — every epic below has landed; what carried over is listed in the
+roadmap's status table. Next: [m1-shell.md](m1-shell.md).
+
 ---
 
 ## M0-E1 · Monorepo scaffold — agent: `muna-architect`
@@ -138,8 +141,11 @@ trust), so local installs use Developer-Mode `-Register`. Delivered: `scripts/ms
 (manifest, `identity.json`, `build.mjs`, `test-cert.ps1`), `scripts/identity/`
 (external-location manifest, fail-soft register/remove script), `crates/muna-probe`, the
 `msix:build`, `release:*` and `sbom` scripts with tests, and the maintainer checklist in the
-spike file. Leftovers: I9 (`release.yml` dry run, triggered after the merge; URL goes into the
-M0 closing PR) and I11 (signing route — maintainer decision).
+spike file. I9 followed after the merge:
+[run 34972995225](https://github.com/miklol/Muna/actions/runs/34972995225) (dry run from `main`
+@ `57e8dcd`) produced the unsigned NSIS installer, both MSIX packages, the App Installer file
+and two SBOMs — artefact list in the spike's I9 row. Leftover: I11 (signing route — maintainer
+decision).
 
 ```text
 Validate ADR-0003. Read docs/adr/0003-packaging-identity.md, docs/10-release-distribution.md,

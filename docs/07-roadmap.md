@@ -54,18 +54,25 @@ Exit criteria
   `windows-latest`/`ubuntu-latest`; root parity scripts from [11](11-ci-cd.md#local-parity) exist
   (M0-E1, [PR #3](https://github.com/miklol/Muna/pull/3)).
 - [ ] `main` ruleset, `v*` tag ruleset, `release` environment and Dependabot configured per
-  [11](11-ci-cd.md#protection-rules) (maintainer task; checklist delivered by M0-E3).
-- [ ] `release.yml` dry run produces unsigned NSIS + MSIX artifacts.
+  [11](11-ci-cd.md#protection-rules) (maintainer task; checklist delivered by M0-E3). Partly
+  done and partly plan-blocked: Dependabot alerts + security updates, squash-only merges and
+  read-only Actions permissions are on; rulesets and the protected `release` environment need
+  GitHub Pro or a public repository — see the ticks in
+  [11 › bootstrap checklist](11-ci-cd.md#bootstrap-checklist-maintainer-once).
+- [x] `release.yml` dry run produces unsigned NSIS + MSIX artifacts
+  ([run 34972995225](https://github.com/miklol/Muna/actions/runs/34972995225) from `main` @
+  `57e8dcd`: NSIS setup 2.73 MB, MSIX 3.36 MB, external-location MSIX 8.7 KB, App Installer
+  file, cargo + npm SBOMs; I9 row in `docs/spikes/m0-identity.md`).
 - [x] Spike app shows a black strip on 2 monitors (mixed DPI) with zero flashes over 100 cycles;
   idle CPU ≤ 0.3 %, RSS ≤ 120 MB (numbers in `docs/spikes/m0-window.md`; Win11 25H2 — the
   Win10 22H2 column is a maintainer runbook). RSS passes only with the WebView2 switch set
   recorded in ADR-0002 (`--in-process-gpu`, one shared renderer); the default process model
   measured 181–223 MB — decision and guard in the spike's recommendation and risk R19.
 - [x] Identity spike report with pass/fail per API (`docs/spikes/m0-identity.md`; Win11 25H2 —
-  I1–I8 and I10 pass on both identity routes, `NotificationChanged` 8–10 ms with identity, polling
-  fallback validated unpackaged; I9 dry run and I11 signing route still open).
-- [ ] ADR-0001/0002/0003 updated to *Accepted (validated)* or amended (0001/0002 done by M0-E2,
-  0003 amended by M0-E3; final tick when the M0 closing PR lands).
+  I1–I10 pass on both identity routes, `NotificationChanged` 8–10 ms with identity, polling
+  fallback validated unpackaged; I11 signing route is a maintainer decision).
+- [x] ADR-0001/0002/0003 updated to *Accepted (validated)* or amended (0001/0002 validated by
+  M0-E2, 0003 amended by M0-E3; ticked by the M0 closing PR).
 
 ## M1 · Shell & live activities (3 weeks)
 
@@ -174,7 +181,7 @@ receive, Store listing.
 
 | Milestone | Status | Started | Done | Notes |
 | ----------- | -------- | --------- | ------ | ------- |
-| M0 | In progress | 2026-09-14 | | M0-E1 scaffold landed (monorepo, Tauri shell, `@muna/ui`, `@muna/contracts`, CI parity scripts; exit criterion 1 met). M0-E2 window spike recorded: W1–W12 pass on Win11 25H2, WebView strip confirmed, ADR-0001/0002 validated with one amendment — idle memory needs WebView2's `--in-process-gpu` + one shared renderer (181–223 MB without, ≈ 100 MB with; risk R19) ([`spikes/m0-window`](spikes/m0-window.md); Win10 22H2 column open). M0-E3 identity spike recorded: I1–I8, I10 pass on Win11 25H2 for both identity routes, ADR-0003 amended (identity gates only `NotificationChanged` + `StartupTask`; sideload trust is machine-wide), `msix:build`/`release:*`/`sbom` implemented, maintainer checklist delivered ([`spikes/m0-identity`](spikes/m0-identity.md); I9 dry run after merge, I11 signing route open). M0-E4 tokens & motion landed: `@muna/ui` motion module (12 physics presets, timings, `linear()` export, `MunaMotionProvider`/`useMotionPreset`), shape module (squircle + flared notch path), Inter Variable, seven primitives with tests and stories, Foundations Motion and Reduced-motion pages, 58 stories under axe ([build-plan/m0-foundations.md](build-plan/m0-foundations.md#m0-e4--design-tokens--motion-presets--agent-muna-motion-designer)); one design-review finding (`--text-3` 3.7:1). Closing PR next: I9 dry-run record, ADR ticks, status → Done. |
+| M0 | Done | 2026-09-14 | 2026-09-15 | Landed by squash PRs [#3](https://github.com/miklol/Muna/pull/3) scaffold, [#5](https://github.com/miklol/Muna/pull/5) window spike, [#6](https://github.com/miklol/Muna/pull/6) identity spike + release scripts, [#7](https://github.com/miklol/Muna/pull/7) tokens & motion, [#8](https://github.com/miklol/Muna/pull/8) dependency overrides, and the closing PR. **Measured:** W1–W12 pass on Win11 25H2 — idle RSS ≈ 100 MB only with WebView2 `--in-process-gpu` + one shared renderer, 181–223 MB without (ADR-0002 amendment, risk R19; [`spikes/m0-window`](spikes/m0-window.md)); I1–I10 pass on both identity routes — `NotificationChanged` 8–10 ms with identity, 1 s polling fallback saw the toast in 28 ms unpackaged, sideload trust is machine-wide (ADR-0003 amendments; [`spikes/m0-identity`](spikes/m0-identity.md)); I9 dry run green (unsigned NSIS 2.73 MB, MSIX 3.36 MB, external-location MSIX, App Installer file, two SBOMs, 11 min on `windows-latest`); `@muna/ui` motion + shape modules and seven primitives — 78 tests, 58 stories with 0 axe violations ([build-plan/m0-foundations.md](build-plan/m0-foundations.md#m0-e4--design-tokens--motion-presets--agent-muna-motion-designer)). **Carried over:** Win10 22H2 columns of both spikes (maintainer runbook); I11 signing route; the plan-blocked items of the [bootstrap checklist](11-ci-cd.md#bootstrap-checklist-maintainer-once) (rulesets, protected `release` environment, secret scanning) plus `RELEASE_PLEASE_TOKEN` / `RELEASE_AUTOMATION`; `--text-3` contrast (3.7:1) design decision; flare morph → M1-E1; Linux-only `glib` Dependabot alert to dismiss. |
 | M1 | Not started | | | |
 | M2 | Not started | | | |
 | M3 | Not started | | | |

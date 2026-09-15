@@ -1,6 +1,7 @@
 # Spike M0-E3 · Package identity & signing
 
-**Status:** Recorded (Win11 25H2; I9 dry run and I11 signing decision open for the maintainer)
+**Status:** Recorded (Win11 25H2 plus the I9 `release.yml` dry run; I11 signing decision open
+for the maintainer)
 · **Validates:** [ADR-0003](../adr/0003-packaging-identity.md) ·
 **Owner:** `muna-release-engineer` · **Plan:** `muna-architect`, 2026-09-14 ·
 **Measured:** `muna-architect`, 2026-09-15
@@ -23,9 +24,10 @@ case ADR-0003's 1 s polling fallback covers (it saw the toast on its first poll,
 things Windows disagreed with are recorded as amendments: a signed package installs only when
 its certificate chain is trusted **machine-wide** (per-user trust is not enough), and the
 Tauri CLI has no `signer verify`, so `release:verify` re-implements minisign verification.
-The dry run of `release.yml` (I9) needs `workflow_dispatch` from `main` and runs once this
-PR has merged; the code-signing eligibility question (I11) is answered with the published
-rules and left as a maintainer decision.
+The `release.yml` dry run (I9) ran from `main` after the merge and uploaded the unsigned NSIS
+installer, both MSIX packages, the App Installer file and two SBOMs in 11 min; the code-signing
+eligibility question (I11) is answered with the published rules and left as a maintainer
+decision.
 
 ## How to run
 
@@ -73,6 +75,7 @@ rules and left as a maintainer decision.
 | Package identity | `miklol.Muna_nkbdsfm1sbmne` (family); full names `…_0.0.0.0_x64__…` / `…_0.0.0.0_neutral__…` (external) |
 | Toolchain | Node 24.19 (CI: 22), pnpm 10.34.5, Rust 1.98.0, Windows PowerShell 5.1.26100.9444 for Appx |
 | Commit | `63e2aa3` (`main`) plus this PR's tree |
+| I9 runner | GitHub-hosted `windows-latest` = image `windows-2025-vs2026` (runner-images 20260907.229), `makeappx.exe` from Windows SDK 10.0.26100; `main` @ `57e8dcd` |
 
 Raw artefacts (probe JSONL for the three columns, harness logs, script chain log) are attached
 to the PR; they stay out of git.
@@ -89,7 +92,7 @@ to the PR; they stay out of git.
 | I6 | `AppointmentManager.RequestStoreAsync` | granted with `appointmentsSystem` (opportunistic) | granted (`AllCalendarsReadOnly`), 7 ms | granted, 9 ms | granted, 13 ms | ✅ (works without identity too) |
 | I7 | MSIX installs, launches and uninstalls cleanly with the test cert trusted | yes | — | — | `Add-AppxPackage -Path` with the certificate only in `CurrentUser\TrustedPeople`: **`0x800B0109`** after 5.2 s (chain must be trusted machine-wide; needs elevation). `-Register` loose layout (Developer Mode): 694 ms; `shell:AppsFolder\…!Muna` launches `muna.exe`, alive after 5 s with its `msedgewebview2` child; `Remove-AppxPackage` 367 ms; no `%LOCALAPPDATA%\Packages\<pfn>` left behind | ✅ with amendment |
 | I8 | `Add-AppxPackage -ExternalLocation` registers; rollback snippet removes it | yes | — | signed `.msix` without machine trust: fails soft (exit 0, `status: failed`, nothing to roll back, 5.1 s). Loose layout `-Strict`: registered in 284 ms, `AllowExternalContent=true`; probe and `muna.exe` (launched from `target\release` via the package alias) have identity; re-register replaces the previous registration (upgrade path); `-Remove` 668 ms, 0 packages left. Failure path (full manifest passed as external): `0x80073D2E`, exit 1 under `-Strict`, 0 packages left. Skip path: with the full MSIX installed the script reports `skipped` and `-Remove` keeps the MSIX | — | ✅ |
-| I9 | `release.yml` dry run (`workflow_dispatch`, `dry_run=true`) | unsigned NSIS + MSIX artefacts uploaded (run URL) | Runs from `main` after this PR merges; run URL goes into the M0 closing PR. Open question it answers: whether the `release-dry-run` environment works on a free private plan | | | ⏳ |
+| I9 | `release.yml` dry run (`workflow_dispatch`, `dry_run=true`) | unsigned NSIS + MSIX artefacts uploaded (run URL) | [Run 34972995225](https://github.com/miklol/Muna/actions/runs/34972995225) on `main` @ `57e8dcd`, 2026-09-15: **success** — `preflight` 6 s, `build` on `windows-latest` 11 min 4 s, `publish` skipped as designed. Artefact `release-0.0.0-dry.57e8dcd` (6,092,932 B, 7-day retention): `Muna_0.0.0_x64-setup.exe` 2,727,922 B (unsigned NSIS), `Muna_0.0.0-dry.57e8dcd_x64.msix` 3,359,847 B, `Muna_0.0.0-dry.57e8dcd_x64-external.msix` 8,705 B, `Muna.appinstaller` 654 B, `…_sbom-cargo.cdx.json` 196,629 B, `…_sbom-npm.cdx.json` 10,913 B. The `release-dry-run` environment was created on first use on the Free private plan (`protection_rules: []`); `msix:build` printed the designed placeholder-publisher warning | — | — | ✅ |
 | I10 | `msix:build`, `release:appinstaller`, `release:updater`, `release:verify`, `sbom` | implemented against [11 › root scripts](../11-ci-cd.md#root-scripts-the-workflows-call); exit 0 locally | `msix:build` packs + test-signs both packages (3.21 MB / 9.8 KB); `release:updater` 1.2 s (`tauri signer sign` + `latest.json`); `release:appinstaller` 0.7 s; `sbom` 2.8 s (24 npm + 321 cargo components); `release:verify` 8/8 with `--no-authenticode`, and with Authenticode on it correctly fails 3/11 (unsigned exe, untrusted test chain) | | | ✅ |
 | I11 | Code-signing eligibility | Azure Artifact Signing (Basic) or SignPath Foundation: eligible? cost per month | **Azure Artifact Signing** (the product formerly called Trusted Signing): Public Trust certificates are issued to *organisations* in the US, Canada, EU, UK, Australia, New Zealand, Japan, South Korea, Singapore, Switzerland, Norway and Israel; *individual developers* only in the US or Canada; Basic and Premium SKUs, billed monthly (price not recorded here — read it off the Azure pricing page when deciding). **SignPath Foundation**: free, but requires an OSI-approved licence, no proprietary components and a public open-source project — not available while this repository is private (and it has no `LICENSE` file yet) | | | ⏳ maintainer decision |
 
@@ -137,6 +140,12 @@ subscription and fall back to polling on `0x80070490`.
   updated in this PR. `.github/CODEOWNERS` still lists `/scripts/version.ts` and
   `release.yml`'s preflight message says `scripts/version.ts` — both are maintainer-only files
   (checklist below).
+- **Dry-run naming.** Tauri names the NSIS installer by the package version
+  (`Muna_0.0.0_x64-setup.exe`, no `-dry.<sha>` suffix) while `msix:build`, the App Installer
+  step and the SBOM step use the dry-run version string; the artefact bundle carries the suffix,
+  so nothing is ambiguous, but never derive the version from the NSIS file name. The
+  `release-dry-run` environment appeared on first use without any plan change — only
+  *protected* environments need GitHub Pro or a public repository.
 
 ## Maintainer checklist (delivered by this spike)
 
@@ -162,16 +171,19 @@ vulnerability reporting are not available on Free private repositories).
 - [ ] Put the matching updater **public** key into `plugins.updater.pubkey` in
       `apps/desktop/src-tauri/tauri.conf.json` (replaces the placeholder; `release:verify`
       reads it).
-- [ ] *plan* Environment `release-dry-run` (GitHub creates it on first use; no secrets, no
-      protection) — confirm with the I9 dry run.
+- [x] Environment `release-dry-run` — confirmed by the I9 dry run: GitHub created it on first
+      use on the Free private plan (no secrets, `protection_rules: []`), exactly as docs/11
+      describes; nothing to configure.
 - [ ] Repository secret `RELEASE_PLEASE_TOKEN` (fine-grained PAT, contents + pull-requests
       write, 90-day expiry with a calendar reminder) and repository variable
       `RELEASE_AUTOMATION=true` once M0 closes.
 - [ ] *plan* Rulesets `main` (PR + 1 review + code owners + required checks `changes`,
       `pr-title`, `docs`, `web`, `rust`, `deps`, `app` + linear history + no force-push/delete)
       and `v*` tags (create: release-please bot + maintainer; no delete/update).
-- [ ] *plan* Security: secret scanning + push protection, private vulnerability reporting;
-      turn on Dependabot security updates (alerts are already on).
+- [ ] *plan* Security: secret scanning + push protection, private vulnerability reporting
+      (Dependabot alerts and security updates are already on; the Linux-only `glib 0.18`
+      alert from Tauri's gtk chain should be dismissed as "vulnerable code is not actually
+      used" — it is never compiled for the Windows target and `gtk 0.18` pins it).
 - [ ] `.github/CODEOWNERS`: change `/scripts/version.ts` to `/scripts/version.mjs` (the `.ts`
       path does not exist). Optional: also own `/scripts/identity/` and `/scripts/release/`.
 - [ ] `release.yml` preflight message: `scripts/version.ts` → `scripts/version.mjs` (cosmetic).
