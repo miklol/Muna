@@ -13,6 +13,17 @@ ignoredBuiltDependencies:
 # pnpm 10 blocks dependency lifecycle scripts unless allow-listed here (supply-chain rule).
 # Add a package only with a one-line reason.
 onlyBuiltDependencies: []
+
+# Dev-only transitive packages with open advisories (`pnpm audit --prod` does not see them, the
+# Dependabot alerts do). Each entry names the advisory and the dependant that pins the old
+# range; drop it once that dependant has moved on.
+overrides:
+  # GHSA-7w5x-hrqm-74c2 (DoS on malformed TOML); pinned by markdownlint-cli2 ≤ 0.23.
+  smol-toml: ">=1.7.1"
+  # GHSA-w5hq-g745-h8pq (v3/v5/v6 buffer bounds); jest-junit and istanbul-lib-processinfo via
+  # @storybook/test-runner still request uuid@8 and `require()` it. uuid 11 is the last major
+  # with a CommonJS entry (12+ are ESM-only), so the range is capped there on purpose.
+  uuid: ">=11.1.1 <12"
 # Temporary: jest >= 30.5 (pulled in by @storybook/test-runner) throws when Storybook's
 # `importModule` registers its TypeScript loader hook inside the jest sandbox, so every story
 # suite fails at setup. The patch mirrors the fix proposed upstream (try/catch around
