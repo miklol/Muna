@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "notch",
-  "description": "The notch window: read-only IPC plus logging. All OS work happens in Rust.",
-  "windows": ["notch"],
+  "description": "The notch windows (one per monitor): read-only IPC plus logging. All OS work happens in Rust.",
+  "windows": ["notch", "notch-*"],
   "permissions": ["core:default", "log:default"]
 }

@@ -19,11 +19,11 @@ pub mod windows;
 
 pub use error::{PlatformError, PlatformResult};
 pub use events::PlatformEvent;
-pub use fake::FakePlatform;
-pub use traits::{Audio, Bluetooth, Foreground, Media, Monitors, Platform, Power};
+pub use fake::{FakePlatform, WindowingCall};
+pub use traits::{Audio, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing};
 pub use types::{
     AudioDevice, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand, MediaSession,
-    MonitorInfo, PlaybackStatus, PowerSource, Rect,
+    MonitorInfo, PlaybackStatus, PowerSource, Rect, UserNotificationState, WindowHandle,
 };
 
 /// Constructs the platform implementation for the current build.

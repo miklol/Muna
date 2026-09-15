@@ -12,7 +12,7 @@ use muna_core::{Settings, SettingsError, StoreError, StripContent};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use specta_typescript::Typescript;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, State, WebviewWindow};
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
 use crate::state::AppState;
@@ -74,6 +74,48 @@ pub struct SettingsChanged {
 #[serde(rename_all = "camelCase")]
 pub struct StripContentChanged {
     pub content: StripContent,
+}
+
+/// Which UI the notch window should render.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ShellMode {
+    /// The product shell.
+    Normal,
+    /// The M0-E2 window spike (`MUNA_SPIKE=window`, docs/spikes/m0-window.md).
+    SpikeWindow,
+}
+
+/// A painted shape in whole CSS pixels relative to the window's client area (the UI rounds
+/// `DOMRect`s). Rust converts it to physical screen pixels for hit-testing
+/// (docs/modules/notch-shell.md).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ShapeRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+/// Frame statistics the UI measured during one strip ↔ panel morph. Integers only: specta
+/// exports floats as `number | null`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MorphReport {
+    pub expanded: bool,
+    pub frames: u32,
+    pub duration_us: u32,
+    pub max_frame_us: u32,
+    /// Frames whose delta exceeded 1.5 × 16.7 ms.
+    pub dropped_frames: u32,
+}
+
+/// Asks every notch window to morph (spike shortcut `Ctrl+Alt+M` or scripted run).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct MorphRequested {
+    pub expanded: bool,
 }
 
 type Shared = Arc<AppState>;
@@ -138,6 +180,55 @@ fn get_strip_content(state: State<'_, Shared>) -> StripContent {
     state.scheduler.lock().current()
 }
 
+#[tauri::command]
+#[specta::specta]
+fn get_shell_mode(state: State<'_, Shared>) -> ShellMode {
+    if state.spike.is_some() {
+        ShellMode::SpikeWindow
+    } else {
+        ShellMode::Normal
+    }
+}
+
+fn spike(state: &Shared) -> Result<&Arc<crate::shell::spike::Spike>, IpcError> {
+    state
+        .spike
+        .as_ref()
+        .ok_or_else(|| IpcError::new("shell.spike_disabled", "MUNA_SPIKE=window is not set"))
+}
+
+/// The UI has painted its first frame; the shell may move the window into place.
+#[tauri::command]
+#[specta::specta]
+fn shell_ready(window: WebviewWindow, state: State<'_, Shared>) -> Result<(), IpcError> {
+    spike(&state)?.window_ready(window.label());
+    Ok(())
+}
+
+/// Publishes the painted shapes so pointer events outside them pass through.
+#[tauri::command]
+#[specta::specta]
+fn publish_shape_rects(
+    window: WebviewWindow,
+    state: State<'_, Shared>,
+    rects: Vec<ShapeRect>,
+) -> Result<(), IpcError> {
+    spike(&state)?.publish_shapes(window.label(), &rects);
+    Ok(())
+}
+
+/// Records the frame statistics of one morph.
+#[tauri::command]
+#[specta::specta]
+fn report_morph(
+    window: WebviewWindow,
+    state: State<'_, Shared>,
+    report: MorphReport,
+) -> Result<(), IpcError> {
+    spike(&state)?.record_morph(window.label(), &report);
+    Ok(())
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -146,9 +237,17 @@ pub fn builder() -> Builder<tauri::Wry> {
             app_info,
             get_settings,
             update_settings,
-            get_strip_content
+            get_strip_content,
+            get_shell_mode,
+            shell_ready,
+            publish_shape_rects,
+            report_morph
         ])
-        .events(collect_events![SettingsChanged, StripContentChanged])
+        .events(collect_events![
+            SettingsChanged,
+            StripContentChanged,
+            MorphRequested
+        ])
 }
 
 /// `packages/contracts/src/bindings.ts`, resolved from this crate's location.

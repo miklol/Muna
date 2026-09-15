@@ -91,6 +91,15 @@ State after M0-E1 that the specs do not mention. Every prompt below assumes it.
 
 ## M0-E2 · Transparent-window spike — agent: `muna-shell-engineer`
 
+**Done** (2026-09-15, run by `muna-architect`): W1–W12 pass on Win11 25H2, WebView strip
+confirmed, ADR-0001/0002 validated — see [spikes/m0-window.md](../../docs/spikes/m0-window.md).
+One amendment came out of it: idle memory (W5) fails in WebView2's default process model
+(181–223 MB) and passes at ≈ 100 MB with `--in-process-gpu` plus one shared renderer, now
+set in `tauri.conf.json` (ADR-0002, risk R19).
+Leftovers: the Win10 22H2 column (runbook in the spike file) and a manual OBS/Teams/Snipping
+capture-exclusion check. The spike controller (`src-tauri/src/shell/spike.rs`) and the
+`scripts/perf/window-spike/` harness stay in the tree for M1 to reuse.
+
 ```text
 Validate ADR-0001 and ADR-0002 on real Windows. Read docs/adr/0001-tech-stack.md,
 docs/adr/0002-window-strategy.md, docs/04-windows-platform-apis.md#tauri-caveats,

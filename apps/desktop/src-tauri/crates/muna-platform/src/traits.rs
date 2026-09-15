@@ -8,7 +8,7 @@ use crate::error::PlatformResult;
 use crate::events::PlatformEvent;
 use crate::types::{
     AudioDevice, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand, MediaSession,
-    MonitorInfo,
+    MonitorInfo, Rect, UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md).
@@ -49,6 +49,39 @@ pub trait Foreground: Send + Sync {
     fn current(&self) -> PlatformResult<Option<ForegroundWindow>>;
 }
 
+/// Native affinities of the notch windows (ADR-0002). The windows themselves are created by
+/// Tauri; these calls adjust what Tauri does not expose. Every method is cheap and may be
+/// called from any thread: positioning uses `SWP_ASYNCWINDOWPOS` so a caller never blocks on
+/// the window's owning thread.
+pub trait Windowing: Send + Sync {
+    /// Extended window style (`GWL_EXSTYLE`) so the shell can verify `WS_EX_TOOLWINDOW |
+    /// WS_EX_NOACTIVATE | WS_EX_TOPMOST` after creation.
+    fn extended_style(&self, window: WindowHandle) -> PlatformResult<u32>;
+    /// Moves and resizes in one call without waiting for the owning thread
+    /// (`SWP_ASYNCWINDOWPOS | SWP_NOZORDER | SWP_NOACTIVATE`). Physical pixels.
+    fn move_async(&self, window: WindowHandle, rect: Rect) -> PlatformResult<()>;
+    /// Re-asserts `HWND_TOPMOST` (after `EVENT_SYSTEM_FOREGROUND`, ADR-0002).
+    fn assert_topmost(&self, window: WindowHandle) -> PlatformResult<()>;
+    /// Sets `WS_EX_TOOLWINDOW` and clears `WS_EX_APPWINDOW` so the window stays out of
+    /// Alt+Tab (tao's `skipTaskbar` only removes the taskbar button). Returns the resulting
+    /// extended style.
+    fn set_tool_window(&self, window: WindowHandle) -> PlatformResult<u32>;
+    /// Toggles `WS_EX_LAYERED | WS_EX_TRANSPARENT` so pointer input passes to the window
+    /// below. Replaces tao's `set_ignore_cursor_events`, which rewrites the whole extended
+    /// style from its own flags and drops `WS_EX_TOOLWINDOW` (docs/spikes/m0-window.md).
+    fn set_click_through(&self, window: WindowHandle, click_through: bool) -> PlatformResult<()>;
+    /// `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` on / `WDA_NONE` off.
+    fn set_capture_exclusion(&self, window: WindowHandle, excluded: bool) -> PlatformResult<()>;
+    /// Current outer rectangle in physical screen pixels.
+    fn window_rect(&self, window: WindowHandle) -> PlatformResult<Rect>;
+    /// Cursor position in physical screen pixels.
+    fn cursor_position(&self) -> PlatformResult<(i32, i32)>;
+    /// Top-level window under a screen point (hit-testing verification); `0` when none.
+    fn window_at(&self, x: i32, y: i32) -> PlatformResult<WindowHandle>;
+    /// `SHQueryUserNotificationState`.
+    fn user_notification_state(&self) -> PlatformResult<UserNotificationState>;
+}
+
 /// The whole platform: every service plus the event stream.
 pub trait Platform: Send + Sync {
     fn media(&self) -> &dyn Media;
@@ -57,6 +90,7 @@ pub trait Platform: Send + Sync {
     fn power(&self) -> &dyn Power;
     fn monitors(&self) -> &dyn Monitors;
     fn foreground(&self) -> &dyn Foreground;
+    fn windowing(&self) -> &dyn Windowing;
 
     /// New receiver for platform events. Events published before the call are not replayed.
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent>;

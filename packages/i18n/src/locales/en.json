@@ -5,6 +5,12 @@
   "notch": {
     "placeholder": "Muna is running. The notch shell lands with M1."
   },
+  "spike": {
+    "label": "Muna window spike",
+    "strip": "Strip",
+    "panel": "Panel",
+    "hint": "Press Ctrl+Alt+M to morph, Ctrl+Alt+P to park, Ctrl+Alt+C to hide from captures."
+  },
   "settings": {
     "title": "Muna settings",
     "version": "Version {{version}}",
