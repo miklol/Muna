@@ -144,6 +144,25 @@ with plain `border-radius` and the smoothed mask is swapped in at rest (see
 the same function in the Rust-side hit-test rects — export the path points from the same TS
 module via specta.
 
+**As built (M0-E4, `packages/ui/src/shape`, `NotchSurface`).**
+
+- The flared silhouette is `notchPath()` in `shape/notch-path.ts`: six **circular arcs**
+  (`A` commands), not squircles. A fillet of 6/19 px has no room for a smoothing curve and must
+  be exactly tangent to the screen edge and to the side wall; squircle smoothing (0.6) applies
+  to islands and to nested rectangles (cards, tiles, controls). The path's bounding box is
+  `body width + 2 × top radius` — the flares are part of the surface's box, so a 200 px strip
+  occupies 212 px collapsed and a 420 px panel 458 px expanded. `notchOutline()` samples the
+  same path clockwise for the Rust hit-test.
+- At rest the notch is a `clip-path: path()` mask; the island uses `corner-shape: squircle`
+  when the engine has it and the figma-squircle `clip-path` otherwise. While the parent morphs
+  the size (`morphing` prop) both masks are dropped and the shape runs on `border-radius`; the
+  flare path is cheap enough to animate per frame in M1-E1 (the squircle is not).
+- A CSS border cannot follow a `clip-path`, so on a clipped surface the hairline is an SVG
+  stroke drawn along the identical path: 2 px wide, half of it clipped away by the mask, which
+  leaves exactly 1 px inside the shape. The strip's outline is drawn only in increased contrast.
+- `--shadow-panel` is painted by a sibling node inset by the flare width, so the shadow hugs
+  the black body and never the bezel fillets.
+
 ### Spacing & sizing
 
 4 px grid. `--space-1 … --space-8` = 4, 8, 12, 16, 20, 24, 32, 40.
@@ -233,6 +252,24 @@ Shell (`apps/desktop/src/shell`): `Strip` (slots, wide form), `Peek`, `Hud`, `No
 Every component has Storybook stories for Default / Hover / Pressed / Focus / Disabled /
 LongContent / RTL / ReducedMotion, and a Vitest render test.
 
+State recipes shared by the M0-E4 primitives (`IconButton`, `Chip`, `ProgressTrack`, `Ring`,
+`Text`, `Hairline`, `NotchSurface`):
+
+| State | Recipe |
+| ------- | -------- |
+| Icon button rest | transparent, glyph `--text-2` (the glyph brightens rather than the button lifting) |
+| Icon button hover | `--surface-2`, glyph `--text-1` |
+| Icon button pressed / active | `--surface-3`, glyph `--text-1`; pressed adds `scale(0.96)` |
+| Disabled | glyph or label `--text-3`, no background |
+| Chip selected | `--surface-3`; the 12 px icon goes `--text-2` → `--text-1` |
+| Progress fill | the tint (`--muna-tint`, one of the accent tokens) on a `--surface-4` track |
+| Ring track | the tint at 20 % (`color-mix(in oklab, tint 20%, transparent)`) so an empty ring still reads in its colour |
+| Ring value | the tint, round caps, starting at 12 o'clock |
+
+Pure-CSS state changes (hover tint, press scale, chip select) transition with the `press` /
+`toggle` / `reveal` presets rendered as CSS `linear()` easings — see
+[motion spec → presets in CSS](06-motion-spec.md#presets-in-css).
+
 ## Per-surface notes
 
 - **Strip**: content is centred in the two slots; the centre 60 % stays empty black (the
@@ -255,6 +292,12 @@ follows layout; Esc always collapses/closes; `prefers-contrast: more` **or** the
 0.72, `--text-3` 0.56, strip outline) and removes media tints; reduced motion per the
 [motion spec](06-motion-spec.md); no information conveyed by colour alone (rings carry labels;
 status has icon + text).
+
+Known gap, measured in M0-E4: `--text-3` (white at 40 %) is **3.7:1** on `--panel-bottom`,
+below the 4.5:1 rule above; 4.5:1 needs ≥ 46 %. Open for design review — either raise the
+token (0.46 keeps the hierarchy: 1 / 0.6 / 0.46) or restrict `--text-3` to non-essential,
+≥ 18 px text and record the exception here. Until decided, the Storybook "Tones" story opts
+out of axe's `color-contrast` rule for that line only.
 
 Screen readers: the collapsed strip and live activities are one `role="status"` region with
 `aria-live="polite"` so a track change or "AirPods connected" is announced without stealing

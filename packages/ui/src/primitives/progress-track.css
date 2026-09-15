@@ -1,0 +1,79 @@
+/*
+ * ProgressTrack primitive — track 4 px / radius 2, fill in the tint, 12 px thumb on hover for
+ * seekable tracks. Motion drives one custom property, `--muna-progress` (0–1); only transforms
+ * derive from it, and `:dir(rtl)` mirrors them.
+ */
+
+.muna-progress-track {
+  --muna-tint: var(--accent);
+
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  block-size: var(--size-progress-track);
+  border-radius: calc(var(--size-progress-track) / 2);
+  background: var(--surface-4);
+  container-type: inline-size;
+}
+
+.muna-progress-track--seekable {
+  /* Room for the thumb without changing the track's own box. */
+  overflow: visible;
+}
+
+.muna-progress-track__motion {
+  --muna-progress: 0;
+
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: inherit;
+}
+
+.muna-progress-track__fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: inherit;
+  background: var(--muna-tint);
+  transform: scaleX(var(--muna-progress));
+  transform-origin: left center;
+}
+
+.muna-progress-track:dir(rtl) .muna-progress-track__fill {
+  transform-origin: right center;
+}
+
+.muna-progress-track__thumb {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: calc(var(--size-progress-thumb) / -2);
+  display: block;
+  inline-size: var(--size-progress-thumb);
+  block-size: var(--size-progress-thumb);
+  margin-block-start: calc(var(--size-progress-thumb) / -2);
+  border-radius: var(--radius-thumb);
+  background: var(--text-1);
+  opacity: 0;
+  translate: calc(var(--muna-progress) * 100cqw) 0;
+  transition: opacity var(--muna-motion-reveal);
+}
+
+.muna-progress-track:dir(rtl) .muna-progress-track__thumb {
+  translate: calc(var(--muna-progress) * -100cqw) 0;
+}
+
+.muna-progress-track--seekable:hover .muna-progress-track__thumb,
+.muna-progress-track--seekable:focus-within .muna-progress-track__thumb {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-progress-track__thumb {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-progress-track__thumb {
+  transition: none;
+}

@@ -49,3 +49,61 @@
   min-width: 8px;
   width: 96px;
 }
+
+/* Motion playground */
+
+.motion-playground {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.motion-playground__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.motion-playground__lanes {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.motion-lane {
+  display: grid;
+  grid-template-columns: 96px 120px auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.motion-lane__track {
+  position: relative;
+  block-size: 32px;
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.motion-lane__puck {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-start: 4px;
+  border-radius: var(--radius-thumb);
+  background: var(--accent);
+}
+
+/* Reduced-motion comparison */
+
+.motion-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+
+.motion-compare__column {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+}

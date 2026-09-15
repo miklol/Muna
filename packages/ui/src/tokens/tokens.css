@@ -2,8 +2,8 @@
  * Muna design tokens — source of truth: docs/05-design-system.md.
  *
  * Plain CSS custom properties so the same file loads in the notch, the settings window,
- * Storybook, Vitest and the site. Tailwind utilities are mapped in ./theme.css.
- * Skeleton for M0-E1; M0-E4 completes contrast/light variants and the Inter bundle.
+ * Storybook, Vitest and the site. Tailwind utilities are mapped in ./theme.css; the Inter
+ * bundle is ./fonts.css. Contrast and light variants are at the bottom.
  * Snapshot-tested: a change here must ship with a docs/05 change in the same PR.
  */
 
@@ -73,6 +73,12 @@
   --size-icon-button: 28px;
   --size-icon-button-large: 36px;
   --size-list-row: 44px;
+  --size-chip-height: 24px;
+  --size-progress-track: 4px;
+  --size-progress-thumb: 12px;
+  --size-ring-stroke: 8px;
+  --size-ring-stroke-small: 6px;
+  --size-ring-gap: 4px;
   --size-toggle-width: 36px;
   --size-toggle-height: 20px;
   --size-hit-min: 28px;

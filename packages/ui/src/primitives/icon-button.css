@@ -1,0 +1,102 @@
+/*
+ * IconButton primitive — 28 px circle / 16 px icon (large: 36 / 20), 36 px effective hit area,
+ * hover tint only, press scale 0.96 via the `press` preset rendered as linear() easing.
+ */
+
+.muna-icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: var(--size-icon-button);
+  block-size: var(--size-icon-button);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-thumb);
+  background: transparent;
+  color: var(--text-2);
+  cursor: default;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform var(--muna-motion-press),
+    background-color var(--muna-motion-press),
+    color var(--muna-motion-press);
+}
+
+/* Effective hit area: 36 × 36 around the 28 px visual. */
+.muna-icon-button::before {
+  content: '';
+  position: absolute;
+  inset: calc((var(--size-icon-button) - var(--size-hit-effective)) / 2);
+  border-radius: inherit;
+}
+
+.muna-icon-button--large {
+  inline-size: var(--size-icon-button-large);
+  block-size: var(--size-icon-button-large);
+}
+
+.muna-icon-button--large::before {
+  inset: 0;
+}
+
+.muna-icon-button__icon {
+  display: inline-flex;
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.muna-icon-button--large .muna-icon-button__icon {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.muna-icon-button__icon > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.muna-icon-button[data-hovered] {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.muna-icon-button--active,
+.muna-icon-button[data-pressed] {
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+
+.muna-icon-button[data-pressed] {
+  transform: scale(0.96);
+}
+
+.muna-icon-button[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-icon-button[data-disabled] {
+  color: var(--text-3);
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-icon-button {
+    transition: none;
+  }
+
+  .muna-icon-button[data-pressed] {
+    transform: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-icon-button {
+  transition: none;
+}
+
+:root[data-reduce-motion] .muna-icon-button[data-pressed] {
+  transform: none;
+}
