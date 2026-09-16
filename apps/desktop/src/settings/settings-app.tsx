@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useSystemTheme } from '../lib/appearance';
 import { settingsQueryOptions } from '../lib/settings';
 import { type ModuleDefinition, modules as registeredModules } from '../modules/registry';
+import { OnboardingFlow } from './onboarding/onboarding-flow';
 import { AboutPane } from './panes/about';
 import { AppearancePane } from './panes/appearance';
 import { GeneralPane } from './panes/general';
@@ -72,14 +73,15 @@ interface PaneContentProps {
   pane: PaneId;
   visible: RowFilter;
   modules: readonly ModuleDefinition[];
+  onShowTour: () => void;
 }
 
 const modulePaneId = (module: ModuleDefinition): PaneId => `module:${module.id}`;
 
-function PaneContent({ pane, visible, modules }: PaneContentProps) {
+function PaneContent({ pane, visible, modules, onShowTour }: PaneContentProps) {
   switch (pane) {
     case 'general':
-      return <GeneralPane visible={visible} />;
+      return <GeneralPane visible={visible} onShowTour={onShowTour} />;
     case 'layout':
       return <LayoutPane visible={visible} />;
     case 'position':
@@ -124,9 +126,10 @@ function ModuleSettings({ section: Section }: ModuleSettingsProps) {
 
 interface WindowProps {
   modules: readonly ModuleDefinition[];
+  onShowTour: () => void;
 }
 
-function SettingsWindow({ modules }: WindowProps) {
+function SettingsWindow({ modules, onShowTour }: WindowProps) {
   const { t } = useTranslation();
   const { saveError } = useSettingsEditor();
   const [query, setQuery] = useState('');
@@ -215,7 +218,12 @@ function SettingsWindow({ modules }: WindowProps) {
                 {t('settings.saveError')}
               </Text>
             )}
-            <PaneContent pane={current} visible={visible} modules={modules} />
+            <PaneContent
+              pane={current}
+              visible={visible}
+              modules={modules}
+              onShowTour={onShowTour}
+            />
           </TabPanel>
         )}
       </main>
@@ -226,12 +234,15 @@ function SettingsWindow({ modules }: WindowProps) {
 /**
  * The settings window (docs/modules/settings.md): sidebar with search and one pane per section,
  * every change applied live through `update_settings`. Loads the document once; afterwards the
- * cache is kept fresh by the editor and `SettingsChanged`.
+ * cache is kept fresh by the editor and `SettingsChanged`. Until the welcome tour has been
+ * finished or skipped (`general.onboarded`), and whenever General → Welcome tour asks for it,
+ * the window shows the tour instead.
  */
 export function SettingsApp({ modules = registeredModules }: SettingsAppProps) {
   const { t } = useTranslation();
   useSystemTheme();
   const settings = useQuery(settingsQueryOptions);
+  const [tourRequested, setTourRequested] = useState(false);
 
   if (settings.isPending) {
     return (
@@ -256,9 +267,23 @@ export function SettingsApp({ modules = registeredModules }: SettingsAppProps) {
     );
   }
   const document: Settings = settings.data;
+  const showTour = tourRequested || !document.general.onboarded;
   return (
     <SettingsEditorProvider settings={document}>
-      <SettingsWindow modules={modules} />
+      {showTour ? (
+        <OnboardingFlow
+          onDone={() => {
+            setTourRequested(false);
+          }}
+        />
+      ) : (
+        <SettingsWindow
+          modules={modules}
+          onShowTour={() => {
+            setTourRequested(true);
+          }}
+        />
+      )}
     </SettingsEditorProvider>
   );
 }

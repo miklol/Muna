@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { unwrap } from '../../lib/ipc';
+import { sameJson } from '../../lib/json';
 import { cacheSettings } from '../../lib/settings';
 import { ActionRow, type RowFilter, Section, ValueRow } from '../rows';
 import { useSettingsEditor } from '../settings-editor';
@@ -77,27 +78,6 @@ interface Outcome {
   message: string;
 }
 
-/** Structural equality for JSON documents, so key order in the file never matters. */
-export const sameJson = (a: unknown, b: unknown): boolean => {
-  if (a === b) return true;
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
-  if (Array.isArray(a) || Array.isArray(b)) {
-    return (
-      Array.isArray(a) &&
-      Array.isArray(b) &&
-      a.length === b.length &&
-      a.every((item, index) => sameJson(item, b[index]))
-    );
-  }
-  const left = a as Record<string, unknown>;
-  const right = b as Record<string, unknown>;
-  const keys = Object.keys(left);
-  return (
-    keys.length === Object.keys(right).length &&
-    keys.every((key) => sameJson(left[key], right[key]))
-  );
-};
-
 /**
  * Backup and diagnostics. Export and import open native dialogs from Rust
  * (`export_settings` / `import_settings`), so the UI only reports the outcome; reset writes
@@ -142,14 +122,23 @@ export function AboutPane({ visible }: PaneProps) {
     onError: failed,
   });
 
+  /** Defaults for this profile: module data and the finished tour are not settings to reset. */
+  const resetTarget = (current: Settings): Settings => {
+    const defaults = defaultSettings();
+    return {
+      ...defaults,
+      general: { ...defaults.general, onboarded: current.general.onboarded },
+      modules: current.modules,
+    };
+  };
+
   const resetAll = () => {
     setConfirmingReset(false);
-    // Module settings are the modules' own data; only the app's settings go back to defaults.
-    update((current) => ({ ...defaultSettings(), modules: current.modules }));
+    update(resetTarget);
     setOutcome(null);
   };
 
-  const isDefault = sameJson(settings, { ...defaultSettings(), modules: settings.modules });
+  const isDefault = sameJson(settings, resetTarget(settings));
 
   return (
     <>

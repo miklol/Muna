@@ -142,3 +142,16 @@ later), launch at login toggle, done. Read docs/01-product-vision.md (journeys) 
 docs/05-design-system.md. Copy rules from .github/agents/muna-docs-writer.agent.md. Skippable,
 re-openable from Settings → General.
 ```
+
+**Progress.** `feat(onboarding): first-run welcome tour in the settings window (m1-e5)` landed
+the epic in one PR: a 560 × 420 card (`apps/desktop/src/settings/onboarding/`) with seven
+steps — welcome, choose your screens, placement, shape, permissions, start with Windows, done —
+that write through the settings editor as choices are made, so the real notch previews them.
+The placement trade-off is acted out with a token-built screen (`PlacementArt`) whose strip
+and window move on the `reveal` / `layout` springs when the tile changes; no timers or loops.
+Settings v4 adds `general.onboarded` (new profiles `false`, v3 files migrate to `true`); Skip
+and Finish both set it, and General → Help → Welcome tour → Show again reopens the tour. The
+screens step is left out on one screen. `@muna/ui` gained `OptionTiles` (radio tiles with an
+illustration slot). Vitest covers the step order, focus handoff, every step's writes and the
+gate in `SettingsApp`; Rust covers the migration. Decisions are in
+[settings.md → Implementation notes (M1-E5)](../modules/settings.md#implementation-notes-m1-e5).

@@ -84,7 +84,11 @@
       "hideFromCapturesBody": "Screenshots, recordings and screen sharing leave the notch out.",
       "keyboard": "Keyboard",
       "toggleHotkey": "Show or hide the notch",
-      "toggleHotkeyBody": "Works on the screen under the pointer. Custom shortcuts arrive with Keyboard shortcuts."
+      "toggleHotkeyBody": "Works on the screen under the pointer. Custom shortcuts arrive with Keyboard shortcuts.",
+      "help": "Help",
+      "tour": "Welcome tour",
+      "tourBody": "The first-run steps again: screens, placement, shape and start-up.",
+      "tourShow": "Show again"
     },
     "layout": {
       "defaults": "Defaults for every screen",
@@ -173,6 +177,64 @@
       "resetConfirm": "Reset",
       "cancel": "Cancel",
       "failed": "That did not work: {{message}}"
+    }
+  },
+  "onboarding": {
+    "title": "Welcome tour",
+    "progress": "Step {{current}} of {{total}}",
+    "skip": "Skip",
+    "back": "Back",
+    "next": "Continue",
+    "finish": "Finish",
+    "welcome": {
+      "title": "Welcome to Muna",
+      "body": "A notch for Windows. Media, battery and live activities sit at the top of your screen, out of the way until you look.",
+      "steps": "A few choices take a minute. Everything here can be changed later in Settings."
+    },
+    "displays": {
+      "title": "Choose your screens",
+      "body": "The notch shows on every screen that is on here. Each screen can get its own layout later in Multiple screens.",
+      "display": "Display {{number}}",
+      "primary": "Primary",
+      "geometry": "{{width}} × {{height}}"
+    },
+    "placement": {
+      "title": "Choose how it sits",
+      "overlay": "Overlay",
+      "overlayBody": "Draws over windows and steps aside when a title bar sits under it.",
+      "reserved": "Reserved",
+      "reservedBody": "Keeps a band free, so maximised windows start below the strip.",
+      "overlayCaption": "The strip steps aside while a title bar sits under it, and comes back when it moves.",
+      "reservedCaption": "Maximised windows stop below the strip, at the cost of a band of screen."
+    },
+    "shape": {
+      "title": "Pick a shape",
+      "body": "Both do the same things. Island floats a little lower, which suits browser-heavy days.",
+      "notch": "Notch",
+      "notchBody": "Sits flush with the top edge, like a MacBook.",
+      "island": "Island",
+      "islandBody": "Floats as a capsule with a small gap above it."
+    },
+    "permissions": {
+      "title": "What Muna will ask for",
+      "body": "Nothing is requested now. Each permission is asked for the first time a module needs it, and each one can be turned off again.",
+      "bluetooth": "Bluetooth",
+      "bluetoothBody": "Battery levels of connected earbuds, keyboards and mice.",
+      "notifications": "Notifications",
+      "notificationsBody": "Toasts in the strip and a place to triage them. Available in the Store and MSIX builds.",
+      "camera": "Camera",
+      "cameraBody": "The mirror module uses the webcam only while its panel is open."
+    },
+    "startup": {
+      "title": "Start with Windows",
+      "body": "Muna is a small tray app. Launching at login keeps the notch there whenever you sign in.",
+      "launchAtLogin": "Launch at login",
+      "launchAtLoginBody": "Starts in the background when you sign in to Windows."
+    },
+    "done": {
+      "title": "All set",
+      "body": "The notch is on your screen. Rest the pointer on it to peek, click to open, and right-click for settings.",
+      "hint": "Everything you chose lives in Settings, along with the modules and their order."
     }
   }
 }

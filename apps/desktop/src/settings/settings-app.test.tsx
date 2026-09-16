@@ -109,10 +109,16 @@ const lastSaved = (): Settings => {
   return call[0];
 };
 
+/** A profile that has seen the tour, so the window itself renders. */
+const onboarded = (): Settings => {
+  const base = defaultSettings();
+  return { ...base, general: { ...base.general, onboarded: true } };
+};
+
 describe('SettingsApp', () => {
   beforeEach(() => {
     queryClient.clear();
-    ipc.commands.getSettings.mockReset().mockResolvedValue(defaultSettings());
+    ipc.commands.getSettings.mockReset().mockResolvedValue(onboarded());
     ipc.commands.updateSettings.mockReset().mockImplementation((settings) => ok(settings));
     ipc.commands.listMonitors.mockReset().mockImplementation(() => ok(monitors));
     ipc.commands.appInfo.mockReset().mockResolvedValue(info);
@@ -171,7 +177,7 @@ describe('SettingsApp', () => {
 
   it('mirrors a SettingsChanged event from Rust into the window', async () => {
     await renderSettings();
-    const base = defaultSettings();
+    const base = onboarded();
     act(() => {
       ipc.settingsChanged.emit({ ...base, general: { ...base.general, launchAtLogin: true } });
     });
@@ -316,7 +322,7 @@ describe('SettingsApp', () => {
       expect(ipc.commands.openLogsFolder).toHaveBeenCalledTimes(1);
     });
 
-    const base = defaultSettings();
+    const base = onboarded();
     act(() => {
       ipc.settingsChanged.emit({ ...base, general: { ...base.general, accent: 'green' } });
     });
@@ -328,9 +334,38 @@ describe('SettingsApp', () => {
     expect(ipc.commands.updateSettings).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Reset all settings' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    // Defaults again, except that the tour stays seen: a reset is not a first run.
     await waitFor(() => {
-      expect(lastSaved()).toEqual(defaultSettings());
+      expect(lastSaved()).toEqual(onboarded());
     });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('About and diagnostics');
+  });
+
+  it('shows the welcome tour until the profile has seen it', async () => {
+    ipc.commands.getSettings.mockResolvedValue(defaultSettings());
+    render(
+      <AppProviders>
+        <SettingsApp />
+      </AppProviders>,
+    );
+    expect(await screen.findByRole('main', { name: 'Welcome tour' })).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    await screen.findByRole('heading', { level: 1, name: 'General' });
+    expect(lastSaved().general.onboarded).toBe(true);
+    expect(screen.queryByRole('main', { name: 'Welcome tour' })).toBeNull();
+  });
+
+  it('General → Welcome tour → Show again reopens the tour without saving again', async () => {
+    await renderSettings();
+    fireEvent.click(screen.getByRole('button', { name: 'Show again' }));
+    expect(await screen.findByRole('main', { name: 'Welcome tour' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Welcome to Muna' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    await screen.findByRole('heading', { level: 1, name: 'General' });
+    expect(ipc.commands.updateSettings).not.toHaveBeenCalled();
   });
 
   it('shows an inline error state with a retry when the document cannot be read', async () => {

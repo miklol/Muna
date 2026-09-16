@@ -17,7 +17,7 @@ use thiserror::Error;
 
 use crate::shell_settings::ShellSettings;
 
-pub const CURRENT_VERSION: u32 = 3;
+pub const CURRENT_VERSION: u32 = 4;
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -48,6 +48,8 @@ pub struct GeneralSettings {
     pub reduced_motion: ReducedMotion,
     /// Accent name from docs/05-design-system.md (`blue`, `purple`, …).
     pub accent: String,
+    /// The welcome tour was finished or skipped; the settings window shows it until then (v4).
+    pub onboarded: bool,
 }
 
 impl Default for GeneralSettings {
@@ -56,6 +58,7 @@ impl Default for GeneralSettings {
             launch_at_login: false,
             reduced_motion: ReducedMotion::System,
             accent: "blue".into(),
+            onboarded: false,
         }
     }
 }
@@ -160,6 +163,15 @@ fn migrate(value: &mut Value, from: u32) {
                         .or_insert_with(|| Value::Array(Vec::new()));
                 }
             }
+            // v4 (M1-E5): the welcome tour. A file that predates it belongs to someone who has
+            // already set Muna up, so the tour is marked seen; new profiles start with `false`.
+            3 => {
+                if let Some(general) = value.get_mut("general").and_then(Value::as_object_mut) {
+                    general
+                        .entry("onboarded")
+                        .or_insert_with(|| Value::Bool(true));
+                }
+            }
             _ => unreachable!("migration from version {version} is not defined"),
         }
         version += 1;
@@ -255,7 +267,7 @@ mod tests {
     fn version_two_files_gain_an_empty_module_bar_arrangement_and_keep_monitors() {
         let json = r#"{"version":2,"general":{"launchAtLogin":false,"reducedMotion":"system","accent":"blue"},"shell":{"hideFromCaptures":true,"toggleHotkey":"ctrl+alt+space","defaults":{"enabled":true,"mode":"overlay","shape":"island","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{"\\\\.\\DISPLAY2":{"enabled":false,"mode":"reserved","shape":"notch","offsetX":12,"offsetY":0,"stripHeight":"compact"}}},"modules":{}}"#;
         let settings = Settings::from_json(json).unwrap();
-        assert_eq!(settings.version, 3);
+        assert_eq!(settings.version, CURRENT_VERSION);
         assert!(settings.shell.module_order.is_empty());
         assert!(settings.shell.disabled_modules.is_empty());
         assert!(settings.shell.hide_from_captures);
@@ -264,6 +276,33 @@ mod tests {
             crate::shell_settings::NotchShape::Island
         );
         assert!(!settings.shell.layout_for(r"\\.\DISPLAY2").enabled);
+    }
+
+    #[test]
+    fn version_three_files_count_as_onboarded_and_keep_the_rest() {
+        let json = r#"{"version":3,"general":{"launchAtLogin":true,"reducedMotion":"on","accent":"pink"},"shell":{"hideFromCaptures":false,"toggleHotkey":"ctrl+alt+space","defaults":{"enabled":true,"mode":"reserved","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{},"moduleOrder":["bluetooth"],"disabledModules":["battery"]},"modules":{}}"#;
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(settings.version, 4);
+        assert!(settings.general.onboarded);
+        assert!(settings.general.launch_at_login);
+        assert_eq!(settings.general.accent, "pink");
+        assert_eq!(settings.shell.module_order, vec!["bluetooth".to_string()]);
+        assert_eq!(settings.shell.disabled_modules, vec!["battery".to_string()]);
+        assert_eq!(
+            settings.shell.defaults.mode,
+            crate::shell_settings::PlacementMode::Reserved
+        );
+    }
+
+    #[test]
+    fn new_profiles_start_with_the_tour_pending() {
+        assert!(!Settings::default().general.onboarded);
+        assert!(
+            !Settings::from_json(r#"{"version":0}"#)
+                .unwrap()
+                .general
+                .onboarded
+        );
     }
 
     #[test]

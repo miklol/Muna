@@ -2,7 +2,7 @@
  * Primitives (docs/05-design-system.md#components), built on React Aria Components. Every
  * primitive ships a Storybook story and a Vitest render test. M0-E4 landed the seven the shell
  * needs first; M1-E4 added the panel chrome, the module bar and the shared controls; M1-E2 the
- * strip's slot renderers; M1-E3 the search field.
+ * strip's slot renderers; M1-E3 the search field; M1-E5 the option tiles.
  */
 export { BatteryGlyph, type BatteryGlyphProps, batteryLevels, batteryTint } from './battery-glyph';
 export { Button, type ButtonProps, type ButtonVariant } from './button';
@@ -34,6 +34,7 @@ export {
   type NotchState,
   type NotchSurfaceProps,
 } from './notch-surface';
+export { type OptionTileItem, OptionTiles, type OptionTilesProps } from './option-tiles';
 export { PanelChrome, type PanelChromeProps } from './panel-chrome';
 export { ProgressTrack, type ProgressTrackProps } from './progress-track';
 export { Ring, type RingProps } from './ring';
