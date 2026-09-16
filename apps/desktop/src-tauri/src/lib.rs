@@ -81,6 +81,10 @@ pub fn run() {
         )
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Native file dialogs and Explorer for settings import/export and the logs folder;
+        // both are driven from Rust commands, so no JS permissions are granted.
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(specta.invoke_handler())
         .manage(Arc::clone(&state))
         .setup(move |app| {

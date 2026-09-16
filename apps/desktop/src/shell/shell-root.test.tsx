@@ -11,10 +11,11 @@ const ipc = vi.hoisted(() => ({
 }));
 
 vi.mock('@muna/contracts', async (importOriginal) => {
+  const original = await importOriginal<typeof Contracts>();
   const ok = () => Promise.resolve({ status: 'ok' as const, data: null });
   const silent = { listen: vi.fn(() => Promise.resolve(() => undefined)) };
   return {
-    ...(await importOriginal<typeof Contracts>()),
+    ...original,
     commands: {
       getShellMode: ipc.getShellMode,
       getShellLayout: vi.fn(ok),
@@ -22,6 +23,7 @@ vi.mock('@muna/contracts', async (importOriginal) => {
       publishShapeRects: vi.fn(ok),
       setNotchFocusable: vi.fn(ok),
       reportMorph: vi.fn(ok),
+      getSettings: vi.fn(() => Promise.resolve(original.defaultSettings())),
     },
     events: {
       stripContentChanged: silent,
@@ -30,6 +32,7 @@ vi.mock('@muna/contracts', async (importOriginal) => {
       shellToggleRequested: silent,
       shellPointerDownOutside: silent,
       morphRequested: silent,
+      settingsChanged: silent,
     },
   };
 });

@@ -95,6 +95,19 @@ Scope:
 Copy: sentence case, no exclamation marks; keys in packages/i18n/en/settings.json.
 ```
 
+**Progress.** `feat(settings): settings window with sidebar, panes and live apply (m1-e3)`
+landed the epic in one PR: the window shell (React Aria vertical `Tabs` sidebar, `@muna/ui`
+`SearchField`, search index with synonyms, pane empty state), the seven M1 panes (General,
+Layout, Notch position, Multiple screens, Appearance, Modules, About and diagnostics), the
+cache-first write path with a 150 ms slider debounce and inline save errors, `SettingsChanged`
+mirroring in both windows, settings v3 (`shell.moduleOrder` / `shell.disabledModules`, now
+read and written by the notch's module bar) and the Rust commands `list_monitors`,
+`export_settings`, `import_settings` and `open_logs_folder` over `tauri-plugin-dialog` /
+`tauri-plugin-opener`. Import/export round-trip and migrations are `cargo test`; the pane
+flows are Vitest (RTL) rather than Playwright until the e2e harness exists. Decisions —
+native decorations, shape under Layout, reduce motion as a switch — are in
+[settings.md → Implementation notes (M1-E3)](../modules/settings.md#implementation-notes-m1-e3).
+
 ## M1-E4 · Module bar & panel chrome — agent: `muna-ui-engineer`
 
 ```text

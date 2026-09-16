@@ -11,6 +11,32 @@ export const commands = {
 	getSettings: () => __TAURI_INVOKE<Settings>("get_settings"),
 	/**  Persists the whole settings document and broadcasts `SettingsChanged`. */
 	updateSettings: (settings: Settings) => typedError<Settings, IpcError>(__TAURI_INVOKE("update_settings", { settings })),
+	/**
+	 *  Monitors as the platform sees them, for the "Multiple screens" pane. Ids match the keys of
+	 *  `ShellSettings.monitors`.
+	 */
+	listMonitors: () => typedError<MonitorInfo[], IpcError>(__TAURI_INVOKE("list_monitors")),
+	/**
+	 *  Saves the current settings document where the user chooses (native dialog). Returns the
+	 *  path, or `None` when the dialog was dismissed. Async so the blocking dialog runs off the
+	 *  main thread.
+	 */
+	exportSettings: () => typedError<string | null, IpcError>(__TAURI_INVOKE("export_settings")),
+	/**
+	 *  Replaces the settings with a file the user picks (native dialog). The file goes through the
+	 *  same versioned parser as start-up, so older exports migrate and newer ones are refused.
+	 *  Returns `None` when the dialog was dismissed.
+	 */
+	importSettings: () => typedError<{
+	version: number,
+	general: GeneralSettings,
+	/**  Notch placement per monitor and the global shell switches (v2). */
+	shell: ShellSettings,
+	/**  Per-module settings keyed by module id; each module validates its own namespace. */
+	modules: { [key in string]: JsonValue },
+} | null, IpcError>(__TAURI_INVOKE("import_settings")),
+	/**  Opens the profile's `logs` folder in Explorer (Diagnostics pane). */
+	openLogsFolder: () => typedError<null, IpcError>(__TAURI_INVOKE("open_logs_folder")),
 	getStripContent: () => __TAURI_INVOKE<StripContent>("get_strip_content"),
 	/**
 	 *  The notch window's panel is showing (or has just collapsed): while suspended, notices
@@ -144,6 +170,17 @@ export type Leading = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
 /**  Album art or an app icon, as a data URL or asset URL. Rounded 6 px at 20 px. */
 { kind: "image"; src: string };
 
+/**  One attached display, as reported by `EnumDisplayMonitors` / `GetDpiForMonitor`. */
+export type MonitorInfo = {
+	/**  Stable per-session id (device name on Windows, e.g. `\\.\DISPLAY1`). */
+	id: string,
+	bounds: Rect,
+	workArea: Rect,
+	/**  Effective DPI; 96 = 100 %. */
+	dpi: number,
+	isPrimary: boolean,
+};
+
 /**  Everything the shell needs for one monitor. */
 export type MonitorLayout = {
 	/**
@@ -201,6 +238,14 @@ export type Notice = {
  *  so maximised windows start below the strip (ADR-0002 consequences).
  */
 export type PlacementMode = "overlay" | "reserved";
+
+/**  Integer rectangle in physical (device) pixels, screen coordinates. */
+export type Rect = {
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+};
 
 export type ReducedMotion = 
 /**  Follow the Windows "animation effects" setting (default). */
@@ -290,6 +335,13 @@ export type ShellSettings = {
 	defaults: MonitorLayout,
 	/**  Per-monitor overrides keyed by the stable monitor id (`\\.\DISPLAY1`, …). */
 	monitors: { [key in string]: MonitorLayout },
+	/**
+	 *  Module bar order (v3): module ids the user arranged. Ids the build does not know are
+	 *  kept (the module may come back) and modules missing here follow in registry order.
+	 */
+	moduleOrder: string[],
+	/**  Modules the user switched off (v3): hidden from the bar, backend still registered. */
+	disabledModules: string[],
 };
 
 /**  The global toggle hotkey was pressed; `label` is the notch on the monitor under the cursor. */

@@ -1,18 +1,21 @@
 import type {
   MorphReport,
+  Settings,
   ShapeRect,
   ShellLayout,
   StripContent,
   YieldState,
 } from '@muna/contracts';
 import type * as Contracts from '@muna/contracts';
-import { STRIP_HEIGHT_PX } from '@muna/contracts';
+import { defaultSettings, STRIP_HEIGHT_PX } from '@muna/contracts';
 import type { MessageKey } from '@muna/i18n';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppProviders } from '../app-providers';
+import { queryClient } from '../lib/query-client';
+import { cacheSettings } from '../lib/settings';
 import type { ModuleDefinition } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
 import { NotchWindow } from './notch-window';
@@ -60,12 +63,17 @@ const ipc = vi.hoisted(() => {
       setNotchFocusable: vi.fn((_focusable: boolean) => ok()),
       reportMorph: vi.fn((_report: MorphReport) => ok()),
       setStripSuspended: vi.fn((_suspended: boolean) => ok()),
+      getSettings: vi.fn(() => Promise.resolve(defaultSettings())),
+      updateSettings: vi.fn((settings: Settings) =>
+        Promise.resolve({ status: 'ok' as const, data: settings }),
+      ),
     },
     content: channel<{ content: StripContent }>(),
     layout: channel<{ layout: ShellLayout }>(),
     yield: channel<{ label: string; state: YieldState }>(),
     toggle: channel<{ label: string }>(),
     pressOutside: channel<{ label: string }>(),
+    settings: channel<{ settings: Settings }>(),
   };
 });
 
@@ -78,6 +86,7 @@ vi.mock('@muna/contracts', async (importOriginal) => ({
     shellYieldChanged: { listen: ipc.yield.listen },
     shellToggleRequested: { listen: ipc.toggle.listen },
     shellPointerDownOutside: { listen: ipc.pressOutside.listen },
+    settingsChanged: { listen: ipc.settings.listen },
   },
 }));
 
@@ -250,8 +259,10 @@ describe('NotchWindow scenario suite', () => {
       shellLayout: null,
       yieldState: 'none',
       activeModuleId: null,
-      moduleOrder: [],
     });
+    // The settings document is read once per window; seed it so the bar order is known at mount.
+    queryClient.clear();
+    cacheSettings(queryClient, defaultSettings());
   });
 
   afterEach(() => {
@@ -668,7 +679,11 @@ describe('NotchWindow scenario suite', () => {
     });
 
     it('reorders with Ctrl+Arrow and follows a saved order, dropping ids it does not know', async () => {
-      useAppStore.setState({ moduleOrder: ['spike', 'gone', 'strip'] });
+      const base = defaultSettings();
+      cacheSettings(queryClient, {
+        ...base,
+        shell: { ...base.shell, moduleOrder: ['spike', 'gone', 'strip'] },
+      });
       const { main } = renderNotch(undefined, fakeModules);
       openWithHotkey(main);
       const labels = () =>
@@ -681,10 +696,35 @@ describe('NotchWindow scenario suite', () => {
         key: 'ArrowRight',
         ctrlKey: true,
       });
-      expect(useAppStore.getState().moduleOrder).toEqual(['strip', 'spike', 'settings']);
-      expect(labels()).toEqual(['Notch strip', 'Muna window spike', 'Muna settings']);
+      // The new order goes into the settings cache (notified on the next tick) and to Rust.
       await settle();
+      expect(labels()).toEqual(['Notch strip', 'Muna window spike', 'Muna settings']);
+      expect(ipc.commands.updateSettings).toHaveBeenCalledTimes(1);
+      expect(ipc.commands.updateSettings.mock.calls[0]?.[0].shell.moduleOrder).toEqual([
+        'strip',
+        'spike',
+        'settings',
+      ]);
       expect(stateOf(main)).toBe('expanded');
+    });
+
+    it('leaves disabled modules out of the bar and the Ctrl+Tab cycle', () => {
+      const base = defaultSettings();
+      cacheSettings(queryClient, {
+        ...base,
+        shell: { ...base.shell, disabledModules: ['settings'] },
+      });
+      const { main } = renderNotch(undefined, fakeModules);
+      openWithHotkey(main);
+      const labels = within(screen.getByRole('tablist'))
+        .getAllByRole('tab')
+        .map((tab) => tab.getAttribute('aria-label'));
+      expect(labels).toEqual(['Notch strip', 'Muna window spike']);
+
+      fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true });
+      expect(useAppStore.getState().activeModuleId).toBe('spike');
+      fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true });
+      expect(useAppStore.getState().activeModuleId).toBe('strip');
     });
 
     it('the bar leaves with the panel and the rects shrink back to the strip', async () => {

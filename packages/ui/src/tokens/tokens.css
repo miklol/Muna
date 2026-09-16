@@ -177,3 +177,36 @@
   --accent-purple: #af52de;
   --accent-cyan: #32ade6;
 }
+
+/* Settings → Appearance → Accent: the app mirrors the choice as `data-accent` on <html>. */
+[data-accent='blue'] {
+  --accent: var(--accent-blue);
+}
+
+[data-accent='cyan'] {
+  --accent: var(--accent-cyan);
+}
+
+[data-accent='green'] {
+  --accent: var(--accent-green);
+}
+
+[data-accent='orange'] {
+  --accent: var(--accent-orange);
+}
+
+[data-accent='red'] {
+  --accent: var(--accent-red);
+}
+
+[data-accent='purple'] {
+  --accent: var(--accent-purple);
+}
+
+[data-accent='yellow'] {
+  --accent: var(--accent-yellow);
+}
+
+[data-accent='pink'] {
+  --accent: var(--accent-pink);
+}

@@ -1,0 +1,121 @@
+/*
+ * SearchField primitive — 28 px tall on `--surface-1`, radius 8, 16 px magnifier in `--text-2`,
+ * clear button shown once there is text. Focus ring on the field, not the input.
+ */
+
+.muna-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  block-size: var(--size-hit-min);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  box-sizing: border-box;
+  transition: background-color var(--muna-motion-press);
+}
+
+.muna-search__glyph {
+  display: inline-flex;
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+  color: var(--text-2);
+}
+
+.muna-search__glyph > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.muna-search__input {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  outline: none;
+}
+
+.muna-search__input::placeholder {
+  color: var(--text-3);
+}
+
+/* WebView2 draws its own clear affordance; the primitive owns that. */
+.muna-search__input::-webkit-search-cancel-button,
+.muna-search__input::-webkit-search-decoration {
+  appearance: none;
+}
+
+.muna-search__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-thumb);
+  background: transparent;
+  color: var(--text-2);
+  cursor: default;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--muna-motion-press),
+    color var(--muna-motion-press);
+}
+
+.muna-search__clear > svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.muna-search[data-empty] .muna-search__clear {
+  display: none;
+}
+
+.muna-search[data-hovered] {
+  background: var(--surface-2);
+}
+
+.muna-search[data-focus-within] {
+  outline: var(--focus-ring);
+  outline-offset: 0;
+}
+
+.muna-search__clear[data-hovered] {
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+
+.muna-search__clear[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: 0;
+}
+
+.muna-search[data-disabled] {
+  color: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-search,
+  .muna-search__clear {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-search,
+:root[data-reduce-motion] .muna-search__clear {
+  transition: none;
+}

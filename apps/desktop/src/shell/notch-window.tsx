@@ -16,6 +16,7 @@ import {
   notchMorphRadiusVar,
 } from '@muna/ui/primitives';
 import { AnimatePresence, motion, type MotionStyle, type Transition } from 'motion/react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   type FocusEvent as ReactFocusEvent,
   type PointerEvent as ReactPointerEvent,
@@ -31,6 +32,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { persistSettings, useSettings } from '../lib/settings';
 import { type ModuleDefinition, modules as registeredModules } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
 import { HitTestOverlay, hitTestOverlayEnabled } from './hit-test-overlay';
@@ -80,6 +82,7 @@ export interface NotchWindowProps {
 /** Module-bar glyph size (docs/05-design-system.md "Module bar": icons 20). */
 const MODULE_ICON_SIZE = 20;
 const MODULE_ICON_STROKE = 1.75;
+const noModules: readonly string[] = [];
 
 type Layout = Pick<ShellLayout, 'shape' | 'stripHeight' | 'stripTopOffset' | 'panelMaxWidth'>;
 
@@ -158,9 +161,9 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const layoutFromShell = useAppStore((state) => state.shellLayout);
   const yieldState = useAppStore((state) => state.yieldState);
   const activeModuleId = useAppStore((state) => state.activeModuleId);
-  const moduleOrder = useAppStore((state) => state.moduleOrder);
   const setActiveModule = useAppStore((state) => state.setActiveModule);
-  const setModuleOrder = useAppStore((state) => state.setModuleOrder);
+  const settings = useSettings();
+  const queryClient = useQueryClient();
   useStripContentSubscription();
   useShellLayoutSubscription();
   const reduceMotion = useReduceMotion();
@@ -171,7 +174,25 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
 
   // --- modules -------------------------------------------------------------------------------
 
-  const orderedModules = useMemo(() => orderModules(modules, moduleOrder), [modules, moduleOrder]);
+  // Order and disabled set live in the settings document (Settings → Modules); until it has
+  // loaded the bar shows the registry order.
+  const moduleOrder = settings?.shell.moduleOrder ?? noModules;
+  const disabledModules = settings?.shell.disabledModules ?? noModules;
+  const orderedModules = useMemo(
+    () => orderModules(modules, moduleOrder, disabledModules),
+    [disabledModules, moduleOrder, modules],
+  );
+  const setModuleOrder = useCallback(
+    (ids: readonly string[]) => {
+      if (settings !== undefined) {
+        persistSettings(queryClient, {
+          ...settings,
+          shell: { ...settings.shell, moduleOrder: [...ids] },
+        });
+      }
+    },
+    [queryClient, settings],
+  );
   const activeModule = resolveActive(orderedModules, activeModuleId);
   const hasModuleBar = orderedModules.length > 0;
   const moduleBarItems = useMemo<readonly ModuleBarItem[]>(

@@ -1,0 +1,108 @@
+/*
+ * Settings window (docs/05-design-system.md, Settings): Windows-native window, sidebar 220
+ * with 32 px rows and 16 px icons, content max-width 640, rows 44 with trailing controls.
+ * Everything here composes tokens; the primitives bring their own styles.
+ */
+
+.settings-nav-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: 32px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--text-2);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  cursor: default;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--muna-motion-press),
+    color var(--muna-motion-press);
+}
+
+.settings-nav-row svg {
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.settings-nav-row[data-hovered] {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.settings-nav-row[data-selected] {
+  background: var(--surface-3);
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.settings-nav-row[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: calc(-1 * var(--focus-ring-offset));
+}
+
+/* Accent swatch: 24 px disc in its colour; the selected one gains a ring in the same colour. */
+.settings-swatch {
+  position: relative;
+  display: inline-flex;
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: var(--radius-thumb);
+  background: var(--settings-swatch);
+  cursor: default;
+  outline: none;
+  transition: transform var(--muna-motion-press);
+}
+
+/* Effective hit area: 36 × 36 around the 24 px disc. */
+.settings-swatch::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+}
+
+.settings-swatch::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--settings-swatch);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity var(--muna-motion-toggle);
+}
+
+.settings-swatch[data-hovered] {
+  transform: scale(1.08);
+}
+
+.settings-swatch[data-selected]::after {
+  opacity: 1;
+}
+
+.settings-swatch[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: 4px;
+}
+
+/* Settings sliders get room to be precise; the 96 px token is the HUD's. */
+.settings-slider {
+  --size-slider-track-width: 160px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-nav-row,
+  .settings-swatch,
+  .settings-swatch::after {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .settings-nav-row,
+:root[data-reduce-motion] .settings-swatch,
+:root[data-reduce-motion] .settings-swatch::after {
+  transition: none;
+}

@@ -3,8 +3,10 @@ import { MunaMotionProvider } from '@muna/ui/motion';
 import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 
+import { useAccent } from './lib/appearance';
 import { i18n } from './lib/i18n';
 import { queryClient } from './lib/query-client';
+import { useSettings, useSettingsSubscription } from './lib/settings';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -18,18 +20,35 @@ interface AppProvidersProps {
 const ignoreSystemMotionPreference: boolean =
   import.meta.env.DEV && import.meta.env.VITE_MUNA_FULL_MOTION === '1';
 
+interface SettingsBridgeProps {
+  children: ReactNode;
+}
+
 /**
- * Providers shared by both windows. `MunaMotionProvider` follows the OS reduced-motion
- * preference; the app's own setting is wired to its `reduceMotion` prop with the settings
- * window (M1-E3).
+ * Feeds the settings document into the window: the accent onto `<html>` and Settings →
+ * Appearance → Reduce motion into `MunaMotionProvider`, which adds it to the OS preference.
+ * The `off` value is kept for older files and behaves like `system` (docs/06-motion-spec.md).
  */
+function SettingsBridge({ children }: SettingsBridgeProps) {
+  useSettingsSubscription();
+  const settings = useSettings();
+  useAccent(settings?.general.accent);
+  return (
+    <MunaMotionProvider
+      reduceMotion={settings?.general.reducedMotion === 'on'}
+      ignoreSystemPreference={ignoreSystemMotionPreference}
+    >
+      {children}
+    </MunaMotionProvider>
+  );
+}
+
+/** Providers shared by both windows. */
 export function AppProviders({ children }: AppProvidersProps) {
   return (
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={queryClient}>
-        <MunaMotionProvider ignoreSystemPreference={ignoreSystemMotionPreference}>
-          {children}
-        </MunaMotionProvider>
+        <SettingsBridge>{children}</SettingsBridge>
       </QueryClientProvider>
     </I18nextProvider>
   );

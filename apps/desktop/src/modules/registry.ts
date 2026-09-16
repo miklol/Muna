@@ -20,8 +20,12 @@ export interface ModuleDefinition {
   readonly icon: ComponentType<ModuleIconProps>;
   /** The expanded-panel body; mounted only while the module is the active one. */
   readonly panel: ComponentType;
-  /** Lazy settings section; loaded on first expand to keep the idle bundle small. */
-  readonly settings?: () => Promise<{ default: ComponentType }>;
+  /**
+   * Settings section, shown as the module's own pane in the settings window. Declare it as
+   * `lazy(() => import('./settings'))` at module scope so the chunk loads on first visit and
+   * the idle bundle stays small; the window wraps it in `Suspense`.
+   */
+  readonly settings?: ComponentType;
 }
 
 export const modules: readonly ModuleDefinition[] = [];

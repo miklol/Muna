@@ -26,7 +26,7 @@ import type {
   YieldState,
 } from './bindings';
 
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 /** Default toggle hotkey (`tauri-plugin-global-shortcut` syntax); mirrors `ShellSettings::default`. */
 export const DEFAULT_TOGGLE_HOTKEY = 'ctrl+alt+space';
@@ -96,6 +96,8 @@ export const shellSettingsSchema = z.object({
   toggleHotkey: z.string().min(1),
   defaults: monitorLayoutSchema,
   monitors: z.record(z.string(), monitorLayoutSchema),
+  moduleOrder: z.array(z.string().min(1)),
+  disabledModules: z.array(z.string().min(1)),
 }) satisfies z.ZodType<ShellSettings>;
 
 export const shellLayoutSchema = z.object({
@@ -229,6 +231,8 @@ export const defaultShellSettings = (): ShellSettings => ({
   toggleHotkey: DEFAULT_TOGGLE_HOTKEY,
   defaults: defaultMonitorLayout(),
   monitors: {},
+  moduleOrder: [],
+  disabledModules: [],
 });
 
 export const defaultSettings = (): Settings => ({

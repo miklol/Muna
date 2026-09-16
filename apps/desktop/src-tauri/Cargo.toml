@@ -74,8 +74,10 @@ serde_json.workspace = true
 specta.workspace = true
 specta-typescript = "0.0.12"
 tauri = { version = "2.11", features = ["specta", "tray-icon"] }
+tauri-plugin-dialog = "2"
 tauri-plugin-global-shortcut = "2.3"
 tauri-plugin-log = "2.9"
+tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2.4"
 tauri-plugin-updater = "2.11"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }

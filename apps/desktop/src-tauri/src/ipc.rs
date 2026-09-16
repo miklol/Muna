@@ -9,10 +9,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use muna_core::{ActivityState, Settings, SettingsError, StoreError, StripContent};
+use muna_platform::{MonitorInfo, PlatformError};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use specta_typescript::Typescript;
 use tauri::{AppHandle, State, WebviewWindow};
+use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_opener::OpenerExt;
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
 use crate::shell::manager::ShellManager;
@@ -53,6 +56,18 @@ impl From<SettingsError> for IpcError {
 impl From<StoreError> for IpcError {
     fn from(error: StoreError) -> Self {
         Self::new("store.sqlite", error)
+    }
+}
+
+impl From<PlatformError> for IpcError {
+    fn from(error: PlatformError) -> Self {
+        let code = match &error {
+            PlatformError::Unsupported(_) => "platform.unsupported",
+            PlatformError::Os { .. } => "platform.os",
+            PlatformError::NotFound(_) => "platform.notFound",
+            PlatformError::AccessDenied(_) => "platform.accessDenied",
+        };
+        Self::new(code, error)
     }
 }
 
@@ -197,17 +212,102 @@ fn update_settings(
             ),
         ));
     }
+    commit_settings(&app, &state, settings)
+}
+
+/// Saves, publishes and applies a validated document; shared by update and import.
+fn commit_settings(
+    app: &AppHandle,
+    state: &Shared,
+    settings: Settings,
+) -> Result<Settings, IpcError> {
     state.settings_store.save(&settings)?;
     *state.settings.lock() = settings.clone();
     if let Err(error) = (SettingsChanged {
         settings: settings.clone(),
     })
-    .emit(&app)
+    .emit(app)
     {
         tracing::warn!(%error, "failed to emit SettingsChanged");
     }
-    state.settings_changed(&app, &settings);
+    state.settings_changed(app, &settings);
     Ok(settings)
+}
+
+/// Monitors as the platform sees them, for the "Multiple screens" pane. Ids match the keys of
+/// `ShellSettings.monitors`.
+#[tauri::command]
+#[specta::specta]
+fn list_monitors(state: State<'_, Shared>) -> Result<Vec<MonitorInfo>, IpcError> {
+    Ok(state.platform.monitors().all()?)
+}
+
+/// Saves the current settings document where the user chooses (native dialog). Returns the
+/// path, or `None` when the dialog was dismissed. Async so the blocking dialog runs off the
+/// main thread.
+#[tauri::command]
+#[specta::specta]
+async fn export_settings(
+    app: AppHandle,
+    state: State<'_, Shared>,
+) -> Result<Option<String>, IpcError> {
+    let Some(target) = app
+        .dialog()
+        .file()
+        .set_file_name("muna-settings.json")
+        .add_filter("Muna settings", &["json"])
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+    let path = target
+        .into_path()
+        .map_err(|error| IpcError::new("settings.io", error))?;
+    let json = state.settings.lock().to_json()?;
+    std::fs::write(&path, json).map_err(|error| IpcError::new("settings.io", error))?;
+    Ok(Some(path.display().to_string()))
+}
+
+/// Replaces the settings with a file the user picks (native dialog). The file goes through the
+/// same versioned parser as start-up, so older exports migrate and newer ones are refused.
+/// Returns `None` when the dialog was dismissed.
+#[tauri::command]
+#[specta::specta]
+async fn import_settings(
+    app: AppHandle,
+    state: State<'_, Shared>,
+) -> Result<Option<Settings>, IpcError> {
+    let Some(source) = app
+        .dialog()
+        .file()
+        .add_filter("Muna settings", &["json"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let path = source
+        .into_path()
+        .map_err(|error| IpcError::new("settings.io", error))?;
+    let text =
+        std::fs::read_to_string(path).map_err(|error| IpcError::new("settings.io", error))?;
+    let settings = Settings::from_json(&text)?;
+    commit_settings(&app, &state, settings).map(Some)
+}
+
+/// Opens the profile's `logs` folder in Explorer (Diagnostics pane).
+#[tauri::command]
+#[specta::specta]
+fn open_logs_folder(app: AppHandle, state: State<'_, Shared>) -> Result<(), IpcError> {
+    let logs = state
+        .settings_store
+        .path()
+        .parent()
+        .map(|profile| profile.join("logs"))
+        .ok_or_else(|| IpcError::new("settings.io", "profile directory is unknown"))?;
+    std::fs::create_dir_all(&logs).map_err(|error| IpcError::new("settings.io", error))?;
+    app.opener()
+        .open_path(logs.display().to_string(), None::<&str>)
+        .map_err(|error| IpcError::new("platform.os", error))
 }
 
 #[tauri::command]
@@ -378,6 +478,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             app_info,
             get_settings,
             update_settings,
+            list_monitors,
+            export_settings,
+            import_settings,
+            open_logs_folder,
             get_strip_content,
             set_strip_suspended,
             list_activities,
