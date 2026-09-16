@@ -30,6 +30,7 @@
   --accent-yellow: #ffd60a;
   --accent-pink: #ff375f;
   --accent: var(--accent-blue);
+  --on-accent: #000000;
   --scrim: rgb(0 0 0 / 0.55);
   --media-tint: transparent;
 
@@ -81,6 +82,16 @@
   --size-ring-gap: 4px;
   --size-toggle-width: 36px;
   --size-toggle-height: 20px;
+  --size-toggle-knob: 16px;
+  --size-segmented-height: 28px;
+  --size-slider-track-width: 96px;
+  --size-slider-track-height: 6px;
+  --size-panel-header: 44px;
+  --size-module-bar-width: 640px;
+  --size-module-bar-height: 40px;
+  --size-module-bar-icon: 20px;
+  --size-module-bar-pill: 32px;
+  --size-module-bar-gap: 12px;
   --size-hit-min: 28px;
   --size-hit-effective: 36px;
   --size-window-shadow-padding: 20px;

@@ -7,11 +7,13 @@ import type {
 } from '@muna/contracts';
 import type * as Contracts from '@muna/contracts';
 import { STRIP_HEIGHT_PX } from '@muna/contracts';
+import type { MessageKey } from '@muna/i18n';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppProviders } from '../app-providers';
+import type { ModuleDefinition } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
 import { NotchWindow } from './notch-window';
 import { shellSizes } from './shell-geometry';
@@ -186,10 +188,10 @@ const surfaceOf = (main: HTMLElement) => {
   };
 };
 
-const renderNotch = (panelBody?: ReactNode) => {
+const renderNotch = (panelBody?: ReactNode, modules?: readonly ModuleDefinition[]) => {
   render(
     <AppProviders>
-      <NotchWindow panelBody={panelBody} />
+      <NotchWindow panelBody={panelBody} {...(modules === undefined ? {} : { modules })} />
     </AppProviders>,
   );
   const main = screen.getByRole('main');
@@ -197,6 +199,19 @@ const renderNotch = (panelBody?: ReactNode) => {
   vi.spyOn(shell, 'getBoundingClientRect').mockImplementation(() => shellBox(shell));
   return { main, shell };
 };
+
+/** Fake modules: real keys from the catalog stand in for titles, the bodies name themselves. */
+const fakeModule = (id: string, titleKey: MessageKey): ModuleDefinition => ({
+  id,
+  titleKey,
+  icon: () => <svg data-testid={`icon-${id}`} />,
+  panel: () => <p>{`${id} body`}</p>,
+});
+const fakeModules: readonly ModuleDefinition[] = [
+  fakeModule('strip', 'notch.strip'),
+  fakeModule('settings', 'settings.title'),
+  fakeModule('spike', 'spike.label'),
+];
 
 const openWithHotkey = (main: HTMLElement) => {
   act(() => {
@@ -210,7 +225,13 @@ describe('NotchWindow scenario suite', () => {
     vi.spyOn(Element.prototype, 'clientWidth', 'get').mockImplementation(function (this: Element) {
       return this.tagName === 'MAIN' ? WINDOW_WIDTH : 0;
     });
-    useAppStore.setState({ stripContent: { kind: 'idle' }, shellLayout: null, yieldState: 'none' });
+    useAppStore.setState({
+      stripContent: { kind: 'idle' },
+      shellLayout: null,
+      yieldState: 'none',
+      activeModuleId: null,
+      moduleOrder: [],
+    });
   });
 
   afterEach(() => {
@@ -277,8 +298,10 @@ describe('NotchWindow scenario suite', () => {
     expect(stateOf(main)).toBe('hoverReveal');
     await advance(1);
     expect(stateOf(main)).toBe('expanded');
-    expect(within(main).getByRole('region', { name: 'Notch panel' })).toBeInTheDocument();
+    expect(within(main).getByRole('dialog', { name: 'Muna' })).toBeInTheDocument();
     expect(screen.getByText('Nothing to show yet')).toBeInTheDocument();
+    // No module registered: no module bar, and the interactive rect is the panel alone.
+    expect(screen.queryByRole('tablist')).toBeNull();
     expect(ipc.commands.setNotchFocusable).not.toHaveBeenCalled();
     // The panel's material from the first frame of the morph.
     expect(surfaceOf(main)).toEqual({ material: 'panel', morphing: true });
@@ -532,5 +555,96 @@ describe('NotchWindow scenario suite', () => {
     // At rest the wide strip is a single rect, so the shell keeps its idle poll rate.
     await settle();
     expect(lastRects()).toEqual([wideRest]);
+  });
+
+  describe('module bar and panel chrome (M1-E4)', () => {
+    it('opens on the first module, names the dialog after it and hangs the bar 12 px under the panel', async () => {
+      const { main } = renderNotch(undefined, fakeModules);
+      expect(screen.queryByRole('tablist')).toBeNull();
+      openWithHotkey(main);
+
+      expect(within(main).getByRole('dialog', { name: 'Notch strip' })).toBeInTheDocument();
+      expect(screen.getByText('strip body')).toBeInTheDocument();
+      const bar = screen.getByRole('tablist', { name: 'Modules' });
+      const tabs = within(bar).getAllByRole('tab');
+      expect(tabs.map((tab) => tab.getAttribute('aria-label'))).toEqual([
+        'Notch strip',
+        'Muna settings',
+        'Muna window spike',
+      ]);
+      expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+
+      // The interactive rect spans panel and bar: 190 + 12 + 40 tall before the 30 px padding.
+      await settle();
+      expect(lastRects()).toEqual([
+        STRIP_REST,
+        {
+          x: CENTRE_X - 500 - 30,
+          y: -30,
+          width: 1000 + 60,
+          height: 190 + shellSizes.moduleBarGap + shellSizes.moduleBarHeight + 60,
+        },
+      ]);
+    });
+
+    it('switches modules from the bar and with Ctrl+Tab, keeping the panel open', async () => {
+      const { main } = renderNotch(undefined, fakeModules);
+      openWithHotkey(main);
+      await settle();
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Muna settings' }));
+      expect(useAppStore.getState().activeModuleId).toBe('settings');
+      expect(within(main).getByRole('dialog', { name: 'Muna settings' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Muna settings' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      await settle();
+      expect(screen.getByText('settings body')).toBeInTheDocument();
+      expect(screen.queryByText('strip body')).toBeNull();
+      expect(stateOf(main)).toBe('expanded');
+
+      fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true });
+      expect(useAppStore.getState().activeModuleId).toBe('spike');
+      fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true, shiftKey: true });
+      fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true, shiftKey: true });
+      expect(useAppStore.getState().activeModuleId).toBe('strip');
+      // Plain Tab is left to the browser's focus order.
+      fireEvent.keyDown(window, { key: 'Tab' });
+      expect(useAppStore.getState().activeModuleId).toBe('strip');
+    });
+
+    it('reorders with Ctrl+Arrow and follows a saved order, dropping ids it does not know', async () => {
+      useAppStore.setState({ moduleOrder: ['spike', 'gone', 'strip'] });
+      const { main } = renderNotch(undefined, fakeModules);
+      openWithHotkey(main);
+      const labels = () =>
+        within(screen.getByRole('tablist'))
+          .getAllByRole('tab')
+          .map((tab) => tab.getAttribute('aria-label'));
+      expect(labels()).toEqual(['Muna window spike', 'Notch strip', 'Muna settings']);
+
+      fireEvent.keyDown(screen.getByRole('tab', { name: 'Muna window spike' }), {
+        key: 'ArrowRight',
+        ctrlKey: true,
+      });
+      expect(useAppStore.getState().moduleOrder).toEqual(['strip', 'spike', 'settings']);
+      expect(labels()).toEqual(['Notch strip', 'Muna window spike', 'Muna settings']);
+      await settle();
+      expect(stateOf(main)).toBe('expanded');
+    });
+
+    it('the bar leaves with the panel and the rects shrink back to the strip', async () => {
+      const { main } = renderNotch(undefined, fakeModules);
+      openWithHotkey(main);
+      await settle();
+      expect(screen.getByRole('tablist')).toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(stateOf(main)).toBe('collapsed');
+      await settle();
+      expect(screen.queryByRole('tablist')).toBeNull();
+      expect(lastRects()).toEqual([STRIP_REST]);
+    });
   });
 });

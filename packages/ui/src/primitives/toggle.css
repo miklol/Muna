@@ -1,0 +1,101 @@
+/*
+ * Toggle primitive — 36 × 20 track, 16 px knob. Knob position and track colour follow the
+ * `toggle` preset rendered as linear() easing; on = accent track with an `--on-accent` knob.
+ */
+
+.muna-toggle {
+  display: inline-flex;
+}
+
+/* The React Aria switch button is the label: hover, press and focus land here. */
+.muna-toggle__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muna-toggle__track {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  inline-size: var(--size-toggle-width);
+  block-size: var(--size-toggle-height);
+  border-radius: var(--radius-thumb);
+  background: var(--surface-4);
+  transition: background-color var(--muna-motion-toggle);
+}
+
+.muna-toggle__knob {
+  position: absolute;
+  inset-block-start: calc((var(--size-toggle-height) - var(--size-toggle-knob)) / 2);
+  inset-inline-start: calc((var(--size-toggle-height) - var(--size-toggle-knob)) / 2);
+  inline-size: var(--size-toggle-knob);
+  block-size: var(--size-toggle-knob);
+  border-radius: var(--radius-thumb);
+  background: var(--text-1);
+  transition:
+    translate var(--muna-motion-toggle),
+    background-color var(--muna-motion-toggle);
+}
+
+.muna-toggle__button[data-selected] .muna-toggle__track {
+  background: var(--accent);
+}
+
+.muna-toggle__button[data-selected] .muna-toggle__knob {
+  translate: calc(var(--size-toggle-width) - var(--size-toggle-height)) 0;
+  background: var(--on-accent);
+}
+
+.muna-toggle__button[data-hovered] .muna-toggle__track {
+  background: color-mix(in oklab, var(--surface-4), white 6%);
+}
+
+.muna-toggle__button[data-pressed] .muna-toggle__knob {
+  inline-size: calc(var(--size-toggle-knob) + 2px);
+}
+
+.muna-toggle__button[data-focus-visible] .muna-toggle__track {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-toggle__button[data-disabled] {
+  color: var(--text-3);
+}
+
+.muna-toggle__button[data-disabled] .muna-toggle__track {
+  background: var(--surface-2);
+}
+
+.muna-toggle__button[data-disabled] .muna-toggle__knob {
+  background: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-toggle__track,
+  .muna-toggle__knob {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-toggle__track,
+:root[data-reduce-motion] .muna-toggle__knob {
+  transition: none;
+}
+
+/* Compound states last: they outrank the single-state rules above. */
+.muna-toggle__button[data-hovered][data-selected] .muna-toggle__track {
+  background: color-mix(in oklab, var(--accent), white 8%);
+}
+
+.muna-toggle__button:dir(rtl)[data-selected] .muna-toggle__knob {
+  translate: calc(-1 * (var(--size-toggle-width) - var(--size-toggle-height))) 0;
+}

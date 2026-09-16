@@ -1,0 +1,46 @@
+/*
+ * Skeleton primitive — white at 6 % → 12 % opacity shimmer on the `--muna-motion-shimmer`
+ * loop (1.6 s linear from the timings table); static at 9 % under reduced motion.
+ */
+
+.muna-skeleton {
+  display: inline-block;
+  inline-size: 100%;
+  block-size: var(--text-footnote);
+  border-radius: var(--radius-control);
+  background: white;
+  opacity: 0.06;
+  animation: muna-skeleton-shimmer var(--muna-motion-shimmer) infinite alternate;
+}
+
+.muna-skeleton--block {
+  border-radius: var(--radius-card);
+}
+
+.muna-skeleton--circle {
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: var(--radius-thumb);
+}
+
+@keyframes muna-skeleton-shimmer {
+  from {
+    opacity: 0.06;
+  }
+
+  to {
+    opacity: 0.12;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-skeleton {
+    animation: none;
+    opacity: 0.09;
+  }
+}
+
+:root[data-reduce-motion] .muna-skeleton {
+  animation: none;
+  opacity: 0.09;
+}

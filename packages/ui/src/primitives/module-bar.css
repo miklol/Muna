@@ -1,0 +1,171 @@
+/*
+ * ModuleBar primitive — 640 × 40 pill on `--surface-2` with a hairline, 32 px tab slots at
+ * 8 px gaps, 20 px icons. The active tab's `--surface-3` pill glides between tabs (Motion
+ * layoutId, `switch`); icons scale to 1.08 on hover with the `toggle` easing.
+ */
+
+.muna-module-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: var(--size-module-bar-width);
+  max-inline-size: 100%;
+  block-size: var(--size-module-bar-height);
+  padding: 0 4px;
+  border-radius: var(--radius-bar);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+}
+
+.muna-module-bar__list {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.muna-module-bar__tab {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-module-bar-pill);
+  block-size: var(--size-module-bar-pill);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-thumb);
+  background: transparent;
+  color: var(--text-2);
+  cursor: default;
+  outline: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--muna-motion-toggle);
+}
+
+/* Effective hit area: the full 40 px bar height around the 32 px slot. */
+.muna-module-bar__tab::before {
+  content: '';
+  position: absolute;
+  inset: calc((var(--size-module-bar-pill) - var(--size-module-bar-height)) / 2) -4px;
+}
+
+.muna-module-bar__indicator {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--surface-3);
+}
+
+.muna-module-bar__icon {
+  position: relative;
+  display: inline-flex;
+  inline-size: var(--size-module-bar-icon);
+  block-size: var(--size-module-bar-icon);
+  transition: scale var(--muna-motion-toggle);
+}
+
+.muna-module-bar__icon > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.muna-module-bar__tab:hover {
+  color: var(--text-1);
+}
+
+.muna-module-bar__tab:hover .muna-module-bar__icon {
+  scale: 1.08;
+}
+
+.muna-module-bar__tab[data-active] {
+  color: var(--text-1);
+}
+
+.muna-module-bar__tab:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-module-bar__tab[data-dragged] {
+  color: var(--text-1);
+  background: var(--surface-3);
+  box-shadow: var(--shadow-drag);
+  scale: 1.06;
+}
+
+.muna-module-bar__tab[data-dragged] .muna-module-bar__indicator {
+  background: var(--surface-4);
+}
+
+.muna-module-bar__pager {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-module-bar-pill);
+  block-size: var(--size-module-bar-pill);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-thumb);
+  background: transparent;
+  color: var(--text-2);
+  cursor: default;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--muna-motion-press);
+}
+
+.muna-module-bar__pager:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.muna-module-bar__pager:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-module-bar__dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.muna-module-bar__dot {
+  inline-size: 4px;
+  block-size: 4px;
+  border-radius: var(--radius-thumb);
+  background: currentcolor;
+  opacity: 0.4;
+}
+
+.muna-module-bar__dot[data-current] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-module-bar__tab,
+  .muna-module-bar__icon,
+  .muna-module-bar__pager {
+    transition: none;
+  }
+
+  .muna-module-bar__tab:hover .muna-module-bar__icon {
+    scale: 1;
+  }
+}
+
+:root[data-reduce-motion] .muna-module-bar__tab,
+:root[data-reduce-motion] .muna-module-bar__icon,
+:root[data-reduce-motion] .muna-module-bar__pager {
+  transition: none;
+}
+
+:root[data-reduce-motion] .muna-module-bar__tab:hover .muna-module-bar__icon {
+  scale: 1;
+}

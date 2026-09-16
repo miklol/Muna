@@ -11,6 +11,12 @@ export interface AppStore {
   /** What the yield rules ask of this window (`ShellYieldChanged`). */
   yieldState: YieldState;
   setYieldState: (state: YieldState) => void;
+  /** The module the panel shows; `null` falls back to the first module in order. */
+  activeModuleId: string | null;
+  setActiveModule: (id: string | null) => void;
+  /** Module ids in bar order; ids the registry does not know are ignored, new modules append. */
+  moduleOrder: readonly string[];
+  setModuleOrder: (ids: readonly string[]) => void;
 }
 
 export const useAppStore = create<AppStore>()((set) => ({
@@ -25,5 +31,13 @@ export const useAppStore = create<AppStore>()((set) => ({
   yieldState: 'none',
   setYieldState: (state) => {
     set({ yieldState: state });
+  },
+  activeModuleId: null,
+  setActiveModule: (id) => {
+    set({ activeModuleId: id });
+  },
+  moduleOrder: [],
+  setModuleOrder: (ids) => {
+    set({ moduleOrder: ids });
   },
 }));

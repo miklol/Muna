@@ -3,12 +3,18 @@ import { STRIP_HEIGHT_PX } from '@muna/contracts';
 import {
   contentExitTransition,
   contentRecipe,
+  moduleBarRecipe,
   reducedMotionTransition,
   springs,
   timings,
   useReduceMotion,
 } from '@muna/ui/motion';
-import { NotchSurface, notchMorphRadiusVar } from '@muna/ui/primitives';
+import {
+  ModuleBar,
+  type ModuleBarItem,
+  NotchSurface,
+  notchMorphRadiusVar,
+} from '@muna/ui/primitives';
 import { AnimatePresence, motion, type MotionStyle, type Transition } from 'motion/react';
 import {
   type FocusEvent as ReactFocusEvent,
@@ -25,6 +31,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { type ModuleDefinition, modules as registeredModules } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
 import { HitTestOverlay, hitTestOverlayEnabled } from './hit-test-overlay';
 import {
@@ -37,10 +44,18 @@ import {
   union,
 } from './hit-zones';
 import { type ShellEffect, ShellMachine, type ShellSnapshot, type ShellState } from './machine';
+import { orderModules, resolveActive, stepModule } from './module-order';
 import { MorphSampler } from './morph-sampler';
 import { morphTransition } from './morph-transition';
 import { Panel, PanelEmptyState } from './panel';
-import { type GeometryInput, showsPanel, targetOffsetY, targetSize } from './shell-geometry';
+import {
+  type GeometryInput,
+  moduleBarOffsetY,
+  moduleBarSize,
+  showsPanel,
+  targetOffsetY,
+  targetSize,
+} from './shell-geometry';
 import { Strip, wideText } from './strip';
 import {
   publishShapeRects,
@@ -54,9 +69,15 @@ import {
 import { useStripContentSubscription } from './use-strip-content';
 
 export interface NotchWindowProps {
-  /** Panel body; the empty state until a module is active (tests inject a text field). */
+  /** Panel body override; tests inject a text field. Defaults to the active module's panel. */
   panelBody?: ReactNode;
+  /** The modules the bar offers; defaults to the registry (tests inject fakes). */
+  modules?: readonly ModuleDefinition[];
 }
+
+/** Module-bar glyph size (docs/05-design-system.md "Module bar": icons 20). */
+const MODULE_ICON_SIZE = 20;
+const MODULE_ICON_STROKE = 1.75;
 
 type Layout = Pick<ShellLayout, 'shape' | 'stripHeight' | 'stripTopOffset' | 'panelMaxWidth'>;
 
@@ -128,11 +149,15 @@ const geometryKey = (width: number, height: number, offsetY: number, radius: num
  * Rust places the window and decides yield; this component reports ready, publishes the rects
  * the pointer may hit, and drives the morph, pin and focus rules.
  */
-export function NotchWindow({ panelBody }: NotchWindowProps) {
+export function NotchWindow({ panelBody, modules = registeredModules }: NotchWindowProps) {
   const { t } = useTranslation();
   const content = useAppStore((state) => state.stripContent);
   const layoutFromShell = useAppStore((state) => state.shellLayout);
   const yieldState = useAppStore((state) => state.yieldState);
+  const activeModuleId = useAppStore((state) => state.activeModuleId);
+  const moduleOrder = useAppStore((state) => state.moduleOrder);
+  const setActiveModule = useAppStore((state) => state.setActiveModule);
+  const setModuleOrder = useAppStore((state) => state.setModuleOrder);
   useStripContentSubscription();
   useShellLayoutSubscription();
   const reduceMotion = useReduceMotion();
@@ -140,6 +165,24 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
   const layout: Layout = layoutFromShell ?? fallbackLayout;
   const [snapshot, machine] = useShellMachine();
   const { state } = snapshot;
+
+  // --- modules -------------------------------------------------------------------------------
+
+  const orderedModules = useMemo(() => orderModules(modules, moduleOrder), [modules, moduleOrder]);
+  const activeModule = resolveActive(orderedModules, activeModuleId);
+  const hasModuleBar = orderedModules.length > 0;
+  const moduleBarItems = useMemo<readonly ModuleBarItem[]>(
+    () =>
+      orderedModules.map((module) => {
+        const Icon = module.icon;
+        return {
+          id: module.id,
+          label: t(module.titleKey),
+          icon: <Icon size={MODULE_ICON_SIZE} strokeWidth={MODULE_ICON_STROKE} />,
+        };
+      }),
+    [orderedModules, t],
+  );
 
   const rootRef = useRef<HTMLElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -209,9 +252,31 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
     };
   }, [machine]);
 
+  // Ctrl+Tab / Ctrl+Shift+Tab step through the modules while the panel is open
+  // (docs/modules/notch-shell.md, "Rules").
+  const panelShown = showsPanel(state);
+  useEffect(() => {
+    if (!panelShown || orderedModules.length < 2) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !event.ctrlKey || event.altKey || event.metaKey) {
+        return;
+      }
+      const next = stepModule(orderedModules, activeModuleId, event.shiftKey ? -1 : 1);
+      if (next !== null) {
+        event.preventDefault();
+        setActiveModule(next);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activeModuleId, orderedModules, panelShown, setActiveModule]);
+
   // --- geometry ------------------------------------------------------------------------------
 
-  const panelShown = showsPanel(state);
   const wide = !panelShown && wideText(content) !== null;
   const geometry = useMemo<GeometryInput>(
     () => ({ layout, wide, panelContentHeight }),
@@ -257,6 +322,21 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
     [layout.stripTopOffset],
   );
 
+  /** Where the module bar rests under the panel in `forState`. */
+  const moduleBarBox = useCallback(
+    (forState: ShellState, input: GeometryInput): Box => {
+      const root = rootRef.current;
+      const centreX = root === null ? 0 : root.clientWidth / 2;
+      return anchoredBox(
+        centreX,
+        layout.stripTopOffset + moduleBarOffsetY(forState, input),
+        moduleBarSize.width,
+        moduleBarSize.height,
+      );
+    },
+    [layout.stripTopOffset],
+  );
+
   const publish = useCallback((rects: ShapeRect[]) => {
     if (rects.length === 0 || sameRects(rects, lastPublished.current)) {
       return;
@@ -271,7 +351,8 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
    * yield rules measure caption overlap against it, so it follows neither Peek nor the morph,
    * and in the strip states it is the only rect (the shell polls faster while more than one is
    * published). A second rect covers the interactive area: the padded shape while revealed or
-   * open, spanning current and target bounds while a morph is in flight.
+   * open — spanning the module bar too while the panel shows it — and current plus target
+   * bounds while a morph is in flight.
    */
   const publishShapes = useCallback(
     (inFlight: boolean) => {
@@ -283,18 +364,21 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
       const node = shellRef.current;
       const current = node === null ? null : boxOf(node);
       // A node that has not laid out yet (zero size) has nothing to span.
-      const span =
+      let span =
         inFlight && current !== null && current.width > 0 ? union(current, targetBox) : targetBox;
       if (state === 'collapsed' || state === 'peek') {
         if (inFlight) {
           rects.push(toShapeRect(span));
         }
       } else {
+        if (hasModuleBar && showsPanel(state)) {
+          span = union(span, moduleBarBox(state, geometry));
+        }
         rects.push(toShapeRect(padded(span)));
       }
       publish(rects);
     },
-    [geometry, parked, publish, restBox, state],
+    [geometry, hasModuleBar, moduleBarBox, parked, publish, restBox, state],
   );
 
   const publishAtRest = useCallback(() => {
@@ -403,6 +487,22 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
     ...(reduceMotion ? contentRecipe.reducedExitTo : contentRecipe.exitTo),
     transition: contentExitTransition,
   };
+  // Module switch (docs/06-motion-spec.md "Module switch"): the old body leaves in 80 ms, the
+  // height springs with `switch` (see `morphTransition`), the new body enters 40 ms in.
+  const moduleBodyTransition: Transition = reduceMotion
+    ? reducedMotionTransition
+    : { ...springs.content, delay: timings.moduleSwitchEnterDelayMs / 1000 };
+  // The bar enters with `expand` 80 ms after the panel starts, and leaves with the content.
+  const moduleBarTransition: Transition = reduceMotion
+    ? reducedMotionTransition
+    : { ...springs.expand, delay: timings.moduleBarEnterDelayMs / 1000 };
+  const moduleBarExit = {
+    ...(reduceMotion ? moduleBarRecipe.reducedExitTo : moduleBarRecipe.exitTo),
+    transition: contentExitTransition,
+  };
+  const moduleBarShown = panelShown && hasModuleBar;
+  const panelTitle = activeModule === null ? t('app.name') : t(activeModule.titleKey);
+  const ActivePanel = activeModule?.panel;
 
   return (
     <main
@@ -457,7 +557,7 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
                   transition={contentTransition}
                 >
                   <Panel
-                    title={t('app.name')}
+                    title={panelTitle}
                     pinned={snapshot.pinnedByUser}
                     onPinChange={(pinned) => {
                       machine.send({ type: 'pin', pinned });
@@ -466,7 +566,23 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
                       machine.send({ type: 'collapse' });
                     }}
                   >
-                    {panelBody ?? <PanelEmptyState />}
+                    <AnimatePresence mode="popLayout" initial={false}>
+                      <motion.div
+                        key={activeModule?.id ?? 'empty'}
+                        className="size-full origin-top"
+                        initial={
+                          reduceMotion ? contentRecipe.reducedEnterFrom : contentRecipe.enterFrom
+                        }
+                        animate={
+                          reduceMotion ? contentRecipe.reducedVisible : contentRecipe.visible
+                        }
+                        exit={contentExit}
+                        transition={moduleBodyTransition}
+                      >
+                        {panelBody ??
+                          (ActivePanel === undefined ? <PanelEmptyState /> : <ActivePanel />)}
+                      </motion.div>
+                    </AnimatePresence>
                   </Panel>
                 </motion.div>
               ) : (
@@ -484,6 +600,40 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
             </AnimatePresence>
           </NotchSurface>
         </motion.div>
+      )}
+      {!parked && (
+        <AnimatePresence initial={false}>
+          {moduleBarShown && (
+            // Rides the panel's bottom edge: the same spring as the shell, from under the strip.
+            <motion.div
+              key="module-bar"
+              data-testid="module-bar"
+              className="absolute left-1/2"
+              style={shellStyle}
+              initial={{ y: moduleBarOffsetY(snapshot.previous, geometry) }}
+              animate={{ y: moduleBarOffsetY(state, geometry) }}
+              transition={transition}
+            >
+              <motion.div
+                initial={
+                  reduceMotion ? moduleBarRecipe.reducedEnterFrom : moduleBarRecipe.enterFrom
+                }
+                animate={reduceMotion ? moduleBarRecipe.reducedVisible : moduleBarRecipe.visible}
+                exit={moduleBarExit}
+                transition={moduleBarTransition}
+              >
+                <ModuleBar
+                  aria-label={t('notch.modules')}
+                  overflowLabel={t('notch.moreModules')}
+                  items={moduleBarItems}
+                  activeId={activeModule?.id ?? null}
+                  onActivate={setActiveModule}
+                  onReorder={setModuleOrder}
+                />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       )}
       {hitTestOverlayEnabled && (
         <HitTestOverlay rects={publishedRects} state={state} morph={lastMorph} />

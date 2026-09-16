@@ -5,12 +5,14 @@
  * on `<html>`. Without a provider the properties are undefined and the state changes are
  * instant — never a literal duration.
  */
-import { springs, toLinearEasing } from './presets';
+import { springs, timings, toLinearEasing } from './presets';
 
 export const motionCssVars = {
   '--muna-motion-press': toLinearEasing(springs.press).css,
   '--muna-motion-toggle': toLinearEasing(springs.toggle).css,
   '--muna-motion-reveal': toLinearEasing(springs.reveal).css,
+  /** Skeleton shimmer loop (`timings.shimmerLoopMs`, linear). */
+  '--muna-motion-shimmer': `${String(timings.shimmerLoopMs)}ms linear`,
 } as const;
 
 export type MotionCssVar = keyof typeof motionCssVars;

@@ -1,0 +1,107 @@
+/*
+ * Slider primitive — track 96 × 6, radius 3, fill in the tint, 12 px knob on hover, focus and
+ * drag. Motion drives `--muna-slider` (0–1); only transforms derive from it and `:dir(rtl)`
+ * mirrors them. The React Aria thumb is the invisible 20 px hit target the pointer and keyboard
+ * use; the visible knob follows the same fraction.
+ */
+
+.muna-slider {
+  --muna-tint: var(--accent);
+
+  display: inline-flex;
+  align-items: center;
+  inline-size: var(--size-slider-track-width);
+  min-block-size: var(--size-hit-min);
+  touch-action: none;
+}
+
+.muna-slider__track {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  block-size: var(--size-slider-track-height);
+  border-radius: calc(var(--size-slider-track-height) / 2);
+  background: var(--surface-4);
+  container-type: inline-size;
+}
+
+.muna-slider__motion {
+  --muna-slider: 0;
+
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: inherit;
+}
+
+.muna-slider__fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: inherit;
+  background: var(--muna-tint);
+  transform: scaleX(var(--muna-slider));
+  transform-origin: left center;
+}
+
+.muna-slider:dir(rtl) .muna-slider__fill {
+  transform-origin: right center;
+}
+
+.muna-slider__knob {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: calc(var(--size-progress-thumb) / -2);
+  display: block;
+  inline-size: var(--size-progress-thumb);
+  block-size: var(--size-progress-thumb);
+  margin-block-start: calc(var(--size-progress-thumb) / -2);
+  border-radius: var(--radius-thumb);
+  background: var(--text-1);
+  opacity: 0;
+  translate: calc(var(--muna-slider) * 100cqw) 0;
+  transition: opacity var(--muna-motion-reveal);
+}
+
+.muna-slider:dir(rtl) .muna-slider__knob {
+  translate: calc(var(--muna-slider) * -100cqw) 0;
+}
+
+/* The React Aria thumb: positioned by the library, invisible, 36 px effective hit target. */
+.muna-slider__thumb {
+  inline-size: var(--size-hit-effective);
+  block-size: var(--size-hit-effective);
+  border-radius: var(--radius-thumb);
+  background: transparent;
+  outline: none;
+}
+
+.muna-slider[data-disabled] .muna-slider__fill {
+  background: var(--text-3);
+}
+
+.muna-slider[data-disabled] .muna-slider__knob {
+  background: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-slider__knob {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-slider__knob {
+  transition: none;
+}
+
+/* Thumb-state rules last: `:has()` on the track outranks the single-class rules above. */
+.muna-slider:hover .muna-slider__knob,
+.muna-slider__track:has(.muna-slider__thumb[data-focused]) .muna-slider__knob,
+.muna-slider__track:has(.muna-slider__thumb[data-dragging]) .muna-slider__knob {
+  opacity: 1;
+}
+
+.muna-slider__track:has(.muna-slider__thumb[data-focus-visible]) .muna-slider__knob {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

@@ -1,0 +1,69 @@
+/*
+ * PanelChrome primitive — padding 16, header 44 (title callout + footnote subtitle, chips,
+ * right rail of 28 px icon buttons at 4 px gaps), body, optional footer.
+ */
+
+.muna-panel {
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 190px;
+  padding: var(--space-4);
+  box-sizing: border-box;
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+}
+
+.muna-panel__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  block-size: var(--size-panel-header);
+}
+
+.muna-panel__heading {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.muna-panel__title {
+  display: block;
+}
+
+.muna-panel__chips {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.muna-panel__rail {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+
+/* Positioned so a body swap (`AnimatePresence` popLayout) can pop the leaving body out of flow. */
+.muna-panel__body {
+  position: relative;
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.muna-panel__footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--size-icon-button);
+  padding-block-start: var(--space-2);
+}

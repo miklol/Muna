@@ -175,6 +175,20 @@ export const contentExitTransition = {
 } as const satisfies Transition;
 
 /**
+ * Module bar choreography (docs/06-motion-spec.md "Strip → panel" and "Panel → strip"): the
+ * pill rises 12 px into place with `expand` 80 ms after the shape starts, and drops 8 px while
+ * fading together with the content exit.
+ */
+export const moduleBarRecipe = {
+  enterFrom: { opacity: 0, y: -12 },
+  visible: { opacity: 1, y: 0 },
+  exitTo: { opacity: 0, y: 8 },
+  reducedEnterFrom: { opacity: 0 },
+  reducedVisible: { opacity: 1 },
+  reducedExitTo: { opacity: 0 },
+} as const;
+
+/**
  * Non-spring timings from docs/06-motion-spec.md#timings-non-spring, in milliseconds unless
  * the name says otherwise. Module code reads these instead of writing numbers.
  */
@@ -193,6 +207,10 @@ export const timings = {
   hoverPaddingPx: 30,
   /** Content enters this long after the shape starts moving. */
   contentEnterDelayMs: 60,
+  /** The module bar enters this long after the shape starts moving. */
+  moduleBarEnterDelayMs: 80,
+  /** A module switch: the new body enters this long after the old one starts leaving. */
+  moduleSwitchEnterDelayMs: 40,
   /** Content exit duration; the shape follows `shapeFollowDelayMs` later. */
   contentExitMs: 80,
   /** Shape starts collapsing this long after content begins to exit. */

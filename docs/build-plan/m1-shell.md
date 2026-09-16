@@ -97,6 +97,16 @@ uses the shared-layout morph (content crossfade + height spring). Storybook stor
 state; Vitest for keyboard nav and reorder.
 ```
 
+**Progress.** `feat(ui): module bar and panel chrome (m1-e4)` landed the epic in one PR: eleven
+`@muna/ui` primitives (`Button`, `Card`, `ListRow`, `SegmentedControl`, `Toggle`, `Slider`,
+`EmptyState`, `ErrorState`, `Skeleton`, `PanelChrome`, `ModuleBar`) with every-state stories
+and render/keyboard/reorder tests, the shell binding (`Panel` over `PanelChrome`, module bar
+riding the panel's height spring, `switch` for module changes, `Ctrl+Tab` cycling, panel ∪
+bar hit-rect) and four new S-suite scenarios. The panel is `role="dialog"` as the design
+system said; the shell spec was corrected. Order persistence to `settings.json` moves to
+M1-E3 with the settings write path. Decisions are in
+[notch-shell.md → Implementation notes (M1-E4)](../modules/notch-shell.md#implementation-notes-m1-e4).
+
 ## M1-E5 · Onboarding — agent: `muna-ui-engineer`
 
 ```text
