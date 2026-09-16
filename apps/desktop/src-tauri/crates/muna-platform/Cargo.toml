@@ -20,9 +20,17 @@ tracing.workspace = true
 # same type Tauri hands out from `with_webview`.
 webview2-com = "0.38"
 windows-core = "0.61"
+# Same version `windows` 0.62 depends on; needed to name `IIterable<HSTRING>` for the
+# `DeviceWatcher` property list.
+windows-collections = "0.3"
 windows = { version = "0.62", features = [
   "ApplicationModel",
+  "Devices_Bluetooth",
+  "Devices_Bluetooth_GenericAttributeProfile",
+  "Devices_Enumeration",
   "Foundation",
+  "Foundation_Collections",
+  "Storage_Streams",
   "Win32_Foundation",
   "Win32_Graphics_Dwm",
   "Win32_Graphics_Gdi",

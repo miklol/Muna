@@ -1,12 +1,14 @@
 //! Real Windows implementation. M0 wires the services the notch shell needs (power, monitors,
-//! foreground tracking and window affinities, ADR-0002); every other service reports
-//! [`PlatformError::Unsupported`] until its module milestone lands (docs/07-roadmap.md).
+//! foreground tracking and window affinities, ADR-0002); M1 adds paired Bluetooth devices for
+//! the live-activities strip; every other service reports [`PlatformError::Unsupported`] until
+//! its module milestone lands (docs/07-roadmap.md).
 //!
 //! Every Win32 call in this module checks its result and every `unsafe` block carries a
 //! `// SAFETY:` comment (repository rule).
 
 mod app_bar;
 mod autostart;
+mod bluetooth;
 mod foreground;
 pub mod identity;
 mod monitors;
@@ -54,6 +56,8 @@ pub struct WindowsPlatform {
     events: broadcast::Sender<PlatformEvent>,
     /// `None` when the pump could not start; polling still works, only push events are lost.
     _pump: Option<pump::Pump>,
+    /// `None` when the watchers could not start; Bluetooth then reports `Unsupported`.
+    bluetooth: Option<bluetooth::Watcher>,
     app_bars: app_bar::AppBars,
 }
 
@@ -74,9 +78,17 @@ impl WindowsPlatform {
                 None
             }
         };
+        let bluetooth = match bluetooth::Watcher::start(events.clone()) {
+            Ok(watcher) => Some(watcher),
+            Err(error) => {
+                warn!(%error, "bluetooth watcher unavailable; device notices disabled");
+                None
+            }
+        };
         Self {
             events,
             _pump: pump,
+            bluetooth,
             app_bars: app_bar::AppBars::default(),
         }
     }
@@ -112,15 +124,20 @@ impl Audio for WindowsPlatform {
 
 impl Bluetooth for WindowsPlatform {
     fn devices(&self) -> PlatformResult<Vec<BluetoothDevice>> {
-        Err(PlatformError::Unsupported("bluetooth"))
+        self.bluetooth
+            .as_ref()
+            .map(bluetooth::Watcher::devices)
+            .ok_or(PlatformError::Unsupported("bluetooth"))
     }
 
+    // Classic connect/disconnect need `BluetoothSetServiceState` (docs/04 ⚠️); the P1 module
+    // owns that.
     fn connect(&self, _id: &str) -> PlatformResult<()> {
-        Err(PlatformError::Unsupported("bluetooth"))
+        Err(PlatformError::Unsupported("bluetooth connect"))
     }
 
     fn disconnect(&self, _id: &str) -> PlatformResult<()> {
-        Err(PlatformError::Unsupported("bluetooth"))
+        Err(PlatformError::Unsupported("bluetooth disconnect"))
     }
 }
 
@@ -280,9 +297,19 @@ mod tests {
             Err(PlatformError::Unsupported(_))
         ));
         assert!(matches!(
-            platform.bluetooth().devices(),
+            platform.bluetooth().connect("any"),
             Err(PlatformError::Unsupported(_))
         ));
+        // Enumeration works without a radio; a machine that cannot start the watchers degrades.
+        match platform.bluetooth().devices() {
+            Ok(devices) => assert!(
+                devices
+                    .iter()
+                    .all(|device| device.battery_percent.is_none_or(|p| p <= 100))
+            ),
+            Err(PlatformError::Unsupported(_)) => {}
+            Err(other) => panic!("unexpected error: {other}"),
+        }
     }
 
     /// Talks to the real OS; only meaningful on the nightly lab machine.
