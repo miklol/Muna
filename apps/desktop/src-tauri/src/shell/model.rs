@@ -116,16 +116,28 @@ impl NotchState {
     }
 
     fn refresh_shapes(&mut self) {
+        // The UI keeps publishing the strip at rest while it peeks (the yield reference above
+        // must not follow the slide, or peek would flap), but it paints only the sliver at the
+        // top edge: the hit tester follows the sliver so the caption under the strip's rest
+        // position stays clickable.
+        let peek_rise = if self.yield_state == YieldState::Peek {
+            (layout::strip_top_offset(self.layout.shape) + self.layout.strip_height.css_px())
+                .saturating_sub(layout::PEEK_HEIGHT_PX)
+        } else {
+            0
+        };
         let physical: Vec<Rect> = self
             .css_shapes
             .iter()
-            .map(|s| {
+            .enumerate()
+            .map(|(index, s)| {
+                let rise = if index == 0 { peek_rise } else { 0 };
                 layout::shape_to_physical(
                     &self.monitor,
                     self.rect,
                     [
                         f64::from(s.x),
-                        f64::from(s.y),
+                        f64::from(s.y) - f64::from(rise),
                         f64::from(s.width),
                         f64::from(s.height),
                     ],
@@ -629,6 +641,7 @@ impl ShellModel {
             };
             if window.yield_state != decision.effective {
                 window.yield_state = decision.effective;
+                window.refresh_shapes();
                 effects.push(Effect::YieldChanged {
                     label,
                     state: decision.effective,

@@ -17,6 +17,9 @@ pub const ISLAND_TOP_OFFSET: u32 = 8;
 /// Panel width clamps to `min(PANEL_MAX_WIDTH, monitor CSS width − PANEL_MONITOR_MARGIN)`.
 pub const PANEL_MAX_WIDTH: u32 = 1000;
 pub const PANEL_MONITOR_MARGIN: u32 = 80;
+/// The sliver of the strip left visible while a window peeks, in CSS px (`--size-peek-height`);
+/// mirrors `PEEK_HEIGHT_PX` in `@muna/contracts`.
+pub const PEEK_HEIGHT_PX: u32 = 6;
 
 /// Baseline DPI at 100 % scale.
 const BASE_DPI: f64 = 96.0;

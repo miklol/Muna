@@ -483,6 +483,95 @@ fn caption_under_the_published_strip_peeks_immediately() {
     );
 }
 
+/// S5 (docs/09-testing-qa.md), Rust half: while a window peeks the UI paints only the
+/// 6 px sliver, so the strip's rest position — the caption of the window that caused the peek
+/// — must click through; the sliver itself stays interactive. The published rect is left alone
+/// (it is the yield reference), only the hit tester follows the slide.
+#[test]
+fn s5_peek_moves_the_hit_rect_up_to_the_sliver_and_back() {
+    let (platform, mut model, now) = ready_model(ShellSettings::default());
+    let strip = ShapeRect {
+        x: 350,
+        y: 0,
+        width: 300,
+        height: 32,
+    };
+    model.publish_shapes(&platform, PRIMARY_LABEL, &[strip], now);
+    // Over the strip at rest: interactive, nothing to toggle yet.
+    let over_strip = (720 + 500, 20);
+    let on_sliver = (720 + 500, 3);
+    assert!(model.poll_cursor(over_strip, false).toggles.is_empty());
+
+    let editor = app(0x55, Rect::new(1000, 0, 1200, 900), false);
+    let effects = model.set_foreground(&platform, Some(editor), now);
+    assert_eq!(
+        yield_effects(&effects),
+        vec![(PRIMARY_LABEL, YieldState::Peek)]
+    );
+    // The rest position now belongs to the editor's caption; the sliver is still ours.
+    assert_eq!(
+        model.poll_cursor(over_strip, false).toggles,
+        vec![(PRIMARY_HWND, true)]
+    );
+    assert_eq!(
+        model.poll_cursor(on_sliver, false).toggles,
+        vec![(PRIMARY_HWND, false)]
+    );
+    assert_eq!(
+        model.poll_cursor(over_strip, false).toggles,
+        vec![(PRIMARY_HWND, true)]
+    );
+
+    // The rule clears: the whole strip is interactive again.
+    let effects = model.set_foreground(&platform, None, now);
+    assert_eq!(
+        yield_effects(&effects),
+        vec![(PRIMARY_LABEL, YieldState::None)]
+    );
+    assert_eq!(
+        model.poll_cursor(over_strip, false).toggles,
+        vec![(PRIMARY_HWND, false)]
+    );
+}
+
+/// The island rests below the top edge; peeking still leaves exactly the 6 px sliver at the
+/// edge, so the whole rest position — 8 px gap included — must click through.
+#[test]
+fn s5_an_island_peeks_to_the_same_6_px_sliver() {
+    let mut settings = ShellSettings::default();
+    settings.defaults.shape = NotchShape::Island;
+    let (platform, mut model, now) = ready_model(settings);
+    let strip = ShapeRect {
+        x: 350,
+        y: i32::try_from(ISLAND_TOP_OFFSET).unwrap(),
+        width: 300,
+        height: 32,
+    };
+    model.publish_shapes(&platform, PRIMARY_LABEL, &[strip], now);
+    let over_strip = (720 + 500, 20);
+    let below_the_sliver = (720 + 500, 7);
+    let on_sliver = (720 + 500, 5);
+    assert!(model.poll_cursor(over_strip, false).toggles.is_empty());
+
+    let editor = app(0x55, Rect::new(1000, 0, 1200, 900), false);
+    model.set_foreground(&platform, Some(editor), now);
+    assert_eq!(
+        model.poll_cursor(over_strip, false).toggles,
+        vec![(PRIMARY_HWND, true)]
+    );
+    assert!(
+        model
+            .poll_cursor(below_the_sliver, false)
+            .toggles
+            .is_empty(),
+        "row 7 is the caption's, not the sliver's"
+    );
+    assert_eq!(
+        model.poll_cursor(on_sliver, false).toggles,
+        vec![(PRIMARY_HWND, false)]
+    );
+}
+
 #[test]
 fn own_windows_never_count_as_foreground() {
     let (platform, mut model, now) = ready_model(ShellSettings::default());

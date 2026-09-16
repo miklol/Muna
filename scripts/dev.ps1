@@ -8,10 +8,14 @@
 .PARAMETER HitTest
   Draws the notch shell's hit-test rects and the last morph's frame rate over the notch window
   (sets VITE_MUNA_HIT_TEST=1; dev builds only).
+.PARAMETER FullMotion
+  Runs the springs even when Windows has animation effects off, so morph frame rates can be
+  measured (sets VITE_MUNA_FULL_MOTION=1; dev builds only).
 #>
 [CmdletBinding()]
 param(
   [switch]$HitTest,
+  [switch]$FullMotion,
   [Parameter(ValueFromRemainingArguments = $true)]
   [string[]]$TauriArgs
 )
@@ -29,6 +33,10 @@ $env:RUST_BACKTRACE = if ($env:RUST_BACKTRACE) { $env:RUST_BACKTRACE } else { '1
 if ($HitTest) {
   $env:VITE_MUNA_HIT_TEST = '1'
   Write-Host 'Hit-test overlay on (VITE_MUNA_HIT_TEST=1).'
+}
+if ($FullMotion) {
+  $env:VITE_MUNA_FULL_MOTION = '1'
+  Write-Host 'Ignoring the OS reduced-motion preference (VITE_MUNA_FULL_MOTION=1).'
 }
 
 Write-Host 'Starting Muna (tauri dev) with a transparent WebView2 background…'

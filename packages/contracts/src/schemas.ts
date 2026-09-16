@@ -31,6 +31,12 @@ export const STRIP_HEIGHT_PX: Readonly<Record<StripHeight, number>> = {
   comfortable: 38,
 };
 
+/**
+ * The sliver of the strip left visible while a window peeks, in CSS px; mirrors
+ * `shell::layout::PEEK_HEIGHT_PX`, which the shell's hit tester uses to follow the slide.
+ */
+export const PEEK_HEIGHT_PX = 6;
+
 export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
     z.null(),

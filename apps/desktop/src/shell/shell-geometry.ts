@@ -1,4 +1,5 @@
 import type { ShellLayout } from '@muna/contracts';
+import { PEEK_HEIGHT_PX } from '@muna/contracts';
 
 import type { ShellState } from './machine';
 
@@ -15,8 +16,11 @@ export const shellSizes = {
   /** Hover reveal grows the strip by this much (`reveal` preset: +16 w, +4 h). */
   revealGrowWidth: 16,
   revealGrowHeight: 4,
-  /** Visible sliver while a yield rule asks for Peek (`--size-peek-height`). */
-  peekHeight: 6,
+  /**
+   * Visible sliver while a yield rule asks for Peek (`--size-peek-height`). Shared with the
+   * shell, whose hit tester slides the strip's rect up by the same amount.
+   */
+  peekHeight: PEEK_HEIGHT_PX,
   /** Panel width clamps to `clamp(720, monitor − 80, 1000)`; the shell supplies the upper bound. */
   panelMinWidth: 720,
   /** Panel height follows content between these. */
@@ -30,7 +34,7 @@ export interface Size {
 }
 
 export interface GeometryInput {
-  readonly layout: Pick<ShellLayout, 'stripHeight' | 'panelMaxWidth'>;
+  readonly layout: Pick<ShellLayout, 'stripHeight' | 'stripTopOffset' | 'panelMaxWidth'>;
   /** The strip shows wide-form text. */
   readonly wide: boolean;
   /** Natural height of the panel content, when known. */
@@ -71,9 +75,14 @@ export const targetSize = (state: ShellState, input: GeometryInput): Size => {
   }
 };
 
-/** Vertical translation of the shell node: Peek slides it up until only the sliver shows. */
+/**
+ * Vertical translation of the shell node: Peek slides it up until only the sliver shows at the
+ * top edge, whatever the shape's own top offset.
+ */
 export const targetOffsetY = (state: ShellState, input: GeometryInput): number =>
-  state === 'peek' ? -(input.layout.stripHeight - shellSizes.peekHeight) : 0;
+  state === 'peek'
+    ? -(input.layout.stripTopOffset + input.layout.stripHeight - shellSizes.peekHeight)
+    : 0;
 
 /** Whether `state` shows the panel (as opposed to the strip in one of its forms). */
 export const showsPanel = (state: ShellState): boolean =>

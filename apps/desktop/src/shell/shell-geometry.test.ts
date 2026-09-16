@@ -12,10 +12,14 @@ import {
 } from './shell-geometry';
 
 const input = (overrides: Partial<GeometryInput> = {}): GeometryInput => ({
-  layout: { stripHeight: 32, panelMaxWidth: 1000 },
+  layout: { stripHeight: 32, stripTopOffset: 0, panelMaxWidth: 1000 },
   wide: false,
   panelContentHeight: null,
   ...overrides,
+});
+
+const layoutWith = (overrides: Partial<GeometryInput['layout']>): Partial<GeometryInput> => ({
+  layout: { stripHeight: 32, stripTopOffset: 0, panelMaxWidth: 1000, ...overrides },
 });
 
 describe('shell geometry', () => {
@@ -34,7 +38,7 @@ describe('shell geometry', () => {
 
   it('sizes the strip from the layout and the wide form', () => {
     expect(stripSize(input())).toEqual({ width: 200, height: 32 });
-    expect(stripSize(input({ layout: { stripHeight: 38, panelMaxWidth: 1000 } }))).toEqual({
+    expect(stripSize(input(layoutWith({ stripHeight: 38 })))).toEqual({
       width: 200,
       height: 38,
     });
@@ -48,7 +52,7 @@ describe('shell geometry', () => {
 
   it('clamps the panel to the shell width bound and the content height', () => {
     expect(panelSize(input())).toEqual({ width: 1000, height: 190 });
-    expect(panelSize(input({ layout: { stripHeight: 32, panelMaxWidth: 640 } })).width).toBe(720);
+    expect(panelSize(input(layoutWith({ panelMaxWidth: 640 }))).width).toBe(720);
     expect(panelSize(input({ panelContentHeight: 250 })).height).toBe(250);
     expect(panelSize(input({ panelContentHeight: 900 })).height).toBe(360);
     expect(panelSize(input({ panelContentHeight: 40 })).height).toBe(190);
@@ -63,9 +67,9 @@ describe('shell geometry', () => {
     expect(targetSize('parked', input())).toEqual({ width: 200, height: 32 });
 
     expect(targetOffsetY('peek', input())).toBe(-26);
-    expect(targetOffsetY('peek', input({ layout: { stripHeight: 38, panelMaxWidth: 1000 } }))).toBe(
-      -32,
-    );
+    expect(targetOffsetY('peek', input(layoutWith({ stripHeight: 38 })))).toBe(-32);
+    // The island rests 8 px below the top edge and still leaves exactly the 6 px sliver.
+    expect(targetOffsetY('peek', input(layoutWith({ stripTopOffset: 8 })))).toBe(-34);
     expect(targetOffsetY('collapsed', input())).toBe(0);
     expect(targetOffsetY('expanded', input())).toBe(0);
   });

@@ -336,7 +336,8 @@ export function NotchWindow({ panelBody }: NotchWindowProps) {
   const onMorphComplete = () => {
     setSettledGeometry(currentGeometry);
     const report = sampler.current.stop(panelShown);
-    if (report !== null) {
+    // Mount and instant (reduced-motion) morphs span no frame: nothing worth logging.
+    if (report !== null && report.frames > 0) {
       setLastMorph(report);
       reportMorph(report);
     }
