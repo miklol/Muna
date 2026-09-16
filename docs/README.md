@@ -34,6 +34,12 @@ an empty repo to 1.0. Read in order the first time; afterwards jump by role.
 numbers: plan and exit criteria by `muna-architect`, measurements by the implementing agent
 ([m0-window](spikes/m0-window.md), [m0-identity](spikes/m0-identity.md)).
 
+## QA checklists
+
+`qa/checklists/` — the manual and scripted scenarios a milestone must pass on real Windows,
+with results per run: [notch-shell](qa/checklists/notch-shell.md) (ten yield scenarios, driven
+by `scripts/qa/notch-yield.ps1`).
+
 ## Module specs
 
 [`modules/README.md`](modules/README.md) indexes all 26 specs (shell, live activities, media,

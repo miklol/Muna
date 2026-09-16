@@ -117,7 +117,11 @@ already resting there, whereas a real mouse always does.
 | Appearance | Dark/light wallpaper, high contrast theme, reduced motion |
 | Apps | Spotify, Edge, Chrome, Apple Music, VLC, Teams (meeting), Steam game fullscreen |
 
-Checklists live in `docs/qa/checklists/` (created per module by the QA agent).
+Checklists live in `docs/qa/checklists/` (created per module by the QA agent). Where a checklist
+can be driven, its script lives in `scripts/qa/` and prints one `PASS` / `FAIL` / `SKIP` line
+per scenario with the measured latency; the first is
+[checklists/notch-shell.md](qa/checklists/notch-shell.md) with `scripts/qa/notch-yield.ps1`
+(ten yield scenarios against a running Muna, own test windows only).
 
 ## Bug workflow
 

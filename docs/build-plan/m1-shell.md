@@ -155,3 +155,16 @@ screens step is left out on one screen. `@muna/ui` gained `OptionTiles` (radio t
 illustration slot). Vitest covers the step order, focus handoff, every step's writes and the
 gate in `SettingsApp`; Rust covers the migration. Decisions are in
 [settings.md → Implementation notes (M1-E5)](../modules/settings.md#implementation-notes-m1-e5).
+
+## M1 close — agent: `muna-architect`
+
+**Done (2026-09-16).** The closing PR added the yield checklist
+([qa/checklists/notch-shell.md](../qa/checklists/notch-shell.md)) and its driver
+`scripts/qa/notch-yield.ps1`, and ran the ten scenarios against the dev build on Win11 25H2
+with a 2560 × 1600 150 % primary and a 1920 × 1080 100 % secondary: 10 / 10 pass (Overlay run
+Y1–Y9, Reserved run Y10 with Y1/Y6/Y7 as regression). The harness taught two lessons worth
+keeping — hidden test windows let synthetic input reach real windows, and a System-DPI-aware
+driver misreads a monitor with another scale factor — both recorded in the checklist. The exit
+criteria are ticked in the roadmap with their evidence; the 4K-panel recording and the laptop
+battery/Bluetooth recordings remain maintainer items because that hardware is not on the
+development machine. M2 starts from [m2-media-hud.md](m2-media-hud.md).
