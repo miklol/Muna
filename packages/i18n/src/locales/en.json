@@ -3,7 +3,16 @@
     "name": "Muna"
   },
   "notch": {
-    "placeholder": "Muna is running."
+    "placeholder": "Muna is running.",
+    "strip": "Notch strip",
+    "panel": "Notch panel",
+    "pin": "Keep the panel open",
+    "unpin": "Let the panel close by itself",
+    "collapse": "Collapse to the strip",
+    "empty": {
+      "title": "Nothing to show yet",
+      "body": "Modules appear here as they are added."
+    }
   },
   "spike": {
     "label": "Muna window spike",

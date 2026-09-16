@@ -179,6 +179,10 @@ impl Windowing for WindowsPlatform {
         window::cursor_position()
     }
 
+    fn pointer_button_down(&self) -> PlatformResult<bool> {
+        Ok(window::pointer_button_down())
+    }
+
     fn window_at(&self, x: i32, y: i32) -> PlatformResult<WindowHandle> {
         Ok(window::window_at(x, y))
     }

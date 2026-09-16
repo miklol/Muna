@@ -20,7 +20,10 @@ export const commands = {
 	 *  is the strip (the yield rules measure caption overlap against it).
 	 */
 	publishShapeRects: (rects: ShapeRect[]) => typedError<null, IpcError>(__TAURI_INVOKE("publish_shape_rects", { rects })),
-	/**  Records the frame statistics of one morph (spike log; debug trace in the product shell). */
+	/**
+	 *  Records the frame statistics of one morph (spike log; an `info` line in the product shell so
+	 *  the ≥ 58 fps budget can be read from the log of a hardware run).
+	 */
 	reportMorph: (report: MorphReport) => __TAURI_INVOKE<void>("report_morph", { report }),
 	/**
 	 *  Layout of the calling notch window; `None` until the shell has attached it (the UI then
@@ -45,7 +48,7 @@ export const commands = {
 } | null, IpcError>(__TAURI_INVOKE("get_shell_layout")),
 	/**
 	 *  The calling notch window wants (or no longer wants) to take keyboard focus (a text field
-	 *  gained focus while Pinned). Toggles `WS_EX_NOACTIVATE`.
+	 *  gained focus while Pinned). Toggles `WS_EX_NOACTIVATE` and focuses the window.
 	 */
 	setNotchFocusable: (focusable: boolean) => typedError<null, IpcError>(__TAURI_INVOKE("set_notch_focusable", { focusable })),
 	/**  Parks the notch on one display until resumed (tray: "Pause on display"). */
@@ -61,6 +64,7 @@ export const events = {
 	morphRequested: makeEvent<MorphRequested>("morph-requested"),
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
 	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
+	shellPointerDownOutside: makeEvent<ShellPointerDownOutside>("shell-pointer-down-outside"),
 	shellToggleRequested: makeEvent<ShellToggleRequested>("shell-toggle-requested"),
 	shellYieldChanged: makeEvent<ShellYieldChanged>("shell-yield-changed"),
 	stripContentChanged: makeEvent<StripContentChanged>("strip-content-changed"),
@@ -232,6 +236,15 @@ export type ShellMode =
 "normal" | 
 /**  The M0-E2 window spike (`MUNA_SPIKE=window`, docs/spikes/m0-window.md). */
 "spikeWindow";
+
+/**
+ *  A mouse button went down while the cursor was outside every shape the notch `label`
+ *  published. The window is click-through there, so the UI cannot observe that press itself;
+ *  the cursor poll reports it and the UI closes an unpinned panel (S4 in docs/09-testing-qa.md).
+ */
+export type ShellPointerDownOutside = {
+	label: string,
+};
 
 /**  Global shell settings plus the per-monitor table. */
 export type ShellSettings = {

@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { MotionConfig } from 'motion/react';
+import { MunaMotionProvider } from '@muna/ui/motion';
 import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 
@@ -10,12 +10,16 @@ interface AppProvidersProps {
   children: ReactNode;
 }
 
-/** Providers shared by both windows. `reducedMotion="user"` honours the OS setting. */
+/**
+ * Providers shared by both windows. `MunaMotionProvider` follows the OS reduced-motion
+ * preference; the app's own setting is wired to its `reduceMotion` prop with the settings
+ * window (M1-E3).
+ */
 export function AppProviders({ children }: AppProvidersProps) {
   return (
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={queryClient}>
-        <MotionConfig reducedMotion="user">{children}</MotionConfig>
+        <MunaMotionProvider>{children}</MunaMotionProvider>
       </QueryClientProvider>
     </I18nextProvider>
   );

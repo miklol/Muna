@@ -34,23 +34,23 @@ fn window_logical_size_matches_tauri_conf() {
 #[test]
 fn placed_rect_is_centred_at_100_percent() {
     let rect = placed_rect(&monitor(0, 0, 2560, 1440, 96));
-    assert_eq!(rect, Rect::new(780, 0, 1000, 440));
+    assert_eq!(rect, Rect::new(720, 0, 1120, 480));
 }
 
 #[test]
 fn placed_rect_scales_with_dpi_and_negative_origins() {
-    // 1920 px wide monitor at 150 %: window becomes 1500×660 physical.
+    // 1920 px wide monitor at 150 %: window becomes 1680×720 physical.
     let m = monitor(-1920, -291, 1920, 1080, 144);
-    assert_eq!(window_size(&m), (1500, 660));
-    assert_eq!(placed_rect(&m), Rect::new(-1920 + 210, -291, 1500, 660));
+    assert_eq!(window_size(&m), (1680, 720));
+    assert_eq!(placed_rect(&m), Rect::new(-1920 + 120, -291, 1680, 720));
     assert!((scale_factor(&m) - 1.5).abs() < f64::EPSILON);
 }
 
 #[test]
 fn narrow_monitor_centres_even_when_the_window_is_wider() {
     let rect = placed_rect(&monitor(0, 0, 800, 600, 96));
-    assert_eq!(rect.x, -100);
-    assert_eq!(rect.width, 1000);
+    assert_eq!(rect.x, -160);
+    assert_eq!(rect.width, 1120);
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn parked_rect_sits_entirely_above_the_monitor() {
     let m = monitor(0, 0, 2560, 1440, 96);
     let parked = parked_rect(&m);
     assert_eq!(parked.y + i32::try_from(parked.height).unwrap(), m.bounds.y);
-    assert_eq!((parked.x, parked.width), (780, 1000));
+    assert_eq!((parked.x, parked.width), (720, 1120));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn shape_rects_are_offset_by_the_window_and_scaled() {
     assert_eq!(strip, Rect::new(window.x + 600, 0, 300, 48));
 }
 
-const WINDOW: Rect = Rect::new(780, 0, 1000, 440);
+const WINDOW: Rect = Rect::new(720, 0, 1120, 480);
 const STRIP: Rect = Rect::new(1180, 0, 200, 32);
 
 #[test]

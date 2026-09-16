@@ -170,6 +170,8 @@ pub struct ShellModel {
     early_ready: HashSet<String>,
     /// Shapes published before the window was attached (the UI publishes once at ready).
     early_shapes: HashMap<String, Vec<ShapeRect>>,
+    /// Button level at the previous cursor sample, for the press-outside rising edge.
+    pointer_button_was_down: bool,
     next_label: u32,
 }
 
@@ -188,6 +190,7 @@ impl ShellModel {
             own_handles: Vec::new(),
             early_ready: HashSet::new(),
             early_shapes: HashMap::new(),
+            pointer_button_was_down: false,
             next_label: 1,
         }
     }
@@ -693,21 +696,55 @@ impl ShellModel {
 
     // --- cursor ---------------------------------------------------------------------------
 
-    /// One cursor sample across every ready window. Returns the poll rate for the next tick
-    /// and the click-through toggles to apply **outside** the lock (`SetWindowLongPtr` is a
-    /// synchronous message to the window's thread, docs/spikes/m0-window.md).
-    pub fn poll_cursor(&mut self, cursor: (i32, i32)) -> (PollRate, Vec<(WindowHandle, bool)>) {
-        let mut rate = PollRate::Idle;
-        let mut toggles = Vec::new();
+    /// One cursor sample across every ready window. The click-through toggles must be applied
+    /// **outside** the lock (`SetWindowLongPtr` is a synchronous message to the window's
+    /// thread, docs/spikes/m0-window.md).
+    ///
+    /// Two shell rules live here rather than in [`HitTester`], because they span windows:
+    ///
+    /// - The poll runs at the active rate while any window publishes more than one shape (the
+    ///   UI adds a second rect only while revealed, open or morphing), so a click anywhere on
+    ///   screen is seen within one tick and never falls between two 100 ms samples.
+    /// - A mouse button going down while the cursor is outside every shape of a window is
+    ///   reported as a press outside for that window: the window is click-through there, so
+    ///   the UI cannot observe the press itself.
+    pub fn poll_cursor(&mut self, cursor: (i32, i32), button_down: bool) -> CursorPoll {
+        let pressed = button_down && !self.pointer_button_was_down;
+        self.pointer_button_was_down = button_down;
+        let mut poll = CursorPoll::default();
         for window in self.windows.iter_mut().filter(|w| w.ready) {
             let decision = window.hit_tester.observe(cursor, window.rect);
-            if decision.rate == PollRate::Active {
-                rate = PollRate::Active;
+            if decision.rate == PollRate::Active || window.css_shapes.len() > 1 {
+                poll.rate = PollRate::Active;
             }
             if let Some(ignore) = decision.set_ignore {
-                toggles.push((window.hwnd, ignore));
+                poll.toggles.push((window.hwnd, ignore));
+            }
+            if pressed && window.hit_tester.is_ignoring() {
+                poll.pressed_outside.push(window.label.clone());
             }
         }
-        (rate, toggles)
+        poll
+    }
+}
+
+/// Result of one [`ShellModel::poll_cursor`] tick.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CursorPoll {
+    /// Rate for the next sample.
+    pub rate: PollRate,
+    /// `set_click_through(window, ignore)` calls to make outside the lock.
+    pub toggles: Vec<(WindowHandle, bool)>,
+    /// Labels of the windows that must receive `ShellPointerDownOutside`.
+    pub pressed_outside: Vec<String>,
+}
+
+impl Default for CursorPoll {
+    fn default() -> Self {
+        Self {
+            rate: PollRate::Idle,
+            toggles: Vec::new(),
+            pressed_outside: Vec::new(),
+        }
     }
 }

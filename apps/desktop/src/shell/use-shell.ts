@@ -1,6 +1,6 @@
-import type { ShapeRect } from '@muna/contracts';
+import type { MorphReport, ShapeRect } from '@muna/contracts';
 import { commands, events } from '@muna/contracts';
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 
 import { currentWindowLabel } from '../lib/window-label';
 import { useAppStore } from '../store/app-store';
@@ -73,27 +73,58 @@ export function useShellLayoutSubscription() {
   }, [setShellLayout, setYieldState]);
 }
 
-export const toShapeRect = (rect: DOMRect): ShapeRect => ({
-  x: Math.round(rect.left),
-  y: Math.round(rect.top),
-  width: Math.round(rect.width),
-  height: Math.round(rect.height),
-});
+/** The shell's toggle hotkey was pressed over this window's monitor (`ShellToggleRequested`). */
+export function useShellToggleSubscription(onToggle: () => void) {
+  useEffect(() => {
+    const label = currentWindowLabel();
+    return listenWhileMounted(() =>
+      events.shellToggleRequested.listen((event) => {
+        if (event.payload.label === label) {
+          onToggle();
+        }
+      }),
+    );
+  }, [onToggle]);
+}
 
 /**
- * Tells the shell which painted rects may receive the pointer (the first one must be the
- * strip) and, once, that the first frame is on screen so the window can be moved into place.
- * Ready is two animation frames after mount (docs/modules/notch-shell.md, "moved into place
- * after the UI reports ready").
+ * A mouse button went down outside every published shape while the window was click-through
+ * (`ShellPointerDownOutside`); the UI never sees that click itself.
  */
-export function useShellReady(measure: () => ShapeRect[]) {
-  const publish = useCallback(() => {
-    const rects = measure();
-    if (rects.length > 0) {
-      commands.publishShapeRects(rects).then(ignoreIpcFailure, ignoreIpcFailure);
-    }
-  }, [measure]);
+export function useShellPointerDownOutsideSubscription(onPress: () => void) {
+  useEffect(() => {
+    const label = currentWindowLabel();
+    return listenWhileMounted(() =>
+      events.shellPointerDownOutside.listen((event) => {
+        if (event.payload.label === label) {
+          onPress();
+        }
+      }),
+    );
+  }, [onPress]);
+}
 
+/** Asks the shell to let this window take keyboard focus (a text field is focused). */
+export const setNotchFocusable = (focusable: boolean): void => {
+  commands.setNotchFocusable(focusable).then(ignoreIpcFailure, ignoreIpcFailure);
+};
+
+/** Hands one morph's frame statistics to the shell (trace log; perf evidence). */
+export const reportMorph = (report: MorphReport): void => {
+  commands.reportMorph(report).then(ignoreIpcFailure, ignoreIpcFailure);
+};
+
+/** Publishes the rects the pointer may hit; the first must be the strip at rest. */
+export const publishShapeRects = (rects: ShapeRect[]): void => {
+  commands.publishShapeRects(rects).then(ignoreIpcFailure, ignoreIpcFailure);
+};
+
+/**
+ * Tells the shell, once, that the first frame is on screen so the window can be moved into
+ * place — two animation frames after mount (docs/modules/notch-shell.md, "moved into place
+ * after the UI reports ready") — right after `publish` has handed over the painted rects.
+ */
+export function useShellReady(publish: () => void) {
   useEffect(() => {
     let second = 0;
     const first = requestAnimationFrame(() => {
@@ -107,6 +138,4 @@ export function useShellReady(measure: () => ShapeRect[]) {
       cancelAnimationFrame(second);
     };
   }, [publish]);
-
-  return publish;
 }

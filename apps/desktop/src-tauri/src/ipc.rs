@@ -144,6 +144,15 @@ pub struct ShellToggleRequested {
     pub label: String,
 }
 
+/// A mouse button went down while the cursor was outside every shape the notch `label`
+/// published. The window is click-through there, so the UI cannot observe that press itself;
+/// the cursor poll reports it and the UI closes an unpinned panel (S4 in docs/09-testing-qa.md).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellPointerDownOutside {
+    pub label: String,
+}
+
 type Shared = Arc<AppState>;
 
 // Commands take the concrete `AppHandle` (= `AppHandle<Wry>`): tauri-specta's collectors
@@ -258,15 +267,36 @@ fn publish_shape_rects(
     Ok(())
 }
 
-/// Records the frame statistics of one morph (spike log; debug trace in the product shell).
+/// Records the frame statistics of one morph (spike log; an `info` line in the product shell so
+/// the ≥ 58 fps budget can be read from the log of a hardware run).
 #[tauri::command]
 #[specta::specta]
 fn report_morph(window: WebviewWindow, state: State<'_, Shared>, report: MorphReport) {
     if let Some(spike) = &state.spike {
         spike.record_morph(window.label(), &report);
     } else {
-        tracing::debug!(label = window.label(), ?report, "morph");
+        tracing::info!(
+            label = window.label(),
+            expanded = report.expanded,
+            fps = morph_fps(&report),
+            frames = report.frames,
+            duration_ms = report.duration_us / 1000,
+            max_frame_ms = report.max_frame_us / 1000,
+            dropped = report.dropped_frames,
+            "morph"
+        );
     }
+}
+
+/// Average frames per second of a morph, rounded; `0` for an empty report.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn morph_fps(report: &MorphReport) -> u32 {
+    if report.duration_us == 0 {
+        return 0;
+    }
+    let fps = f64::from(report.frames) * 1_000_000.0 / f64::from(report.duration_us);
+    // Both inputs are non-negative and `as` saturates: an absurd report cannot panic.
+    fps.round() as u32
 }
 
 /// Layout of the calling notch window; `None` until the shell has attached it (the UI then
@@ -281,15 +311,16 @@ fn get_shell_layout(
 }
 
 /// The calling notch window wants (or no longer wants) to take keyboard focus (a text field
-/// gained focus while Pinned). Toggles `WS_EX_NOACTIVATE`.
+/// gained focus while Pinned). Toggles `WS_EX_NOACTIVATE` and focuses the window.
 #[tauri::command]
 #[specta::specta]
 fn set_notch_focusable(
+    app: AppHandle,
     window: WebviewWindow,
     state: State<'_, Shared>,
     focusable: bool,
 ) -> Result<(), IpcError> {
-    shell(&state)?.set_focusable(window.label(), focusable);
+    shell(&state)?.set_focusable(&app, window.label(), focusable);
     Ok(())
 }
 
@@ -348,7 +379,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             MorphRequested,
             ShellLayoutChanged,
             ShellYieldChanged,
-            ShellToggleRequested
+            ShellToggleRequested,
+            ShellPointerDownOutside
         ])
 }
 

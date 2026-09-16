@@ -278,14 +278,14 @@ fn placed_rect_applies_offsets_in_css_px_at_the_monitor_scale() {
         offset_y: 4,
         ..MonitorLayout::default()
     };
-    // 1000×440 CSS at 150 % = 1500×660; slack (2560−1500)/2 = 530, +15 px offset; y = 6 px.
+    // 1120×480 CSS at 150 % = 1680×720; slack (2560−1680)/2 = 440, +15 px offset; y = 6 px.
     assert_eq!(
         placed_rect_for(&monitor, &layout),
-        Rect::new(545, 6, 1500, 660)
+        Rect::new(455, 6, 1680, 720)
     );
     assert_eq!(
         parked_rect_for(&monitor, &layout),
-        Rect::new(545, -660, 1500, 660)
+        Rect::new(455, -720, 1680, 720)
     );
 }
 
@@ -327,7 +327,7 @@ fn default_strip_is_centred_in_the_window_at_the_shape_offset() {
     let monitor = primary();
     let window = placed_rect_for(&monitor, &MonitorLayout::default());
     let strip = default_strip_rect(&monitor, &MonitorLayout::default(), window);
-    assert_eq!(strip, Rect::new(780 + (1000 - 190) / 2, 0, 190, 32));
+    assert_eq!(strip, Rect::new(720 + (1120 - 190) / 2, 0, 190, 32));
     let island = MonitorLayout {
         shape: NotchShape::Island,
         ..MonitorLayout::default()
@@ -349,7 +349,7 @@ fn ready_window_becomes_a_tool_window_and_is_placed_topmost() {
     assert!(calls.contains(&WindowingCall::AssertTopmost(PRIMARY_HWND)));
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new(780, 0, 1000, 440))
+        Some(Rect::new(720, 0, 1120, 480))
     );
     let layout = model.shell_layout(PRIMARY_LABEL).unwrap();
     assert_eq!(layout.strip_height, 32);
@@ -410,7 +410,7 @@ fn ready_and_shapes_reported_before_attach_are_replayed() {
     assert_eq!(window.css_shapes, vec![strip]);
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new(780, 0, 1000, 440))
+        Some(Rect::new(720, 0, 1120, 480))
     );
 }
 
@@ -426,7 +426,7 @@ fn fullscreen_parks_after_the_debounce_and_unparks_the_same_way() {
     );
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new(780, 0, 1000, 440))
+        Some(Rect::new(720, 0, 1120, 480))
     );
 
     let effects = model.evaluate(&platform, t0 + PARK_DEBOUNCE);
@@ -436,7 +436,7 @@ fn fullscreen_parks_after_the_debounce_and_unparks_the_same_way() {
     );
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new(780, -440, 1000, 440)),
+        Some(Rect::new(720, -480, 1120, 480)),
         "parked = moved fully above the monitor, never hidden"
     );
 
@@ -450,7 +450,7 @@ fn fullscreen_parks_after_the_debounce_and_unparks_the_same_way() {
     );
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new(780, 0, 1000, 440))
+        Some(Rect::new(720, 0, 1120, 480))
     );
     assert_eq!(
         model.shell_layout(PRIMARY_LABEL).unwrap().yield_state,
@@ -479,7 +479,7 @@ fn caption_under_the_published_strip_peeks_immediately() {
     // Peek never moves the window.
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new(780, 0, 1000, 440))
+        Some(Rect::new(720, 0, 1120, 480))
     );
 }
 
@@ -581,7 +581,7 @@ fn applying_settings_re_places_the_window_and_reports_the_layout() {
     assert_eq!(layout.strip_top_offset, ISLAND_TOP_OFFSET);
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new(780, 6, 1000, 440))
+        Some(Rect::new(720, 6, 1120, 480))
     );
     assert!(
         platform
@@ -606,7 +606,7 @@ fn disabling_a_monitor_parks_its_window_and_re_enabling_restores_it() {
     );
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new(780, -440, 1000, 440))
+        Some(Rect::new(720, -480, 1120, 480))
     );
     assert_eq!(
         model.labels(),
@@ -618,7 +618,7 @@ fn disabling_a_monitor_parks_its_window_and_re_enabling_restores_it() {
     model.evaluate(&platform, t0 + PARK_DEBOUNCE * 2);
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new(780, 0, 1000, 440))
+        Some(Rect::new(720, 0, 1120, 480))
     );
 }
 
@@ -634,7 +634,7 @@ fn a_second_monitor_gets_its_own_window_and_loses_it_when_unplugged() {
     model.window_ready(&platform, "notch-1", now);
     assert_eq!(
         last_move(&platform, SECOND_HWND),
-        Some(Rect::new(2560 + 460, 0, 1000, 440))
+        Some(Rect::new(2560 + 400, 0, 1120, 480))
     );
     assert_eq!(model.label_at((3000, 10)), Some("notch-1".to_owned()));
     assert_eq!(model.label_at((100, 10)), Some(PRIMARY_LABEL.to_owned()));
@@ -665,7 +665,127 @@ fn the_primary_window_follows_the_primary_monitor_and_moves_with_a_resolution_ch
     );
     assert_eq!(
         last_move(&platform, PRIMARY_HWND),
-        Some(Rect::new((3840 - 1500) / 2, 0, 1500, 660))
+        Some(Rect::new((3840 - 1680) / 2, 0, 1680, 720))
+    );
+}
+
+/// S12 (docs/09-testing-qa.md): the secondary monitor disappears while its notch is open.
+/// The window is destroyed, nothing else changes, and the per-monitor settings survive so the
+/// display comes back configured when it is plugged in again.
+#[test]
+fn s12_removing_a_monitor_destroys_its_window_and_keeps_its_settings() {
+    let mut settings = ShellSettings::default();
+    settings.layout_for_mut(&secondary().id).shape = NotchShape::Island;
+    let (platform, mut model, now) = ready_model(settings);
+    let (plan, _) = model.plan_reconcile(&platform, vec![primary(), secondary()], now);
+    assert_eq!(plan.create.len(), 1);
+    model.attach(&platform, "notch-1", SECOND_HWND, secondary(), now);
+    model.window_ready(&platform, "notch-1", now);
+    // The panel is open: the UI published the strip and the padded panel span.
+    let strip = ShapeRect {
+        x: 465,
+        y: 8,
+        width: 190,
+        height: 32,
+    };
+    let panel = ShapeRect {
+        x: 180,
+        y: 0,
+        width: 760,
+        height: 240,
+    };
+    model.publish_shapes(&platform, "notch-1", &[strip, panel], now);
+
+    let (plan, effects) = model.plan_reconcile(&platform, vec![primary()], now);
+    assert_eq!(plan.destroy, vec!["notch-1".to_owned()]);
+    assert!(plan.create.is_empty());
+    assert!(
+        yield_effects(&effects).is_empty(),
+        "the primary window is untouched"
+    );
+    assert_eq!(model.labels(), vec![PRIMARY_LABEL.to_owned()]);
+    assert_eq!(model.shell_layout("notch-1"), None);
+    assert_eq!(
+        model.settings().layout_for(&secondary().id).shape,
+        NotchShape::Island,
+        "settings for the unplugged display are retained"
+    );
+    let poll = model.poll_cursor((3000, 10), true);
+    assert_eq!(
+        poll.pressed_outside,
+        vec![PRIMARY_LABEL.to_owned()],
+        "the destroyed window is no longer polled"
+    );
+
+    let (plan, _) = model.plan_reconcile(&platform, vec![primary(), secondary()], now);
+    assert_eq!(
+        plan.create.len(),
+        1,
+        "plugging it back recreates the window"
+    );
+    assert_eq!(plan.create[0].1.id, secondary().id);
+}
+
+/// S13 (docs/09-testing-qa.md): the display scale changes from 100 % to 200 % under a ready
+/// window. The window keeps its logical size, so it doubles in physical pixels and the
+/// published shapes are re-scaled for hit-testing without the UI publishing again.
+#[test]
+fn s13_scale_change_rescales_the_window_and_the_hit_rects() {
+    let (platform, mut model, now) = ready_model(ShellSettings::default());
+    let strip = ShapeRect {
+        x: 465,
+        y: 0,
+        width: 190,
+        height: 32,
+    };
+    model.publish_shapes(&platform, PRIMARY_LABEL, &[strip], now);
+    // 100 %: the strip spans x 720+465 ..= 720+655 physical, 32 px tall. The tester starts
+    // interactive (the state Tauri creates the window in), so leave the strip first.
+    assert_eq!(
+        model.poll_cursor((720 + 470, 40), false).toggles,
+        vec![(PRIMARY_HWND, true)]
+    );
+    assert_eq!(
+        model.poll_cursor((720 + 470, 30), false).toggles,
+        vec![(PRIMARY_HWND, false)]
+    );
+    assert_eq!(
+        model.poll_cursor((720 + 470, 40), false).toggles,
+        vec![(PRIMARY_HWND, true)]
+    );
+
+    let mut scaled = primary();
+    scaled.dpi = 192;
+    let (plan, effects) = model.plan_reconcile(&platform, vec![scaled], now);
+    assert!(plan.create.is_empty() && plan.destroy.is_empty());
+    let layout = effects
+        .iter()
+        .find_map(|e| match e {
+            Effect::LayoutChanged(layout) => Some(layout.clone()),
+            _ => None,
+        })
+        .expect("a layout change is emitted");
+    assert_eq!(layout.scale_percent, 200);
+    assert_eq!(layout.strip_height, 32, "CSS px do not change");
+    assert_eq!(layout.panel_max_width, PANEL_MAX_WIDTH);
+    // 2240×960 physical, centred: x = (2560 − 2240) / 2.
+    assert_eq!(
+        last_move(&platform, PRIMARY_HWND),
+        Some(Rect::new(160, 0, 2240, 960))
+    );
+    // The strip now covers x 160+930 ..= 160+1310 and is 64 px tall.
+    assert_eq!(
+        model.poll_cursor((160 + 940, 60), false).toggles,
+        vec![(PRIMARY_HWND, false)]
+    );
+    assert_eq!(
+        model.poll_cursor((160 + 940, 70), false).toggles,
+        vec![(PRIMARY_HWND, true)]
+    );
+    assert_eq!(
+        model.poll_cursor((720 + 470, 40), false).toggles,
+        vec![(PRIMARY_HWND, false)],
+        "a point that was transparent at 100 % is over the doubled strip"
     );
 }
 
@@ -707,22 +827,118 @@ fn moving_a_window_peeks_until_the_drag_ends() {
 fn cursor_poll_returns_click_through_toggles_to_apply_outside_the_lock() {
     let (platform, mut model, now) = ready_model(ShellSettings::default());
     let strip = ShapeRect {
-        x: 405,
+        x: 465,
         y: 0,
         width: 190,
         height: 32,
     };
     model.publish_shapes(&platform, PRIMARY_LABEL, &[strip], now);
     // Inside the window but outside every shape: click-through.
-    let (rate, toggles) = model.poll_cursor((780 + 20, 300));
-    assert_eq!(toggles, vec![(PRIMARY_HWND, true)]);
-    assert_eq!(rate, PollRate::Active);
+    let poll = model.poll_cursor((720 + 20, 300), false);
+    assert_eq!(poll.toggles, vec![(PRIMARY_HWND, true)]);
+    assert_eq!(poll.rate, PollRate::Active);
     // Over the strip: interactive again.
-    let (_, toggles) = model.poll_cursor((780 + 500, 10));
-    assert_eq!(toggles, vec![(PRIMARY_HWND, false)]);
+    let poll = model.poll_cursor((720 + 560, 10), false);
+    assert_eq!(poll.toggles, vec![(PRIMARY_HWND, false)]);
     // Outside the window: idle rate, still interactive (nothing to toggle).
-    let (rate, toggles) = model.poll_cursor((10, 1000));
-    assert_eq!(toggles, vec![(PRIMARY_HWND, true)]);
-    assert_eq!(rate, PollRate::Idle);
+    let poll = model.poll_cursor((10, 1000), false);
+    assert_eq!(poll.toggles, vec![(PRIMARY_HWND, true)]);
+    assert_eq!(poll.rate, PollRate::Idle);
+    assert!(poll.pressed_outside.is_empty());
     assert_eq!(platform.name(), "fake");
+}
+
+/// S4 (docs/09-testing-qa.md), Rust half: a button going down while the cursor is outside
+/// every published shape is reported once per press, for the windows it is outside of.
+#[test]
+fn s4_press_outside_the_shapes_is_reported_on_the_rising_edge_only() {
+    let (platform, mut model, now) = ready_model(ShellSettings::default());
+    let strip = ShapeRect {
+        x: 465,
+        y: 0,
+        width: 190,
+        height: 32,
+    };
+    model.publish_shapes(&platform, PRIMARY_LABEL, &[strip], now);
+    let outside = (100, 900);
+    let over_strip = (720 + 560, 10);
+
+    assert!(model.poll_cursor(outside, false).pressed_outside.is_empty());
+    assert_eq!(
+        model.poll_cursor(outside, true).pressed_outside,
+        vec![PRIMARY_LABEL.to_owned()]
+    );
+    assert!(
+        model.poll_cursor(outside, true).pressed_outside.is_empty(),
+        "holding the button is not a second press"
+    );
+    assert!(model.poll_cursor(outside, false).pressed_outside.is_empty());
+    assert!(
+        model
+            .poll_cursor(over_strip, true)
+            .pressed_outside
+            .is_empty(),
+        "a press on the strip reaches the UI directly"
+    );
+    model.poll_cursor(over_strip, false);
+    assert_eq!(
+        model.poll_cursor(outside, true).pressed_outside,
+        vec![PRIMARY_LABEL.to_owned()],
+        "released and pressed again"
+    );
+}
+
+#[test]
+fn press_outside_is_reported_per_window_on_two_monitors() {
+    let (platform, mut model, now) = ready_model(ShellSettings::default());
+    model.plan_reconcile(&platform, vec![primary(), secondary()], now);
+    model.attach(&platform, "notch-1", SECOND_HWND, secondary(), now);
+    model.window_ready(&platform, "notch-1", now);
+    let strip = ShapeRect {
+        x: 465,
+        y: 0,
+        width: 190,
+        height: 32,
+    };
+    model.publish_shapes(&platform, PRIMARY_LABEL, &[strip], now);
+    model.publish_shapes(&platform, "notch-1", &[strip], now);
+
+    // A click on the primary strip closes the secondary's panel but not the primary's.
+    model.poll_cursor((720 + 560, 10), false);
+    assert_eq!(
+        model.poll_cursor((720 + 560, 10), true).pressed_outside,
+        vec!["notch-1".to_owned()]
+    );
+    model.poll_cursor((720 + 560, 10), false);
+    // A click on the desktop is outside both.
+    assert_eq!(
+        model.poll_cursor((3000, 900), true).pressed_outside,
+        vec![PRIMARY_LABEL.to_owned(), "notch-1".to_owned()]
+    );
+}
+
+/// While a window publishes more than the strip (revealed, open or morphing) the poll runs at
+/// the active rate wherever the cursor is, so a click anywhere lands within one 16 ms tick.
+#[test]
+fn cursor_poll_stays_active_while_the_panel_is_open() {
+    let (platform, mut model, now) = ready_model(ShellSettings::default());
+    let strip = ShapeRect {
+        x: 465,
+        y: 0,
+        width: 190,
+        height: 32,
+    };
+    let span = ShapeRect {
+        x: 180,
+        y: 0,
+        width: 760,
+        height: 240,
+    };
+    let far_away = (10, 1400);
+    model.publish_shapes(&platform, PRIMARY_LABEL, &[strip], now);
+    assert_eq!(model.poll_cursor(far_away, false).rate, PollRate::Idle);
+    model.publish_shapes(&platform, PRIMARY_LABEL, &[strip, span], now);
+    assert_eq!(model.poll_cursor(far_away, false).rate, PollRate::Active);
+    model.publish_shapes(&platform, PRIMARY_LABEL, &[strip], now);
+    assert_eq!(model.poll_cursor(far_away, false).rate, PollRate::Idle);
 }

@@ -5,9 +5,13 @@
   Sets WEBVIEW2_DEFAULT_BACKGROUND_COLOR to fully transparent so the notch window never flashes
   white before the first paint, then starts `tauri dev` (Vite on :1420 + cargo run).
   Extra arguments are forwarded to the Tauri CLI, e.g. `.\scripts\dev.ps1 --release`.
+.PARAMETER HitTest
+  Draws the notch shell's hit-test rects and the last morph's frame rate over the notch window
+  (sets VITE_MUNA_HIT_TEST=1; dev builds only).
 #>
 [CmdletBinding()]
 param(
+  [switch]$HitTest,
   [Parameter(ValueFromRemainingArguments = $true)]
   [string[]]$TauriArgs
 )
@@ -22,6 +26,10 @@ if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
 
 $env:WEBVIEW2_DEFAULT_BACKGROUND_COLOR = '00000000'
 $env:RUST_BACKTRACE = if ($env:RUST_BACKTRACE) { $env:RUST_BACKTRACE } else { '1' }
+if ($HitTest) {
+  $env:VITE_MUNA_HIT_TEST = '1'
+  Write-Host 'Hit-test overlay on (VITE_MUNA_HIT_TEST=1).'
+}
 
 Write-Host 'Starting Muna (tauri dev) with a transparent WebView2 background…'
 & pnpm --filter @muna/desktop tauri dev @TauriArgs

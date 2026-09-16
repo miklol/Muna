@@ -5,6 +5,9 @@
 //! `HWND` here; nothing is dereferenced, so an invalid handle only produces an OS error.
 
 use windows::Win32::Foundation::{GetLastError, HWND, POINT, RECT, SetLastError, WIN32_ERROR};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    GetAsyncKeyState, VK_LBUTTON, VK_MBUTTON, VK_RBUTTON,
+};
 use windows::Win32::UI::Shell::{
     QUNS_APP, QUNS_BUSY, QUNS_NOT_PRESENT, QUNS_PRESENTATION_MODE, QUNS_QUIET_TIME,
     QUNS_RUNNING_D3D_FULL_SCREEN, SHQueryUserNotificationState,
@@ -189,6 +192,17 @@ pub(super) fn cursor_position() -> PlatformResult<(i32, i32)> {
     #[allow(unsafe_code)]
     unsafe { GetCursorPos(&raw mut point) }.map_err(|error| os_error("GetCursorPos", &error))?;
     Ok((point.x, point.y))
+}
+
+/// `true` while the left, right or middle mouse button is held. `GetAsyncKeyState` reports the
+/// physical state regardless of which window has focus; the high bit is "currently down".
+pub(super) fn pointer_button_down() -> bool {
+    [VK_LBUTTON, VK_RBUTTON, VK_MBUTTON].into_iter().any(|key| {
+        // SAFETY: pure query of the asynchronous key state for a documented virtual-key code.
+        #[allow(unsafe_code)]
+        let state = unsafe { GetAsyncKeyState(i32::from(key.0)) };
+        state < 0
+    })
 }
 
 pub(super) fn window_at(x: i32, y: i32) -> WindowHandle {

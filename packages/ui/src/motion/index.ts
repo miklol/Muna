@@ -11,6 +11,8 @@ export {
 } from './css-vars';
 export {
   type AppleSpring,
+  contentExitTransition,
+  contentRecipe,
   type LinearEasing,
   reducedMotionTransition,
   shellSpringNames,
