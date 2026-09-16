@@ -93,6 +93,10 @@ settings window opens by itself only on the very first launch; afterwards use th
 The Rust workspace has two binaries (`muna` and the `muna-probe` spike harness);
 `default-run = "muna"` keeps `cargo run` and `tauri dev` unambiguous.
 
+With the app running, `pwsh scripts/qa/notch-yield.ps1` drives the ten yield scenarios of
+[docs/qa/checklists/notch-shell.md](docs/qa/checklists/notch-shell.md) (own test windows only;
+`-Scenario Y7,Y8`, `-Reserved`, `-Report out.md`) and exits with the number of failures.
+
 ### Repository layout
 
 | Path | Package | What lives here |

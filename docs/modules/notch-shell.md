@@ -233,6 +233,12 @@ decided during M1-E1 and is the behaviour to test against.
   frames, 693–697 ms, max frame 6–24 ms, 0 dropped; collapse 157–167 fps, 123–131 frames,
   781–787 ms; peek slide 166–167 fps, 58–66 frames, 349–395 ms. Under OS reduced motion the
   layout snaps (0 frames) and only the radius tweens for 141–146 ms.
+- **Yield rules on real windows.** The ten scripted scenarios of
+  [qa/checklists/notch-shell.md](../qa/checklists/notch-shell.md) pass 10 / 10
+  (`scripts/qa/notch-yield.ps1`, 2026-09-16, two monitors at 150 % and 100 %): Peek 30 ms after
+  a foreground change, 422 ms after a silent maximise, 201 ms into a drag; fullscreen park
+  510–893 ms with the 500 ms debounce and never during flapping; only the fullscreen monitor's
+  notch parks; Reserved-strip work area exactly the strip's height.
 
 ## Implementation notes (M1-E4)
 
