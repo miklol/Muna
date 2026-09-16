@@ -5,7 +5,8 @@
   "notch": {
     "placeholder": "Muna is running.",
     "strip": "Notch strip",
-    "panel": "Notch panel",
+    "modules": "Modules",
+    "moreModules": "More modules",
     "pin": "Keep the panel open",
     "unpin": "Let the panel close by itself",
     "collapse": "Collapse to the strip",

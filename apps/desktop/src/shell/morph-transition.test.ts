@@ -24,10 +24,11 @@ describe('morphTransition', () => {
     expect(morphTransition('expanded', 'pinned', false, false)).toBe(springs.reveal);
   });
 
-  it('treats a same-state size change as the wide form in or out', () => {
+  it('treats a same-state size change as the wide form in or out, or a module switch', () => {
     expect(morphTransition('collapsed', 'collapsed', true, false)).toBe(springs.expand);
     expect(morphTransition('collapsed', 'collapsed', false, false)).toBe(springs.collapse);
-    expect(morphTransition('expanded', 'expanded', false, false)).toBe(springs.collapse);
+    expect(morphTransition('expanded', 'expanded', false, false)).toBe(springs.switch);
+    expect(morphTransition('pinned', 'pinned', false, false)).toBe(springs.switch);
   });
 
   it('S14: uses the 150 ms ease-out for every morph under reduced motion', () => {

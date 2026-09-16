@@ -1,0 +1,47 @@
+/*
+ * EmptyState / ErrorState primitives — centred column: 24 px icon (`--text-3`, red for
+ * errors), one sentence 13/600, optional 12 px line in `--text-2`, one action.
+ */
+
+.muna-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  block-size: 100%;
+  min-block-size: 96px;
+  padding: var(--space-4);
+  box-sizing: border-box;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+}
+
+.muna-empty-state__icon {
+  display: inline-flex;
+  inline-size: 24px;
+  block-size: 24px;
+  margin-block-end: var(--space-1);
+  color: var(--text-3);
+}
+
+.muna-empty-state--error .muna-empty-state__icon {
+  color: var(--accent-red);
+}
+
+.muna-empty-state__icon > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.muna-empty-state__title,
+.muna-empty-state__description {
+  max-inline-size: 36ch;
+}
+
+.muna-empty-state__action {
+  display: flex;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}

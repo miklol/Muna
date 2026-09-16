@@ -14,6 +14,7 @@ export {
   contentExitTransition,
   contentRecipe,
   type LinearEasing,
+  moduleBarRecipe,
   reducedMotionTransition,
   shellSpringNames,
   type SpringName,

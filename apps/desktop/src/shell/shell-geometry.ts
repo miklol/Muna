@@ -26,6 +26,10 @@ export const shellSizes = {
   /** Panel height follows content between these. */
   panelMinHeight: 190,
   panelMaxHeight: 360,
+  /** The module bar pill under the panel (`--size-module-bar-*`) and its gap to the panel. */
+  moduleBarWidth: 640,
+  moduleBarHeight: 40,
+  moduleBarGap: 12,
 } as const;
 
 export interface Size {
@@ -87,3 +91,15 @@ export const targetOffsetY = (state: ShellState, input: GeometryInput): number =
 /** Whether `state` shows the panel (as opposed to the strip in one of its forms). */
 export const showsPanel = (state: ShellState): boolean =>
   state === 'expanded' || state === 'pinned';
+
+export const moduleBarSize: Size = {
+  width: shellSizes.moduleBarWidth,
+  height: shellSizes.moduleBarHeight,
+};
+
+/**
+ * Top of the module bar relative to the shell node's top: it hangs `moduleBarGap` under the
+ * silhouette the shell is animating to, so it rides the panel's bottom edge through a morph.
+ */
+export const moduleBarOffsetY = (state: ShellState, input: GeometryInput): number =>
+  targetSize(state, input).height + shellSizes.moduleBarGap;

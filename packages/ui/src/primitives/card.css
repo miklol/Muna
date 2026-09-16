@@ -1,0 +1,56 @@
+/*
+ * Card primitive — `--surface-1`, radius `--radius-card`, padding 12, no shadow. Header 13/600
+ * with an optional 20 px icon and a trailing slot; body 12 px.
+ */
+
+.muna-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+}
+
+.muna-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 20px;
+}
+
+.muna-card__icon {
+  display: inline-flex;
+  flex: none;
+  inline-size: 20px;
+  block-size: 20px;
+  color: var(--text-2);
+}
+
+.muna-card__icon > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.muna-card__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.muna-card__trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.muna-card__body {
+  min-inline-size: 0;
+  font-size: var(--text-footnote);
+  line-height: var(--text-footnote--line-height);
+}

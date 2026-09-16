@@ -8,9 +8,9 @@ import { showsPanel } from './shell-geometry';
  * Which preset moves the silhouette between two states (docs/06-motion-spec.md, "Strip →
  * panel" choreography): `expand` into the panel, `collapse` out of it — after the content has
  * left, so the shape follows by `shapeFollowDelayMs` — and `reveal` for the hover reveal. A
- * same-state size change is the wide form (`expand` in, `collapse` out) or a layout change
- * under an open panel, which settles without overshoot. Under reduced motion every morph is
- * the 150 ms ease-out (S14).
+ * same-state size change is the wide form (`expand` in, `collapse` out) or, under an open
+ * panel, a module switch whose height springs with `switch` ("Module switch"). Under reduced
+ * motion every morph is the 150 ms ease-out (S14).
  */
 export const morphTransition = (
   from: ShellState,
@@ -28,6 +28,9 @@ export const morphTransition = (
     return { ...springs.collapse, delay: timings.shapeFollowDelayMs / 1000 };
   }
   if (from === to) {
+    if (showsPanel(to)) {
+      return springs.switch;
+    }
     return wide ? springs.expand : springs.collapse;
   }
   return springs.reveal;

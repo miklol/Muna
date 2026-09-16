@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   type GeometryInput,
+  moduleBarOffsetY,
+  moduleBarSize,
   panelSize,
   revealSize,
   shellSizes,
@@ -33,7 +35,11 @@ describe('shell geometry', () => {
       panelMinWidth: 720,
       panelMinHeight: 190,
       panelMaxHeight: 360,
+      moduleBarWidth: 640,
+      moduleBarHeight: 40,
+      moduleBarGap: 12,
     });
+    expect(moduleBarSize).toEqual({ width: 640, height: 40 });
   });
 
   it('sizes the strip from the layout and the wide form', () => {
@@ -79,5 +85,14 @@ describe('shell geometry', () => {
     expect(showsPanel('pinned')).toBe(true);
     expect(showsPanel('hoverReveal')).toBe(false);
     expect(showsPanel('collapsed')).toBe(false);
+  });
+
+  it('hangs the module bar 12 px under whatever silhouette the shell is heading for', () => {
+    expect(moduleBarOffsetY('expanded', input())).toBe(190 + 12);
+    expect(moduleBarOffsetY('pinned', input({ panelContentHeight: 250 }))).toBe(250 + 12);
+    // Before the panel opens the bar sits under the strip, so it rides the expand spring.
+    expect(moduleBarOffsetY('collapsed', input())).toBe(32 + 12);
+    // The tallest panel plus the bar stays inside the 480 px window with room for the island.
+    expect(shellSizes.panelMaxHeight + 12 + 40 + 8).toBeLessThanOrEqual(480);
   });
 });

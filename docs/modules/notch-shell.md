@@ -120,9 +120,15 @@ on / off), sounds.
 
 ## Accessibility
 
-Strip and panel are `role="region"` with names; module bar is a `tablist`; all icon buttons
-have `aria-label`; focus ring visible on keyboard navigation; `Esc` collapses; hotkey to
-focus the panel (`Ctrl+Alt+Space` default).
+The strip is a named `role="region"` whose wide-form text is a `role="status"` live region;
+the expanded panel is
+`role="dialog" aria-modal="false"` labelled by the active module title (or the app name when
+no module is registered); the module bar is a `tablist` of `tab`s with roving focus; all icon
+buttons have `aria-label`; focus ring visible on keyboard navigation; `Esc` collapses; hotkey
+to focus the panel (`Ctrl+Alt+Space` default); `Ctrl+Tab` / `Ctrl+Shift+Tab` step through
+modules while the panel is open. Nothing traps focus. (An earlier draft said the panel was a
+`region`; the [design system](../05-design-system.md#accessibility) already said `dialog`,
+so this spec was corrected in M1-E4 to match.)
 
 ## Acceptance criteria
 
@@ -227,6 +233,43 @@ decided during M1-E1 and is the behaviour to test against.
   frames, 693–697 ms, max frame 6–24 ms, 0 dropped; collapse 157–167 fps, 123–131 frames,
   781–787 ms; peek slide 166–167 fps, 58–66 frames, 349–395 ms. Under OS reduced motion the
   layout snaps (0 frames) and only the radius tweens for 141–146 ms.
+
+## Implementation notes (M1-E4)
+
+The panel chrome and the module bar as shipped by the M1-E4 PR.
+
+- **Split.** `@muna/ui` owns the visuals: `PanelChrome` (header with title, subtitle and chips,
+  a right rail of 28 px icon buttons whose right-most is always ⤡ collapse, a scrolling body
+  and an optional footer) and `ModuleBar` (the 640 × 40 pill row with a shared-`layoutId`
+  indicator, roving-tabindex `tablist`, drag and `Ctrl+Arrow` reorder, `Home`/`End`, and paging
+  when more than sixteen modules register). Both have every-state stories and render tests.
+  `apps/desktop/src/shell/panel.tsx` binds `PanelChrome` to the state machine (pin, collapse,
+  title from the active module's `titleKey`); `notch-window.tsx` binds `ModuleBar` to the
+  module registry and the store (`activeModuleId`, `moduleOrder`).
+- **Geometry.** The bar hangs `12 px` (`shellSizes.moduleBarGap`) under the panel's bottom
+  edge as a sibling of the morphing surface, riding the same height spring
+  (`moduleBarOffsetY`), so it never lags or overshoots the panel. The published interactive
+  rect unions panel and bar when at least one module is registered; the strip-at-rest rect is
+  unchanged. Panel 360 + gap 12 + bar 40 (+ 8 island lift) fits the 480 px window, so
+  `layout::WINDOW_LOGICAL` did not change.
+- **Motion.** Bar enters with `expand` + 80 ms (y −12 → 0, opacity) and leaves with the panel
+  (`contentExit`); a module switch keeps the panel open, springs the shell with `switch`
+  (`morph-transition.ts` returns `switch` for a same-state transition under an open panel),
+  and swaps bodies through `AnimatePresence mode="popLayout"` with `content` + 40 ms. Hover
+  on a pill is `toggle` to 1.08 and back (see
+  [motion spec → module switch](../06-motion-spec.md#module-switch)).
+- **Keyboard.** `Ctrl+Tab` / `Ctrl+Shift+Tab` step through the ordered modules with wrap while
+  the panel is open and at least two modules exist; plain `Tab` is left to the browser; arrows
+  inside the bar move and activate; `Esc` on a pill cancels an in-flight drag, otherwise
+  collapses as before.
+- **Order.** `shell/module-order.ts` reconciles the saved order with the registry (unknown ids
+  dropped, new modules appended) and resolves the active module (falls back to the first).
+  Persistence of `moduleOrder` and `activeModuleId` to `settings.json` is deferred to M1-E3,
+  which lands the settings write path; until then the order lives in the store for the
+  session.
+- **Empty registry.** With no modules the dialog is named after the app and the body shows
+  `EmptyState` (`notch.empty.title` / `notch.empty.body`); no bar is rendered and the rects
+  match M1-E1 exactly, which the S-suite still asserts.
 
 ## Open questions
 

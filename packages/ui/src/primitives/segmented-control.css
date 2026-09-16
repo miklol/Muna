@@ -1,0 +1,109 @@
+/*
+ * SegmentedControl primitive — height 28, segment padding 0 12 on a `--surface-1` track; the
+ * selected segment's `--surface-3` pill glides with the `toggle` spring (Motion layoutId).
+ */
+
+.muna-segmented {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  block-size: var(--size-segmented-height);
+  padding: 2px;
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+}
+
+.muna-segmented__segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  flex: 1 1 0;
+  min-inline-size: 0;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: calc(var(--radius-control) - 2px);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--text-footnote);
+  line-height: var(--text-footnote--line-height);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: default;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color var(--muna-motion-toggle),
+    transform var(--muna-motion-press);
+}
+
+.muna-segmented__indicator {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--surface-3);
+}
+
+.muna-segmented__icon,
+.muna-segmented__label {
+  position: relative;
+}
+
+.muna-segmented__icon {
+  display: inline-flex;
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.muna-segmented__icon > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.muna-segmented__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.muna-segmented__segment[data-hovered] {
+  color: var(--text-1);
+}
+
+.muna-segmented__segment[data-selected] {
+  color: var(--text-1);
+}
+
+.muna-segmented__segment[data-pressed] {
+  transform: scale(0.96);
+}
+
+.muna-segmented__segment[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-segmented__segment[data-disabled] {
+  color: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-segmented__segment {
+    transition: none;
+  }
+
+  .muna-segmented__segment[data-pressed] {
+    transform: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-segmented__segment {
+  transition: none;
+}
+
+:root[data-reduce-motion] .muna-segmented__segment[data-pressed] {
+  transform: none;
+}

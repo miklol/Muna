@@ -59,6 +59,7 @@ Notch surfaces are dark regardless of OS theme. The Settings window gets both th
 | `--accent-yellow` | `#FFD60A` | Weather sun, stars |
 | `--accent-pink` | `#FF375F` | Health heart |
 | `--accent` | user-selectable, default `--accent-blue` | Active module indicator, toggles |
+| `--on-accent` | `#000000` | Label and glyph on an accent fill (primary button, toggle knob on); white on `#0A84FF` is 3.96:1, black is 5.8:1 |
 | `--scrim` | `rgb(0 0 0 / 0.55)` | Behind modal-like drawers inside the panel |
 
 Media surfaces may tint `--surface-*` with the album palette through `--media-tint`
@@ -244,10 +245,14 @@ Primitives (`packages/ui`): `NotchSurface`, `Hairline`, `Text`, `IconButton`, `B
 (primary = accent fill on black, secondary = `--surface-2`, destructive = red text), `Chip`,
 `Card`, `ListRow`, `SegmentedControl`, `Toggle`, `Slider`, `ProgressTrack`, `Ring`,
 `Skeleton`, `EmptyState` (icon 24 `--text-3`, one sentence, one action), `ErrorState`,
-`Tooltip`, `Popover`, `Menu`, `Kbd`, `Avatar`, `AppIcon` (rounded 6 at 20 px), `Marquee`.
+`PanelChrome` (header, rail, body, footer slots), `ModuleBar` (the pill row), `Tooltip`,
+`Popover`, `Menu`, `Kbd`, `Avatar`, `AppIcon` (rounded 6 at 20 px), `Marquee`.
 
 Shell (`apps/desktop/src/shell`): `Strip` (slots, wide form), `Peek`, `Hud`, `Notice`,
-`Panel` (header, rail, body, footer), `ModuleBar`, `DropTiles`, `SnapZones`.
+`Panel` (binds `PanelChrome` to the notch state machine, the pin and the active module),
+the module bar binding (order, active module, `Ctrl+Tab`), `DropTiles`, `SnapZones`.
+The chrome and pill primitives live in `@muna/ui` so Storybook can exercise every state; the
+shell only wires them to state and i18n.
 
 Every component has Storybook stories for Default / Hover / Pressed / Focus / Disabled /
 LongContent / RTL / ReducedMotion, and a Vitest render test.

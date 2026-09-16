@@ -174,7 +174,10 @@ morph (Lucide `volume-x`). Repeated key presses never restart the appear animati
 
 Old body exits (80 ms), height springs to the new size (`switch`), new body enters
 (`content`, +40 ms). The module-bar indicator pill glides with `switch` (shared `layoutId`).
-Icons in the bar scale 1 → 1.08 → 1 on hover with `toggle`.
+Icons in the bar scale 1 → 1.08 → 1 on hover with `toggle` — implemented as `toggle` to 1.08
+on hover-in and `toggle` back to 1 on hover-out (a pure-CSS state change, so the spring
+renders as a `linear()` easing; the round trip reads as one pulse). Reordering a pill with
+`Ctrl+Arrow` or a drag shifts its neighbours with `layout`.
 
 ### Drop actions
 
