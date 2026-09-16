@@ -17,7 +17,7 @@ use thiserror::Error;
 
 use crate::shell_settings::ShellSettings;
 
-pub const CURRENT_VERSION: u32 = 2;
+pub const CURRENT_VERSION: u32 = 3;
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -149,6 +149,17 @@ fn migrate(value: &mut Value, from: u32) {
                     });
                 }
             }
+            // v3 (M1-E3): module bar order and disabled modules live in `shell`.
+            2 => {
+                if let Some(shell) = value.get_mut("shell").and_then(Value::as_object_mut) {
+                    shell
+                        .entry("moduleOrder")
+                        .or_insert_with(|| Value::Array(Vec::new()));
+                    shell
+                        .entry("disabledModules")
+                        .or_insert_with(|| Value::Array(Vec::new()));
+                }
+            }
             _ => unreachable!("migration from version {version} is not defined"),
         }
         version += 1;
@@ -230,7 +241,7 @@ mod tests {
     fn version_one_files_gain_default_shell_settings_and_keep_the_rest() {
         let json = r#"{"version":1,"general":{"launchAtLogin":true,"reducedMotion":"off","accent":"orange"},"modules":{"media":{"showArtwork":false}}}"#;
         let settings = Settings::from_json(json).unwrap();
-        assert_eq!(settings.version, 2);
+        assert_eq!(settings.version, CURRENT_VERSION);
         assert_eq!(settings.shell, ShellSettings::default());
         assert!(settings.general.launch_at_login);
         assert_eq!(settings.general.accent, "orange");
@@ -238,6 +249,21 @@ mod tests {
             settings.modules["media"],
             serde_json::json!({ "showArtwork": false })
         );
+    }
+
+    #[test]
+    fn version_two_files_gain_an_empty_module_bar_arrangement_and_keep_monitors() {
+        let json = r#"{"version":2,"general":{"launchAtLogin":false,"reducedMotion":"system","accent":"blue"},"shell":{"hideFromCaptures":true,"toggleHotkey":"ctrl+alt+space","defaults":{"enabled":true,"mode":"overlay","shape":"island","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{"\\\\.\\DISPLAY2":{"enabled":false,"mode":"reserved","shape":"notch","offsetX":12,"offsetY":0,"stripHeight":"compact"}}},"modules":{}}"#;
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(settings.version, 3);
+        assert!(settings.shell.module_order.is_empty());
+        assert!(settings.shell.disabled_modules.is_empty());
+        assert!(settings.shell.hide_from_captures);
+        assert_eq!(
+            settings.shell.defaults.shape,
+            crate::shell_settings::NotchShape::Island
+        );
+        assert!(!settings.shell.layout_for(r"\\.\DISPLAY2").enabled);
     }
 
     #[test]

@@ -3,13 +3,18 @@ import type { ModuleDefinition } from '../modules/registry';
 /**
  * Bar order: the saved order first (ids the registry no longer knows are dropped), then any
  * module the order has not seen yet in registry order — a freshly added module appears at the
- * end rather than nowhere.
+ * end rather than nowhere. Disabled ids are left out entirely (Settings → Modules).
  */
 export const orderModules = (
   definitions: readonly ModuleDefinition[],
   order: readonly string[],
+  disabled: readonly string[] = [],
 ): readonly ModuleDefinition[] => {
-  const byId = new Map(definitions.map((module) => [module.id, module] as const));
+  const byId = new Map(
+    definitions
+      .filter((module) => !disabled.includes(module.id))
+      .map((module) => [module.id, module] as const),
+  );
   const ordered: ModuleDefinition[] = [];
   for (const id of order) {
     const module = byId.get(id);

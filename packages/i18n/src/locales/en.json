@@ -55,6 +55,124 @@
     "title": "Muna settings",
     "version": "Version {{version}}",
     "loading": "Loading settings…",
-    "error": "Settings could not be loaded. Restart Muna and try again."
+    "error": "Settings could not be loaded. Restart Muna and try again.",
+    "retry": "Try again",
+    "saveError": "Changes could not be saved. Muna is still using the previous values.",
+    "nav": "Settings sections",
+    "search": {
+      "label": "Search settings",
+      "placeholder": "Search settings",
+      "clear": "Clear search",
+      "emptyTitle": "No settings match “{{query}}”",
+      "emptyBody": "Try another word, such as “startup”, “screen” or “colour”."
+    },
+    "pane": {
+      "general": "General",
+      "layout": "Layout",
+      "position": "Notch position",
+      "screens": "Multiple screens",
+      "appearance": "Appearance",
+      "modules": "Modules",
+      "about": "About and diagnostics"
+    },
+    "general": {
+      "startup": "Start-up",
+      "launchAtLogin": "Launch at login",
+      "launchAtLoginBody": "Muna starts in the background when you sign in to Windows.",
+      "privacy": "Privacy",
+      "hideFromCaptures": "Hide from screen captures",
+      "hideFromCapturesBody": "Screenshots, recordings and screen sharing leave the notch out.",
+      "keyboard": "Keyboard",
+      "toggleHotkey": "Show or hide the notch",
+      "toggleHotkeyBody": "Works on the screen under the pointer. Custom shortcuts arrive with Keyboard shortcuts."
+    },
+    "layout": {
+      "defaults": "Defaults for every screen",
+      "defaultsBody": "Screens with their own layout in Multiple screens ignore these.",
+      "shape": "Shape",
+      "shapeBody": "Notch sits flush with the top edge. Island floats as a capsule.",
+      "shapeNotch": "Notch",
+      "shapeIsland": "Island",
+      "mode": "Placement",
+      "modeBody": "Overlay draws over windows and steps aside for full-screen apps. Reserved keeps a band free so maximised windows start below the strip.",
+      "modeOverlay": "Overlay",
+      "modeReserved": "Reserved",
+      "stripHeight": "Strip height",
+      "stripHeightBody": "Compact 26 px, Default 32 px, Comfortable 38 px.",
+      "stripCompact": "Compact",
+      "stripDefault": "Default",
+      "stripComfortable": "Comfortable"
+    },
+    "position": {
+      "offsets": "Offsets for every screen",
+      "offsetsBody": "Changes apply to the notch straight away.",
+      "offsetX": "Horizontal offset",
+      "offsetXBody": "From the centre of the screen. Positive moves right.",
+      "offsetY": "Vertical offset",
+      "offsetYBody": "From the top edge. Island adds its own gap.",
+      "px": "{{value}} px",
+      "reset": "Reset offsets"
+    },
+    "screens": {
+      "body": "Each screen follows the defaults until you give it its own layout.",
+      "display": "Display {{number}}",
+      "primary": "Primary",
+      "geometry": "{{width}} × {{height}} at {{scale}}",
+      "useDefaults": "Use the defaults",
+      "useDefaultsBody": "Turn off to give this screen its own shape, placement and offsets.",
+      "enabled": "Show the notch on this screen",
+      "enabledBody": "Off parks the notch for this screen only.",
+      "emptyTitle": "No screens found",
+      "emptyBody": "Connect a screen and reopen settings.",
+      "error": "Screens could not be listed."
+    },
+    "appearance": {
+      "accent": "Accent colour",
+      "accentBody": "Used for toggles, the active module and the focus ring.",
+      "accents": {
+        "blue": "Blue",
+        "cyan": "Cyan",
+        "green": "Green",
+        "orange": "Orange",
+        "red": "Red",
+        "purple": "Purple",
+        "yellow": "Yellow",
+        "pink": "Pink"
+      },
+      "motion": "Motion",
+      "reduceMotion": "Reduce motion",
+      "reduceMotionBody": "Replaces springs with quick fades. Muna also follows the Windows animation effects setting."
+    },
+    "modules": {
+      "body": "Switch a module off to hide it from the notch. Arrange the module bar with the arrows.",
+      "show": "Show {{name}}",
+      "moveUp": "Move {{name}} up",
+      "moveDown": "Move {{name}} down",
+      "emptyTitle": "No modules yet",
+      "emptyBody": "Modules arrive with updates and appear here with their own settings."
+    },
+    "about": {
+      "app": "App",
+      "versionLabel": "Version",
+      "platform": "Platform",
+      "profile": "Data folder",
+      "diagnostics": "Diagnostics",
+      "openLogs": "Open logs folder",
+      "openLogsBody": "Log files help when reporting a problem. They never contain notification text.",
+      "open": "Open",
+      "backup": "Backup",
+      "export": "Export settings",
+      "exportBody": "Saves a JSON file you can import on another PC.",
+      "exported": "Saved to {{path}}",
+      "import": "Import settings",
+      "importBody": "Replaces the current settings with a file exported by Muna.",
+      "imported": "Settings imported.",
+      "reset": "Reset all settings",
+      "resetBody": "Restores every setting to its default. Modules keep their data.",
+      "resetQuestion": "Reset every setting to its default?",
+      "resetConfirm": "Reset",
+      "cancel": "Cancel",
+      "failed": "That did not work: {{message}}"
+    }
   }
 }

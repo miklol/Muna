@@ -161,7 +161,9 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 ## Crates & packages
 
 `tauri` 2.x, `tauri-plugin-{single-instance,global-shortcut,clipboard-manager,positioner,updater,notification}`,
-`tauri-plugin-drag`, `windows` ≥ 0.62 (features: `Media_Control`, `Storage_Streams`,
+`tauri-plugin-{dialog,opener}` (native file dialogs and "open folder" for the settings
+window's export, import and logs actions; both stay in Rust so the UI never touches the file
+system), `tauri-plugin-drag`, `windows` ≥ 0.62 (features: `Media_Control`, `Storage_Streams`,
 `UI_Notifications_Management`, `UI_Shell`, `Devices_Bluetooth`, `Devices_Enumeration`,
 `Devices_Radios`, `System_Power`, `ApplicationModel_DataTransfer`, `Win32_Media_Audio_Endpoints`,
 `Win32_Devices_Bluetooth`, `Win32_UI_WindowsAndMessaging`, `Win32_UI_Shell`, `Win32_Graphics_Gdi`,

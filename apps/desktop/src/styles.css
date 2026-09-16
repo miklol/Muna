@@ -24,7 +24,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* The settings window follows the Windows theme; `data-theme='light'` defines `--bg`. */
 body[data-window='settings'] {
-  background: var(--panel-bottom);
+  background: var(--bg, var(--panel-bottom));
   user-select: text;
 }

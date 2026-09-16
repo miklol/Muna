@@ -16,9 +16,6 @@ export interface AppStore {
   /** The module the panel shows; `null` falls back to the first module in order. */
   activeModuleId: string | null;
   setActiveModule: (id: string | null) => void;
-  /** Module ids in bar order; ids the registry does not know are ignored, new modules append. */
-  moduleOrder: readonly string[];
-  setModuleOrder: (ids: readonly string[]) => void;
 }
 
 export const useAppStore = create<AppStore>()((set) => ({
@@ -38,9 +35,5 @@ export const useAppStore = create<AppStore>()((set) => ({
   activeModuleId: null,
   setActiveModule: (id) => {
     set({ activeModuleId: id });
-  },
-  moduleOrder: [],
-  setModuleOrder: (ids) => {
-    set({ moduleOrder: ids });
   },
 }));

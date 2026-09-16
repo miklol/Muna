@@ -92,6 +92,11 @@ pub struct ShellSettings {
     pub defaults: MonitorLayout,
     /// Per-monitor overrides keyed by the stable monitor id (`\\.\DISPLAY1`, …).
     pub monitors: BTreeMap<String, MonitorLayout>,
+    /// Module bar order (v3): module ids the user arranged. Ids the build does not know are
+    /// kept (the module may come back) and modules missing here follow in registry order.
+    pub module_order: Vec<String>,
+    /// Modules the user switched off (v3): hidden from the bar, backend still registered.
+    pub disabled_modules: Vec<String>,
 }
 
 impl Default for ShellSettings {
@@ -101,6 +106,8 @@ impl Default for ShellSettings {
             toggle_hotkey: "ctrl+alt+space".into(),
             defaults: MonitorLayout::default(),
             monitors: BTreeMap::new(),
+            module_order: Vec::new(),
+            disabled_modules: Vec::new(),
         }
     }
 }
@@ -119,11 +126,47 @@ impl ShellSettings {
             .entry(monitor_id.to_owned())
             .or_insert(defaults)
     }
+
+    /// The module bar's tabs: `registry` filtered by `disabled_modules`, in the user's order
+    /// with unknown ids skipped and new modules appended in registry order.
+    #[must_use]
+    pub fn module_bar_order<'a>(&self, registry: &[&'a str]) -> Vec<&'a str> {
+        let mut order: Vec<&'a str> = self
+            .module_order
+            .iter()
+            .filter_map(|id| registry.iter().copied().find(|known| known == id))
+            .collect();
+        order.extend(
+            registry
+                .iter()
+                .copied()
+                .filter(|id| !self.module_order.iter().any(|known| known == id)),
+        );
+        order.retain(|id| !self.disabled_modules.iter().any(|off| off == id));
+        order
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn module_bar_order_follows_the_user_then_the_registry() {
+        let mut settings = ShellSettings::default();
+        let registry = ["media", "calendar", "weather", "shelf"];
+        assert_eq!(
+            settings.module_bar_order(&registry),
+            vec!["media", "calendar", "weather", "shelf"]
+        );
+        settings.module_order = vec!["weather".into(), "gone".into(), "media".into()];
+        settings.disabled_modules = vec!["calendar".into()];
+        assert_eq!(
+            settings.module_bar_order(&registry),
+            vec!["weather", "media", "shelf"],
+            "user order first, unknown ids skipped, disabled removed, new modules appended"
+        );
+    }
 
     #[test]
     fn monitors_without_an_entry_use_the_defaults() {

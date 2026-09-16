@@ -31,6 +31,11 @@ describe('orderModules', () => {
       calendar,
     ]);
   });
+
+  it('leaves disabled modules out wherever the order puts them', () => {
+    expect(orderModules(all, ['pomodoro', 'media'], ['pomodoro'])).toEqual([media, calendar]);
+    expect(orderModules(all, [], ['media', 'calendar', 'pomodoro'])).toEqual([]);
+  });
 });
 
 describe('resolveActive', () => {

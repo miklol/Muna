@@ -226,6 +226,10 @@ so pure-CSS states can switch off their transitions and press scale alongside th
 (`:root[data-reduce-motion]` and `@media (prefers-reduced-motion: reduce)` carry the same
 rules). Nested providers (Storybook comparisons, previews) affect only JS-driven motion in
 their subtree. The Storybook toolbar "Motion" switch drives the same prop for every story.
+Since M1-E3 the setting is wired: `AppProviders` reads `general.reducedMotion` from the settings
+document in both windows and passes `reduceMotion={value === 'on'}`; the Appearance pane offers
+it as a switch (on ↔ `'on'`, off ↔ `'system'`), and the legacy `'off'` value behaves like
+`system` because the setting can only add to the OS preference.
 
 ## Performance rules
 
