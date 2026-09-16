@@ -7,8 +7,8 @@ use tokio::sync::broadcast;
 use crate::error::PlatformResult;
 use crate::events::PlatformEvent;
 use crate::types::{
-    AudioDevice, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand, MediaSession,
-    MonitorInfo, Rect, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
+    MediaSession, MonitorInfo, Rect, UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md).
@@ -72,6 +72,9 @@ pub trait Windowing: Send + Sync {
     fn set_click_through(&self, window: WindowHandle, click_through: bool) -> PlatformResult<()>;
     /// `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` on / `WDA_NONE` off.
     fn set_capture_exclusion(&self, window: WindowHandle, excluded: bool) -> PlatformResult<()>;
+    /// Sets or clears `WS_EX_NOACTIVATE`. The notch never takes focus except while *Pinned*
+    /// with a text field focused (docs/modules/notch-shell.md, "never steals focus").
+    fn set_no_activate(&self, window: WindowHandle, no_activate: bool) -> PlatformResult<()>;
     /// Current outer rectangle in physical screen pixels.
     fn window_rect(&self, window: WindowHandle) -> PlatformResult<Rect>;
     /// Cursor position in physical screen pixels.
@@ -80,6 +83,30 @@ pub trait Windowing: Send + Sync {
     fn window_at(&self, x: i32, y: i32) -> PlatformResult<WindowHandle>;
     /// `SHQueryUserNotificationState`.
     fn user_notification_state(&self) -> PlatformResult<UserNotificationState>;
+}
+
+/// Reserved-strip mode (docs/modules/notch-shell.md, Placement): an `SHAppBarMessage` `AppBar`
+/// on `ABE_TOP` so maximised windows start below the strip. One reservation per window; the
+/// notch window itself is the `AppBar` handle, its rect is *not* moved by the OS.
+pub trait AppBar: Send + Sync {
+    /// Registers (or updates) a top-edge reservation of `height` physical pixels spanning
+    /// `monitor`. Returns the rect the shell granted (`ABM_QUERYPOS` may nudge it below
+    /// another `AppBar`).
+    fn reserve_top(&self, window: WindowHandle, monitor: Rect, height: u32)
+    -> PlatformResult<Rect>;
+    /// Removes the reservation (`ABM_REMOVE`); a no-op for windows that never registered.
+    fn release(&self, window: WindowHandle) -> PlatformResult<()>;
+}
+
+/// Launch at login (docs/04-windows-platform-apis.md): `StartupTask` when the process has
+/// package identity, the `HKCU\…\Run` key otherwise. Calls may block briefly (`WinRT` async is
+/// joined), so callers run them off the UI thread.
+pub trait Autostart: Send + Sync {
+    fn mechanism(&self) -> AutostartMechanism;
+    fn is_enabled(&self) -> PlatformResult<bool>;
+    /// Returns [`crate::PlatformError::AccessDenied`] when the user or a policy disabled the
+    /// startup task in Windows settings; the setting stays off in that case.
+    fn set_enabled(&self, enabled: bool) -> PlatformResult<()>;
 }
 
 /// The whole platform: every service plus the event stream.
@@ -91,6 +118,8 @@ pub trait Platform: Send + Sync {
     fn monitors(&self) -> &dyn Monitors;
     fn foreground(&self) -> &dyn Foreground;
     fn windowing(&self) -> &dyn Windowing;
+    fn app_bar(&self) -> &dyn AppBar;
+    fn autostart(&self) -> &dyn Autostart;
 
     /// New receiver for platform events. Events published before the call are not replayed.
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent>;

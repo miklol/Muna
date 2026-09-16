@@ -34,6 +34,7 @@ pub(super) fn current() -> Option<ForegroundWindow> {
 pub(super) fn snapshot(hwnd: HWND) -> ForegroundWindow {
     let bounds = frame_bounds(hwnd);
     ForegroundWindow {
+        handle: hwnd.0 as isize,
         title: title(hwnd),
         process_name: process_name(hwnd),
         bounds,

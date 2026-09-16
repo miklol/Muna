@@ -15,6 +15,9 @@ pub enum PlatformEvent {
     BatteryChanged(BatteryState),
     /// The foreground window changed (`EVENT_SYSTEM_FOREGROUND`).
     ForegroundChanged(ForegroundWindow),
+    /// A window started (`EVENT_SYSTEM_MOVESIZESTART`) or finished (`EVENT_SYSTEM_MOVESIZEEND`)
+    /// being moved or resized by the user; the notch peeks meanwhile.
+    MoveSizeChanged { started: bool },
     /// Monitor topology or DPI changed (`WM_DISPLAYCHANGE`, `WM_DPICHANGED`).
     MonitorsChanged(Vec<MonitorInfo>),
     /// The session was locked or unlocked (`WTS_SESSION_LOCK` / `WTS_SESSION_UNLOCK`).

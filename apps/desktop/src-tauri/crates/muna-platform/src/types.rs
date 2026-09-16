@@ -120,6 +120,11 @@ pub struct BatteryState {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ForegroundWindow {
+    /// Native handle, so the shell can tell its own windows apart from everything else. Never
+    /// crosses the IPC boundary.
+    #[serde(skip)]
+    #[specta(skip)]
+    pub handle: WindowHandle,
     pub title: String,
     pub process_name: String,
     pub bounds: Rect,
@@ -129,6 +134,18 @@ pub struct ForegroundWindow {
 /// A native top-level window handle (`HWND`) as an integer, so the shell crate never depends
 /// on the `windows` crate. `0` is "no window".
 pub type WindowHandle = isize;
+
+/// How launch-at-login is persisted on this platform (docs/04-windows-platform-apis.md).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum AutostartMechanism {
+    /// `Windows.ApplicationModel.StartupTask`; only available with package identity.
+    StartupTask,
+    /// `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+    RunKey,
+    /// The fake platform, or a build without either mechanism.
+    None,
+}
 
 /// `SHQueryUserNotificationState`, the shell's own idea of whether the user may be
 /// interrupted (docs/modules/notch-shell.md, yield rules).

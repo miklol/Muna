@@ -13,12 +13,15 @@ pub mod state;
 use std::sync::Arc;
 use std::time::Instant;
 
-use tauri::Manager;
-use tauri_plugin_autostart::MacosLauncher;
+use tauri::RunEvent;
 use tauri_plugin_log::{Target, TargetKind};
 
 pub use ipc::export_bindings;
 use state::AppState;
+
+/// Argument appended to the launch-at-login command line so the settings window stays hidden
+/// (`muna_platform::windows::AUTOSTART_ARG` mirrors it for the Windows implementation).
+pub const AUTOSTART_ARG: &str = "--autostart";
 
 /// Builds and runs the application. Never returns on success.
 ///
@@ -37,6 +40,7 @@ pub fn run() {
     }
 
     let profile_dir = paths::profile_dir();
+    let autostarted = std::env::args().skip(1).any(|arg| arg == AUTOSTART_ARG);
 
     // Managed state must exist before the config windows are created: wry pumps messages
     // while it waits for each WebView2 controller, so a webview declared in tauri.conf.json
@@ -46,17 +50,17 @@ pub fn run() {
         AppState::open(&profile_dir, platform).expect("failed to open the Muna profile");
     if shell::spike::enabled() {
         state = state.with_spike(started_at, &profile_dir);
+    } else {
+        state = state.with_shell();
     }
     let state = Arc::new(state);
+    let exit_state = Arc::clone(&state);
 
     tauri::Builder::default()
         // Must be the first plugin so a second launch is intercepted before anything else.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             tracing::info!("second instance launched; focusing settings");
-            if let Some(window) = app.get_webview_window("settings") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            shell::manager::ShellManager::open_settings(app);
         }))
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -73,17 +77,18 @@ pub fn run() {
                 .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
                 .build(),
         )
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            Some(vec!["--autostart"]),
-        ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(specta.invoke_handler())
         .manage(Arc::clone(&state))
         .setup(move |app| {
             specta.mount_events(app);
-            tracing::info!(platform = state.platform.name(), profile = %profile_dir.display(), "starting");
+            tracing::info!(
+                platform = state.platform.name(),
+                profile = %profile_dir.display(),
+                autostarted,
+                "starting"
+            );
 
             if let Some(spike) = &state.spike {
                 // The spike owns the notch windows; the settings window stays hidden so the
@@ -92,13 +97,26 @@ pub fn run() {
                 return Ok(());
             }
 
-            // The notch window starts off-screen (placed by the shell once M1 lands) and there
-            // is no tray icon yet (M1-E1), so the settings window is the only visible surface.
-            if let Some(window) = app.get_webview_window("settings") {
-                window.show()?;
+            if let Some(shell) = &state.shell {
+                shell.start(app.handle());
+            }
+            let launch_at_login = state.settings.lock().general.launch_at_login;
+            state.sync_autostart(app.handle(), launch_at_login);
+
+            // The tray icon is the everyday entry point; the settings window only opens by
+            // itself on the very first launch (docs/modules/notch-shell.md).
+            if state.first_run && !autostarted {
+                shell::manager::ShellManager::open_settings(app.handle());
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("failed to start Muna");
+        .build(tauri::generate_context!())
+        .expect("failed to start Muna")
+        .run(move |_app, event| {
+            if let RunEvent::Exit = event
+                && let Some(shell) = &exit_state.shell
+            {
+                shell.shutdown();
+            }
+        });
 }

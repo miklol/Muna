@@ -1,6 +1,8 @@
 # Notch shell
 
-**Tier P0 · Owner: `muna-shell-engineer` + `muna-ui-engineer` · Status: spec**
+**Tier P0 · Owner: `muna-shell-engineer` + `muna-ui-engineer` · Status: in progress (M1-E1 —
+window manager, yield rules, tray and shell settings landed; state machine, strip and panel
+next)**
 
 ## Purpose
 
@@ -138,7 +140,46 @@ focus the panel (`Ctrl+Alt+Space` default).
 
 Expand/collapse ≥ 58 fps; idle ≤ 0.3 % CPU; notch window RSS ≤ 90 MB.
 
+## Implementation notes (M1-E1)
+
+How the shipped shell interprets this spec; anything here that reads as a deviation was
+decided during M1-E1 and is the behaviour to test against.
+
+- **Split of responsibilities.** `apps/desktop/src-tauri/src/shell/model.rs` (`ShellModel`) owns
+  every decision and runs against `muna_platform::FakePlatform` in `tests/shell_model.rs`;
+  `manager.rs` is the Tauri glue (window creation, tray, hotkey, timers, event emission);
+  `yield_rules.rs` is pure. The UI receives `ShellLayoutChanged { layout }` and
+  `ShellYieldChanged { label, state }` (broadcast to every window with the target label in the
+  payload) and asks `get_shell_layout` once on mount.
+- **Peek is UI-driven, Park moves the window.** `Peek` only changes the yield state the UI
+  renders; the window stays in place. `Parked` moves the window to the parked rect (fully above
+  the monitor) and the UI pauses; nothing is ever hidden or shown.
+- **Debounce.** Park ↔ unpark is debounced 500 ms per window (`ParkDebounce`); while a park is
+  pending the strip shows *nothing new* (no Peek), so flapping detection cannot flicker. Peek is
+  immediate.
+- **Fullscreen is per monitor.** The foreground window is attributed to the monitor holding the
+  largest part of it; only that monitor's notch parks. Lock, *Pause on display* and Presentation
+  mode park regardless of the foreground window. Caption overlap applies in Overlay mode only;
+  a window drag (`EVENT_SYSTEM_MOVESIZESTART`) peeks in both modes.
+- **Maximising an already-foreground window** raises no foreground event; the 500 ms quiet-state
+  poll re-samples the foreground rect, so that case yields within ≈ 500 ms rather than 100 ms.
+- **Disabled monitor = parked, not destroyed.** Every monitor keeps a window (the config
+  window `notch` cannot be re-created from its label); a monitor with *enabled: false* has its
+  window parked and its UI paused. Windows are destroyed only when the monitor disappears.
+- **Reserved mode** registers the `AppBar` only while the window is placed on an enabled,
+  unpaused display; parking releases it, exit (`RunEvent::Exit`) releases all of them. The
+  reserved height is `offsetY + shape offset + strip height`, in physical px.
+- **Tray.** *Open settings* · *Pause on display ▸* (one check item per monitor) · *Quit Muna*.
+  Left-click opens settings. Closing the settings window hides it; it opens by itself only on
+  the very first launch and never when started with `--autostart`.
+- **Toggle hotkey** (`shell.toggleHotkey`, default `ctrl+alt+space`) emits
+  `ShellToggleRequested { label }` for the notch on the monitor under the cursor; the UI owns the
+  expand/collapse.
+- **Launch at login** goes through `platform.autostart()` (`StartupTask` with identity,
+  `HKCU\…\Run` otherwise); when Windows refuses (task disabled by the user) the setting reverts
+  and `SettingsChanged` is emitted.
+
 ## Open questions
 
-- Should Reserved mode be per-monitor or global? (Proposal: per-monitor.)
+- ~~Should Reserved mode be per-monitor or global?~~ Decided: per monitor (`MonitorLayout.mode`).
 - Do we need a "hot corner" fallback for touch/pen users? (Backlog.)

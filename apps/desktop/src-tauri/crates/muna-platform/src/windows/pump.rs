@@ -1,12 +1,15 @@
-//! A dedicated message-pump thread that turns two OS broadcasts into [`PlatformEvent`]s:
+//! A dedicated message-pump thread that turns OS broadcasts into [`PlatformEvent`]s:
 //!
-//! * `WM_DISPLAYCHANGE` → [`PlatformEvent::MonitorsChanged`] (resolution, scale, hot-plug), and
-//! * `EVENT_SYSTEM_FOREGROUND` via `SetWinEventHook` → [`PlatformEvent::ForegroundChanged`].
+//! * `WM_DISPLAYCHANGE` → [`PlatformEvent::MonitorsChanged`] (resolution, scale, hot-plug),
+//! * `EVENT_SYSTEM_FOREGROUND` via `SetWinEventHook` → [`PlatformEvent::ForegroundChanged`],
+//! * `EVENT_SYSTEM_MOVESIZESTART/END` via `SetWinEventHook` → [`PlatformEvent::MoveSizeChanged`],
+//! * `WM_WTSSESSION_CHANGE` (after `WTSRegisterSessionNotification`) →
+//!   [`PlatformEvent::SessionLockChanged`].
 //!
 //! A hidden *top-level* window is used on purpose: message-only (`HWND_MESSAGE`) windows do not
-//! receive broadcast messages such as `WM_DISPLAYCHANGE`. The `WinEvent` hook must live on a
-//! thread with a message loop, which is why both share this pump. Nothing here touches the
-//! Tauri/tao windows or their threads.
+//! receive broadcast messages such as `WM_DISPLAYCHANGE`. The `WinEvent` hooks must live on a
+//! thread with a message loop, which is why everything shares this pump. Nothing here touches
+//! the Tauri/tao windows or their threads.
 
 use std::cell::RefCell;
 use std::sync::mpsc;
@@ -18,12 +21,17 @@ use windows::Win32::Foundation::{
     ERROR_CLASS_ALREADY_EXISTS, GetLastError, HINSTANCE, HWND, LPARAM, LRESULT, WPARAM,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::System::RemoteDesktop::{
+    NOTIFY_FOR_THIS_SESSION, WTSRegisterSessionNotification, WTSUnRegisterSessionNotification,
+};
 use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent};
 use windows::Win32::UI::WindowsAndMessaging::{
     CHILDID_SELF, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
-    EVENT_SYSTEM_FOREGROUND, GetMessageW, MSG, OBJID_WINDOW, PostMessageW, PostQuitMessage,
-    RegisterClassW, TranslateMessage, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT,
-    WINEVENT_SKIPOWNPROCESS, WM_CLOSE, WM_DESTROY, WM_DISPLAYCHANGE, WNDCLASSW, WS_OVERLAPPED,
+    EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZESTART, GetMessageW,
+    MSG, OBJID_WINDOW, PostMessageW, PostQuitMessage, RegisterClassW, TranslateMessage,
+    WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_CLOSE, WM_DESTROY,
+    WM_DISPLAYCHANGE, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPED, WTS_SESSION_LOCK,
+    WTS_SESSION_UNLOCK,
 };
 use windows::core::{PCWSTR, w};
 
@@ -91,7 +99,19 @@ fn run(events: broadcast::Sender<PlatformEvent>, ready: &mpsc::Sender<PlatformRe
             return;
         }
     };
-    let hook = install_foreground_hook();
+    let hooks = [
+        install_hook(
+            EVENT_SYSTEM_FOREGROUND,
+            EVENT_SYSTEM_FOREGROUND,
+            foreground_proc,
+        ),
+        install_hook(
+            EVENT_SYSTEM_MOVESIZESTART,
+            EVENT_SYSTEM_MOVESIZEEND,
+            move_size_proc,
+        ),
+    ];
+    let session_notifications = register_session_notifications(window);
     // SAFETY: plain handle-to-integer conversion; the handle is not dereferenced.
     let _ = ready.send(Ok(window.0 as isize));
 
@@ -105,10 +125,14 @@ fn run(events: broadcast::Sender<PlatformEvent>, ready: &mpsc::Sender<PlatformRe
             let _ = TranslateMessage(&raw const message);
             DispatchMessageW(&raw const message);
         }
-        if let Some(hook) = hook
-            && !UnhookWinEvent(hook).as_bool()
-        {
-            warn!("platform pump: UnhookWinEvent failed");
+        for hook in hooks.into_iter().flatten() {
+            if !UnhookWinEvent(hook).as_bool() {
+                warn!("platform pump: UnhookWinEvent failed");
+            }
+        }
+        // The window is already destroyed by now; un-registration is best effort.
+        if session_notifications {
+            let _ = WTSUnRegisterSessionNotification(window);
         }
     }
     SENDER.with(|sender| sender.borrow_mut().take());
@@ -149,16 +173,18 @@ fn create_window() -> PlatformResult<HWND> {
     }
 }
 
-fn install_foreground_hook() -> Option<HWINEVENTHOOK> {
+type WinEventProc = unsafe extern "system" fn(HWINEVENTHOOK, u32, HWND, i32, i32, u32, u32);
+
+fn install_hook(min: u32, max: u32, callback: WinEventProc) -> Option<HWINEVENTHOOK> {
     // SAFETY: out-of-context hooks deliver events through this thread's message loop; the
     // callback is an `extern "system"` fn with the documented signature.
     #[allow(unsafe_code)]
     let hook = unsafe {
         SetWinEventHook(
-            EVENT_SYSTEM_FOREGROUND,
-            EVENT_SYSTEM_FOREGROUND,
+            min,
+            max,
             None,
-            Some(foreground_proc),
+            Some(callback),
             0,
             0,
             WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
@@ -166,11 +192,27 @@ fn install_foreground_hook() -> Option<HWINEVENTHOOK> {
     };
     if hook.is_invalid() {
         warn!(
-            "platform pump: SetWinEventHook(EVENT_SYSTEM_FOREGROUND) failed; foreground events disabled"
+            min,
+            max, "platform pump: SetWinEventHook failed; these events are disabled"
         );
         return None;
     }
     Some(hook)
+}
+
+/// Asks for `WM_WTSSESSION_CHANGE` on the pump window; `false` when the service is unavailable
+/// (lock events are then never produced and the notch simply stays put).
+fn register_session_notifications(window: HWND) -> bool {
+    // SAFETY: the window belongs to this thread and outlives the registration, which is undone
+    // after the message loop ends.
+    #[allow(unsafe_code)]
+    match unsafe { WTSRegisterSessionNotification(window, NOTIFY_FOR_THIS_SESSION) } {
+        Ok(()) => true,
+        Err(error) => {
+            warn!(%error, "platform pump: WTSRegisterSessionNotification failed; lock events disabled");
+            false
+        }
+    }
 }
 
 fn publish(event: PlatformEvent) {
@@ -194,6 +236,18 @@ unsafe extern "system" fn window_proc(
             match monitors::enumerate() {
                 Ok(monitors) => publish(PlatformEvent::MonitorsChanged(monitors)),
                 Err(error) => warn!(%error, "platform pump: monitor enumeration failed"),
+            }
+            LRESULT(0)
+        }
+        WM_WTSSESSION_CHANGE => {
+            // Only the lock state matters to the shell; logon/logoff and remote
+            // connect/disconnect are ignored. `wparam` fits `u32` for every documented code.
+            match u32::try_from(wparam.0).unwrap_or(0) {
+                WTS_SESSION_LOCK => publish(PlatformEvent::SessionLockChanged { locked: true }),
+                WTS_SESSION_UNLOCK => {
+                    publish(PlatformEvent::SessionLockChanged { locked: false });
+                }
+                _ => {}
             }
             LRESULT(0)
         }
@@ -228,6 +282,24 @@ unsafe extern "system" fn foreground_proc(
         return;
     }
     publish(PlatformEvent::ForegroundChanged(foreground::snapshot(hwnd)));
+}
+
+#[allow(unsafe_code)]
+unsafe extern "system" fn move_size_proc(
+    _hook: HWINEVENTHOOK,
+    event: u32,
+    hwnd: HWND,
+    id_object: i32,
+    id_child: i32,
+    _thread: u32,
+    _time: u32,
+) {
+    if id_object != OBJID_WINDOW.0 || id_child != CHILDID_SELF.cast_signed() || hwnd.is_invalid() {
+        return;
+    }
+    publish(PlatformEvent::MoveSizeChanged {
+        started: event == EVENT_SYSTEM_MOVESIZESTART,
+    });
 }
 
 #[cfg(test)]

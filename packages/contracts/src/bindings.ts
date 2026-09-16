@@ -15,16 +15,54 @@ export const commands = {
 	getShellMode: () => __TAURI_INVOKE<ShellMode>("get_shell_mode"),
 	/**  The UI has painted its first frame; the shell may move the window into place. */
 	shellReady: () => typedError<null, IpcError>(__TAURI_INVOKE("shell_ready")),
-	/**  Publishes the painted shapes so pointer events outside them pass through. */
+	/**
+	 *  Publishes the painted shapes so pointer events outside them pass through. The first rect
+	 *  is the strip (the yield rules measure caption overlap against it).
+	 */
 	publishShapeRects: (rects: ShapeRect[]) => typedError<null, IpcError>(__TAURI_INVOKE("publish_shape_rects", { rects })),
-	/**  Records the frame statistics of one morph. */
-	reportMorph: (report: MorphReport) => typedError<null, IpcError>(__TAURI_INVOKE("report_morph", { report })),
+	/**  Records the frame statistics of one morph (spike log; debug trace in the product shell). */
+	reportMorph: (report: MorphReport) => __TAURI_INVOKE<void>("report_morph", { report }),
+	/**
+	 *  Layout of the calling notch window; `None` until the shell has attached it (the UI then
+	 *  waits for `ShellLayoutChanged`).
+	 */
+	getShellLayout: () => typedError<{
+	label: string,
+	monitorId: string,
+	isPrimary: boolean,
+	enabled: boolean,
+	mode: PlacementMode,
+	shape: NotchShape,
+	/**  Strip height preset in CSS px (32 / 26 / 38). */
+	stripHeight: number,
+	/**  CSS px between the window's top edge and the strip (0 for Notch, 8 for Island). */
+	stripTopOffset: number,
+	/**  `min(1000, monitorWidth − 80)`. */
+	panelMaxWidth: number,
+	/**  Monitor scale as a whole percentage (100, 125, 150, …). */
+	scalePercent: number,
+	yieldState: YieldState,
+} | null, IpcError>(__TAURI_INVOKE("get_shell_layout")),
+	/**
+	 *  The calling notch window wants (or no longer wants) to take keyboard focus (a text field
+	 *  gained focus while Pinned). Toggles `WS_EX_NOACTIVATE`.
+	 */
+	setNotchFocusable: (focusable: boolean) => typedError<null, IpcError>(__TAURI_INVOKE("set_notch_focusable", { focusable })),
+	/**  Parks the notch on one display until resumed (tray: "Pause on display"). */
+	setDisplayPaused: (monitorId: string, paused: boolean) => typedError<null, IpcError>(__TAURI_INVOKE("set_display_paused", { monitorId, paused })),
+	/**  Shows and focuses the settings window. */
+	openSettings: () => __TAURI_INVOKE<void>("open_settings"),
+	/**  Quits the app, releasing OS reservations first. */
+	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
 
 /** Events */
 export const events = {
 	morphRequested: makeEvent<MorphRequested>("morph-requested"),
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
+	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
+	shellToggleRequested: makeEvent<ShellToggleRequested>("shell-toggle-requested"),
+	shellYieldChanged: makeEvent<ShellYieldChanged>("shell-yield-changed"),
 	stripContentChanged: makeEvent<StripContentChanged>("strip-content-changed"),
 };
 
@@ -73,6 +111,22 @@ export type IpcError = {
  */
 export type JsonValue = null | boolean | number | null | string | JsonValue[] | { [key in string]: JsonValue };
 
+/**  Everything the shell needs for one monitor. */
+export type MonitorLayout = {
+	/**
+	 *  `false` removes the notch from this monitor: its window is parked off-screen and the
+	 *  UI pauses, so re-enabling is instant.
+	 */
+	enabled: boolean,
+	mode: PlacementMode,
+	shape: NotchShape,
+	/**  Horizontal offset from the monitor centre, CSS px (positive = right). */
+	offsetX: number,
+	/**  Vertical offset from the top edge, CSS px. Island adds its own 6–8 px on top. */
+	offsetY: number,
+	stripHeight: StripHeight,
+};
+
 /**
  *  Frame statistics the UI measured during one strip ↔ panel morph. Integers only: specta
  *  exports floats as `number | null`.
@@ -91,6 +145,12 @@ export type MorphRequested = {
 	expanded: boolean,
 };
 
+/**
+ *  Notch (flush with the top edge, flared) or Island (floating capsule); see
+ *  docs/05-design-system.md "Shape".
+ */
+export type NotchShape = "notch" | "island";
+
 /**  Short, self-dismissing strip content. */
 export type Notice = {
 	id: string,
@@ -101,6 +161,12 @@ export type Notice = {
 	holdMs: number,
 };
 
+/**
+ *  Overlay draws over other windows and yields; Reserved registers an `AppBar` of strip height
+ *  so maximised windows start below the strip (ADR-0002 consequences).
+ */
+export type PlacementMode = "overlay" | "reserved";
+
 export type ReducedMotion = 
 /**  Follow the Windows "animation effects" setting (default). */
 "system" | "on" | "off";
@@ -108,6 +174,8 @@ export type ReducedMotion =
 export type Settings = {
 	version: number,
 	general: GeneralSettings,
+	/**  Notch placement per monitor and the global shell switches (v2). */
+	shell: ShellSettings,
 	/**  Per-module settings keyed by module id; each module validates its own namespace. */
 	modules: { [key in string]: JsonValue },
 };
@@ -128,6 +196,36 @@ export type ShapeRect = {
 	height: number,
 };
 
+/**
+ *  What the UI needs to render one notch window (`ShellLayoutChanged`, `get_shell_layout`).
+ *  CSS px throughout; the window itself is always [`layout::WINDOW_LOGICAL`].
+ */
+export type ShellLayout = {
+	label: string,
+	monitorId: string,
+	isPrimary: boolean,
+	enabled: boolean,
+	mode: PlacementMode,
+	shape: NotchShape,
+	/**  Strip height preset in CSS px (32 / 26 / 38). */
+	stripHeight: number,
+	/**  CSS px between the window's top edge and the strip (0 for Notch, 8 for Island). */
+	stripTopOffset: number,
+	/**  `min(1000, monitorWidth − 80)`. */
+	panelMaxWidth: number,
+	/**  Monitor scale as a whole percentage (100, 125, 150, …). */
+	scalePercent: number,
+	yieldState: YieldState,
+};
+
+/**
+ *  A notch window's layout changed (attached, monitor or settings changed). Emitted to every
+ *  window; the payload names the window it is about.
+ */
+export type ShellLayoutChanged = {
+	layout: ShellLayout,
+};
+
 /**  Which UI the notch window should render. */
 export type ShellMode = 
 /**  The product shell. */
@@ -135,12 +233,50 @@ export type ShellMode =
 /**  The M0-E2 window spike (`MUNA_SPIKE=window`, docs/spikes/m0-window.md). */
 "spikeWindow";
 
+/**  Global shell settings plus the per-monitor table. */
+export type ShellSettings = {
+	/**  `WDA_EXCLUDEFROMCAPTURE` on every notch window. */
+	hideFromCaptures: boolean,
+	/**
+	 *  Global shortcut that expands or collapses the notch under the cursor
+	 *  (`tauri-plugin-global-shortcut` syntax).
+	 */
+	toggleHotkey: string,
+	/**  Layout used for monitors without an entry in `monitors`. */
+	defaults: MonitorLayout,
+	/**  Per-monitor overrides keyed by the stable monitor id (`\\.\DISPLAY1`, …). */
+	monitors: { [key in string]: MonitorLayout },
+};
+
+/**  The global toggle hotkey was pressed; `label` is the notch on the monitor under the cursor. */
+export type ShellToggleRequested = {
+	label: string,
+};
+
+/**  The yield rules changed their mind about one notch window (docs/modules/notch-shell.md). */
+export type ShellYieldChanged = {
+	label: string,
+	state: YieldState,
+};
+
 /**  What the closed strip renders right now. */
 export type StripContent = { kind: "idle" } | { kind: "activity"; activity: Activity } | { kind: "notice"; notice: Notice };
 
 export type StripContentChanged = {
 	content: StripContent,
 };
+
+/**  Strip height presets: 32 (Default) · 26 (Compact) · 38 (Comfortable) CSS px. */
+export type StripHeight = "compact" | "default" | "comfortable";
+
+/**  What one notch window does about the world around it. */
+export type YieldState = 
+/**  Nothing in the way. */
+"none" | 
+/**  A title bar or a window drag is under the strip: the UI slides the strip up to 6 px. */
+"peek" | 
+/**  Fullscreen, locked or paused: the window is moved above the monitor and the UI pauses. */
+"parked";
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

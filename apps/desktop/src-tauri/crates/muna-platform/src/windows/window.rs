@@ -13,8 +13,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GA_ROOT, GWL_EXSTYLE, GetAncestor, GetCursorPos, GetWindowLongPtrW, GetWindowRect,
     HWND_TOPMOST, SWP_ASYNCWINDOWPOS, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
     SWP_NOZORDER, SetWindowDisplayAffinity, SetWindowLongPtrW, SetWindowPos,
-    WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW,
-    WS_EX_TRANSPARENT, WindowFromPoint,
+    WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WindowFromPoint,
 };
 
 use super::monitors::rect_from;
@@ -158,6 +158,20 @@ pub(super) fn set_capture_exclusion(window: WindowHandle, excluded: bool) -> Pla
     #[allow(unsafe_code)]
     unsafe { SetWindowDisplayAffinity(hwnd(window), affinity) }
         .map_err(|error| os_error("SetWindowDisplayAffinity", &error))
+}
+
+pub(super) fn set_no_activate(window: WindowHandle, no_activate: bool) -> PlatformResult<()> {
+    let current = extended_style(window)?;
+    let wanted = if no_activate {
+        current | WS_EX_NOACTIVATE.0
+    } else {
+        current & !WS_EX_NOACTIVATE.0
+    };
+    if wanted == current {
+        return Ok(());
+    }
+    // Not a frame style either (see `set_click_through`), so no `SWP_FRAMECHANGED`.
+    write_extended_style(window, wanted)
 }
 
 pub(super) fn window_rect(window: WindowHandle) -> PlatformResult<Rect> {

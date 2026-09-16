@@ -30,6 +30,14 @@ Evidence: recording of hover→expand→collapse on a 150 % display with fps ove
 Update the spec status and roadmap table.
 ```
 
+**Progress.** PR 1 (`feat(shell): notch window manager, yield rules and shell settings`) landed
+the Rust half: `ShellModel` + `ShellManager`, `yield_rules`, per-monitor `ShellSettings`
+(settings v2), `AppBar`/`Autostart` platform services, tray, hotkey → `ShellToggleRequested`,
+the `ShellLayoutChanged` / `ShellYieldChanged` contract and a minimal `NotchWindow` that reports
+ready, publishes its strip rect and follows layout/yield. Decisions are recorded in
+[notch-shell.md → Implementation notes](../modules/notch-shell.md#implementation-notes-m1-e1).
+PR 2 covers `shell/machine.ts`, Strip/Panel, the S1–S14 suite and the fps evidence.
+
 ## M1-E2 · Live activities — agent: `muna-module-developer`
 
 ```text
