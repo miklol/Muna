@@ -70,8 +70,12 @@ vocabulary, `Scheduler`, `Hub` with per-window suspend and an event-driven deadl
 module contract (`Surface`, `ModuleCtx`, `ModuleBackend::start`), the live-activities backend
 with the power, session and Bluetooth reducers, the Pomodoro demo (`MUNA_DEMO=pomodoro`), the
 `@muna/ui` `StripView` / `BatteryGlyph` / `TimerText` primitives with stories, the shell mapping
-with localised screen-reader descriptions, and S8. Remaining: the Windows `Bluetooth`
-implementation (DeviceWatcher + GATT battery) and the laptop recordings.
+with localised screen-reader descriptions, and S8. PR 2 landed the Windows `Bluetooth`
+implementation: two paired-endpoint `DeviceWatcher`s merged per container id, a GATT Battery
+Service reader with notifications on one worker thread, and a snapshot that waits for the first
+enumeration so start-up never announces already-connected devices ([bluetooth → Implementation
+notes](../modules/bluetooth.md#implementation-notes-m1-e2)). Remaining: the laptop recordings
+(battery/charging and a Bluetooth connect with battery).
 
 ## M1-E3 · Settings window — agent: `muna-ui-engineer`
 

@@ -1,8 +1,8 @@
 # Live Activities & notices
 
 **Tier P0 · Owner: `muna-module-developer` (runtime) + `muna-ui-engineer` · Status: in progress
-(M1-E2: scheduler, power/session/Bluetooth sources and strip renderers landed; the Windows
-Bluetooth watcher and the expanded view follow)**
+(M1-E2: scheduler, power/session/Bluetooth sources, strip renderers and the Windows Bluetooth
+watcher landed; the expanded view follows)**
 
 ## Purpose
 
@@ -106,7 +106,10 @@ notifications 40 · Session lock 30 · Media paused 20.
   "Locked" / "Unlocked" from the glyph label.
 - **Bluetooth** notices use the `headphones` glyph when the name suggests earbuds or a headset
   and `bluetooth` otherwise, tinted blue; the trailing slot shows the device battery when known.
-  Disconnects are reported only for devices seen connected.
+  Disconnects are reported only for devices seen connected. On Windows the devices come from
+  `muna-platform`'s paired-device watcher ([bluetooth → Implementation notes](bluetooth.md#implementation-notes-m1-e2)),
+  which publishes nothing until its first enumeration completes, so devices already connected at
+  start-up seed the reducer instead of announcing themselves.
 - The Pomodoro path (`pomodoro:timer`, Timer glyph + countdown, wide text "Focus") is a demo
   behind `MUNA_DEMO=pomodoro` until the module lands.
 
