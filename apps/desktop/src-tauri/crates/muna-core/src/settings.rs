@@ -297,10 +297,12 @@ mod tests {
     #[test]
     fn new_profiles_start_with_the_tour_pending() {
         assert!(!Settings::default().general.onboarded);
-        assert!(!Settings::from_json(r#"{"version":0}"#)
-            .unwrap()
-            .general
-            .onboarded);
+        assert!(
+            !Settings::from_json(r#"{"version":0}"#)
+                .unwrap()
+                .general
+                .onboarded
+        );
     }
 
     #[test]
