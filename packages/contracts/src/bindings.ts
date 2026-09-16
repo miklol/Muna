@@ -137,6 +137,8 @@ export type GeneralSettings = {
 	reducedMotion: ReducedMotion,
 	/**  Accent name from docs/05-design-system.md (`blue`, `purple`, …). */
 	accent: string,
+	/**  The welcome tour was finished or skipped; the settings window shows it until then (v4). */
+	onboarded: boolean,
 };
 
 /**

@@ -1,4 +1,4 @@
-import { type ComponentPropsWithoutRef, type ElementType, type ReactNode } from 'react';
+import { type ComponentPropsWithoutRef, type ReactNode, type Ref } from 'react';
 
 import './text.css';
 import { cx } from './shared';
@@ -24,6 +24,8 @@ type TextElement =
 export interface TextProps extends Omit<ComponentPropsWithoutRef<'span'>, 'color'> {
   /** Rendered element; `span` by default so text never adds block layout by accident. */
   as?: TextElement;
+  /** React 19 ref prop, for headings that receive focus when a view changes. */
+  ref?: Ref<HTMLElement>;
   variant?: TextVariant;
   tone?: TextTone;
   /** Only `footnote` and `body` come in two weights; other steps have one. */
@@ -50,7 +52,9 @@ export function Text({
   children,
   ...rest
 }: TextProps) {
-  const Component: ElementType = as;
+  // Typed as `span` for prop checking: every `TextElement` takes the same global attributes
+  // and an `HTMLElement` ref, which `ElementType` cannot express.
+  const Component = as as 'span';
   return (
     <Component
       className={cx(

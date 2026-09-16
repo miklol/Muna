@@ -243,7 +243,8 @@ a single cyan dot — `packages/ui/assets/mark.svg`.
 
 Primitives (`packages/ui`): `NotchSurface`, `Hairline`, `Text`, `IconButton`, `Button`
 (primary = accent fill on black, secondary = `--surface-2`, destructive = red text), `Chip`,
-`Card`, `ListRow`, `SegmentedControl`, `Toggle`, `Slider`, `ProgressTrack`, `Ring`,
+`Card`, `ListRow`, `SegmentedControl`, `OptionTiles` (radio tiles with an illustration slot,
+for choices worth a picture), `Toggle`, `Slider`, `SearchField`, `ProgressTrack`, `Ring`,
 `Skeleton`, `EmptyState` (icon 24 `--text-3`, one sentence, one action), `ErrorState`,
 `PanelChrome` (header, rail, body, footer slots), `ModuleBar` (the pill row), `Tooltip`,
 `Popover`, `Menu`, `Kbd`, `Avatar`, `AppIcon` (rounded 6 at 20 px), `Marquee`.

@@ -57,6 +57,12 @@ export const settingsIndex: readonly SettingEntry[] = [
     synonyms: ['shortcut', 'hotkey', 'keyboard', 'toggle', 'expand', 'collapse'],
   },
   {
+    pane: 'general',
+    id: 'general.tour',
+    labelKey: 'settings.general.tour',
+    synonyms: ['onboarding', 'first run', 'setup', 'set up', 'welcome', 'tour', 'help'],
+  },
+  {
     pane: 'layout',
     id: 'layout.shape',
     labelKey: 'settings.layout.shape',

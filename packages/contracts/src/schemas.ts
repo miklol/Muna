@@ -26,7 +26,7 @@ import type {
   YieldState,
 } from './bindings';
 
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
 
 /** Default toggle hotkey (`tauri-plugin-global-shortcut` syntax); mirrors `ShellSettings::default`. */
 export const DEFAULT_TOGGLE_HOTKEY = 'ctrl+alt+space';
@@ -65,6 +65,7 @@ export const generalSettingsSchema = z.object({
   launchAtLogin: z.boolean(),
   reducedMotion: reducedMotionSchema,
   accent: z.string().min(1),
+  onboarded: z.boolean(),
 });
 
 export const placementModeSchema = z.enum([
@@ -237,7 +238,7 @@ export const defaultShellSettings = (): ShellSettings => ({
 
 export const defaultSettings = (): Settings => ({
   version: SETTINGS_VERSION,
-  general: { launchAtLogin: false, reducedMotion: 'system', accent: 'blue' },
+  general: { launchAtLogin: false, reducedMotion: 'system', accent: 'blue', onboarded: false },
   shell: defaultShellSettings(),
   modules: {},
 });

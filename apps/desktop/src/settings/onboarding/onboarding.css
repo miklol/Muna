@@ -1,0 +1,132 @@
+/*
+ * Welcome tour (docs/05-design-system.md, Onboarding): a 560 × 420 card centred in the
+ * settings window; illustrations are drawn from the same tokens as the product. Sizes below are
+ * the illustration's own geometry (an exaggerated strip so the trade-off reads at 240 px).
+ */
+
+.onboarding-stage {
+  display: grid;
+  place-items: center;
+  block-size: 100%;
+  padding: var(--space-4);
+  box-sizing: border-box;
+}
+
+.onboarding-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  inline-size: 560px;
+  max-inline-size: 100%;
+  block-size: 420px;
+  max-block-size: 100%;
+  padding: var(--space-6);
+  box-sizing: border-box;
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+}
+
+.onboarding-card__header,
+.onboarding-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-block-size: 28px;
+}
+
+.onboarding-card__body {
+  position: relative;
+  min-block-size: 0;
+  overflow-y: auto;
+}
+
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.onboarding-step__title {
+  margin: 0;
+  outline: none;
+}
+
+/* A desktop seen from afar: wallpaper from the accent, a window, and the strip on its edge. */
+.onboarding-screen {
+  --onboarding-screen-width: 240px;
+  --onboarding-screen-height: 120px;
+  --onboarding-strip-width: 84px;
+  --onboarding-strip-height: 14px;
+
+  position: relative;
+  inline-size: var(--onboarding-screen-width);
+  block-size: var(--onboarding-screen-height);
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: color-mix(in oklab, var(--accent) 28%, var(--surface-3));
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.onboarding-screen--small {
+  --onboarding-screen-width: 96px;
+  --onboarding-screen-height: 56px;
+  --onboarding-strip-width: 44px;
+  --onboarding-strip-height: 12px;
+}
+
+.onboarding-screen__window {
+  position: absolute;
+  inset-inline: var(--space-2);
+  inset-block-start: 0;
+  block-size: calc(100% + var(--space-2));
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  background: color-mix(in oklab, var(--text-1) 16%, transparent);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  will-change: transform;
+}
+
+.onboarding-screen__titlebar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  block-size: var(--onboarding-strip-height);
+  padding-inline: var(--space-2);
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--text-1) 10%, transparent);
+}
+
+.onboarding-screen__tab {
+  block-size: 6px;
+  border-radius: 2px;
+  background: color-mix(in oklab, var(--text-1) 22%, transparent);
+}
+
+.onboarding-screen__tab--active {
+  inline-size: 36px;
+  background: color-mix(in oklab, var(--text-1) 40%, transparent);
+}
+
+.onboarding-screen__tab--idle {
+  inline-size: 24px;
+}
+
+.onboarding-screen__strip {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  inline-size: var(--onboarding-strip-width);
+  block-size: var(--onboarding-strip-height);
+  will-change: transform;
+}
+
+.onboarding-screen__strip--island {
+  inset-block-start: 3px;
+}
+
+.onboarding-screen__surface {
+  inline-size: 100%;
+  block-size: 100%;
+}

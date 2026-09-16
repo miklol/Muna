@@ -88,5 +88,50 @@ Landed by `feat(settings): settings window with sidebar, panes and live apply (m
   and disabled set; Rust covers the v3 migration and the new IPC error mapping. The Playwright
   pane flows named in the build plan are deferred until the e2e harness exists
   ([09-testing-qa.md](../09-testing-qa.md)).
+
+## Implementation notes (M1-E5)
+
+Landed by `feat(onboarding): first-run welcome tour in the settings window (m1-e5)`.
+
+- **Where it lives.** The tour is part of the settings window
+  (`apps/desktop/src/settings/onboarding/`), not a third window: `SettingsApp` renders
+  `OnboardingFlow` instead of the sidebar and panes while `general.onboarded` is false or the
+  user asked for it again. Rust already opens the settings window on first run, so the tour
+  is the first thing a new profile sees.
+- **Settings v4.** `general.onboarded: boolean`. New profiles start at `false`; a v3 file
+  migrates to `true`, since whoever wrote it has used the app already. Skip and Finish both
+  write `true` (a skipped tour must not come back on the next launch). Reset all keeps the
+  flag — a reset is not a first run. `CURRENT_VERSION` (Rust) and `SETTINGS_VERSION`
+  (contracts) moved together.
+- **Steps.** Welcome, Choose your screens, Choose how it sits (Overlay / Reserved), Pick a
+  shape (Notch / Island), What Muna will ask for, Start with Windows, All set — one 560 × 420
+  card on `--surface-1`, radius 12, padding 24, with "Step n of m" and Skip in the header and
+  Back / Continue (Finish on the last step) in the footer. Every choice goes through
+  `SettingsEditorProvider.update`, so the notch previews it at once and Multiple screens,
+  Layout and General show the same values afterwards.
+- **Screens step** is left out with one screen — there is nothing to choose — and when the
+  list fails; while it loads the step stays in, so the count does not jump. Turning a screen
+  off gives it its own `shell.monitors[id]` entry with `enabled: false`; turning it back on
+  drops the entry when it equals the defaults, so Multiple screens shows "Use the defaults".
+- **Placement explainer** is state-driven: `PlacementArt` draws a 240 × 120 screen from
+  tokens with a title bar and the strip; choosing Reserved moves the window down by the strip
+  height on the `layout` spring and Overlay lifts the strip to its 3 px line on the `reveal`
+  spring. Transform-only (`y`), no timers, and reduced motion gets the same end states.
+- **Shape tiles** reuse `NotchSurface` for their art, so the tour shows the real corner
+  geometry. `OptionTiles` (`@muna/ui`) is the new primitive: a React Aria radio group of
+  tiles named by their title and described by their description, with the illustration
+  hidden from assistive technology.
+- **Permissions are informational.** Nothing is requested in the tour; each module asks the
+  first time it needs Bluetooth, notifications or the camera.
+- **Step changes** use the content recipe from the motion spec (`enterFromLarge` → `visible`,
+  `content` spring after `moduleSwitchEnterDelayMs`, `contentExitTransition` out) inside an
+  `AnimatePresence mode="popLayout"`. After Back or Continue focus moves to the new step's
+  heading so the change is announced; opening the tour does not steal focus.
+- **Tests.** Vitest: `onboardingSteps` (loading, two screens, one screen, failed list), the
+  walk through every step with the counter and focus handoff, each step's writes (screens
+  override and its removal, placement + caption, shape, launch at login), Finish and Skip
+  marking the tour seen and handing back, no second save for a profile that has seen it, and
+  the `SettingsApp` gate (tour until onboarded, General → Show again). Rust: v3 → v4
+  migration and the new default.
 - **Deferred.** Mica backdrop, per-pane reset (only "Reset all settings" exists), a
   diagnostics bundle (the logs folder opens instead), hotkey editing, module-specific panes.
