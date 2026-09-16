@@ -15,6 +15,9 @@ use specta_typescript::Typescript;
 use tauri::{AppHandle, State, WebviewWindow};
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
+use crate::shell::manager::ShellManager;
+use crate::shell::model::ShellLayout;
+use crate::shell::yield_rules::YieldState;
 use crate::state::AppState;
 
 /// Error shape every command returns. Messages are safe to show and to log (no user data).
@@ -118,6 +121,29 @@ pub struct MorphRequested {
     pub expanded: bool,
 }
 
+/// A notch window's layout changed (attached, monitor or settings changed). Emitted to every
+/// window; the payload names the window it is about.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellLayoutChanged {
+    pub layout: ShellLayout,
+}
+
+/// The yield rules changed their mind about one notch window (docs/modules/notch-shell.md).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellYieldChanged {
+    pub label: String,
+    pub state: YieldState,
+}
+
+/// The global toggle hotkey was pressed; `label` is the notch on the monitor under the cursor.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellToggleRequested {
+    pub label: String,
+}
+
 type Shared = Arc<AppState>;
 
 // Commands take the concrete `AppHandle` (= `AppHandle<Wry>`): tauri-specta's collectors
@@ -171,6 +197,7 @@ fn update_settings(
     {
         tracing::warn!(%error, "failed to emit SettingsChanged");
     }
+    state.settings_changed(&app, &settings);
     Ok(settings)
 }
 
@@ -190,43 +217,110 @@ fn get_shell_mode(state: State<'_, Shared>) -> ShellMode {
     }
 }
 
-fn spike(state: &Shared) -> Result<&Arc<crate::shell::spike::Spike>, IpcError> {
+fn shell(state: &Shared) -> Result<&Arc<ShellManager>, IpcError> {
     state
-        .spike
+        .shell
         .as_ref()
-        .ok_or_else(|| IpcError::new("shell.spike_disabled", "MUNA_SPIKE=window is not set"))
+        .ok_or_else(|| IpcError::new("shell.unavailable", "the notch shell is not running"))
 }
 
 /// The UI has painted its first frame; the shell may move the window into place.
 #[tauri::command]
 #[specta::specta]
-fn shell_ready(window: WebviewWindow, state: State<'_, Shared>) -> Result<(), IpcError> {
-    spike(&state)?.window_ready(window.label());
+fn shell_ready(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, Shared>,
+) -> Result<(), IpcError> {
+    if let Some(spike) = &state.spike {
+        spike.window_ready(window.label());
+        return Ok(());
+    }
+    shell(&state)?.window_ready(&app, window.label());
     Ok(())
 }
 
-/// Publishes the painted shapes so pointer events outside them pass through.
+/// Publishes the painted shapes so pointer events outside them pass through. The first rect
+/// is the strip (the yield rules measure caption overlap against it).
 #[tauri::command]
 #[specta::specta]
 fn publish_shape_rects(
+    app: AppHandle,
     window: WebviewWindow,
     state: State<'_, Shared>,
     rects: Vec<ShapeRect>,
 ) -> Result<(), IpcError> {
-    spike(&state)?.publish_shapes(window.label(), &rects);
+    if let Some(spike) = &state.spike {
+        spike.publish_shapes(window.label(), &rects);
+        return Ok(());
+    }
+    shell(&state)?.publish_shapes(&app, window.label(), &rects);
     Ok(())
 }
 
-/// Records the frame statistics of one morph.
+/// Records the frame statistics of one morph (spike log; debug trace in the product shell).
 #[tauri::command]
 #[specta::specta]
-fn report_morph(
+fn report_morph(window: WebviewWindow, state: State<'_, Shared>, report: MorphReport) {
+    if let Some(spike) = &state.spike {
+        spike.record_morph(window.label(), &report);
+    } else {
+        tracing::debug!(label = window.label(), ?report, "morph");
+    }
+}
+
+/// Layout of the calling notch window; `None` until the shell has attached it (the UI then
+/// waits for `ShellLayoutChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_shell_layout(
     window: WebviewWindow,
     state: State<'_, Shared>,
-    report: MorphReport,
+) -> Result<Option<ShellLayout>, IpcError> {
+    Ok(shell(&state)?.shell_layout(window.label()))
+}
+
+/// The calling notch window wants (or no longer wants) to take keyboard focus (a text field
+/// gained focus while Pinned). Toggles `WS_EX_NOACTIVATE`.
+#[tauri::command]
+#[specta::specta]
+fn set_notch_focusable(
+    window: WebviewWindow,
+    state: State<'_, Shared>,
+    focusable: bool,
 ) -> Result<(), IpcError> {
-    spike(&state)?.record_morph(window.label(), &report);
+    shell(&state)?.set_focusable(window.label(), focusable);
     Ok(())
+}
+
+/// Parks the notch on one display until resumed (tray: "Pause on display").
+#[tauri::command]
+#[specta::specta]
+fn set_display_paused(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    monitor_id: String,
+    paused: bool,
+) -> Result<(), IpcError> {
+    shell(&state)?.set_display_paused(&app, &monitor_id, paused);
+    Ok(())
+}
+
+/// Shows and focuses the settings window.
+#[tauri::command]
+#[specta::specta]
+fn open_settings(app: AppHandle) {
+    ShellManager::open_settings(&app);
+}
+
+/// Quits the app, releasing OS reservations first.
+#[tauri::command]
+#[specta::specta]
+fn quit_app(app: AppHandle, state: State<'_, Shared>) {
+    if let Some(shell) = &state.shell {
+        shell.shutdown();
+    }
+    app.exit(0);
 }
 
 /// The single source of truth for the command/event surface.
@@ -241,12 +335,20 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_shell_mode,
             shell_ready,
             publish_shape_rects,
-            report_morph
+            report_morph,
+            get_shell_layout,
+            set_notch_focusable,
+            set_display_paused,
+            open_settings,
+            quit_app
         ])
         .events(collect_events![
             SettingsChanged,
             StripContentChanged,
-            MorphRequested
+            MorphRequested,
+            ShellLayoutChanged,
+            ShellYieldChanged,
+            ShellToggleRequested
         ])
 }
 

@@ -12,12 +12,15 @@ const ipc = vi.hoisted(() => ({
 vi.mock('@muna/contracts', () => ({
   commands: {
     getShellMode: ipc.getShellMode,
+    getShellLayout: vi.fn(() => Promise.resolve({ status: 'ok', data: null })),
     shellReady: vi.fn(() => Promise.resolve({ status: 'ok', data: null })),
     publishShapeRects: vi.fn(() => Promise.resolve({ status: 'ok', data: null })),
-    reportMorph: vi.fn(() => Promise.resolve({ status: 'ok', data: null })),
+    reportMorph: vi.fn(() => Promise.resolve(undefined)),
   },
   events: {
     stripContentChanged: { listen: vi.fn(() => Promise.resolve(() => undefined)) },
+    shellLayoutChanged: { listen: vi.fn(() => Promise.resolve(() => undefined)) },
+    shellYieldChanged: { listen: vi.fn(() => Promise.resolve(() => undefined)) },
     morphRequested: { listen: vi.fn(() => Promise.resolve(() => undefined)) },
   },
 }));

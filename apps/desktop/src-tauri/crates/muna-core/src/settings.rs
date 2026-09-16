@@ -15,7 +15,9 @@ use serde_json::Value;
 use specta::Type;
 use thiserror::Error;
 
-pub const CURRENT_VERSION: u32 = 1;
+use crate::shell_settings::ShellSettings;
+
+pub const CURRENT_VERSION: u32 = 2;
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -63,6 +65,8 @@ impl Default for GeneralSettings {
 pub struct Settings {
     pub version: u32,
     pub general: GeneralSettings,
+    /// Notch placement per monitor and the global shell switches (v2).
+    pub shell: ShellSettings,
     /// Per-module settings keyed by module id; each module validates its own namespace.
     #[specta(type = BTreeMap<String, JsonValue>)]
     pub modules: BTreeMap<String, Value>,
@@ -89,6 +93,7 @@ impl Default for Settings {
         Self {
             version: CURRENT_VERSION,
             general: GeneralSettings::default(),
+            shell: ShellSettings::default(),
             modules: BTreeMap::new(),
         }
     }
@@ -133,6 +138,15 @@ fn migrate(value: &mut Value, from: u32) {
                     object
                         .entry("modules")
                         .or_insert_with(|| Value::Object(serde_json::Map::default()));
+                }
+            }
+            // v2 (M1-E1): the notch shell's placement settings. Files written by M0 builds
+            // have no `shell` key; they get the defaults (one Overlay Notch per monitor).
+            1 => {
+                if let Some(object) = value.as_object_mut() {
+                    object.entry("shell").or_insert_with(|| {
+                        serde_json::to_value(ShellSettings::default()).unwrap_or_default()
+                    });
                 }
             }
             _ => unreachable!("migration from version {version} is not defined"),
@@ -194,7 +208,7 @@ mod tests {
 
     #[test]
     fn module_namespaces_are_opaque_json() {
-        let json = r#"{"version":1,"general":{"launchAtLogin":true,"reducedMotion":"on","accent":"purple"},"modules":{"media":{"showArtwork":false}}}"#;
+        let json = r#"{"version":2,"general":{"launchAtLogin":true,"reducedMotion":"on","accent":"purple"},"shell":{"hideFromCaptures":false,"toggleHotkey":"ctrl+alt+space","defaults":{"enabled":true,"mode":"overlay","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{}},"modules":{"media":{"showArtwork":false}}}"#;
         let settings = Settings::from_json(json).unwrap();
         assert!(settings.general.launch_at_login);
         assert_eq!(settings.general.reduced_motion, ReducedMotion::On);
@@ -209,6 +223,38 @@ mod tests {
         let settings = Settings::from_json(r#"{"version":0}"#).unwrap();
         assert_eq!(settings.version, CURRENT_VERSION);
         assert_eq!(settings.general, GeneralSettings::default());
+        assert_eq!(settings.shell, ShellSettings::default());
+    }
+
+    #[test]
+    fn version_one_files_gain_default_shell_settings_and_keep_the_rest() {
+        let json = r#"{"version":1,"general":{"launchAtLogin":true,"reducedMotion":"off","accent":"orange"},"modules":{"media":{"showArtwork":false}}}"#;
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(settings.version, 2);
+        assert_eq!(settings.shell, ShellSettings::default());
+        assert!(settings.general.launch_at_login);
+        assert_eq!(settings.general.accent, "orange");
+        assert_eq!(
+            settings.modules["media"],
+            serde_json::json!({ "showArtwork": false })
+        );
+    }
+
+    #[test]
+    fn per_monitor_layouts_round_trip() {
+        let mut settings = Settings::default();
+        {
+            let layout = settings.shell.layout_for_mut(r"\\.\DISPLAY2");
+            layout.mode = crate::shell_settings::PlacementMode::Reserved;
+            layout.offset_x = -40;
+        }
+        let json = settings.to_json().unwrap();
+        let parsed = Settings::from_json(&json).unwrap();
+        assert_eq!(parsed, settings);
+        assert_eq!(
+            parsed.shell.layout_for(r"\\.\DISPLAY2").mode,
+            crate::shell_settings::PlacementMode::Reserved
+        );
     }
 
     #[test]
@@ -233,7 +279,7 @@ mod tests {
 
     #[test]
     fn unknown_general_fields_are_rejected() {
-        let json = r#"{"version":1,"general":{"launchAtLogin":true,"reducedMotion":"on","accent":"blue","nope":1}}"#;
+        let json = r#"{"version":2,"general":{"launchAtLogin":true,"reducedMotion":"on","accent":"blue","nope":1},"shell":{"hideFromCaptures":false,"toggleHotkey":"ctrl+alt+space","defaults":{"enabled":true,"mode":"overlay","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{}},"modules":{}}"#;
         assert!(matches!(
             Settings::from_json(json).unwrap_err(),
             SettingsError::Json(_)

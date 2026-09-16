@@ -8,6 +8,7 @@
 pub mod clock;
 pub mod scheduler;
 pub mod settings;
+pub mod shell_settings;
 pub mod store;
 
 pub use clock::{Clock, FakeClock, SystemClock};
@@ -15,4 +16,5 @@ pub use scheduler::{Activity, Notice, Scheduler, StripContent};
 pub use settings::{
     GeneralSettings, JsonValue, ReducedMotion, Settings, SettingsError, SettingsStore,
 };
+pub use shell_settings::{MonitorLayout, NotchShape, PlacementMode, ShellSettings, StripHeight};
 pub use store::{Store, StoreError};

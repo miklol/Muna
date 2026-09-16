@@ -1,7 +1,12 @@
-//! Notch shell: window placement, hit-testing and (in M0) the window spike that validates
-//! ADR-0002 on real hardware. Pure logic lives in [`layout`] and [`hit_test`] so it can be
-//! tested against `muna_platform::FakePlatform`; [`spike`] is the Tauri glue.
+//! Notch shell (docs/modules/notch-shell.md): window placement, hit-testing, yield rules and
+//! the per-monitor window lifecycle. Pure logic lives in [`layout`], [`hit_test`],
+//! [`yield_rules`] and [`model`] so it is tested against `muna_platform::FakePlatform` in
+//! `tests/`; [`manager`] is the Tauri glue, [`spike`] the M0-E2 diagnostic mode
+//! (`MUNA_SPIKE=window`).
 
 pub mod hit_test;
 pub mod layout;
+pub mod manager;
+pub mod model;
 pub mod spike;
+pub mod yield_rules;

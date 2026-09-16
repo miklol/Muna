@@ -9,15 +9,17 @@ use tokio::sync::broadcast;
 
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
-use crate::traits::{Audio, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing};
+use crate::traits::{
+    AppBar, Audio, Autostart, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing,
+};
 use crate::types::{
-    AudioDevice, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand, MediaSession,
-    MonitorInfo, PowerSource, Rect, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
+    MediaSession, MonitorInfo, PowerSource, Rect, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
 
-/// One recorded [`Windowing`] call, in order, for assertions in shell tests.
+/// One recorded [`Windowing`] / [`AppBar`] call, in order, for assertions in shell tests.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WindowingCall {
     MoveAsync(WindowHandle, Rect),
@@ -25,6 +27,10 @@ pub enum WindowingCall {
     SetToolWindow(WindowHandle),
     SetClickThrough(WindowHandle, bool),
     SetCaptureExclusion(WindowHandle, bool),
+    SetNoActivate(WindowHandle, bool),
+    /// `reserve_top(window, monitor, height)`.
+    ReserveAppBar(WindowHandle, Rect, u32),
+    ReleaseAppBar(WindowHandle),
 }
 
 #[derive(Debug)]
@@ -42,6 +48,11 @@ struct State {
     quiet: UserNotificationState,
     window_rects: Vec<(WindowHandle, Rect)>,
     windowing_calls: Vec<WindowingCall>,
+    /// Windows with a live `AppBar` reservation and the rect granted.
+    app_bars: Vec<(WindowHandle, Rect)>,
+    autostart_enabled: bool,
+    /// Scripted: `set_enabled(true)` fails with `AccessDenied` (user disabled it in Settings).
+    autostart_denied: bool,
 }
 
 impl Default for State {
@@ -74,6 +85,9 @@ impl Default for State {
             quiet: UserNotificationState::AcceptsNotifications,
             window_rects: Vec::new(),
             windowing_calls: Vec::new(),
+            app_bars: Vec::new(),
+            autostart_enabled: false,
+            autostart_denied: false,
         }
     }
 }
@@ -165,6 +179,23 @@ impl FakePlatform {
         self.publish(PlatformEvent::SessionLockChanged { locked });
     }
 
+    /// A window drag or resize started (`true`) or ended (`false`).
+    pub fn move_size_changed(&self, started: bool) {
+        self.publish(PlatformEvent::MoveSizeChanged { started });
+    }
+
+    /// Windows with a live `AppBar` reservation and the rect each was granted.
+    #[must_use]
+    pub fn app_bars(&self) -> Vec<(WindowHandle, Rect)> {
+        self.state.lock().app_bars.clone()
+    }
+
+    /// Scripts whether enabling autostart is refused (the user turned the startup task off in
+    /// Windows settings, `StartupTaskState::DisabledByUser`).
+    pub fn set_autostart_denied(&self, denied: bool) {
+        self.state.lock().autostart_denied = denied;
+    }
+
     /// Media commands received so far, in order.
     #[must_use]
     pub fn sent_media_commands(&self) -> Vec<(String, MediaCommand)> {
@@ -236,6 +267,14 @@ impl Windowing for FakePlatform {
         Ok(())
     }
 
+    fn set_no_activate(&self, window: WindowHandle, no_activate: bool) -> PlatformResult<()> {
+        self.state
+            .lock()
+            .windowing_calls
+            .push(WindowingCall::SetNoActivate(window, no_activate));
+        Ok(())
+    }
+
     fn window_rect(&self, window: WindowHandle) -> PlatformResult<Rect> {
         self.state
             .lock()
@@ -262,6 +301,55 @@ impl Windowing for FakePlatform {
 
     fn user_notification_state(&self) -> PlatformResult<UserNotificationState> {
         Ok(self.state.lock().quiet)
+    }
+}
+
+impl AppBar for FakePlatform {
+    fn reserve_top(
+        &self,
+        window: WindowHandle,
+        monitor: Rect,
+        height: u32,
+    ) -> PlatformResult<Rect> {
+        let granted = Rect::new(monitor.x, monitor.y, monitor.width, height);
+        let mut state = self.state.lock();
+        state.app_bars.retain(|(handle, _)| *handle != window);
+        state.app_bars.push((window, granted));
+        state
+            .windowing_calls
+            .push(WindowingCall::ReserveAppBar(window, monitor, height));
+        Ok(granted)
+    }
+
+    fn release(&self, window: WindowHandle) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        let before = state.app_bars.len();
+        state.app_bars.retain(|(handle, _)| *handle != window);
+        if state.app_bars.len() != before {
+            state
+                .windowing_calls
+                .push(WindowingCall::ReleaseAppBar(window));
+        }
+        Ok(())
+    }
+}
+
+impl Autostart for FakePlatform {
+    fn mechanism(&self) -> AutostartMechanism {
+        AutostartMechanism::None
+    }
+
+    fn is_enabled(&self) -> PlatformResult<bool> {
+        Ok(self.state.lock().autostart_enabled)
+    }
+
+    fn set_enabled(&self, enabled: bool) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        if enabled && state.autostart_denied {
+            return Err(PlatformError::AccessDenied("startup task"));
+        }
+        state.autostart_enabled = enabled;
+        Ok(())
     }
 }
 
@@ -393,6 +481,14 @@ impl Platform for FakePlatform {
         self
     }
 
+    fn app_bar(&self) -> &dyn AppBar {
+        self
+    }
+
+    fn autostart(&self) -> &dyn Autostart {
+        self
+    }
+
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent> {
         self.events.subscribe()
     }
@@ -489,6 +585,7 @@ mod tests {
         assert_eq!(fake.power().battery().unwrap(), battery);
 
         let window = ForegroundWindow {
+            handle: 42,
             title: "Game".into(),
             process_name: "game.exe".into(),
             bounds: Rect::new(0, 0, 2560, 1440),
@@ -496,6 +593,73 @@ mod tests {
         };
         fake.foreground_changed(window.clone());
         assert_eq!(fake.foreground().current().unwrap(), Some(window));
+    }
+
+    #[test]
+    fn foreground_handle_never_crosses_the_ipc_boundary() {
+        let window = ForegroundWindow {
+            handle: 42,
+            title: "Game".into(),
+            process_name: "game.exe".into(),
+            bounds: Rect::default(),
+            is_fullscreen: false,
+        };
+        let json = serde_json::to_value(&window).unwrap();
+        assert!(json.get("handle").is_none());
+    }
+
+    #[test]
+    fn app_bar_reservations_are_tracked_per_window() {
+        let fake = FakePlatform::new();
+        let monitor = Rect::new(0, 0, 2560, 1440);
+        let granted = fake.app_bar().reserve_top(7, monitor, 32).unwrap();
+        assert_eq!(granted, Rect::new(0, 0, 2560, 32));
+        fake.app_bar().reserve_top(7, monitor, 26).unwrap();
+        assert_eq!(fake.app_bars(), vec![(7, Rect::new(0, 0, 2560, 26))]);
+        fake.app_bar().release(7).unwrap();
+        fake.app_bar().release(7).unwrap();
+        assert!(fake.app_bars().is_empty());
+        assert_eq!(
+            fake.windowing_calls(),
+            vec![
+                WindowingCall::ReserveAppBar(7, monitor, 32),
+                WindowingCall::ReserveAppBar(7, monitor, 26),
+                WindowingCall::ReleaseAppBar(7),
+            ],
+            "releasing an unregistered window records nothing"
+        );
+    }
+
+    #[test]
+    fn autostart_round_trips_and_honours_a_user_denial() {
+        let fake = FakePlatform::new();
+        assert_eq!(fake.autostart().mechanism(), AutostartMechanism::None);
+        assert!(!fake.autostart().is_enabled().unwrap());
+        fake.autostart().set_enabled(true).unwrap();
+        assert!(fake.autostart().is_enabled().unwrap());
+        fake.autostart().set_enabled(false).unwrap();
+        fake.set_autostart_denied(true);
+        assert_eq!(
+            fake.autostart().set_enabled(true),
+            Err(PlatformError::AccessDenied("startup task"))
+        );
+        assert!(!fake.autostart().is_enabled().unwrap());
+    }
+
+    #[test]
+    fn move_size_and_lock_scripts_publish_events() {
+        let fake = FakePlatform::new();
+        let mut rx = fake.subscribe();
+        fake.move_size_changed(true);
+        fake.set_session_locked(true);
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            PlatformEvent::MoveSizeChanged { started: true }
+        );
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            PlatformEvent::SessionLockChanged { locked: true }
+        );
     }
 
     #[test]

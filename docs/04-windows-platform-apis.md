@@ -49,7 +49,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | Cursor sampling | `GetCursorPos` 60 Hz inside window bounds, 10 Hz outside, on a dedicated OS thread (`std::thread::sleep`; a tokio timer runs at the 15.6 ms tick) | Do **not** use `WH_MOUSE_LL` (hook removed silently if callback exceeds `LowLevelHooksTimeout`) |
 | Hide from capture | `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` (Win10 2004+) | Setting toggle; per top-level window |
 | Session events | `WTSRegisterSessionNotification` (`WM_WTSSESSION_CHANGE` lock/unlock), `WM_POWERBROADCAST` | Lock live activity, suspend polling while locked |
-| Single instance / tray / autostart | `tauri-plugin-single-instance`, `tray-icon`, `tauri-plugin-autostart` (`HKCU\…\Run`) or 🪪 `StartupTask.RequestEnableAsync` | `platform::autostart` abstracts both |
+| Single instance / tray / autostart | `tauri-plugin-single-instance`, `tray-icon`, `platform::autostart` — 🪪 `StartupTask` (`MunaStartup`, `RequestEnableAsync` / `Disable`) with package identity, `HKCU\…\Run` value `Muna --autostart` otherwise (no `tauri-plugin-autostart`: it cannot use the `StartupTask`, and the two must never both be set) | `DisabledByUser` → the setting reverts and the UI points at Windows Settings |
 | Global hotkeys | `RegisterHotKey` (`MOD_NOREPEAT`) via `tauri-plugin-global-shortcut` | Conflicts reported in Settings |
 | Identity check | `GetCurrentPackageFullName` → `APPMODEL_ERROR_NO_PACKAGE` | Feature-flags 🪪 modules at runtime |
 
@@ -160,7 +160,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 
 ## Crates & packages
 
-`tauri` 2.x, `tauri-plugin-{single-instance,autostart,global-shortcut,clipboard-manager,positioner,updater,notification}`,
+`tauri` 2.x, `tauri-plugin-{single-instance,global-shortcut,clipboard-manager,positioner,updater,notification}`,
 `tauri-plugin-drag`, `windows` ≥ 0.62 (features: `Media_Control`, `Storage_Streams`,
 `UI_Notifications_Management`, `UI_Shell`, `Devices_Bluetooth`, `Devices_Enumeration`,
 `Devices_Radios`, `System_Power`, `ApplicationModel_DataTransfer`, `Win32_Media_Audio_Endpoints`,

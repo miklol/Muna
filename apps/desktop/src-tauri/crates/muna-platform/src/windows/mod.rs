@@ -5,6 +5,8 @@
 //! Every Win32 call in this module checks its result and every `unsafe` block carries a
 //! `// SAFETY:` comment (repository rule).
 
+mod app_bar;
+mod autostart;
 mod foreground;
 pub mod identity;
 mod monitors;
@@ -17,12 +19,16 @@ use tokio::sync::broadcast;
 use tracing::warn;
 use windows::Win32::Foundation::GetLastError;
 
+pub use autostart::{AUTOSTART_ARG, STARTUP_TASK_ID};
+
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
-use crate::traits::{Audio, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing};
+use crate::traits::{
+    AppBar, Audio, Autostart, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing,
+};
 use crate::types::{
-    AudioDevice, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand, MediaSession,
-    MonitorInfo, Rect, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
+    MediaSession, MonitorInfo, Rect, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -48,6 +54,7 @@ pub struct WindowsPlatform {
     events: broadcast::Sender<PlatformEvent>,
     /// `None` when the pump could not start; polling still works, only push events are lost.
     _pump: Option<pump::Pump>,
+    app_bars: app_bar::AppBars,
 }
 
 impl Default for WindowsPlatform {
@@ -70,6 +77,7 @@ impl WindowsPlatform {
         Self {
             events,
             _pump: pump,
+            app_bars: app_bar::AppBars::default(),
         }
     }
 }
@@ -159,6 +167,10 @@ impl Windowing for WindowsPlatform {
         window::set_capture_exclusion(window, excluded)
     }
 
+    fn set_no_activate(&self, window: WindowHandle, no_activate: bool) -> PlatformResult<()> {
+        window::set_no_activate(window, no_activate)
+    }
+
     fn window_rect(&self, window: WindowHandle) -> PlatformResult<Rect> {
         window::window_rect(window)
     }
@@ -173,6 +185,36 @@ impl Windowing for WindowsPlatform {
 
     fn user_notification_state(&self) -> PlatformResult<UserNotificationState> {
         window::user_notification_state()
+    }
+}
+
+impl AppBar for WindowsPlatform {
+    fn reserve_top(
+        &self,
+        window: WindowHandle,
+        monitor: Rect,
+        height: u32,
+    ) -> PlatformResult<Rect> {
+        self.app_bars.reserve_top(window, monitor, height)
+    }
+
+    fn release(&self, window: WindowHandle) -> PlatformResult<()> {
+        self.app_bars.release(window);
+        Ok(())
+    }
+}
+
+impl Autostart for WindowsPlatform {
+    fn mechanism(&self) -> AutostartMechanism {
+        autostart::mechanism()
+    }
+
+    fn is_enabled(&self) -> PlatformResult<bool> {
+        autostart::is_enabled()
+    }
+
+    fn set_enabled(&self, enabled: bool) -> PlatformResult<()> {
+        autostart::set_enabled(enabled)
     }
 }
 
@@ -202,6 +244,14 @@ impl Platform for WindowsPlatform {
     }
 
     fn windowing(&self) -> &dyn Windowing {
+        self
+    }
+
+    fn app_bar(&self) -> &dyn AppBar {
+        self
+    }
+
+    fn autostart(&self) -> &dyn Autostart {
         self
     }
 
