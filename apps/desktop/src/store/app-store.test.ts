@@ -3,13 +3,29 @@ import { describe, expect, it } from 'vitest';
 import { useAppStore } from './app-store';
 
 describe('app store', () => {
-  it('starts idle and tracks strip content', () => {
+  it('starts idle and tracks strip content with the moment it arrived', () => {
     expect(useAppStore.getState().stripContent).toEqual({ kind: 'idle' });
-    useAppStore.getState().setStripContent({
-      kind: 'notice',
-      notice: { id: 'n1', module: 'test', priority: 50, text: 'Connected', holdMs: 3000 },
-    });
+    expect(useAppStore.getState().stripContentAt).toBe(0);
+    useAppStore.getState().setStripContent(
+      {
+        kind: 'notice',
+        notice: {
+          id: 'n1',
+          module: 'test',
+          priority: 50,
+          leading: { kind: 'icon', glyph: 'bell', tint: null },
+          trailing: null,
+          wide: { kind: 'text', value: 'Connected' },
+          holdMs: 3000,
+        },
+      },
+      12_345,
+    );
     expect(useAppStore.getState().stripContent.kind).toBe('notice');
+    expect(useAppStore.getState().stripContentAt).toBe(12_345);
+    const before = Date.now();
+    useAppStore.getState().setStripContent({ kind: 'idle' });
+    expect(useAppStore.getState().stripContentAt).toBeGreaterThanOrEqual(before);
   });
 
   it('has no layout until the shell attaches the window, then mirrors its yield state', () => {

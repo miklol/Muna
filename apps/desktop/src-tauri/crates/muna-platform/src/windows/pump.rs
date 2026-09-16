@@ -4,7 +4,9 @@
 //! * `EVENT_SYSTEM_FOREGROUND` via `SetWinEventHook` → [`PlatformEvent::ForegroundChanged`],
 //! * `EVENT_SYSTEM_MOVESIZESTART/END` via `SetWinEventHook` → [`PlatformEvent::MoveSizeChanged`],
 //! * `WM_WTSSESSION_CHANGE` (after `WTSRegisterSessionNotification`) →
-//!   [`PlatformEvent::SessionLockChanged`].
+//!   [`PlatformEvent::SessionLockChanged`],
+//! * `WM_POWERBROADCAST` / `PBT_APMPOWERSTATUSCHANGE` → [`PlatformEvent::BatteryChanged`]
+//!   (re-read with `GetSystemPowerStatus`; the OS repeats it, consumers de-duplicate).
 //!
 //! A hidden *top-level* window is used on purpose: message-only (`HWND_MESSAGE`) windows do not
 //! receive broadcast messages such as `WM_DISPLAYCHANGE`. The `WinEvent` hooks must live on a
@@ -28,14 +30,14 @@ use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWi
 use windows::Win32::UI::WindowsAndMessaging::{
     CHILDID_SELF, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
     EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZESTART, GetMessageW,
-    MSG, OBJID_WINDOW, PostMessageW, PostQuitMessage, RegisterClassW, TranslateMessage,
-    WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_CLOSE, WM_DESTROY,
-    WM_DISPLAYCHANGE, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPED, WTS_SESSION_LOCK,
-    WTS_SESSION_UNLOCK,
+    MSG, OBJID_WINDOW, PBT_APMPOWERSTATUSCHANGE, PostMessageW, PostQuitMessage, RegisterClassW,
+    TranslateMessage, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_CLOSE,
+    WM_DESTROY, WM_DISPLAYCHANGE, WM_POWERBROADCAST, WM_WTSSESSION_CHANGE, WNDCLASSW,
+    WS_OVERLAPPED, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
 };
 use windows::core::{PCWSTR, w};
 
-use super::{foreground, last_error, monitors};
+use super::{foreground, last_error, monitors, power};
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 
@@ -250,6 +252,17 @@ unsafe extern "system" fn window_proc(
                 _ => {}
             }
             LRESULT(0)
+        }
+        WM_POWERBROADCAST => {
+            // Only the AC/battery status change matters; suspend/resume codes are ignored.
+            if u32::try_from(wparam.0).unwrap_or(0) == PBT_APMPOWERSTATUSCHANGE {
+                match power::battery() {
+                    Ok(state) => publish(PlatformEvent::BatteryChanged(state)),
+                    Err(error) => warn!(%error, "platform pump: power status read failed"),
+                }
+            }
+            // `TRUE` acknowledges a power broadcast.
+            LRESULT(1)
         }
         WM_CLOSE => {
             // SAFETY: `hwnd` is the pump window handed to us by the OS for this message.

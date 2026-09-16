@@ -215,6 +215,8 @@ export const timings = {
   contentExitMs: 80,
   /** Shape starts collapsing this long after content begins to exit. */
   shapeFollowDelayMs: 40,
+  /** After a collapse settles, whatever live activity is due appears this long later. */
+  collapseToActivityMs: 150,
   /** Wide form hold on track change before `collapse`. */
   wideFormHoldMs: 2500,
   /** HUD linger after the last value change. */

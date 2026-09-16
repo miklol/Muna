@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use muna_core::{Scheduler, Settings, SettingsStore, Store};
+use muna_core::{Hub, Settings, SettingsStore, Store, SystemClock};
 use muna_platform::{Platform, PlatformError};
 use parking_lot::Mutex;
 use tauri::AppHandle;
@@ -18,7 +18,8 @@ pub struct AppState {
     pub platform: Arc<dyn Platform>,
     pub settings_store: SettingsStore,
     pub settings: Mutex<Settings>,
-    pub scheduler: Mutex<Scheduler>,
+    /// Live activities and notices; the modules publish, the strip renders (ADR-0004).
+    pub activities: Arc<Hub>,
     pub store: Store,
     /// `true` when no settings file existed before this launch (show the settings window).
     pub first_run: bool,
@@ -51,7 +52,7 @@ impl AppState {
             platform,
             settings_store,
             settings: Mutex::new(settings),
-            scheduler: Mutex::new(Scheduler::default()),
+            activities: Arc::new(Hub::new(Arc::new(SystemClock))),
             store,
             first_run,
             shell: None,
@@ -88,7 +89,7 @@ impl AppState {
             platform: Arc::new(muna_platform::FakePlatform::new()),
             settings_store: SettingsStore::new(profile_dir.join("settings.json")),
             settings: Mutex::new(Settings::default()),
-            scheduler: Mutex::new(Scheduler::default()),
+            activities: Arc::new(Hub::new(Arc::new(SystemClock))),
             store: Store::open_in_memory()?,
             first_run: true,
             shell: None,
@@ -103,6 +104,15 @@ impl AppState {
             shell.apply_settings(app, &settings.shell);
         }
         self.sync_autostart(app, settings.general.launch_at_login);
+    }
+
+    /// The context handed to every module backend.
+    #[must_use]
+    pub fn module_ctx(&self) -> crate::modules::ModuleCtx {
+        crate::modules::ModuleCtx {
+            platform: Arc::clone(&self.platform),
+            activities: Arc::clone(&self.activities),
+        }
     }
 
     /// Brings the OS launch-at-login state in line with the setting, off the UI thread (`WinRT`

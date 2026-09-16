@@ -1,69 +1,37 @@
 import type { StripContent } from '@muna/contracts';
-import { Text } from '@muna/ui/primitives';
+import { StripView } from '@muna/ui/primitives';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { present } from './strip-content';
 
 export interface StripProps {
   content: StripContent;
+  /** `Date.now()` when `content` arrived; countdowns tick from here between publishes. */
+  receivedAt: number;
 }
 
-/** The wide-form text a piece of strip content carries, if any. */
-export const wideText = (content: StripContent): string | null => {
-  switch (content.kind) {
-    case 'notice':
-      return content.notice.text;
-    case 'activity':
-      return content.activity.wideText;
-    default:
-      return null;
-  }
-};
-
-const slotDescriptor = (content: StripContent, side: 'leading' | 'trailing'): string | null =>
-  content.kind === 'activity' ? content.activity[side] : null;
-
 /**
- * The closed strip (docs/05-design-system.md "Per-surface notes"): two 20 px slots inset 10 px
- * from each edge around an empty black centre, or the wide form with one line of footnote
- * text. Slot renderers for each live-activity source arrive with M1-E2; until then a slot
- * exposes its descriptor and paints nothing.
+ * The closed strip (docs/05-design-system.md "Per-surface notes"): the contract's slots mapped
+ * to `StripView`'s vocabulary, localised for the window's language.
  */
-export function Strip({ content }: StripProps) {
-  const { t } = useTranslation();
-  const text = wideText(content);
+export function Strip({ content, receivedAt }: StripProps) {
+  const { t, i18n } = useTranslation();
+  const presentation = useMemo(
+    () => present(content, t, i18n.language, receivedAt),
+    [content, t, i18n.language, receivedAt],
+  );
   return (
-    <div
-      role="region"
+    <StripView
       aria-label={t('notch.strip')}
-      data-kind={content.kind}
-      data-wide={text !== null}
-      className="flex h-full items-center justify-between gap-2 px-2.5"
-    >
-      <span
-        aria-hidden="true"
-        data-slot="leading"
-        data-descriptor={slotDescriptor(content, 'leading')}
-        className="size-(--size-strip-slot) shrink-0"
-      />
-      {text !== null ? (
-        <Text
-          as="span"
-          role="status"
-          variant="footnote"
-          weight={600}
-          truncate={1}
-          className="min-w-0 flex-1 text-center"
-        >
-          {text}
-        </Text>
-      ) : (
-        <span className="sr-only">{t('notch.placeholder')}</span>
-      )}
-      <span
-        aria-hidden="true"
-        data-slot="trailing"
-        data-descriptor={slotDescriptor(content, 'trailing')}
-        className="size-(--size-strip-slot) shrink-0"
-      />
-    </div>
+      itemId={presentation.itemId}
+      kind={presentation.kind}
+      leading={presentation.leading}
+      trailing={presentation.trailing}
+      text={presentation.text}
+      wide={presentation.wide}
+      description={presentation.description}
+      className="h-full"
+    />
   );
 }

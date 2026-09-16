@@ -110,6 +110,7 @@ describe('reduced motion and timings', () => {
     expect(timings.revealToExpandMs).toBe(600);
     expect(timings.contentEnterDelayMs).toBe(60);
     expect(timings.contentExitMs).toBe(80);
+    expect(timings.collapseToActivityMs).toBe(150);
     expect(timings.noticeHoldMs).toBe(4000);
     expect(timings.staggerMs).toBe(30);
     expect(timings.reducedMotionHoldMultiplier).toBe(1.5);

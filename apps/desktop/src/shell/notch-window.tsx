@@ -56,11 +56,13 @@ import {
   targetOffsetY,
   targetSize,
 } from './shell-geometry';
-import { Strip, wideText } from './strip';
+import { Strip } from './strip';
+import { wantsWide } from './strip-content';
 import {
   publishShapeRects,
   reportMorph,
   setNotchFocusable,
+  setStripSuspended,
   useShellLayoutSubscription,
   useShellPointerDownOutsideSubscription,
   useShellReady,
@@ -152,6 +154,7 @@ const geometryKey = (width: number, height: number, offsetY: number, radius: num
 export function NotchWindow({ panelBody, modules = registeredModules }: NotchWindowProps) {
   const { t } = useTranslation();
   const content = useAppStore((state) => state.stripContent);
+  const contentAt = useAppStore((state) => state.stripContentAt);
   const layoutFromShell = useAppStore((state) => state.shellLayout);
   const yieldState = useAppStore((state) => state.yieldState);
   const activeModuleId = useAppStore((state) => state.activeModuleId);
@@ -277,7 +280,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
 
   // --- geometry ------------------------------------------------------------------------------
 
-  const wide = !panelShown && wideText(content) !== null;
+  const wide = !panelShown && wantsWide(content);
   const geometry = useMemo<GeometryInput>(
     () => ({ layout, wide, panelContentHeight }),
     [layout, wide, panelContentHeight],
@@ -405,6 +408,30 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const closing = morphing && !panelShown && showsPanel(snapshot.previous);
   const surfaceExpanded = panelShown || closing;
   const transition = morphTransition(snapshot.previous, state, wide, reduceMotion);
+
+  // The strip's scheduler pauses while the panel covers it and resumes once the collapse has
+  // settled, so whatever is due appears `collapseToActivityMs` later with `notice`
+  // (docs/06-motion-spec.md "Panel → strip"; docs/modules/live-activities.md "Rules").
+  const stripSuspended = useRef(false);
+  useEffect(() => {
+    if (panelShown) {
+      if (!stripSuspended.current) {
+        stripSuspended.current = true;
+        setStripSuspended(true);
+      }
+      return;
+    }
+    if (morphing || !stripSuspended.current) {
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      stripSuspended.current = false;
+      setStripSuspended(false);
+    }, timings.collapseToActivityMs);
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [morphing, panelShown]);
 
   // While a morph is in flight the pointer stays interactive over both the old and the new
   // bounds; at rest (and after a layout change that moved nothing) the rects are the settled
@@ -594,7 +621,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                   exit={contentExit}
                   transition={contentTransition}
                 >
-                  <Strip content={content} />
+                  <Strip content={content} receivedAt={contentAt} />
                 </motion.div>
               )}
             </AnimatePresence>

@@ -12,6 +12,14 @@ export const commands = {
 	/**  Persists the whole settings document and broadcasts `SettingsChanged`. */
 	updateSettings: (settings: Settings) => typedError<Settings, IpcError>(__TAURI_INVOKE("update_settings", { settings })),
 	getStripContent: () => __TAURI_INVOKE<StripContent>("get_strip_content"),
+	/**
+	 *  The notch window's panel is showing (or has just collapsed): while suspended, notices
+	 *  queue instead of interrupting the panel (docs/modules/live-activities.md "Interaction with
+	 *  the panel"). Keyed by window so a second notch window cannot un-suspend the first.
+	 */
+	setStripSuspended: (suspended: boolean) => __TAURI_INVOKE<void>("set_strip_suspended", { suspended }),
+	/**  Every live activity, highest priority first, for the settings and debugging surfaces. */
+	listActivities: () => __TAURI_INVOKE<ActivityState[]>("list_activities"),
 	getShellMode: () => __TAURI_INVOKE<ShellMode>("get_shell_mode"),
 	/**  The UI has painted its first frame; the shell may move the window into place. */
 	shellReady: () => typedError<null, IpcError>(__TAURI_INVOKE("shell_ready")),
@@ -71,17 +79,22 @@ export const events = {
 };
 
 /* Types */
-/**  Long-lived strip content owned by a module. */
+/**  Long-lived strip content owned by a module (`id` is `<module>:<key>`). */
 export type Activity = {
 	id: string,
 	module: string,
-	/**  0–100; higher wins. Module defaults live in docs/modules/*.md. */
+	/**  0–100; higher wins. Defaults live in [`priority`]. */
 	priority: number,
-	/**  Leading slot descriptor (`"image"`, `"icon:battery"`, …); the UI maps it to a view. */
-	leading: string | null,
-	trailing: string | null,
-	/**  Optional text for the wide (expanded strip) layout. */
-	wideText: string | null,
+	leading: Leading | null,
+	trailing: Trailing | null,
+	/**  Text for the wide form. A change here shows the wide form for [`WIDE_FORM_HOLD`]. */
+	wide: StripMessage | null,
+};
+
+/**  An activity plus the user state the scheduler keeps for it (the expanded list). */
+export type ActivityState = {
+	activity: Activity,
+	focused: boolean,
 };
 
 /**  Static facts about the running build, for the settings "About" section and diagnostics. */
@@ -100,6 +113,12 @@ export type GeneralSettings = {
 	accent: string,
 };
 
+/**
+ *  A glyph the strip can draw; the UI maps each to its icon. Closed on purpose so the
+ *  mapping is exhaustive — add a variant here when a module needs a new one.
+ */
+export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" | "lock" | "unlock" | "timer" | "bell" | "music" | "moon";
+
 /**  Error shape every command returns. Messages are safe to show and to log (no user data). */
 export type IpcError = {
 	/**  Stable machine-readable code (`settings.io`, `store.sqlite`, `platform.unsupported`). */
@@ -114,6 +133,16 @@ export type IpcError = {
  *  declares this shape for TypeScript while the runtime keeps `serde_json::Value`.
  */
 export type JsonValue = null | boolean | number | null | string | JsonValue[] | { [key in string]: JsonValue };
+
+/**  The leading (left) slot of the strip. */
+export type Leading = { kind: "icon"; glyph: Glyph; tint: Tint | null } | 
+/**
+ *  A battery glyph filled to `percent`, with a bolt while charging; the UI colours it by
+ *  level (green charging, orange ≤ 20, red ≤ 10).
+ */
+{ kind: "battery"; percent: number; charging: boolean } | 
+/**  Album art or an app icon, as a data URL or asset URL. Rounded 6 px at 20 px. */
+{ kind: "image"; src: string };
 
 /**  Everything the shell needs for one monitor. */
 export type MonitorLayout = {
@@ -155,13 +184,15 @@ export type MorphRequested = {
  */
 export type NotchShape = "notch" | "island";
 
-/**  Short, self-dismissing strip content. */
+/**  Short, self-dismissing strip content. Pre-empts activities while held. */
 export type Notice = {
 	id: string,
 	module: string,
 	priority: number,
-	text: string,
-	/**  How long the notice holds the strip. */
+	leading: Leading | null,
+	trailing: Trailing | null,
+	wide: StripMessage | null,
+	/**  How long the notice holds the strip; `0` means [`NOTICE_HOLD`]. */
 	holdMs: number,
 };
 
@@ -273,7 +304,13 @@ export type ShellYieldChanged = {
 };
 
 /**  What the closed strip renders right now. */
-export type StripContent = { kind: "idle" } | { kind: "activity"; activity: Activity } | { kind: "notice"; notice: Notice };
+export type StripContent = 
+/**  Nothing to show: the strip is the bare black shape. */
+{ kind: "idle" } | 
+/**  An activity; `wide` says whether its text is showing (the 2.5 s burst after a change). */
+{ kind: "activity"; activity: Activity; wide: boolean } | 
+/**  A held notice; its text, when present, always shows. */
+{ kind: "notice"; notice: Notice };
 
 export type StripContentChanged = {
 	content: StripContent,
@@ -281,6 +318,33 @@ export type StripContentChanged = {
 
 /**  Strip height presets: 32 (Default) · 26 (Compact) · 38 (Comfortable) CSS px. */
 export type StripHeight = "compact" | "default" | "comfortable";
+
+/**
+ *  One line of text for the wide form. Built-in notices carry their *facts* rather than a
+ *  sentence so the UI can localise them; `Text` is for content that is already words
+ *  (a track title, a user label) and is never logged. Glyph-only notices (charging, lock)
+ *  have no message: the UI describes them from their slots for assistive technology.
+ */
+export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow"; percent: number } | { kind: "bluetoothConnected"; name: string; batteryPercent: number | null } | { kind: "bluetoothDisconnected"; name: string } | { kind: "timerFinished"; label: string };
+
+/**  An accent from the design system (docs/05-design-system.md, colour tokens). */
+export type Tint = "blue" | "cyan" | "green" | "orange" | "red" | "purple" | "yellow" | "pink";
+
+/**  The trailing (right) slot of the strip. */
+export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } | 
+/**  Short text that is already words (a track position, a device name); tabular figures. */
+{ kind: "text"; value: string } | 
+/**  A percentage the UI formats for the locale. */
+{ kind: "percent"; value: number } | 
+/**  A battery glyph filled to `percent`, with a bolt while charging. */
+{ kind: "battery"; percent: number; charging: boolean } | 
+/**
+ *  A countdown. The UI ticks it locally from the moment it arrives, so the value need
+ *  not be republished every second.
+ */
+{ kind: "timer"; remainingMs: number; totalMs: number; running: boolean } | 
+/**  A 0–100 progress track. */
+{ kind: "progress"; percent: number };
 
 /**  What one notch window does about the world around it. */
 export type YieldState = 

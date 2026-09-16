@@ -106,19 +106,24 @@ OS consume `muna-platform` traits, never the `windows` crate directly.
 ## Module contract
 
 ```rust
-// src-tauri/src/modules/mod.rs
+// src-tauri/src/modules/mod.rs (as landed in M1-E2; the async lifecycle grows with M2)
+pub enum Surface { Strip, Panel, Widget, Hud, Drop, Snap }
+
 pub trait ModuleBackend: Send + Sync {
-    fn id(&self) -> ModuleId;
-    fn capabilities(&self) -> Capabilities;          // strip, panel, widget, hud, drop, snap
-    async fn start(&self, ctx: ModuleCtx) -> Result<()>;   // subscribe to platform events
-    async fn stop(&self) -> Result<()>;
-    async fn on_settings(&self, s: serde_json::Value) -> Result<()>;
-    async fn command(&self, name: &str, payload: serde_json::Value) -> Result<serde_json::Value>;
+    fn id(&self) -> &'static str;
+    fn capabilities(&self) -> &'static [Surface];
+    /// Subscribes to platform events and spawns its tasks; returns once wired up.
+    fn start(&self, ctx: ModuleCtx) -> anyhow::Result<()>;
+    // Planned: stop(), on_settings(serde_json::Value), command(name, payload).
 }
-// ctx.publish_state(state) → event `module:<id>:state`
-// ctx.publish_activity(Activity) / ctx.retract_activity(id) → scheduler
-// ctx.notice(Notice) → scheduler (pre-empting)
+// ctx.platform: Arc<dyn Platform>        → OS facts and `PlatformEvent`s, never the `windows` crate
+// ctx.activities: Arc<Hub>               → publish_activity / retract_activity / publish_notice
+// ctx.publish_state(state) → event `module:<id>:state` (planned)
 ```
+
+`start` is synchronous and dyn-compatible: a backend spawns whatever tasks it needs on the
+Tauri runtime and returns. `capabilities` is a slice of `Surface`s rather than a struct of
+booleans so the registry can list, filter and render them without a growing flag set.
 
 ```ts
 // src/modules/<id>/index.ts

@@ -4,7 +4,9 @@ import { create } from 'zustand';
 export interface AppStore {
   /** What the closed strip renders; mirrors the Rust scheduler via `StripContentChanged`. */
   stripContent: StripContent;
-  setStripContent: (content: StripContent) => void;
+  /** `Date.now()` when `stripContent` arrived; countdowns in the strip tick from here. */
+  stripContentAt: number;
+  setStripContent: (content: StripContent, at?: number) => void;
   /** Placement of this notch window; `null` until the shell has attached it. */
   shellLayout: ShellLayout | null;
   setShellLayout: (layout: ShellLayout | null) => void;
@@ -21,8 +23,9 @@ export interface AppStore {
 
 export const useAppStore = create<AppStore>()((set) => ({
   stripContent: { kind: 'idle' },
-  setStripContent: (content) => {
-    set({ stripContent: content });
+  stripContentAt: 0,
+  setStripContent: (content, at = Date.now()) => {
+    set({ stripContent: content, stripContentAt: at });
   },
   shellLayout: null,
   setShellLayout: (layout) => {

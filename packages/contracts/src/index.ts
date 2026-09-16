@@ -5,10 +5,13 @@
 export { commands, events } from './bindings';
 export type {
   Activity,
+  ActivityState,
   AppInfo,
   GeneralSettings,
+  Glyph,
   IpcError,
   JsonValue,
+  Leading,
   MonitorLayout,
   MorphReport,
   MorphRequested,
@@ -29,6 +32,9 @@ export type {
   StripContent,
   StripContentChanged,
   StripHeight,
+  StripMessage,
+  Tint,
+  Trailing,
   YieldState,
 } from './bindings';
 export * from './result';

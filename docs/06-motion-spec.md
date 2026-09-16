@@ -76,8 +76,10 @@ Tuning happens only in the Storybook "Motion" playground and lands as a change t
 
 Hover tint, press scale and chip select are pure CSS. `toLinearEasing(preset)` renders a spring
 as `"<ms>ms linear(…)"` (Motion's `spring().toString()`), and `MunaMotionProvider` publishes
-three of them on `<html>`: `--muna-motion-press`, `--muna-motion-toggle`,
-`--muna-motion-reveal`. Primitives write `transition: transform var(--muna-motion-press)`.
+four of them on `<html>`: `--muna-motion-press`, `--muna-motion-toggle`,
+`--muna-motion-reveal`, `--muna-motion-interactive` (fills that follow a rarely changing value,
+such as the battery glyph's level). Primitives write
+`transition: transform var(--muna-motion-press)`.
 Without a provider the properties are undefined and the state change is instant — never a
 literal fallback. CSS transitions cannot inherit velocity, so they are used only for states that
 are never interrupted mid-flight; anything that can be retargeted (shape, values) is driven by
@@ -92,6 +94,7 @@ Motion.
 | Hover-out grace | 150 ms from reveal, 300 ms from expanded; 30 px extended hover padding around the shape (boring.notch: 100 ms / 30 px) |
 | Click outside / Esc | Collapse immediately |
 | Content delay after shape starts | 60 ms (enter); content exits first in 80 ms, shape follows 40 ms later |
+| Due activity after a collapse settles | 150 ms, then `notice` |
 | Wide form on track change | 2.5 s hold, then `collapse` (boring.notch sneak-peek: 3 s) |
 | HUD linger after last change | 1.5 s |
 | Notice default hold | 4 s (priority table in [live-activities](modules/live-activities.md)) |

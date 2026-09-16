@@ -120,6 +120,14 @@ export const publishShapeRects = (rects: ShapeRect[]): void => {
 };
 
 /**
+ * Pauses (`true`) or resumes (`false`) strip scheduling while the panel covers the strip
+ * (docs/modules/live-activities.md, "Rules"): notices queue and are released on resume.
+ */
+export const setStripSuspended = (suspended: boolean): void => {
+  commands.setStripSuspended(suspended).then(ignoreIpcFailure, ignoreIpcFailure);
+};
+
+/**
  * Tells the shell, once, that the first frame is on screen so the window can be moved into
  * place — two animation frames after mount (docs/modules/notch-shell.md, "moved into place
  * after the UI reports ready") — right after `publish` has handed over the painted rects.
