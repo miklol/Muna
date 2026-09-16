@@ -22,7 +22,9 @@ use tauri_specta::Event;
 
 use super::hit_test::PollRate;
 use super::model::{Effect, PRIMARY_LABEL, ReconcilePlan, ShellLayout, ShellModel};
-use crate::ipc::{ShapeRect, ShellLayoutChanged, ShellToggleRequested, ShellYieldChanged};
+use crate::ipc::{
+    ShapeRect, ShellLayoutChanged, ShellPointerDownOutside, ShellToggleRequested, ShellYieldChanged,
+};
 
 /// Label of the settings window in `tauri.conf.json`.
 pub const SETTINGS_LABEL: &str = "settings";
@@ -91,7 +93,7 @@ impl ShellManager {
         self.reconcile(app);
         self.install_tray(app);
         self.register_hotkey(app);
-        spawn_cursor_poll(Arc::clone(self));
+        spawn_cursor_poll(app, Arc::clone(self));
         spawn_quiet_poll(app, Arc::clone(self));
         spawn_event_bridge(app, Arc::clone(self));
     }
@@ -270,10 +272,19 @@ impl ShellManager {
         self.model.lock().shell_layout(label)
     }
 
-    pub fn set_focusable(&self, label: &str, focusable: bool) {
+    /// Toggles `WS_EX_NOACTIVATE` for one notch window. Clearing it does not activate the
+    /// window by itself, so a request for focus is followed by `set_focus` (the UI asks only
+    /// while Pinned with a text field focused; the window's own click cannot activate it).
+    pub fn set_focusable(&self, app: &AppHandle, label: &str, focusable: bool) {
         self.model
             .lock()
             .set_focusable(self.platform.as_ref(), label, focusable);
+        if focusable
+            && let Some(window) = app.get_webview_window(label)
+            && let Err(error) = window.set_focus()
+        {
+            tracing::warn!(%error, label, "set_focus failed");
+        }
     }
 
     /// Pauses or resumes the notch on one display and mirrors it in the tray menu.
@@ -453,23 +464,33 @@ impl ShellManager {
 
     // --- polls ----------------------------------------------------------------------------
 
-    fn poll_cursor(&self) -> PollRate {
-        let cursor = match self.platform.windowing().cursor_position() {
+    fn poll_cursor(&self, app: &AppHandle) -> PollRate {
+        let windowing = self.platform.windowing();
+        let cursor = match windowing.cursor_position() {
             Ok(cursor) => cursor,
             Err(error) => {
                 tracing::warn!(%error, "cursor poll failed");
                 return PollRate::Idle;
             }
         };
-        let (rate, toggles) = self.model.lock().poll_cursor(cursor);
+        let button_down = windowing.pointer_button_down().unwrap_or_else(|error| {
+            tracing::warn!(%error, "pointer button poll failed");
+            false
+        });
+        let poll = self.model.lock().poll_cursor(cursor, button_down);
         // Outside the lock: `SetWindowLongPtr` is a synchronous message to the main thread,
         // which may itself be waiting for the model (docs/spikes/m0-window.md, W7).
-        for (hwnd, ignore) in toggles {
-            if let Err(error) = self.platform.windowing().set_click_through(hwnd, ignore) {
+        for (hwnd, ignore) in poll.toggles {
+            if let Err(error) = windowing.set_click_through(hwnd, ignore) {
                 tracing::warn!(%error, "set_click_through failed");
             }
         }
-        rate
+        for label in poll.pressed_outside {
+            if let Err(error) = (ShellPointerDownOutside { label }).emit(app) {
+                tracing::warn!(%error, "emit ShellPointerDownOutside failed");
+            }
+        }
+        poll.rate
     }
 
     fn assert_all_topmost(&self) {
@@ -545,15 +566,16 @@ fn handle_of(window: &WebviewWindow) -> Option<WindowHandle> {
     }
 }
 
-fn spawn_cursor_poll(manager: Arc<ShellManager>) {
+fn spawn_cursor_poll(app: &AppHandle, manager: Arc<ShellManager>) {
     // A plain OS thread, not a tokio task: tokio's timer parks on the 15.6 ms Windows tick
     // (measured 31 ms for a 16.7 ms sleep), while `std::thread::sleep` uses a high-resolution
     // waitable timer without raising the process timer resolution.
+    let app = app.clone();
     let spawned = std::thread::Builder::new()
         .name("muna-cursor-poll".into())
         .spawn(move || {
             loop {
-                let rate = manager.poll_cursor();
+                let rate = manager.poll_cursor(&app);
                 std::thread::sleep(rate.interval());
             }
         });

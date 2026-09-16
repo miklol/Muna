@@ -1,3 +1,4 @@
+import type * as Contracts from '@muna/contracts';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,21 +10,29 @@ const ipc = vi.hoisted(() => ({
   getShellMode: vi.fn<() => Promise<'normal' | 'spikeWindow'>>(),
 }));
 
-vi.mock('@muna/contracts', () => ({
-  commands: {
-    getShellMode: ipc.getShellMode,
-    getShellLayout: vi.fn(() => Promise.resolve({ status: 'ok', data: null })),
-    shellReady: vi.fn(() => Promise.resolve({ status: 'ok', data: null })),
-    publishShapeRects: vi.fn(() => Promise.resolve({ status: 'ok', data: null })),
-    reportMorph: vi.fn(() => Promise.resolve(undefined)),
-  },
-  events: {
-    stripContentChanged: { listen: vi.fn(() => Promise.resolve(() => undefined)) },
-    shellLayoutChanged: { listen: vi.fn(() => Promise.resolve(() => undefined)) },
-    shellYieldChanged: { listen: vi.fn(() => Promise.resolve(() => undefined)) },
-    morphRequested: { listen: vi.fn(() => Promise.resolve(() => undefined)) },
-  },
-}));
+vi.mock('@muna/contracts', async (importOriginal) => {
+  const ok = () => Promise.resolve({ status: 'ok' as const, data: null });
+  const silent = { listen: vi.fn(() => Promise.resolve(() => undefined)) };
+  return {
+    ...(await importOriginal<typeof Contracts>()),
+    commands: {
+      getShellMode: ipc.getShellMode,
+      getShellLayout: vi.fn(ok),
+      shellReady: vi.fn(ok),
+      publishShapeRects: vi.fn(ok),
+      setNotchFocusable: vi.fn(ok),
+      reportMorph: vi.fn(ok),
+    },
+    events: {
+      stripContentChanged: silent,
+      shellLayoutChanged: silent,
+      shellYieldChanged: silent,
+      shellToggleRequested: silent,
+      shellPointerDownOutside: silent,
+      morphRequested: silent,
+    },
+  };
+});
 
 describe('ShellRoot', () => {
   beforeEach(() => {
@@ -39,7 +48,9 @@ describe('ShellRoot', () => {
         <ShellRoot />
       </AppProviders>,
     );
-    expect(await screen.findByRole('status')).toHaveAttribute('data-kind', 'idle');
+    const strip = await screen.findByRole('region', { name: 'Notch strip' });
+    expect(strip).toHaveAttribute('data-kind', 'idle');
+    expect(screen.getByRole('main')).toHaveAttribute('data-state', 'collapsed');
   });
 
   it('renders the spike when Rust reports spikeWindow', async () => {

@@ -92,6 +92,27 @@
   border-radius: 0;
 }
 
+/*
+ * While the parent morphs the size it can also drive the bottom radii (14 → 28) by animating
+ * `--muna-notch-morph-radius` on an ancestor (Motion interpolates CSS variables); without it the
+ * state's own radius applies, so the variable is optional.
+ */
+.muna-notch-surface--notch.muna-notch-surface--morphing.muna-notch-surface--collapsed
+  .muna-notch-surface__shape,
+.muna-notch-surface--notch.muna-notch-surface--morphing.muna-notch-surface--collapsed
+  .muna-notch-surface__shadow {
+  border-radius: 0 0 var(--muna-notch-morph-radius, var(--radius-strip))
+    var(--muna-notch-morph-radius, var(--radius-strip));
+}
+
+.muna-notch-surface--notch.muna-notch-surface--morphing.muna-notch-surface--expanded
+  .muna-notch-surface__shape,
+.muna-notch-surface--notch.muna-notch-surface--morphing.muna-notch-surface--expanded
+  .muna-notch-surface__shadow {
+  border-radius: 0 0 var(--muna-notch-morph-radius, var(--radius-panel))
+    var(--muna-notch-morph-radius, var(--radius-panel));
+}
+
 /* Contrast themes: the strip gains a 1 px hairline so black stays visible on dark wallpapers. */
 @media (prefers-contrast: more) {
   .muna-notch-surface--notch.muna-notch-surface--collapsed .muna-notch-surface__shape {

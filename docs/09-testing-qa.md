@@ -70,6 +70,23 @@ The harness mounts the real shell with `FakePlatform` and asserts state + shape 
 | S13 | DPI 100 → 200 % | Shapes re-published; sizes doubled |
 | S14 | Reduced motion on | Durations ≤ 150 ms, no springs |
 
+**Where the suite runs (M1-E1).** The harness page is not built yet; the scenarios run as
+Vitest + Testing Library against the real `NotchWindow` — Motion springs complete under fake
+timers hoisted before the first import, so the tests assert settled geometry and morph reports
+(`apps/desktop/src/shell/notch-window.test.tsx`: S1–S7, S11, S13, plus hotkey, pin, press,
+scroll-down and the wide form; `machine.test.ts` covers the reducer alone) — and as
+`cargo test` against `FakePlatform` for the decisions Rust owns
+(`apps/desktop/src-tauri/tests/shell_model.rs`: S5 including the peek hit-rect translation,
+S6, S7, S12, debounce, `AppBar`, press outside). S14 is `morph-transition.test.ts` and
+`packages/ui/src/motion/reduced-motion.os.test.tsx`. S8 arrives with live activities (M1-E2),
+S9 with the HUD (M2) and S10 with Drop (M4). Hardware evidence is measured with
+`scripts/dev.ps1 -HitTest -FullMotion` and the `morph` lines in `%LOCALAPPDATA%\Muna\logs`;
+numbers are recorded in
+[notch-shell.md → Implementation notes](modules/notch-shell.md#implementation-notes-m1-e1).
+When driving the notch with synthetic input (`SetCursorPos`), nudge the cursor once after the
+shell has made the window interactive: Windows sends no `WM_MOUSEMOVE` for a cursor that is
+already resting there, whereas a real mouse always does.
+
 ## Performance harness (`scripts/perf`)
 
 1. Launch debug build with `--remote-debugging-port` and `MUNA_PERF=1`.

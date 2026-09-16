@@ -36,7 +36,14 @@ the Rust half: `ShellModel` + `ShellManager`, `yield_rules`, per-monitor `ShellS
 the `ShellLayoutChanged` / `ShellYieldChanged` contract and a minimal `NotchWindow` that reports
 ready, publishes its strip rect and follows layout/yield. Decisions are recorded in
 [notch-shell.md → Implementation notes](../modules/notch-shell.md#implementation-notes-m1-e1).
-PR 2 covers `shell/machine.ts`, Strip/Panel, the S1–S14 suite and the fps evidence.
+PR 2 (`feat(shell): notch state machine, strip and panel (m1-e1)`) landed the UI half:
+`shell/machine.ts` (pure reducer + timer runner), Strip (two slots, wide form), Panel container
+with the empty state, the hit-test overlay, the morph sampler and `report_morph`, the
+strip-rest-first rect contract, the peek hit-rect translation in Rust, the `-HitTest` /
+`-FullMotion` dev switches and the S1–S7 / S11–S14 scenarios (S8–S10 arrive with their
+modules). Measured on a 2560 × 1600 150 % display: expand 158–167 fps, collapse 157–167 fps,
+0 dropped frames — numbers and the OS reduced-motion finding are in the implementation notes.
+Remaining for the M1 exit criterion: a recording on a 4K 150 % display.
 
 ## M1-E2 · Live activities — agent: `muna-module-developer`
 

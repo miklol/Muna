@@ -33,6 +33,13 @@ pub enum WindowingCall {
     ReleaseAppBar(WindowHandle),
 }
 
+/// Scripted mouse state: where the cursor is and whether a button is held.
+#[derive(Debug, Default, Clone, Copy)]
+struct Pointer {
+    position: (i32, i32),
+    button_down: bool,
+}
+
 #[derive(Debug)]
 struct State {
     sessions: Vec<MediaSession>,
@@ -44,7 +51,7 @@ struct State {
     monitors: Vec<MonitorInfo>,
     foreground: Option<ForegroundWindow>,
     sent_media_commands: Vec<(String, MediaCommand)>,
-    cursor: (i32, i32),
+    pointer: Pointer,
     quiet: UserNotificationState,
     window_rects: Vec<(WindowHandle, Rect)>,
     windowing_calls: Vec<WindowingCall>,
@@ -81,7 +88,7 @@ impl Default for State {
             }],
             foreground: None,
             sent_media_commands: Vec::new(),
-            cursor: (0, 0),
+            pointer: Pointer::default(),
             quiet: UserNotificationState::AcceptsNotifications,
             window_rects: Vec::new(),
             windowing_calls: Vec::new(),
@@ -204,7 +211,12 @@ impl FakePlatform {
 
     /// Scripts the cursor position returned by [`Windowing::cursor_position`].
     pub fn set_cursor(&self, x: i32, y: i32) {
-        self.state.lock().cursor = (x, y);
+        self.state.lock().pointer.position = (x, y);
+    }
+
+    /// Scripts [`Windowing::pointer_button_down`] (a mouse button held anywhere on screen).
+    pub fn set_pointer_button_down(&self, down: bool) {
+        self.state.lock().pointer.button_down = down;
     }
 
     /// Scripts [`Windowing::user_notification_state`].
@@ -286,7 +298,11 @@ impl Windowing for FakePlatform {
     }
 
     fn cursor_position(&self) -> PlatformResult<(i32, i32)> {
-        Ok(self.state.lock().cursor)
+        Ok(self.state.lock().pointer.position)
+    }
+
+    fn pointer_button_down(&self) -> PlatformResult<bool> {
+        Ok(self.state.lock().pointer.button_down)
     }
 
     fn window_at(&self, x: i32, y: i32) -> PlatformResult<WindowHandle> {

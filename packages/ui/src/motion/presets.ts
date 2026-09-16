@@ -148,6 +148,33 @@ export const reducedMotionTransition = {
 } as const satisfies Transition;
 
 /**
+ * Content transition recipe (docs/06-motion-spec.md#content-transition-recipe): every piece of
+ * content inside the shell enters by condensing into place and exits before the shell clips it.
+ */
+export const contentRecipe = {
+  /** Enter start for nodes ≤ 320 × 160 px (blur allowed). */
+  enterFrom: { opacity: 0, scale: 0.9, y: -6, filter: 'blur(5px)' },
+  /** Enter start for larger bodies: opacity + scale only. */
+  enterFromLarge: { opacity: 0, scale: 0.9, y: -6 },
+  /** At rest. */
+  visible: { opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' },
+  /** Exit target: no blur, content is gone before the shape moves. */
+  exitTo: { opacity: 0, scale: 0.96 },
+  /** Under reduced motion content only crossfades. */
+  reducedEnterFrom: { opacity: 0 },
+  reducedVisible: { opacity: 1 },
+  reducedExitTo: { opacity: 0 },
+  /** Largest node that may enter with blur. */
+  blurMaxSize: { width: 320, height: 160 },
+} as const;
+
+/** Content exit: 80 ms ease-out (`timings.contentExitMs`). */
+export const contentExitTransition = {
+  duration: 0.08,
+  ease: [0.2, 0, 0, 1],
+} as const satisfies Transition;
+
+/**
  * Non-spring timings from docs/06-motion-spec.md#timings-non-spring, in milliseconds unless
  * the name says otherwise. Module code reads these instead of writing numbers.
  */

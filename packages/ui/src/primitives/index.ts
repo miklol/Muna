@@ -7,6 +7,7 @@ export { Chip, type ChipProps, type SelectableChipProps, type StaticChipProps } 
 export { Hairline, type HairlineProps } from './hairline';
 export { IconButton, type IconButtonProps } from './icon-button';
 export {
+  notchMorphRadiusVar,
   NotchSurface,
   type NotchShape,
   type NotchState,

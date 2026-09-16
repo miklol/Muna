@@ -22,6 +22,7 @@ export type {
   ShellLayout,
   ShellLayoutChanged,
   ShellMode,
+  ShellPointerDownOutside,
   ShellSettings,
   ShellToggleRequested,
   ShellYieldChanged,

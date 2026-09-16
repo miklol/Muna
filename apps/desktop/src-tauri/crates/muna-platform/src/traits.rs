@@ -79,6 +79,10 @@ pub trait Windowing: Send + Sync {
     fn window_rect(&self, window: WindowHandle) -> PlatformResult<Rect>;
     /// Cursor position in physical screen pixels.
     fn cursor_position(&self) -> PlatformResult<(i32, i32)>;
+    /// `true` while any mouse button is held, whichever window has focus (`GetAsyncKeyState`).
+    /// The cursor poll uses it to notice a click outside the notch's shapes: the window is
+    /// click-through there, so the UI never sees that click itself.
+    fn pointer_button_down(&self) -> PlatformResult<bool>;
     /// Top-level window under a screen point (hit-testing verification); `0` when none.
     fn window_at(&self, x: i32, y: i32) -> PlatformResult<WindowHandle>;
     /// `SHQueryUserNotificationState`.

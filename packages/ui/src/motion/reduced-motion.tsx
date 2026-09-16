@@ -15,12 +15,21 @@ export const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
 /** The app's own "Reduce motion" setting; `false` defers to the OS preference. */
 const ReduceMotionSettingContext = createContext(false);
 
+/** True while the OS preference is deliberately ignored (measurement builds only). */
+const IgnoreSystemPreferenceContext = createContext(false);
+
 /** True inside any provider, so nested providers leave `<html>` to the outermost one. */
 const InsideProviderContext = createContext(false);
 
 export interface MunaMotionProviderProps {
   /** Settings → Appearance → Reduce motion. Adds to, never overrides, the OS preference. */
   reduceMotion?: boolean;
+  /**
+   * Runs the full motion even when the OS asks for reduced motion. A measurement aid for dev
+   * builds and perf runners (Windows Server ships with animations off); never set from user
+   * settings. The `reduceMotion` setting still wins.
+   */
+  ignoreSystemPreference?: boolean;
   children: ReactNode;
 }
 
@@ -31,16 +40,23 @@ export interface MunaMotionProviderProps {
  * (Storybook comparisons, previews) only affect JS-driven motion in their subtree; pure-CSS
  * states follow the window-level setting.
  */
-export function MunaMotionProvider({ reduceMotion = false, children }: MunaMotionProviderProps) {
+export function MunaMotionProvider({
+  reduceMotion = false,
+  ignoreSystemPreference = false,
+  children,
+}: MunaMotionProviderProps) {
   const nested = useContext(InsideProviderContext);
   useEffect(() => {
     if (nested) return;
     applyMotionCssVars(document.documentElement, reduceMotion);
   }, [nested, reduceMotion]);
+  const configured = reduceMotion ? 'always' : ignoreSystemPreference ? 'never' : 'user';
   return (
     <InsideProviderContext.Provider value={true}>
       <ReduceMotionSettingContext.Provider value={reduceMotion}>
-        <MotionConfig reducedMotion={reduceMotion ? 'always' : 'user'}>{children}</MotionConfig>
+        <IgnoreSystemPreferenceContext.Provider value={ignoreSystemPreference}>
+          <MotionConfig reducedMotion={configured}>{children}</MotionConfig>
+        </IgnoreSystemPreferenceContext.Provider>
       </ReduceMotionSettingContext.Provider>
     </InsideProviderContext.Provider>
   );
@@ -49,8 +65,9 @@ export function MunaMotionProvider({ reduceMotion = false, children }: MunaMotio
 /** True when the OS asks for reduced motion or the app setting is on. */
 export function useReduceMotion(): boolean {
   const setting = useContext(ReduceMotionSettingContext);
+  const ignoreSystem = useContext(IgnoreSystemPreferenceContext);
   const system = useReducedMotion();
-  return setting || system === true;
+  return setting || (system === true && !ignoreSystem);
 }
 
 /**

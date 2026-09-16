@@ -17,6 +17,12 @@ import { cx } from './shared';
 export type NotchShape = 'notch' | 'island';
 export type NotchState = 'collapsed' | 'expanded';
 
+/**
+ * CSS variable a morphing parent may animate to drive the Notch shape's bottom radii while
+ * `morphing` is true (14 px strip → 28 px panel). Ignored by the Island shape (constant radius).
+ */
+export const notchMorphRadiusVar = '--muna-notch-morph-radius';
+
 export interface NotchSurfaceProps extends ComponentPropsWithoutRef<'div'> {
   /** `notch` hugs the top edge and flares into it; `island` floats as a capsule. */
   shape: NotchShape;

@@ -1,8 +1,8 @@
 # Notch shell
 
 **Tier P0 · Owner: `muna-shell-engineer` + `muna-ui-engineer` · Status: in progress (M1-E1 —
-window manager, yield rules, tray and shell settings landed; state machine, strip and panel
-next)**
+window manager, yield rules, tray, shell settings, state machine, strip and panel landed; the
+Drop, Snap and Notice states arrive with the modules that own them)**
 
 ## Purpose
 
@@ -178,6 +178,55 @@ decided during M1-E1 and is the behaviour to test against.
 - **Launch at login** goes through `platform.autostart()` (`StartupTask` with identity,
   `HKCU\…\Run` otherwise); when Windows refuses (task disabled by the user) the setting reverts
   and `SettingsChanged` is emitted.
+- **The state machine is a pure reducer.** `apps/desktop/src/shell/machine.ts` —
+  `transition(snapshot, event)` returns the next snapshot plus effects (timers, `setFocusable`,
+  `blurField`); `ShellMachine` runs it against real or fake timers and `NotchWindow` only
+  forwards DOM events and applies the effects. Every duration is read from `timings` in
+  `@muna/ui/motion` (intent 250 ms, open at 600 ms from the pointer arriving, hover-out grace
+  300 ms open / 150 ms revealed, velocity gate 800 px/s). `Drop`, `Snap` and `Notice` are added
+  by the modules that own them.
+- **Peek is a strip state.** Hover intent, press and scroll-down still apply while peeking, so
+  resting on the 6 px sliver reveals and opens; closing returns to Peek or Collapsed according to
+  the yield state.
+- **The hotkey opens without auto-collapse** until the pointer has visited and left the panel;
+  Esc, a press outside or the hotkey again close it. The toggle is per window (the notch on the
+  monitor under the cursor).
+- **Rect publishing.** The first published rect is always the strip at rest at its current
+  width (wide form included): the yield rules measure caption overlap against it, so it follows
+  neither Peek nor a morph. Strip states publish that rect alone; a second rect padded by the
+  30 px hover margin covers the revealed or open shape and, while a morph is in flight, spans
+  the current and the target bounds. Rust polls the cursor at the active rate while any window
+  publishes more than one rect, so a press anywhere is seen within one tick.
+- **Peek hit-testing.** Peek slides the strip up by `top offset + strip height − 6 px`
+  (`PEEK_HEIGHT_PX`), so both shapes leave exactly the 6 px sliver at the top edge. Rust moves
+  the window's first hit shape by the same amount while it peeks, so the caption band under the
+  strip's rest position clicks through to the app behind and only the sliver stays interactive;
+  the published rects are unchanged.
+- **Press outside** is detected by Rust — a button rising edge while the cursor is outside
+  every shape of a ready window emits `ShellPointerDownOutside { label }`, because the window
+  is click-through there — and by the UI for a `pointerdown` on its own hover padding.
+- **Morph and material.** One `NotchSurface` morphs its real width, height and offset under
+  the springs of `@muna/ui/motion`; `morph-transition.ts` picks the preset from the previous
+  and the next state, and reduced motion swaps the spring for the 150 ms ease-out (Motion then
+  snaps the layout values and tweens only the radius). The
+  panel material is applied when the panel shows and removed only once the collapse has
+  settled at strip size, where both materials look alike. `morph-sampler.ts` samples each
+  morph with `requestAnimationFrame` and `report_morph` logs `fps`, `frames`, `duration_ms`,
+  `max_frame_ms` and `dropped`; morphs that span no frame (mount, reduced motion) are not
+  reported.
+- **Window size** is 1120 × 480 CSS px (`layout::WINDOW_LOGICAL`): panel max width plus the
+  20 px shadow padding and the 8 % overshoot on each side, and the height of the tallest panel.
+- **Focus.** The window keeps `WS_EX_NOACTIVATE` until a text field inside the panel takes
+  focus (`set_notch_focusable(true)`, which also pins); Esc blurs the field and hands focus back
+  before a second Esc closes.
+- **Dev switches.** `scripts/dev.ps1 -HitTest` draws the published rects over the notch;
+  `-FullMotion` ignores the OS *animation effects off* setting in dev builds so springs can be
+  measured on a machine with reduced motion. Release builds always follow the OS, and the
+  *Reduced motion* setting wins in every build.
+- **Measured (Win11 25H2, 2560 × 1600 at 150 %, 165 Hz):** expand 158–167 fps, 110–116
+  frames, 693–697 ms, max frame 6–24 ms, 0 dropped; collapse 157–167 fps, 123–131 frames,
+  781–787 ms; peek slide 166–167 fps, 58–66 frames, 349–395 ms. Under OS reduced motion the
+  layout snaps (0 frames) and only the radius tweens for 141–146 ms.
 
 ## Open questions
 

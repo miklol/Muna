@@ -5,9 +5,9 @@
 use muna_core::{MonitorLayout, NotchShape, StripHeight};
 use muna_platform::{MonitorInfo, Rect};
 
-/// Logical size of the notch window, matching `tauri.conf.json`: the maximum expanded panel plus
-/// shadow padding and spring overshoot.
-pub const WINDOW_LOGICAL: (u32, u32) = (1000, 440);
+/// Logical size of the notch window, matching `tauri.conf.json`: the maximum expanded panel
+/// ([`PANEL_MAX_WIDTH`] × 360) plus room on every side for its shadow and spring overshoot.
+pub const WINDOW_LOGICAL: (u32, u32) = (1120, 480);
 
 /// Minimum strip width in CSS px (docs/modules/notch-shell.md, Sizes); used for the yield
 /// rules until the UI publishes the painted shape.
@@ -17,6 +17,9 @@ pub const ISLAND_TOP_OFFSET: u32 = 8;
 /// Panel width clamps to `min(PANEL_MAX_WIDTH, monitor CSS width − PANEL_MONITOR_MARGIN)`.
 pub const PANEL_MAX_WIDTH: u32 = 1000;
 pub const PANEL_MONITOR_MARGIN: u32 = 80;
+/// The sliver of the strip left visible while a window peeks, in CSS px (`--size-peek-height`);
+/// mirrors `PEEK_HEIGHT_PX` in `@muna/contracts`.
+pub const PEEK_HEIGHT_PX: u32 = 6;
 
 /// Baseline DPI at 100 % scale.
 const BASE_DPI: f64 = 96.0;

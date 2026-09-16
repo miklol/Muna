@@ -85,8 +85,13 @@ CI fails if they drift from the Rust source. Re-run it whenever you change anyth
 `apps/desktop/src-tauri/src/ipc.rs` or the exported types in `muna-core`/`muna-platform`.
 
 `scripts/dev.ps1` forwards extra arguments to `tauri dev` (for example
-`.\scripts\dev.ps1 --no-watch`). The notch window is created off-screen until M0-E2 places it
-on the primary monitor, so the settings window is shown at start-up for now.
+`.\scripts\dev.ps1 --no-watch`) and has two switches for shell work: `-HitTest` draws the rects
+the notch publishes for hit-testing, and `-FullMotion` lets the dev build ignore the OS
+*animation effects off* setting so springs can be measured on a machine with reduced motion
+(the app's *Reduced motion* setting still wins; release builds always follow the OS). The
+settings window opens by itself only on the very first launch; afterwards use the tray icon.
+The Rust workspace has two binaries (`muna` and the `muna-probe` spike harness);
+`default-run = "muna"` keeps `cargo run` and `tauri dev` unambiguous.
 
 ### Repository layout
 
