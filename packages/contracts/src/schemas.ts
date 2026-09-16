@@ -6,9 +6,13 @@
 import { z } from 'zod';
 
 import type {
+  Activity,
+  Glyph,
   JsonValue,
+  Leading,
   MonitorLayout,
   NotchShape,
+  Notice,
   PlacementMode,
   ReducedMotion,
   Settings,
@@ -16,6 +20,9 @@ import type {
   ShellSettings,
   StripContent,
   StripHeight,
+  StripMessage,
+  Tint,
+  Trailing,
   YieldState,
 } from './bindings';
 
@@ -119,26 +126,92 @@ export const settingsSchema = z.object({
   modules: z.record(z.string(), jsonValueSchema),
 }) satisfies z.ZodType<Settings>;
 
+export const glyphSchema = z.enum([
+  'battery',
+  'batteryCharging',
+  'bluetooth',
+  'headphones',
+  'lock',
+  'unlock',
+  'timer',
+  'bell',
+  'music',
+  'moon',
+]) satisfies z.ZodType<Glyph>;
+
+export const tintSchema = z.enum([
+  'blue',
+  'cyan',
+  'green',
+  'orange',
+  'red',
+  'purple',
+  'yellow',
+  'pink',
+]) satisfies z.ZodType<Tint>;
+
+const percent = z.number().min(0).max(100);
+const iconSlot = z.object({
+  kind: z.literal('icon'),
+  glyph: glyphSchema,
+  tint: tintSchema.nullable(),
+});
+const batterySlot = z.object({ kind: z.literal('battery'), percent, charging: z.boolean() });
+
+export const leadingSchema = z.discriminatedUnion('kind', [
+  iconSlot,
+  batterySlot,
+  z.object({ kind: z.literal('image'), src: z.string() }),
+]) satisfies z.ZodType<Leading>;
+
+export const trailingSchema = z.discriminatedUnion('kind', [
+  iconSlot,
+  z.object({ kind: z.literal('text'), value: z.string() }),
+  z.object({ kind: z.literal('percent'), value: percent }),
+  batterySlot,
+  z.object({
+    kind: z.literal('timer'),
+    remainingMs: z.number().int().min(0),
+    totalMs: z.number().int().min(0),
+    running: z.boolean(),
+  }),
+  z.object({ kind: z.literal('progress'), percent }),
+]) satisfies z.ZodType<Trailing>;
+
+export const stripMessageSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('text'), value: z.string() }),
+  z.object({ kind: z.literal('batteryLow'), percent }),
+  z.object({
+    kind: z.literal('bluetoothConnected'),
+    name: z.string(),
+    batteryPercent: percent.nullable(),
+  }),
+  z.object({ kind: z.literal('bluetoothDisconnected'), name: z.string() }),
+  z.object({ kind: z.literal('timerFinished'), label: z.string() }),
+]) satisfies z.ZodType<StripMessage>;
+
 export const activitySchema = z.object({
   id: z.string().min(1),
   module: z.string().min(1),
   priority: z.number().int().min(0).max(100),
-  leading: z.string().nullable(),
-  trailing: z.string().nullable(),
-  wideText: z.string().nullable(),
-});
+  leading: leadingSchema.nullable(),
+  trailing: trailingSchema.nullable(),
+  wide: stripMessageSchema.nullable(),
+}) satisfies z.ZodType<Activity>;
 
 export const noticeSchema = z.object({
   id: z.string().min(1),
   module: z.string().min(1),
   priority: z.number().int().min(0).max(100),
-  text: z.string(),
+  leading: leadingSchema.nullable(),
+  trailing: trailingSchema.nullable(),
+  wide: stripMessageSchema.nullable(),
   holdMs: z.number().int().min(0),
-});
+}) satisfies z.ZodType<Notice>;
 
 export const stripContentSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('idle') }),
-  z.object({ kind: z.literal('activity'), activity: activitySchema }),
+  z.object({ kind: z.literal('activity'), activity: activitySchema, wide: z.boolean() }),
   z.object({ kind: z.literal('notice'), notice: noticeSchema }),
 ]) satisfies z.ZodType<StripContent>;
 

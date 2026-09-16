@@ -1,0 +1,106 @@
+/*
+ * StripView primitive — the closed strip: two 20 px slots inset 10 px from each edge around the
+ * black centre (docs/05-design-system.md "Per-surface notes"). Each slot clips its content so
+ * arrivals emerge from behind the centre (translateX from ±24 px, docs/06-motion-spec.md "Live
+ * activity (notice)"). Only transforms and opacity animate here; the width morph belongs to
+ * the shell's surface.
+ */
+
+.muna-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  block-size: 100%;
+  padding-inline: var(--space-2);
+  color: var(--text-1);
+}
+
+.muna-strip__slot {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--size-strip-slot);
+  block-size: var(--size-strip-slot);
+  /* The mask: content translated toward the centre is out of the box and invisible. */
+  overflow: clip;
+}
+
+.muna-strip__slot-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--size-strip-slot);
+  block-size: var(--size-strip-slot);
+}
+
+.muna-strip__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-strip-slot);
+  block-size: var(--size-strip-slot);
+  color: var(--text-1);
+}
+
+.muna-strip__icon--tinted {
+  color: var(--muna-tint);
+}
+
+.muna-strip__icon > svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.muna-strip__image {
+  display: block;
+  inline-size: var(--size-strip-slot);
+  block-size: var(--size-strip-slot);
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.muna-strip__text {
+  padding-inline: var(--space-1);
+  white-space: nowrap;
+}
+
+.muna-strip__ring {
+  flex-shrink: 0;
+}
+
+.muna-strip__centre {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 0;
+}
+
+.muna-strip__wide {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  text-align: center;
+  transform-origin: center;
+}
+
+.muna-strip__wide > .muna-text {
+  display: block;
+}
+
+/* Visually hidden live region; the wide text itself is aria-hidden so nothing reads twice. */
+.muna-strip__description {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

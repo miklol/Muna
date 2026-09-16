@@ -5,14 +5,17 @@
 // `unsafe` belongs to `muna-platform::windows` only (docs/03-architecture.md, crate boundaries).
 #![forbid(unsafe_code)]
 
+pub mod activities;
 pub mod clock;
-pub mod scheduler;
 pub mod settings;
 pub mod shell_settings;
 pub mod store;
 
+pub use activities::{
+    Activity, ActivityState, Glyph, Hub, Leading, Notice, Scheduler, StripContent, StripMessage,
+    StripSink, Tint, Trailing, Waker,
+};
 pub use clock::{Clock, FakeClock, SystemClock};
-pub use scheduler::{Activity, Notice, Scheduler, StripContent};
 pub use settings::{
     GeneralSettings, JsonValue, ReducedMotion, Settings, SettingsError, SettingsStore,
 };

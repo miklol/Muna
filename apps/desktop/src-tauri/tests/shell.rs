@@ -44,7 +44,7 @@ fn in_memory_state_starts_with_defaults_and_an_idle_strip() {
     let dir = tempfile::tempdir().unwrap();
     let state = AppState::in_memory(dir.path()).unwrap();
     assert_eq!(*state.settings.lock(), Settings::default());
-    assert_eq!(state.scheduler.lock().current(), StripContent::Idle);
+    assert_eq!(state.activities.current(), StripContent::Idle);
     assert_eq!(state.platform.name(), "fake");
     assert!(
         !dir.path().join("settings.json").exists(),

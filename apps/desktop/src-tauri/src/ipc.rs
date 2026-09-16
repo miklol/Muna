@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use muna_core::{Settings, SettingsError, StoreError, StripContent};
+use muna_core::{ActivityState, Settings, SettingsError, StoreError, StripContent};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use specta_typescript::Typescript;
@@ -213,7 +213,23 @@ fn update_settings(
 #[tauri::command]
 #[specta::specta]
 fn get_strip_content(state: State<'_, Shared>) -> StripContent {
-    state.scheduler.lock().current()
+    state.activities.current()
+}
+
+/// The notch window's panel is showing (or has just collapsed): while suspended, notices
+/// queue instead of interrupting the panel (docs/modules/live-activities.md "Interaction with
+/// the panel"). Keyed by window so a second notch window cannot un-suspend the first.
+#[tauri::command]
+#[specta::specta]
+fn set_strip_suspended(window: WebviewWindow, state: State<'_, Shared>, suspended: bool) {
+    state.activities.set_suspended(window.label(), suspended);
+}
+
+/// Every live activity, highest priority first, for the settings and debugging surfaces.
+#[tauri::command]
+#[specta::specta]
+fn list_activities(state: State<'_, Shared>) -> Vec<ActivityState> {
+    state.activities.activities()
 }
 
 #[tauri::command]
@@ -363,6 +379,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_settings,
             update_settings,
             get_strip_content,
+            set_strip_suspended,
+            list_activities,
             get_shell_mode,
             shell_ready,
             publish_shape_rects,

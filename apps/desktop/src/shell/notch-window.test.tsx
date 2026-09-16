@@ -59,6 +59,7 @@ const ipc = vi.hoisted(() => {
       publishShapeRects: vi.fn((_rects: ShapeRect[]) => ok()),
       setNotchFocusable: vi.fn((_focusable: boolean) => ok()),
       reportMorph: vi.fn((_report: MorphReport) => ok()),
+      setStripSuspended: vi.fn((_suspended: boolean) => ok()),
     },
     content: channel<{ content: StripContent }>(),
     layout: channel<{ layout: ShellLayout }>(),
@@ -133,7 +134,15 @@ const layout = (overrides: Partial<ShellLayout> = {}): ShellLayout => ({
 
 const notice: StripContent = {
   kind: 'notice',
-  notice: { id: 'n1', module: 'clipboard', priority: 60, text: 'Copied', holdMs: 4000 },
+  notice: {
+    id: 'bluetooth:buds',
+    module: 'live-activities',
+    priority: 85,
+    leading: { kind: 'icon', glyph: 'headphones', tint: 'blue' },
+    trailing: { kind: 'battery', percent: 80, charging: false },
+    wide: { kind: 'bluetoothConnected', name: 'Buds', batteryPercent: 80 },
+    holdMs: 4000,
+  },
 };
 
 // --- driving the component -----------------------------------------------------------------
@@ -146,6 +155,17 @@ const advance = async (ms: number) => {
 };
 
 const settle = () => advance(SETTLE_MS);
+
+/** Advances in small steps until the surface reports the morph has settled. */
+const settleShape = async (main: HTMLElement) => {
+  for (let elapsed = 0; elapsed < SETTLE_MS; elapsed += 10) {
+    if (!surfaceOf(main).morphing) {
+      return;
+    }
+    await advance(10);
+  }
+  throw new Error('the morph never settled');
+};
 
 /** A pointer sample with an explicit timestamp, so the velocity gate sees real motion. */
 const pointer = (
@@ -543,7 +563,7 @@ describe('NotchWindow scenario suite', () => {
     act(() => {
       ipc.content.emit({ content: notice });
     });
-    expect(screen.getByRole('status')).toHaveTextContent('Copied');
+    expect(screen.getByRole('status')).toHaveTextContent('Buds connected, battery 80%');
     expect(stateOf(main)).toBe('collapsed');
     const wideRest = {
       x: CENTRE_X - shellSizes.stripWideWidth / 2,
@@ -555,6 +575,39 @@ describe('NotchWindow scenario suite', () => {
     // At rest the wide strip is a single rect, so the shell keeps its idle poll rate.
     await settle();
     expect(lastRects()).toEqual([wideRest]);
+  });
+
+  it('S8: the strip pauses while the panel is open and resumes 150 ms after the collapse settles', async () => {
+    const { main } = renderNotch();
+    expect(ipc.commands.setStripSuspended).not.toHaveBeenCalled();
+    openWithHotkey(main);
+    expect(ipc.commands.setStripSuspended).toHaveBeenCalledTimes(1);
+    expect(ipc.commands.setStripSuspended).toHaveBeenLastCalledWith(true);
+    await settle();
+    expect(ipc.commands.setStripSuspended).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      ipc.toggle.emit({ label: 'notch' });
+    });
+    expect(stateOf(main)).toBe('collapsed');
+    // Still paused while the shape is collapsing, and for a beat after it settles.
+    await settleShape(main);
+    expect(ipc.commands.setStripSuspended).toHaveBeenCalledTimes(1);
+    await advance(99);
+    expect(ipc.commands.setStripSuspended).toHaveBeenCalledTimes(1);
+    await advance(51);
+    expect(ipc.commands.setStripSuspended).toHaveBeenCalledTimes(2);
+    expect(ipc.commands.setStripSuspended).toHaveBeenLastCalledWith(false);
+
+    // Parking an open panel skips the morph: the strip still resumes.
+    openWithHotkey(main);
+    expect(ipc.commands.setStripSuspended).toHaveBeenLastCalledWith(true);
+    act(() => {
+      ipc.yield.emit({ label: 'notch', state: 'parked' });
+    });
+    await advance(150);
+    expect(ipc.commands.setStripSuspended).toHaveBeenCalledTimes(4);
+    expect(ipc.commands.setStripSuspended).toHaveBeenLastCalledWith(false);
   });
 
   describe('module bar and panel chrome (M1-E4)', () => {

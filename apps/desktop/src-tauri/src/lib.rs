@@ -5,7 +5,9 @@
 // `unsafe` belongs to `muna-platform::windows` only (docs/03-architecture.md, crate boundaries).
 #![forbid(unsafe_code)]
 
+pub mod activities;
 pub mod ipc;
+pub mod modules;
 pub mod paths;
 pub mod shell;
 pub mod state;
@@ -13,7 +15,7 @@ pub mod state;
 use std::sync::Arc;
 use std::time::Instant;
 
-use tauri::RunEvent;
+use tauri::{RunEvent, WindowEvent};
 use tauri_plugin_log::{Target, TargetKind};
 
 pub use ipc::export_bindings;
@@ -100,6 +102,10 @@ pub fn run() {
             if let Some(shell) = &state.shell {
                 shell.start(app.handle());
             }
+            // Strip content flows hub → event; the module backends publish into the hub.
+            activities::start(app.handle(), &state.activities);
+            let started = modules::start_all(&state.module_ctx());
+            tracing::info!(modules = ?started, "modules running");
             let launch_at_login = state.settings.lock().general.launch_at_login;
             state.sync_autostart(app.handle(), launch_at_login);
 
@@ -112,11 +118,20 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("failed to start Muna")
-        .run(move |_app, event| {
-            if let RunEvent::Exit = event
-                && let Some(shell) = &exit_state.shell
-            {
-                shell.shutdown();
+        .run(move |_app, event| match event {
+            RunEvent::Exit => {
+                if let Some(shell) = &exit_state.shell {
+                    shell.shutdown();
+                }
             }
+            RunEvent::WindowEvent {
+                label,
+                event: WindowEvent::Destroyed,
+                ..
+            } => {
+                // A destroyed notch window must not keep the strip suspended.
+                exit_state.activities.forget_window(&label);
+            }
+            _ => {}
         });
 }

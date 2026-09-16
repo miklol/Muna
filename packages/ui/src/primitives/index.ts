@@ -1,8 +1,10 @@
 /**
  * Primitives (docs/05-design-system.md#components), built on React Aria Components. Every
  * primitive ships a Storybook story and a Vitest render test. M0-E4 landed the seven the shell
- * needs first; M1-E4 added the panel chrome, the module bar and the shared controls.
+ * needs first; M1-E4 added the panel chrome, the module bar and the shared controls; M1-E2 the
+ * strip's slot renderers.
  */
+export { BatteryGlyph, type BatteryGlyphProps, batteryLevels, batteryTint } from './battery-glyph';
 export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
 export { Chip, type ChipProps, type SelectableChipProps, type StaticChipProps } from './chip';
@@ -43,5 +45,13 @@ export {
 export { type Tint, tintVar } from './shared';
 export { Skeleton, type SkeletonProps } from './skeleton';
 export { Slider, type SliderProps } from './slider';
+export {
+  type StripSlotContent,
+  StripView,
+  type StripViewProps,
+  stripSlotLayout,
+  stripSlotOffsetPx,
+} from './strip-view';
 export { Text, type TextProps, type TextTone, type TextVariant } from './text';
+export { formatCountdown, remainingNow, TimerText, type TimerTextProps } from './timer-text';
 export { Toggle, type ToggleProps } from './toggle';

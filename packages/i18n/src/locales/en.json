@@ -15,6 +15,36 @@
       "body": "Modules appear here as they are added."
     }
   },
+  "strip": {
+    "message": {
+      "batteryLow": "Low battery",
+      "bluetoothConnected": "{{name}} connected",
+      "bluetoothDisconnected": "{{name}} disconnected",
+      "timerFinished": "{{label}} finished"
+    },
+    "describe": {
+      "battery": "Battery {{percent}}",
+      "charging": "Charging, {{percent}}",
+      "batteryLow": "Low battery, {{percent}}",
+      "bluetoothBattery": "{{message}}, battery {{percent}}",
+      "timer": "{{remaining}} left",
+      "timerPaused": "{{remaining}} left, paused",
+      "progress": "{{percent}} done",
+      "image": "Artwork"
+    },
+    "glyph": {
+      "battery": "Battery",
+      "batteryCharging": "Charging",
+      "bluetooth": "Bluetooth",
+      "headphones": "Headphones",
+      "lock": "Locked",
+      "unlock": "Unlocked",
+      "timer": "Timer",
+      "bell": "Notification",
+      "music": "Music",
+      "moon": "Focus assist"
+    }
+  },
   "spike": {
     "label": "Muna window spike",
     "strip": "Strip",

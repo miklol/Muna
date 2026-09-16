@@ -65,6 +65,14 @@ Scope:
 Evidence: laptop recording of plug/unplug and headset connect. Update spec statuses.
 ```
 
+**Progress.** PR 1 landed the runtime and the strip: `muna-core::activities` (closed slot
+vocabulary, `Scheduler`, `Hub` with per-window suspend and an event-driven deadline task), the
+module contract (`Surface`, `ModuleCtx`, `ModuleBackend::start`), the live-activities backend
+with the power, session and Bluetooth reducers, the Pomodoro demo (`MUNA_DEMO=pomodoro`), the
+`@muna/ui` `StripView` / `BatteryGlyph` / `TimerText` primitives with stories, the shell mapping
+with localised screen-reader descriptions, and S8. Remaining: the Windows `Bluetooth`
+implementation (DeviceWatcher + GATT battery) and the laptop recordings.
+
 ## M1-E3 · Settings window — agent: `muna-ui-engineer`
 
 ```text

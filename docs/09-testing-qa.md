@@ -73,13 +73,17 @@ The harness mounts the real shell with `FakePlatform` and asserts state + shape 
 **Where the suite runs (M1-E1).** The harness page is not built yet; the scenarios run as
 Vitest + Testing Library against the real `NotchWindow` — Motion springs complete under fake
 timers hoisted before the first import, so the tests assert settled geometry and morph reports
-(`apps/desktop/src/shell/notch-window.test.tsx`: S1–S7, S11, S13, plus hotkey, pin, press,
+(`apps/desktop/src/shell/notch-window.test.tsx`: S1–S8, S11, S13, plus hotkey, pin, press,
 scroll-down and the wide form; `machine.test.ts` covers the reducer alone) — and as
 `cargo test` against `FakePlatform` for the decisions Rust owns
 (`apps/desktop/src-tauri/tests/shell_model.rs`: S5 including the peek hit-rect translation,
-S6, S7, S12, debounce, `AppBar`, press outside). S14 is `morph-transition.test.ts` and
-`packages/ui/src/motion/reduced-motion.os.test.tsx`. S8 arrives with live activities (M1-E2),
-S9 with the HUD (M2) and S10 with Drop (M4). Hardware evidence is measured with
+S6, S7, S12, debounce, `AppBar`, press outside; `tests/live_activities.rs`: S8's queueing,
+the power, session and Bluetooth reducers and the module registry). S8 is split across the
+two: the UI half proves the strip is suspended while the panel shows and resumed 150 ms after
+the collapse settles, the Rust half that a notice published meanwhile queues and is released
+on resume. S14 is `morph-transition.test.ts` and
+`packages/ui/src/motion/reduced-motion.os.test.tsx`. S9 arrives with the HUD (M2) and S10
+with Drop (M4). Hardware evidence is measured with
 `scripts/dev.ps1 -HitTest -FullMotion` and the `morph` lines in `%LOCALAPPDATA%\Muna\logs`;
 numbers are recorded in
 [notch-shell.md → Implementation notes](modules/notch-shell.md#implementation-notes-m1-e1).

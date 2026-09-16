@@ -11,6 +11,8 @@ export const motionCssVars = {
   '--muna-motion-press': toLinearEasing(springs.press).css,
   '--muna-motion-toggle': toLinearEasing(springs.toggle).css,
   '--muna-motion-reveal': toLinearEasing(springs.reveal).css,
+  /** Fills that follow a value (battery level, HUD track). */
+  '--muna-motion-interactive': toLinearEasing(springs.interactive).css,
   /** Skeleton shimmer loop (`timings.shimmerLoopMs`, linear). */
   '--muna-motion-shimmer': `${String(timings.shimmerLoopMs)}ms linear`,
 } as const;

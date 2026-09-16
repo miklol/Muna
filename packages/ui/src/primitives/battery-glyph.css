@@ -1,0 +1,61 @@
+/*
+ * BatteryGlyph primitive — 20 px battery drawn in the current text colour, or in the semantic
+ * tint (`--muna-tint`) while charging or low. The level is one custom property, `--muna-battery`
+ * (0–1), turned into a `scaleX` on the fill; `:dir(rtl)` mirrors the origin so the fill still
+ * grows from the closed end.
+ */
+
+.muna-battery {
+  --muna-battery: 0;
+
+  display: inline-block;
+  flex-shrink: 0;
+  color: var(--text-1);
+  vertical-align: middle;
+}
+
+.muna-battery--tinted {
+  color: var(--muna-tint);
+}
+
+.muna-battery__body {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+  opacity: 0.9;
+}
+
+.muna-battery__cap {
+  fill: currentcolor;
+  opacity: 0.55;
+}
+
+.muna-battery__fill {
+  fill: currentcolor;
+  transform: scaleX(var(--muna-battery));
+  transform-box: fill-box;
+  transform-origin: left center;
+  transition: transform var(--muna-motion-interactive);
+}
+
+.muna-battery:dir(rtl) .muna-battery__fill {
+  transform-origin: right center;
+}
+
+.muna-battery__bolt {
+  fill: var(--text-1);
+  paint-order: stroke;
+  stroke: rgb(0 0 0 / 0.65);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-battery__fill {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-battery__fill {
+  transition: none;
+}
