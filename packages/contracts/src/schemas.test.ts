@@ -7,19 +7,25 @@ import {
   HUD_SETTINGS_KEY,
   HUD_VOLUME_STEP,
   MEDIA_SETTINGS_KEY,
+  POMODORO_BOUNDS,
+  POMODORO_SETTINGS_KEY,
+  POMODORO_STRIP_IDS,
   STRIP_HEIGHT_PX,
   defaultHudSettings,
   defaultMediaSettings,
+  defaultPomodoroSettings,
   defaultSettings,
   monitorLayoutSchema,
   readHudSettings,
   readMediaSettings,
+  readPomodoroSettings,
   settingsSchema,
   shellLayoutSchema,
   shellSettingsSchema,
   stripContentSchema,
   writeHudSettings,
   writeMediaSettings,
+  writePomodoroSettings,
 } from './schemas';
 
 describe('settings schema', () => {
@@ -110,7 +116,19 @@ describe('strip content schema', () => {
           priority: 70,
           leading: { kind: 'icon', glyph: 'timer', tint: 'orange' },
           trailing: { kind: 'timer', remainingMs: 90_000, totalMs: 1_500_000, running: true },
-          wide: null,
+          wide: { kind: 'pomodoro', phase: 'work' },
+        },
+      },
+      {
+        kind: 'notice',
+        notice: {
+          id: 'pomodoro:finished',
+          module: 'pomodoro',
+          priority: 70,
+          leading: { kind: 'icon', glyph: 'timer', tint: 'green' },
+          trailing: null,
+          wide: { kind: 'pomodoroFinished', phase: 'longBreak' },
+          holdMs: 0,
         },
       },
       {
@@ -299,5 +317,96 @@ describe('hud settings namespace', () => {
       brightness: 'hud:brightness',
     });
     expect(HUD_VOLUME_STEP).toBe(2);
+  });
+});
+
+describe('pomodoro settings namespace', () => {
+  it('reads the defaults when the namespace is missing', () => {
+    expect(readPomodoroSettings(defaultSettings())).toEqual({
+      workMinutes: 25,
+      shortBreakMinutes: 5,
+      longBreakMinutes: 15,
+      longBreakEvery: 4,
+      autoStartNext: false,
+    });
+    expect(defaultPomodoroSettings()).toEqual(readPomodoroSettings(defaultSettings()));
+  });
+
+  it('fills in missing keys, ignores unknown ones and clamps like the Rust side', () => {
+    const partial: Settings = {
+      ...defaultSettings(),
+      modules: { [POMODORO_SETTINGS_KEY]: { workMinutes: 45, sound: 'chime' } },
+    };
+    expect(readPomodoroSettings(partial)).toEqual({
+      ...defaultPomodoroSettings(),
+      workMinutes: 45,
+    });
+    const outOfRange: Settings = {
+      ...defaultSettings(),
+      modules: {
+        [POMODORO_SETTINGS_KEY]: {
+          workMinutes: 500,
+          shortBreakMinutes: 0,
+          longBreakMinutes: 1000,
+          longBreakEvery: 1,
+          autoStartNext: true,
+        },
+      },
+    };
+    expect(readPomodoroSettings(outOfRange)).toEqual({
+      workMinutes: POMODORO_BOUNDS.workMinutes.max,
+      shortBreakMinutes: POMODORO_BOUNDS.shortBreakMinutes.min,
+      longBreakMinutes: POMODORO_BOUNDS.longBreakMinutes.max,
+      longBreakEvery: POMODORO_BOUNDS.longBreakEvery.min,
+      autoStartNext: true,
+    });
+  });
+
+  it('falls back to the defaults for a malformed namespace', () => {
+    const malformed: Settings = {
+      ...defaultSettings(),
+      modules: { [POMODORO_SETTINGS_KEY]: { workMinutes: 'long', shortBreakMinutes: 10 } },
+    };
+    expect(readPomodoroSettings(malformed)).toEqual(defaultPomodoroSettings());
+    const negative: Settings = {
+      ...defaultSettings(),
+      modules: { [POMODORO_SETTINGS_KEY]: { workMinutes: -5 } },
+    };
+    expect(readPomodoroSettings(negative)).toEqual(defaultPomodoroSettings());
+    const notAnObject: Settings = {
+      ...defaultSettings(),
+      modules: { [POMODORO_SETTINGS_KEY]: 'nope' },
+    };
+    expect(readPomodoroSettings(notAnObject)).toEqual(defaultPomodoroSettings());
+  });
+
+  it('writes the namespace without touching the rest of the document', () => {
+    const before: Settings = { ...defaultSettings(), modules: { hud: { showLevelText: true } } };
+    const after = writePomodoroSettings(before, {
+      workMinutes: 50,
+      shortBreakMinutes: 10,
+      longBreakMinutes: 30,
+      longBreakEvery: 3,
+      autoStartNext: true,
+    });
+    expect(after.modules).toEqual({
+      hud: { showLevelText: true },
+      pomodoro: {
+        workMinutes: 50,
+        shortBreakMinutes: 10,
+        longBreakMinutes: 30,
+        longBreakEvery: 3,
+        autoStartNext: true,
+      },
+    });
+    expect(before.modules).toEqual({ hud: { showLevelText: true } });
+    expect(settingsSchema.parse(after)).toEqual(after);
+  });
+
+  it('names the strip ids the Rust module uses', () => {
+    expect(POMODORO_STRIP_IDS).toEqual({
+      activity: 'pomodoro:timer',
+      finished: 'pomodoro:finished',
+    });
   });
 });

@@ -20,6 +20,7 @@ use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
 use crate::modules::hud::{HudSink, HudState};
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
+use crate::modules::pomodoro::{PomodoroCommand, PomodoroSink, PomodoroState};
 use crate::shell::manager::ShellManager;
 use crate::shell::model::ShellLayout;
 use crate::shell::yield_rules::YieldState;
@@ -256,6 +257,45 @@ impl HudSink for HudEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit HudStateChanged");
+        }
+    }
+}
+
+/// The pomodoro timer changed: started, paused, ran out, or a settings change resized an idle
+/// phase (docs/modules/pomodoro.md). The strip content travels through
+/// [`StripContentChanged`].
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct PomodoroStateChanged {
+    pub state: PomodoroState,
+}
+
+/// Bridges the pomodoro service to [`PomodoroStateChanged`].
+pub struct PomodoroEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for PomodoroEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PomodoroEventSink").finish_non_exhaustive()
+    }
+}
+
+impl PomodoroEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl PomodoroSink for PomodoroEventSink {
+    fn state_changed(&self, state: &PomodoroState) {
+        if let Err(error) = (PomodoroStateChanged {
+            state: state.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit PomodoroStateChanged");
         }
     }
 }
@@ -668,6 +708,22 @@ fn quit_app(app: AppHandle, state: State<'_, Shared>) {
     app.exit(0);
 }
 
+/// The pomodoro timer as it stands (a panel that just opened; afterwards it follows
+/// `PomodoroStateChanged`). `remainingMs` is exact now; the UI counts down from it.
+#[tauri::command]
+#[specta::specta]
+fn get_pomodoro_snapshot(state: State<'_, Shared>) -> PomodoroState {
+    state.modules.pomodoro.state()
+}
+
+/// Starts, pauses, resumes, resets or skips the timer and returns the state after it. The
+/// strip follows through `StripContentChanged`.
+#[tauri::command]
+#[specta::specta]
+fn pomodoro_command(state: State<'_, Shared>, command: PomodoroCommand) -> PomodoroState {
+    state.modules.pomodoro.command(command)
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -701,6 +757,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             hud_set_muted,
             hud_set_mic_muted,
             hud_set_brightness,
+            get_pomodoro_snapshot,
+            pomodoro_command,
             quit_app
         ])
         .events(collect_events![
@@ -713,7 +771,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             ShellPointerDownOutside,
             MediaStateChanged,
             MediaArtChanged,
-            HudStateChanged
+            HudStateChanged,
+            PomodoroStateChanged
         ])
 }
 

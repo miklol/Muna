@@ -129,6 +129,16 @@ export const commands = {
 	 *  a DDC/CI write that fails surfaces as `platform.os`.
 	 */
 	hudSetBrightness: (monitorId: string, percent: number) => typedError<null, IpcError>(__TAURI_INVOKE("hud_set_brightness", { monitorId, percent })),
+	/**
+	 *  The pomodoro timer as it stands (a panel that just opened; afterwards it follows
+	 *  `PomodoroStateChanged`). `remainingMs` is exact now; the UI counts down from it.
+	 */
+	getPomodoroSnapshot: () => __TAURI_INVOKE<PomodoroState>("get_pomodoro_snapshot"),
+	/**
+	 *  Starts, pauses, resumes, resets or skips the timer and returns the state after it. The
+	 *  strip follows through `StripContentChanged`.
+	 */
+	pomodoroCommand: (command: PomodoroCommand) => __TAURI_INVOKE<PomodoroState>("pomodoro_command", { command }),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -139,6 +149,7 @@ export const events = {
 	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
 	mediaStateChanged: makeEvent<MediaStateChanged>("media-state-changed"),
 	morphRequested: makeEvent<MorphRequested>("morph-requested"),
+	pomodoroStateChanged: makeEvent<PomodoroStateChanged>("pomodoro-state-changed"),
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
 	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
 	shellPointerDownOutside: makeEvent<ShellPointerDownOutside>("shell-pointer-down-outside"),
@@ -461,6 +472,62 @@ export type PlacementMode = "overlay" | "reserved";
 
 export type PlaybackStatus = "playing" | "paused" | "stopped";
 
+/**  What the panel and the strip's hover controls can ask for. */
+export type PomodoroCommand = 
+/**
+ *  Starts the given phase from the top, or the current one when `phase` is `None`. A
+ *  running timer restarts.
+ */
+{ kind: "start"; phase: PomodoroPhase | null } | 
+/**  Picks a preset while idle without starting it; ignored while running or paused. */
+{ kind: "select"; phase: PomodoroPhase } | { kind: "pause" } | { kind: "resume" } | 
+/**  Back to the top of the current phase, idle. */
+{ kind: "reset" } | 
+/**  Ends the current phase and moves to the next one. */
+{ kind: "skip" };
+
+/**  A phase that ran out. */
+export type PomodoroFinished = {
+	phase: PomodoroPhase,
+	/**  The deadline passed while the machine slept or the process was suspended. */
+	whileAsleep: boolean,
+};
+
+/**  One step of the pomodoro cycle; the UI localises the label and picks the tint. */
+export type PomodoroPhase = "work" | "shortBreak" | "longBreak";
+
+/**
+ *  What the UI renders (docs/modules/pomodoro.md). `remaining_ms` is exact at the moment the
+ *  state was produced; the UI counts down from it while `status` is `running`.
+ */
+export type PomodoroState = {
+	phase: PomodoroPhase,
+	status: PomodoroStatus,
+	remainingMs: number,
+	totalMs: number,
+	/**  Work phases completed since the last long break. */
+	completedInCycle: number,
+	/**  Work phases per cycle (`settings.modules.pomodoro.longBreakEvery`). */
+	cycleLength: number,
+	/**  Completed work phases that ended today, local time. */
+	sessionsToday: number,
+	/**  The phase that ran out most recently; cleared by the next command. */
+	lastFinished: PomodoroFinished | null,
+};
+
+/**
+ *  The pomodoro timer changed: started, paused, ran out, or a settings change resized an idle
+ *  phase (docs/modules/pomodoro.md). The strip content travels through
+ *  [`StripContentChanged`].
+ */
+export type PomodoroStateChanged = {
+	state: PomodoroState,
+};
+
+export type PomodoroStatus = 
+/**  Nothing running; the ring is full and the button says start. */
+"idle" | "running" | "paused";
+
 /**  Integer rectangle in physical (device) pixels, screen coordinates. */
 export type Rect = {
 	x: number,
@@ -607,7 +674,11 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
  *  A track change; both fields are content and never logged. The UI lays them out as
  *  title and artist (marquee only when they overflow).
  */
-{ kind: "nowPlaying"; title: string; artist: string };
+{ kind: "nowPlaying"; title: string; artist: string } | 
+/**  The running pomodoro phase ("Focus", "Short break"); the trailing timer counts down. */
+{ kind: "pomodoro"; phase: PomodoroPhase } | 
+/**  A pomodoro phase ran out (docs/modules/pomodoro.md). */
+{ kind: "pomodoroFinished"; phase: PomodoroPhase };
 
 /**  An accent from the design system (docs/05-design-system.md, colour tokens). */
 export type Tint = "blue" | "cyan" | "green" | "orange" | "red" | "purple" | "yellow" | "pink";

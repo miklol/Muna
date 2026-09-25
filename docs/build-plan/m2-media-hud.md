@@ -124,6 +124,9 @@ Edge/YouTube, Apple Music, foobar2000, Win11 24H2 and Win10 22H2 columns plus th
 DDC/CI monitor are maintainer hardware
 ([qa/checklists/media](../qa/checklists/media.md), [qa/checklists/hud](../qa/checklists/hud.md),
 [qa/checklists/notch-shell → Still to run](../qa/checklists/notch-shell.md#still-to-run-maintainer)).
-M3 ([m3-daily-modules.md](m3-daily-modules.md)) can start on a branch from `main` before the
+M3 ([m3-daily-modules.md](m3-daily-modules.md)) could start on a branch from `main` before the
 stack lands — its modules touch neither `media` nor `hud`, only the two module registries,
-which is a trivial rebase — but its PRs will queue behind the same budget.
+which is a trivial rebase — but its PRs will queue behind the same budget. In the event M3-E3
+was stacked on #27 instead, because the Pomodoro module plugs into the `ModuleServices`
+wiring, `apply_module_settings` and the per-module event-sink bridge that only exist on the
+stack; it merges after #27.

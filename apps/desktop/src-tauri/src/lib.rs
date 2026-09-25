@@ -117,6 +117,10 @@ pub fn run() {
                 .modules
                 .hud
                 .set_sink(Arc::new(ipc::HudEventSink::new(app.handle().clone())));
+            state
+                .modules
+                .pomodoro
+                .set_sink(Arc::new(ipc::PomodoroEventSink::new(app.handle().clone())));
             let started = modules::start_all(&state.module_ctx(), &state.modules);
             tracing::info!(modules = ?started, "modules running");
             let settings = state.settings.lock().clone();

@@ -110,8 +110,11 @@ notifications 40 · Session lock 30 · Media paused 20.
   `muna-platform`'s paired-device watcher ([bluetooth → Implementation notes](bluetooth.md#implementation-notes-m1-e2)),
   which publishes nothing until its first enumeration completes, so devices already connected at
   start-up seed the reducer instead of announcing themselves.
-- The Pomodoro path (`pomodoro:timer`, Timer glyph + countdown, wide text "Focus") is a demo
-  behind `MUNA_DEMO=pomodoro` until the module lands.
+- The Pomodoro path (`pomodoro:timer`, Timer glyph + countdown, wide text "Focus" / "Short
+  break" / "Long break") is published by the Pomodoro module since M3-E3
+  ([pomodoro → Implementation notes](pomodoro.md#implementation-notes-m3-e3)); it replaced the
+  M1 demo source behind `MUNA_DEMO=pomodoro`. Finishing a phase raises the `pomodoro:finished`
+  notice.
 
 ## Settings (pane: Live Activities)
 

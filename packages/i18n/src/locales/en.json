@@ -22,7 +22,13 @@
       "bluetoothDisconnected": "{{name}} disconnected",
       "timerFinished": "{{label}} finished",
       "nowPlaying": "{{title}} · {{artist}}",
-      "nowPlayingNoArtist": "{{title}}"
+      "nowPlayingNoArtist": "{{title}}",
+      "pomodoroWork": "Focus",
+      "pomodoroShortBreak": "Short break",
+      "pomodoroLongBreak": "Long break",
+      "pomodoroWorkFinished": "Focus finished",
+      "pomodoroShortBreakFinished": "Short break finished",
+      "pomodoroLongBreakFinished": "Long break finished"
     },
     "describe": {
       "battery": "Battery {{percent}}",
@@ -129,6 +135,44 @@
       "brightness": "Brightness",
       "brightnessBody": "Each display that can be adjusted. Displays without DDC/CI are not listed.",
       "brightnessEmpty": "No adjustable display was found."
+    }
+  },
+  "pomodoro": {
+    "title": "Pomodoro",
+    "phase": {
+      "work": "Focus",
+      "shortBreak": "Short break",
+      "longBreak": "Long break"
+    },
+    "presets": "Phase",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "reset": "Reset",
+    "skip": "Skip",
+    "remaining": "{{remaining}} left",
+    "ring": "{{phase}}, {{remaining}} left",
+    "ringPaused": "{{phase}}, {{remaining}} left, paused",
+    "ringIdle": "{{phase}}, {{total}}",
+    "cycle": "{{done}} of {{total}} focus phases before the long break",
+    "sessionsToday_zero": "No sessions today",
+    "sessionsToday_one": "1 session today",
+    "sessionsToday_other": "{{count}} sessions today",
+    "finished": "{{phase}} finished",
+    "finishedAsleep": "{{phase}} finished while the PC was asleep",
+    "settings": {
+      "lengths": "Lengths",
+      "workMinutes": "Focus",
+      "shortBreakMinutes": "Short break",
+      "longBreakMinutes": "Long break",
+      "minutes": "{{count}} min",
+      "cycle": "Cycle",
+      "longBreakEvery": "Long break after",
+      "longBreakEveryBody": "How many focus phases make a cycle. The break after the last one is the long one.",
+      "phases": "{{count}} phases",
+      "flow": "Flow",
+      "autoStartNext": "Start the next phase automatically",
+      "autoStartNextBody": "Breaks and focus phases follow each other without a tap. A changed length applies to the next phase that starts."
     }
   },
   "settings": {
