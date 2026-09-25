@@ -42,9 +42,10 @@ Pieces, in the order the data flows:
   detect the deadline and republishes the strip activity once a minute (`REPUBLISH`); idle and
   paused it only waits on a `Notify`, so a stopped timer costs zero timers. Finishing a phase
   publishes a `pomodoro:finished` notice (green Timer glyph, default 4 s hold), logs the
-  session to SQLite (`pomodoro_sessions`; "sessions today" is `date(ended_at, 'localtime') =
-  today` for completed work phases) and either auto-starts the next phase (setting) or parks
-  it, ready to start.
+  session to SQLite (`pomodoro_sessions`; "sessions today" counts completed work phases whose
+  `ended_at` falls on the same local date as the service clock's wall time — the clock, not
+  SQLite's `now`, decides what today is, so a fake clock and the log agree) and either
+  auto-starts the next phase (setting) or parks it, ready to start.
 - **Contract**: `get_pomodoro_snapshot`, `pomodoro_command({start | select | pause | resume |
   reset | skip})` and the `PomodoroStateChanged` event; the state carries phase, status,
   `remainingMs`/`totalMs`, `completedInCycle`, `sessionsToday`, the last finished phase and the

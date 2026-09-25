@@ -3,7 +3,7 @@
 //! `muna` lib cannot host unit tests (Common Controls manifest on Tauri-linked tests).
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, UNIX_EPOCH};
 
 use muna_core::activities::NOTICE_HOLD;
 use muna_core::{
@@ -18,6 +18,10 @@ use muna_lib::modules::pomodoro::{
 use parking_lot::Mutex;
 
 const MINUTE: Duration = Duration::from_secs(60);
+/// 2026-03-04 06:00 UTC. "Sessions today" is a local-date count, so the rig starts the wall
+/// clock at an hour that stays on one local date for the few hours a test simulates, in every
+/// zone from UTC−12 to UTC+14 — the machine's own time of day never enters the tests.
+const WALL_ORIGIN_SECS: u64 = 1_772_604_000;
 
 #[derive(Default)]
 struct Recorder {
@@ -50,7 +54,9 @@ impl Rig {
     }
 
     fn with_settings(settings: &PomodoroSettings) -> Self {
-        let clock = Arc::new(FakeClock::new());
+        let clock = Arc::new(FakeClock::at(
+            UNIX_EPOCH + Duration::from_secs(WALL_ORIGIN_SECS),
+        ));
         let hub = Arc::new(Hub::new(Arc::clone(&clock) as Arc<dyn Clock>));
         let store = Arc::new(Store::open_in_memory().expect("in-memory store"));
         let service = Arc::new(PomodoroService::new(
