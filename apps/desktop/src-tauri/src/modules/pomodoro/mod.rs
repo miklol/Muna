@@ -155,7 +155,7 @@ impl PomodoroService {
     ) -> PomodoroState {
         let sessions_today = self
             .store
-            .pomodoro_sessions_today()
+            .pomodoro_sessions_today(unix_ms(now.wall))
             .unwrap_or_else(|error| {
                 tracing::warn!(%error, "pomodoro session log unavailable");
                 0

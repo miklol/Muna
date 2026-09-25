@@ -41,11 +41,19 @@ impl Default for FakeClock {
 }
 
 impl FakeClock {
+    /// Starts at the machine's current wall time.
     #[must_use]
     pub fn new() -> Self {
+        Self::at(SystemTime::now())
+    }
+
+    /// Starts at a chosen wall time. Tests that reason about "today" pin one — far from local
+    /// midnight — so they read the same at any hour and in any zone.
+    #[must_use]
+    pub fn at(wall_origin: SystemTime) -> Self {
         Self {
             origin: Instant::now(),
-            wall_origin: SystemTime::now(),
+            wall_origin,
             elapsed_ms: AtomicU64::new(0),
             slept_ms: AtomicU64::new(0),
         }
@@ -100,5 +108,15 @@ mod tests {
             clock.system_time().duration_since(wall_start).unwrap(),
             Duration::from_secs(601)
         );
+    }
+
+    #[test]
+    fn fake_clock_can_start_at_a_chosen_wall_time() {
+        const ORIGIN_SECS: u64 = 1_772_366_400;
+        let origin = std::time::UNIX_EPOCH + Duration::from_secs(ORIGIN_SECS);
+        let clock = FakeClock::at(origin);
+        assert_eq!(clock.system_time(), origin);
+        clock.advance(Duration::from_secs(90));
+        assert_eq!(clock.system_time(), origin + Duration::from_secs(90));
     }
 }

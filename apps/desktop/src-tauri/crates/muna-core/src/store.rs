@@ -139,14 +139,18 @@ impl Store {
         Ok(())
     }
 
-    /// Completed `work` phases that ended today in the machine's local time zone ("N sessions
-    /// today"). SQLite's `localtime` modifier does the zone conversion, so no date crate.
-    pub fn pomodoro_sessions_today(&self) -> Result<u32, StoreError> {
+    /// Completed `work` phases that ended on the same local date as `now_ms` ("N sessions
+    /// today"). The caller passes its clock's wall time rather than letting SQLite read the
+    /// machine's, so the log and the count agree on what "today" is — under a fake clock as
+    /// much as a real one. SQLite's `localtime` modifier does the zone conversion, so no
+    /// date crate.
+    pub fn pomodoro_sessions_today(&self, now_ms: i64) -> Result<u32, StoreError> {
         Ok(self.conn.lock().query_row(
             "SELECT COUNT(*) FROM pomodoro_sessions \
              WHERE phase = 'work' AND completed = 1 \
-             AND date(ended_at / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')",
-            [],
+             AND date(ended_at / 1000, 'unixepoch', 'localtime') \
+               = date(?1 / 1000, 'unixepoch', 'localtime')",
+            params![now_ms],
             |row| row.get(0),
         )?)
     }
@@ -201,13 +205,8 @@ mod tests {
     #[test]
     fn pomodoro_sessions_today_counts_completed_work_phases_only() {
         let store = Store::open_in_memory().unwrap();
-        let now_ms = i64::try_from(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
-        )
-        .unwrap();
+        // A fixed moment (midday UTC), so the result does not depend on when the test runs.
+        let now_ms: i64 = 1_772_366_400_000;
         let record = |phase: &str, ended_at_ms: i64, completed: bool| PomodoroSessionRecord {
             phase: phase.into(),
             started_at_ms: ended_at_ms - 1_500_000,
@@ -227,7 +226,15 @@ mod tests {
         store
             .log_pomodoro_session(&record("work", now_ms - 48 * 3_600_000, true))
             .unwrap();
-        assert_eq!(store.pomodoro_sessions_today().unwrap(), 1);
+        assert_eq!(store.pomodoro_sessions_today(now_ms).unwrap(), 1);
+        // "Today" is the caller's day, not the machine's: seen from two days later, nothing
+        // ended today.
+        assert_eq!(
+            store
+                .pomodoro_sessions_today(now_ms + 48 * 3_600_000)
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -241,6 +248,6 @@ mod tests {
         }
         let store = Store::open(&path).unwrap();
         assert_eq!(store.user_version().unwrap(), Store::schema_version());
-        assert_eq!(store.pomodoro_sessions_today().unwrap(), 0);
+        assert_eq!(store.pomodoro_sessions_today(0).unwrap(), 0);
     }
 }
