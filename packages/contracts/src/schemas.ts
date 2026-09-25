@@ -13,6 +13,7 @@ import type {
   MonitorLayout,
   NotchShape,
   Notice,
+  Place,
   PlacementMode,
   PomodoroPhase,
   ReducedMotion,
@@ -559,3 +560,56 @@ export const writeBluetoothSettings = (
  * `modules::bluetooth::LOW_THRESHOLDS`).
  */
 export const BLUETOOTH_LOW_THRESHOLDS = [20, 10] as const;
+
+/** The key of the weather module's namespace; also its module id. */
+export const WEATHER_SETTINGS_KEY = 'weather';
+
+/** A place the geocoder returned (mirrors `modules::weather::Place`). */
+export const placeSchema = z.object({
+  name: z.string(),
+  region: z.string().nullable(),
+  country: z.string().nullable(),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+}) satisfies z.ZodType<Place>;
+
+/**
+ * Mirrors `modules::weather::WeatherSettings`: off by default (the module makes no request
+ * until the user turns it on), defaults for missing fields, and a wrong type fails the whole
+ * entry, like the Rust side. A manual place with coordinates off the globe fails too, which
+ * the Rust side maps back to the device location.
+ */
+export const weatherSettingsSchema = z.object({
+  /** Whether the module fetches at all. */
+  enabled: z.boolean().default(false),
+  /** How temperatures and wind speeds read; the forecast itself is metric. */
+  units: z.enum(['metric', 'imperial']).default('metric'),
+  /** The device position, or a place picked from the geocoder. */
+  location: z
+    .discriminatedUnion('kind', [
+      z.object({ kind: z.literal('auto') }),
+      z.object({ kind: z.literal('manual'), place: placeSchema }),
+    ])
+    .default({ kind: 'auto' }),
+});
+export type WeatherSettings = z.infer<typeof weatherSettingsSchema>;
+
+export const defaultWeatherSettings = (): WeatherSettings => weatherSettingsSchema.parse({});
+
+/** Reads the weather namespace; a missing or malformed entry yields the defaults. */
+export const readWeatherSettings = (settings: Settings): WeatherSettings => {
+  const parsed = weatherSettingsSchema.safeParse(settings.modules[WEATHER_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultWeatherSettings();
+};
+
+/** Returns a new document with the weather namespace replaced. */
+export const writeWeatherSettings = (settings: Settings, weather: WeatherSettings): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [WEATHER_SETTINGS_KEY]: weather },
+});
+
+/**
+ * How often the module refreshes while it is on, in milliseconds (mirrors
+ * `modules::weather::REFRESH`), so a panel can say how old a forecast is allowed to be.
+ */
+export const WEATHER_REFRESH_MS = 15 * 60 * 1000;

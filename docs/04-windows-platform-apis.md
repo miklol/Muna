@@ -100,6 +100,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 
 | Need | API | Notes |
 | ------ | ----- | ------- |
+| Location (weather) | `Windows.Devices.Geolocation.Geolocator`: `RequestAccessAsync` once, then `GetGeopositionAsync` with `PositionAccuracy::Default`; `LocationStatus` for *NotAvailable* / *Disabled* | One fix per refresh, no tracking, every wait bounded (the access broker was once seen never answering). `Denied` (or `E_ACCESSDENIED` mid-call) is final until the user retries; `NotAvailable` means no source. Coordinates rounded to 0.01° before they leave the process. Capability `location` in the MSIX manifest; unpackaged builds use the desktop-app toggle in Settings → Privacy (M3-E4) |
 | Battery state | `Windows.System.Power.PowerManager`: `BatteryStatus`, `PowerSupplyStatus`, `RemainingChargePercent`, `RemainingDischargeTime`, `EnergySaverStatus` + `*Changed` events | "Charging" live activity on `PowerSupplyStatusChanged → Adequate`. `Battery.AggregateBattery.GetReport()` for mWh rates |
 | Bluetooth enumerate | `DeviceInformation.CreateWatcher(BluetoothDevice.GetDeviceSelectorFromPairingState(true), [System.Devices.Aep.IsConnected, System.Devices.Aep.Category, …], AssociationEndpoint)`; LE via `BluetoothLEDevice.GetDeviceSelectorFromPairingState`; `BluetoothDevice.ConnectionStatusChanged` | Dual-mode devices are two AEPs sharing `System.Devices.Aep.ContainerId` — merge on it. `Category` is a string array of dotted paths (`Communication.Headset.Bluetooth`) — match segments, not prefixes. Capability `bluetooth` (declared in MSIX) for GATT. Seelen-UI `radios/bluetooth/classic.rs` |
 | Bluetooth battery (LE) | GATT Battery Service `0x180F` / characteristic `0x2A19`, subscribe notifications | Standard |
@@ -167,12 +168,13 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 window's export, import and logs actions; both stay in Rust so the UI never touches the file
 system), `tauri-plugin-drag`, `windows` ≥ 0.62 (features: `Media_Control`, `Storage_Streams`,
 `UI_Notifications_Management`, `UI_Shell`, `Devices_Bluetooth`, `Devices_Bluetooth_Rfcomm`,
-`Devices_Enumeration`, `Devices_Radios`, `System_Power`, `ApplicationModel_DataTransfer`,
+`Devices_Enumeration`, `Devices_Geolocation`, `Devices_Radios`, `System_Power`, `ApplicationModel_DataTransfer`,
 `Win32_Media_Audio_Endpoints`, `Win32_Devices_Bluetooth`, `Win32_System_IO`,
 `Win32_UI_WindowsAndMessaging`, `Win32_UI_Shell`, `Win32_Graphics_Gdi`,
 `Win32_Graphics_Dwm`, `Win32_UI_Accessibility`, `Win32_System_RemoteDesktop`), `sysinfo`,
 `nvml-wrapper`, `wmi`, `windows-capture`, `cpal` + `realfft`, `rusqlite`, `tokio`, `serde`,
-`specta`/`tauri-specta`, `keyring` (Credential Manager), `ical`, `rrule`, `zip`, `color-thief`.
+`specta`/`tauri-specta`, `keyring` (Credential Manager), `reqwest` (rustls, HTTP/2, system proxy —
+only for user-enabled integrations such as weather), `ical`, `rrule`, `zip`, `color-thief`.
 
 ## Repositories to study (not copy)
 

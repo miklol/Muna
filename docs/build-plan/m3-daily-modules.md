@@ -62,6 +62,23 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
   the dashboard widgets).
 - **M3-E4 Weather** — Open-Meteo (no key) with geocoding; location from Windows Geolocation
   (capability `location`) or manual city. Hourly/daily, alerts if available.
+
+  **Progress.** Landed as one PR stacked on M3-E7: a `muna-platform::Location` trait (fake
+  with scripted fixes and denials; Windows `Geolocator` with one `RequestAccessAsync` and one
+  `GetGeopositionAsync` per refresh), a provider adapter over `reqwest` for the two Open-Meteo
+  endpoints, and a pure `WeatherService` reducer (locate → fetch with a generation counter,
+  15 min refresh, 1 → 15 min backoff, cache in `Store` meta keyed by the rounded point,
+  sticky *denied* until *Try again*) driven by one tokio task that also wakes on unlock. The
+  module is **off by default** and makes no request until the user turns it on; coordinates
+  are rounded to 0.01° before they leave the PC. Contract: `get_weather_snapshot`,
+  `weather_command(Refresh | RetryLocation)`, `weather_search` (refused while off),
+  `WeatherChanged`; floats cross through the new `muna_core::Finite` specta marker. Panel
+  with the moment now, reading chips, twelve hours and seven days, gradient skies by
+  condition and hour, the stale *Updated* chip, and empty states for off, denied, unavailable,
+  failed, loading and offline; Weather settings pane with the switch, current location or a
+  searched city, and units, persisting `settings.modules.weather`
+  ([weather → Implementation notes](../modules/weather.md#implementation-notes-m3-e4)).
+  Deferred: photographic skies and animated icons, alerts, a strip form.
 - **M3-E5 Notifications** — identity path with `NotificationChanged`, polling fallback
   (1 s) when identity absent; group by app; dismiss/clear; Focus Assist state read-only with
   deep link. Test both installers.

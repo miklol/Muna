@@ -159,6 +159,14 @@ impl Store {
         Ok(())
     }
 
+    /// Deletes a key; a no-op when it is not there.
+    pub fn remove_meta(&self, key: &str) -> Result<(), StoreError> {
+        self.conn
+            .lock()
+            .execute("DELETE FROM meta WHERE key = ?1", params![key])?;
+        Ok(())
+    }
+
     /// Appends one pomodoro phase to the log.
     pub fn log_pomodoro_session(&self, record: &PomodoroSessionRecord) -> Result<(), StoreError> {
         self.conn.lock().execute(
@@ -208,6 +216,9 @@ mod tests {
         store.set_meta("last_run", "1").unwrap();
         store.set_meta("last_run", "2").unwrap();
         assert_eq!(store.get_meta("last_run").unwrap(), Some("2".into()));
+        store.remove_meta("last_run").unwrap();
+        store.remove_meta("never_there").unwrap();
+        assert_eq!(store.get_meta("last_run").unwrap(), None);
     }
 
     #[test]

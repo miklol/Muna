@@ -1,0 +1,208 @@
+/*
+ * Weather panel (docs/modules/weather.md): the moment now on top, the day's readings as chips,
+ * the next twelve hours, then the week. Composes tokens only; the primitives bring their own
+ * styles.
+ *
+ * Budget: the panel body has 284 px at most. Now row 44 + chips 24 + two strips of about 58
+ * each + three 12 px gaps = 220 px, so even with the stale chip nothing scrolls.
+ *
+ * The sky is a gradient chosen by `data-sky` (six condition groups × day/night) — the spec's
+ * photographic WebP backgrounds are deferred so the module ships no binary assets; the
+ * gradient stays under the black-glass material and never competes with the text.
+ */
+
+.weather-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  block-size: 100%;
+  min-block-size: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The sky sits behind everything at low alpha so `--text-*` contrast holds on every gradient. */
+.weather-panel[data-sky]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.55;
+  background: var(--weather-sky, transparent);
+  pointer-events: none;
+}
+
+.weather-panel[data-sky='clear-day'] {
+  --weather-sky: linear-gradient(160deg, #1f5fa8 0%, #3c8fd9 55%, #7dbde8 100%);
+}
+
+.weather-panel[data-sky='clear-night'] {
+  --weather-sky: linear-gradient(160deg, #060a1f 0%, #14204a 60%, #1f2d5c 100%);
+}
+
+.weather-panel[data-sky='cloudy-day'] {
+  --weather-sky: linear-gradient(160deg, #46586d 0%, #6c7f93 55%, #9aa8b6 100%);
+}
+
+.weather-panel[data-sky='cloudy-night'] {
+  --weather-sky: linear-gradient(160deg, #0f141c 0%, #222b38 60%, #33404f 100%);
+}
+
+.weather-panel[data-sky='fog-day'] {
+  --weather-sky: linear-gradient(160deg, #6f7a84 0%, #97a1a9 55%, #b9c0c6 100%);
+}
+
+.weather-panel[data-sky='fog-night'] {
+  --weather-sky: linear-gradient(160deg, #1a1f26 0%, #2f363f 60%, #444c56 100%);
+}
+
+.weather-panel[data-sky='rain-day'] {
+  --weather-sky: linear-gradient(160deg, #26364d 0%, #3f5978 55%, #5f7d9c 100%);
+}
+
+.weather-panel[data-sky='rain-night'] {
+  --weather-sky: linear-gradient(160deg, #080d18 0%, #16233a 60%, #223350 100%);
+}
+
+.weather-panel[data-sky='snow-day'] {
+  --weather-sky: linear-gradient(160deg, #6b8aa8 0%, #9db6cd 55%, #cfdde9 100%);
+}
+
+.weather-panel[data-sky='snow-night'] {
+  --weather-sky: linear-gradient(160deg, #10182a 0%, #2a3a54 60%, #47597a 100%);
+}
+
+.weather-panel[data-sky='storm-day'] {
+  --weather-sky: linear-gradient(160deg, #1d1f33 0%, #3b3d5c 55%, #5a5b7d 100%);
+}
+
+.weather-panel[data-sky='storm-night'] {
+  --weather-sky: linear-gradient(160deg, #05060f 0%, #161628 60%, #262541 100%);
+}
+
+/* Now row: glyph, temperature, three lines of text, then the place and the actions. */
+.weather-now {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.weather-now__glyph {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--text-1);
+}
+
+.weather-now__temp {
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
+.weather-now__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.weather-now__condition {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.weather-now__aside {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-end;
+  min-inline-size: 0;
+}
+
+.weather-now__place {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  max-inline-size: 200px;
+}
+
+.weather-now__actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* Chips: the day's readings in one line; the label is tertiary so the number reads first. */
+.weather-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.weather-chip__label {
+  margin-inline-end: var(--space-1);
+  color: var(--text-3);
+}
+
+/* Strips: equal columns, one per hour or day, each a small stack of caption, glyph, numbers. */
+.weather-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.weather-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  min-inline-size: 0;
+  padding-block: var(--space-1);
+  border-radius: var(--radius-control);
+  color: var(--text-1);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.weather-cell:first-child {
+  background: var(--surface-2);
+}
+
+.weather-cell__chance {
+  color: var(--accent-blue);
+}
+
+/* Empty, error and loading states share the panel's centring. */
+.weather-empty {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.weather-empty__actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.weather-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.weather-loading .weather-now__text {
+  gap: var(--space-2);
+}
