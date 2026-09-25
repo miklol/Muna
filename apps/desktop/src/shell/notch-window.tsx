@@ -542,6 +542,14 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     }
   };
 
+  // Parking unmounts the surface mid-morph, so its completion never arrives: end the sample
+  // here or its frame loop would keep the renderer awake for as long as the shell stays parked.
+  useEffect(() => {
+    if (parked) {
+      sampler.current.stop();
+    }
+  }, [parked]);
+
   useEffect(
     () => () => {
       sampler.current.stop();

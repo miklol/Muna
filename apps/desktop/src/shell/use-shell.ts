@@ -1,6 +1,6 @@
 import type { MorphReport, ShapeRect } from '@muna/contracts';
 import { commands, events } from '@muna/contracts';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { currentWindowLabel } from '../lib/window-label';
 import { useAppStore } from '../store/app-store';
@@ -131,13 +131,19 @@ export const setStripSuspended = (suspended: boolean): void => {
  * Tells the shell, once, that the first frame is on screen so the window can be moved into
  * place — two animation frames after mount (docs/modules/notch-shell.md, "moved into place
  * after the UI reports ready") — right after `publish` has handed over the painted rects.
+ * The latest `publish` is read through a ref: the shell answers `shellReady` with a layout
+ * event, so re-running on every new `publish` identity would loop at frame rate.
  */
 export function useShellReady(publish: () => void) {
+  const latestPublish = useRef(publish);
+  useLayoutEffect(() => {
+    latestPublish.current = publish;
+  });
   useEffect(() => {
     let second = 0;
     const first = requestAnimationFrame(() => {
       second = requestAnimationFrame(() => {
-        publish();
+        latestPublish.current();
         commands.shellReady().then(ignoreIpcFailure, ignoreIpcFailure);
       });
     });
@@ -145,5 +151,5 @@ export function useShellReady(publish: () => void) {
       cancelAnimationFrame(first);
       cancelAnimationFrame(second);
     };
-  }, [publish]);
+  }, []);
 }

@@ -325,6 +325,22 @@ describe('NotchWindow scenario suite', () => {
     expect(ipc.commands.reportMorph).not.toHaveBeenCalled();
   });
 
+  it('reports ready once: the layout the shell answers with never re-arms it', async () => {
+    renderNotch();
+    await advance(40);
+    expect(ipc.commands.shellReady).toHaveBeenCalledTimes(1);
+
+    // The shell re-broadcasts the (unchanged) layout after every `shellReady`, and a changed
+    // one moves the strip; neither may report ready again or the two would loop at frame rate.
+    for (let i = 0; i < 5; i += 1) {
+      ipc.layout.emit({ layout: layout() });
+      await advance(40);
+    }
+    ipc.layout.emit({ layout: layout({ stripTopOffset: 8, shape: 'island' }) });
+    await advance(40);
+    expect(ipc.commands.shellReady).toHaveBeenCalledTimes(1);
+  });
+
   it('S1: a pointer resting on the strip reveals after 250 ms and the interactive rect grows', async () => {
     const { main } = renderNotch();
     pointer(main, 'pointermove', ON_STRIP, 0);
