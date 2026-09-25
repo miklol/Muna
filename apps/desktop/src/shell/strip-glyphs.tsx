@@ -5,6 +5,7 @@ import {
   BatteryCharging,
   Bell,
   Bluetooth,
+  CircleCheck,
   Headphones,
   Lock,
   LockOpen,
@@ -57,6 +58,7 @@ export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   sun: 'strip.glyph.sun',
   mic: 'strip.glyph.mic',
   micMuted: 'strip.glyph.micMuted',
+  checkCircle: 'strip.glyph.checkCircle',
 };
 
 /**
@@ -103,5 +105,7 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <Mic {...glyphProps} />;
     case 'micMuted':
       return <MicOff {...glyphProps} />;
+    case 'checkCircle':
+      return <CircleCheck {...glyphProps} />;
   }
 };

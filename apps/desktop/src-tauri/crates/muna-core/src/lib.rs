@@ -11,6 +11,8 @@ pub mod clock;
 pub mod settings;
 pub mod shell_settings;
 pub mod store;
+pub mod tasks;
+pub mod wire;
 
 pub use activities::{
     Activity, ActivityState, Glyph, Hub, Leading, Notice, PomodoroPhase, Scheduler, StripContent,
@@ -23,3 +25,5 @@ pub use settings::{
 };
 pub use shell_settings::{MonitorLayout, NotchShape, PlacementMode, ShellSettings, StripHeight};
 pub use store::{PomodoroSessionRecord, Store, StoreError};
+pub use tasks::{Due, INBOX_LIST_ID, NewTask, Task, TaskList, TaskPatch};
+pub use wire::Int53;

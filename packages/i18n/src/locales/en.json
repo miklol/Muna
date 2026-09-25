@@ -43,7 +43,10 @@
       "nowPlayingNoArtist": "Now playing {{title}}",
       "nowPaused": "Paused, {{message}}",
       "waveform": "Playing",
-      "waveformPaused": "Paused"
+      "waveformPaused": "Paused",
+      "time": "at {{time}}",
+      "taskDue": "{{title}} is due",
+      "taskDueAt": "{{title}} is due {{fact}}"
     },
     "glyph": {
       "battery": "Battery",
@@ -64,7 +67,8 @@
       "volumeMuted": "Muted",
       "sun": "Brightness",
       "mic": "Microphone on",
-      "micMuted": "Microphone muted"
+      "micMuted": "Microphone muted",
+      "checkCircle": "Task"
     }
   },
   "spike": {
@@ -173,6 +177,50 @@
       "flow": "Flow",
       "autoStartNext": "Start the next phase automatically",
       "autoStartNextBody": "Breaks and focus phases follow each other without a tap. A changed length applies to the next phase that starts."
+    }
+  },
+  "todo": {
+    "title": "Tasks",
+    "inbox": "Tasks",
+    "lists": "List",
+    "add": "Add a task",
+    "dueIn": "Due {{due}}",
+    "due": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "yesterday": "Yesterday",
+      "dayAt": "{{day}}, {{time}}",
+      "overdueSuffix": ", overdue"
+    },
+    "moveToTrash": "Move {{title}} to trash",
+    "clearCompleted": "Clear completed",
+    "trash": "Trash",
+    "restore": "Restore {{title}}",
+    "emptyTrash": "Empty trash",
+    "retention_one": "Deleted tasks are removed after 1 day",
+    "retention_other": "Deleted tasks are removed after {{count}} days",
+    "empty": "Type a task above and press Enter",
+    "emptyBody": "Add a date in words, like tomorrow 3pm, to set when it is due.",
+    "trashEmpty": "Nothing in the trash",
+    "trashEmptyBody_one": "A task you move to the trash stays here for 1 day and can be restored.",
+    "trashEmptyBody_other": "A task you move to the trash stays here for {{count}} days and can be restored.",
+    "settings": {
+      "trash": "Trash",
+      "retentionDays": "Keep deleted tasks for",
+      "retentionDaysBody": "After this, tasks in the trash are removed for good.",
+      "days_one": "1 day",
+      "days_other": "{{count}} days",
+      "strip": "Strip",
+      "showDueInStrip": "Show the next due task in the strip",
+      "showDueInStripBody": "Appears an hour before a timed task is due and stays 15 minutes after. All-day tasks never show.",
+      "dueNotices": "Announce a task when it is due",
+      "dueNoticesBody": "A short notice in the strip at the due time.",
+      "lists": "Lists",
+      "listsBody": "Tasks live in one list each. Deleting a list moves its tasks to the trash.",
+      "defaultList": "Default",
+      "deleteList": "Delete the {{name}} list",
+      "newList": "New list",
+      "newListPlaceholder": "Name, then Enter"
     }
   },
   "settings": {

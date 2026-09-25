@@ -139,6 +139,13 @@ export const commands = {
 	 *  strip follows through `StripContentChanged`.
 	 */
 	pomodoroCommand: (command: PomodoroCommand) => __TAURI_INVOKE<PomodoroState>("pomodoro_command", { command }),
+	/**  Every task list and task (a panel that just opened; afterwards it follows `TodoChanged`). */
+	getTodoSnapshot: () => typedError<TodoSnapshot, IpcError>(__TAURI_INVOKE("get_todo_snapshot")),
+	/**
+	 *  Adds, edits, completes, trashes, restores or reorders tasks and lists; returns the
+	 *  snapshot after the command. The strip follows through `StripContentChanged`.
+	 */
+	todoCommand: (command: TodoCommand) => typedError<TodoSnapshot, IpcError>(__TAURI_INVOKE("todo_command", { command })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -156,6 +163,7 @@ export const events = {
 	shellToggleRequested: makeEvent<ShellToggleRequested>("shell-toggle-requested"),
 	shellYieldChanged: makeEvent<ShellYieldChanged>("shell-yield-changed"),
 	stripContentChanged: makeEvent<StripContentChanged>("strip-content-changed"),
+	todoChanged: makeEvent<TodoChanged>("todo-changed"),
 };
 
 /* Types */
@@ -245,7 +253,9 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 /**  Speaker with three waves (67–100). */
 "volumeHigh" | 
 /**  Speaker with a slash. */
-"volumeMuted" | "sun" | "mic" | "micMuted";
+"volumeMuted" | "sun" | "mic" | "micMuted" | 
+/**  A task (docs/modules/todo.md): a circle with a check. */
+"checkCircle";
 
 /**  Everything the HUD UI renders and the settings pane reads. */
 export type HudState = {
@@ -678,10 +688,94 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
 /**  The running pomodoro phase ("Focus", "Short break"); the trailing timer counts down. */
 { kind: "pomodoro"; phase: PomodoroPhase } | 
 /**  A pomodoro phase ran out (docs/modules/pomodoro.md). */
-{ kind: "pomodoroFinished"; phase: PomodoroPhase };
+{ kind: "pomodoroFinished"; phase: PomodoroPhase } | 
+/**
+ *  A task that is due soon or due now (docs/modules/todo.md); the title is content and is
+ *  never logged. As an activity the trailing slot carries the due time; as a notice it
+ *  announces the moment.
+ */
+{ kind: "taskDue"; title: string };
+
+/**
+ *  One task, in any state: open, completed (`completed_at_ms`) or in the trash
+ *  (`deleted_at_ms`). The title and notes are content and are never logged.
+ */
+export type Task = {
+	id: string,
+	listId: string,
+	title: string,
+	notes: string,
+	dueMs: number | null,
+	/**  `due_ms` names a day, not a moment. */
+	allDay: boolean,
+	completedAtMs: number | null,
+	deletedAtMs: number | null,
+	/**  Ascending within the list; new tasks go on top. */
+	sortOrder: number,
+	createdAtMs: number,
+	updatedAtMs: number,
+};
+
+/**  A due date as the UI sends it. */
+export type TaskDue = {
+	/**  Unix milliseconds; a JS `number` holds it exactly. */
+	atMs: number,
+	/**  The date names a day, not a moment; never announced. */
+	allDay: boolean,
+};
+
+/**
+ *  One list of tasks.
+ * 
+ *  Millisecond and order fields are `i64` in Rust and SQLite and export as `number` through
+ *  [`Int53`] (they stay far below 2^53).
+ */
+export type TaskList = {
+	id: string,
+	/**  `None` for the default list (localised by the UI). */
+	name: string | null,
+	sortOrder: number,
+};
 
 /**  An accent from the design system (docs/05-design-system.md, colour tokens). */
 export type Tint = "blue" | "cyan" | "green" | "orange" | "red" | "purple" | "yellow" | "pink";
+
+/**
+ *  The task list changed: a command ran, the trash was purged or a settings change moved the
+ *  retention (docs/modules/todo.md). Carries the whole snapshot; a personal list is small.
+ */
+export type TodoChanged = {
+	snapshot: TodoSnapshot,
+};
+
+/**
+ *  What the panel and the settings pane can ask for. Every command answers with the snapshot
+ *  after it; commands naming a task or list that no longer exists are no-ops.
+ */
+export type TodoCommand = 
+/**  A new task at the top of `list_id`. A blank title is refused. */
+{ kind: "add"; listId: string; title: string; due: TaskDue | null } | { kind: "rename"; id: string; title: string } | { kind: "setNotes"; id: string; notes: string } | 
+/**  `None` clears the due date. */
+{ kind: "setDue"; id: string; due: TaskDue | null } | { kind: "complete"; id: string; completed: boolean } | 
+/**  To the trash. */
+{ kind: "delete"; id: string } | { kind: "restore"; id: string } | 
+/**  Out of the trash for good. */
+{ kind: "purge"; id: string } | { kind: "emptyTrash" } | 
+/**  The named tasks take this order at the top of the list. */
+{ kind: "reorder"; listId: string; ids: string[] } | { kind: "addList"; name: string } | { kind: "renameList"; id: string; name: string } | 
+/**  The list's tasks move to the default list's trash. */
+{ kind: "deleteList"; id: string };
+
+/**
+ *  What the panel renders: every list and every task that has not been purged. A personal
+ *  list stays small enough to ship whole; the UI filters by list and state.
+ */
+export type TodoSnapshot = {
+	lists: TaskList[],
+	tasks: Task[],
+	/**  `settings.modules.todo.retentionDays`, so the trash can say when a task goes. */
+	retentionDays: number,
+};
 
 /**  The trailing (right) slot of the strip. */
 export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } | 
@@ -707,7 +801,12 @@ export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
  *  The HUD's 96 px level track with a white fill (docs/modules/hud.md, "Visual"); the
  *  UI animates the fill between values. `muted` draws the fill dimmed.
  */
-{ kind: "level"; percent: number; muted: boolean };
+{ kind: "level"; percent: number; muted: boolean } | 
+/**
+ *  A wall-clock instant (Unix milliseconds) the UI formats as a short time for the locale
+ *  (a task's due time, an event's start).
+ */
+{ kind: "time"; atMs: number };
 
 /**  The default render endpoint's level. */
 export type VolumeLevel = {

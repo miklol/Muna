@@ -1,0 +1,153 @@
+/*
+ * To-do panel (docs/modules/todo.md): a toolbar (quick-add field, due preview, actions), the
+ * lists as segments when there is more than one, then the task rows. Composes tokens only; the
+ * primitives bring their own styles.
+ *
+ * The panel body has 284 px at most (360 panel − 2 × 16 padding − 44 header), the toolbar takes
+ * 28 + 8, a lists row another 28 + 8; the list scrolls inside what is left so the panel never
+ * asks the shell for more than its maximum height.
+ */
+
+.todo-panel {
+  --todo-list-max: 248px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.todo-panel[data-lists] {
+  --todo-list-max: 212px;
+}
+
+.todo-toolbar {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.todo-add {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+/* Holds the due chip while typing; empty otherwise, so the row does not jump. */
+.todo-add__preview {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-block-size: var(--size-chip-height);
+}
+
+.todo-toolbar__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  margin-inline-start: auto;
+}
+
+.todo-trash-heading {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.todo-trash-heading__title,
+.todo-trash-heading__note {
+  margin: 0;
+}
+
+.todo-lists {
+  flex: none;
+  align-self: flex-start;
+}
+
+/* Positioned so a leaving row (`AnimatePresence` popLayout) pops out of flow in place. */
+.todo-list {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  max-block-size: var(--todo-list-max);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+/* A task row: the 20 px checkbox with its 36 px effective hit area sets the row height. */
+.todo-row {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--size-hit-effective);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-control);
+}
+
+.todo-row:hover {
+  background: var(--surface-1);
+}
+
+.todo-row__check {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  min-block-size: var(--size-hit-effective);
+}
+
+.todo-row__title {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  transition: color var(--muna-motion-toggle);
+}
+
+.todo-row[data-done] .todo-row__title {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-3);
+}
+
+.todo-row__due {
+  flex: none;
+  white-space: nowrap;
+}
+
+.todo-row__due[data-overdue] {
+  color: var(--accent-red);
+}
+
+.todo-row__action {
+  flex: none;
+}
+
+/* Move to trash shows on hover or focus; it stays in the tab order and appears on focus. */
+.todo-row__action--reveal {
+  opacity: 0;
+  transition: opacity var(--muna-motion-press);
+}
+
+.todo-row:hover .todo-row__action--reveal,
+.todo-row:focus-within .todo-row__action--reveal {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .todo-row__action--reveal {
+    opacity: 1;
+  }
+}
+
+.todo-empty {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-block-size: 120px;
+}

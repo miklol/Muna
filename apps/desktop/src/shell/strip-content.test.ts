@@ -58,6 +58,65 @@ describe('strip content mapping', () => {
     expect(messageText({ kind: 'pomodoroFinished', phase: 'longBreak' }, t)).toBe(
       'Long break finished',
     );
+    expect(messageText({ kind: 'taskDue', title: 'Call Sam' }, t)).toBe('Call Sam');
+  });
+
+  it('formats a time slot as a short time for the locale', () => {
+    // 14:30 local time on an arbitrary day; the slot carries an instant, not a string.
+    const atMs = new Date(2026, 8, 26, 14, 30).getTime();
+    const en = toSlot({ kind: 'time', atMs }, ctx);
+    // ICU versions differ on the space before the day period.
+    expect(en).toMatchObject({ kind: 'text', value: expect.stringMatching(/^2:30\sPM$/) });
+    expect(toSlot({ kind: 'time', atMs }, { ...ctx, locale: 'de' })).toEqual({
+      kind: 'text',
+      value: '14:30',
+    });
+  });
+
+  it('describes a due task with its time, and the notice at that time without it', () => {
+    const atMs = new Date(2026, 8, 26, 14, 30).getTime();
+    expect(
+      present(
+        {
+          kind: 'activity',
+          wide: true,
+          activity: {
+            id: 'todo:due',
+            module: 'todo',
+            priority: 55,
+            leading: { kind: 'icon', glyph: 'checkCircle', tint: 'blue' },
+            trailing: { kind: 'time', atMs },
+            wide: { kind: 'taskDue', title: 'Call Sam' },
+          },
+        },
+        t,
+        'en',
+        0,
+      ),
+    ).toMatchObject({
+      text: 'Call Sam',
+      wide: true,
+      description: expect.stringMatching(/^Call Sam is due at 2:30\sPM$/),
+    });
+    expect(
+      present(
+        {
+          kind: 'notice',
+          notice: {
+            id: 'todo:due:t1',
+            module: 'todo',
+            priority: 55,
+            leading: { kind: 'icon', glyph: 'checkCircle', tint: 'blue' },
+            trailing: null,
+            wide: { kind: 'taskDue', title: 'Call Sam' },
+            holdMs: 0,
+          },
+        },
+        t,
+        'en',
+        0,
+      ),
+    ).toMatchObject({ text: 'Call Sam', wide: true, description: 'Call Sam is due' });
   });
 
   it('maps contract slots to the UI vocabulary and anchors timers to their arrival', () => {
