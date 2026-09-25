@@ -10,13 +10,13 @@ use tokio::sync::broadcast;
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Media, Monitors, Platform, Power,
-    SystemOsd, SystemStats, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
+    Platform, Power, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
-    BrightnessMonitor, ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState,
-    PowerSource, Rect, SystemSample, Thumbnail, UserNotificationState, WindowHandle,
+    BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
+    OsdState, PowerSource, Rect, SystemSample, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -97,6 +97,13 @@ struct State {
     system_samples: Vec<SystemSample>,
     /// Every `sample(top_processes)` the fake answered, in order.
     system_sample_requests: Vec<usize>,
+    /// Scripted answer to `position()`: a fix, or how Windows refuses. `None` scripts a
+    /// machine without a location source (`Unsupported`).
+    location: Option<GeoPosition>,
+    /// Scripted: `position()` fails with `AccessDenied` (location off for desktop apps).
+    location_denied: bool,
+    /// How many times `position()` was asked, to assert "no repeated prompts".
+    location_requests: usize,
 }
 
 impl Default for State {
@@ -146,6 +153,9 @@ impl Default for State {
             autostart_denied: false,
             system_samples: Vec::new(),
             system_sample_requests: Vec::new(),
+            location: None,
+            location_denied: false,
+            location_requests: 0,
         }
     }
 }
@@ -431,6 +441,34 @@ impl FakePlatform {
     #[must_use]
     pub fn system_sample_requests(&self) -> Vec<usize> {
         self.state.lock().system_sample_requests.clone()
+    }
+
+    /// Scripts the fix [`Location::position`] returns; `None` scripts a machine without a
+    /// location source (`Unsupported`).
+    pub fn set_location(&self, position: Option<GeoPosition>) {
+        self.state.lock().location = position;
+    }
+
+    /// Scripts Windows refusing location to desktop apps (`AccessDenied`).
+    pub fn set_location_denied(&self, denied: bool) {
+        self.state.lock().location_denied = denied;
+    }
+
+    /// How many times `position()` was asked so far.
+    #[must_use]
+    pub fn location_requests(&self) -> usize {
+        self.state.lock().location_requests
+    }
+}
+
+impl Location for FakePlatform {
+    fn position(&self) -> PlatformResult<GeoPosition> {
+        let mut state = self.state.lock();
+        state.location_requests += 1;
+        if state.location_denied {
+            return Err(PlatformError::AccessDenied("location"));
+        }
+        state.location.ok_or(PlatformError::Unsupported("location"))
     }
 }
 
@@ -849,6 +887,10 @@ impl Platform for FakePlatform {
         self
     }
 
+    fn location(&self) -> &dyn Location {
+        self
+    }
+
     fn monitors(&self) -> &dyn Monitors {
         self
     }
@@ -1258,6 +1300,28 @@ mod tests {
                 .unwrap()
                 .suppresses_overlay()
         );
+    }
+
+    #[test]
+    fn location_is_scripted_and_counts_requests() {
+        let platform = FakePlatform::new();
+        assert!(matches!(
+            platform.location().position(),
+            Err(PlatformError::Unsupported("location"))
+        ));
+        platform.set_location(Some(GeoPosition {
+            latitude: 52.5200,
+            longitude: 13.4050,
+            accuracy_m: Some(650.0),
+        }));
+        let fix = platform.location().position().unwrap();
+        assert_eq!((fix.latitude, fix.longitude), (52.52, 13.405));
+        platform.set_location_denied(true);
+        assert!(matches!(
+            platform.location().position(),
+            Err(PlatformError::AccessDenied("location"))
+        ));
+        assert_eq!(platform.location_requests(), 3);
     }
 
     #[test]

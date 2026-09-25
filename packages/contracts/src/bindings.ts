@@ -220,6 +220,22 @@ export const commands = {
 	 *  `platform.accessDenied`, which the panel reports in place.
 	 */
 	bluetoothCommand: (command: BluetoothCommand) => typedError<BluetoothSnapshot, IpcError>(__TAURI_INVOKE("bluetooth_command", { command })),
+	/**
+	 *  The forecast and the refresh state as the module now sees them (a panel that just opened;
+	 *  afterwards it follows `WeatherChanged`).
+	 */
+	getWeatherSnapshot: () => __TAURI_INVOKE<WeatherSnapshot>("get_weather_snapshot"),
+	/**
+	 *  Refreshes now or asks for the position again; returns the snapshot as it stands afterwards
+	 *  (the work itself runs in the module's loop and arrives as `WeatherChanged`).
+	 */
+	weatherCommand: (command: WeatherCommand) => __TAURI_INVOKE<WeatherSnapshot>("weather_command", { command }),
+	/**
+	 *  Places matching a typed city name, for the settings pane. `weather.disabled` while the
+	 *  module is off, `weather.offline` when the request never reached the provider,
+	 *  `weather.provider` when it answered with something other than places.
+	 */
+	weatherSearch: (query: string) => typedError<Place[], IpcError>(__TAURI_INVOKE("weather_search", { query })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -240,6 +256,7 @@ export const events = {
 	stripContentChanged: makeEvent<StripContentChanged>("strip-content-changed"),
 	systemMonitorChanged: makeEvent<SystemMonitorChanged>("system-monitor-changed"),
 	todoChanged: makeEvent<TodoChanged>("todo-changed"),
+	weatherChanged: makeEvent<WeatherChanged>("weather-changed"),
 };
 
 /* Types */
@@ -281,6 +298,22 @@ export type Artwork = {
 	width: number,
 	height: number,
 };
+
+/**  How the automatic location stands. */
+export type AutoLocationStatus = 
+/**  Asking Windows, or about to. */
+"resolving" | 
+/**  A position is known. */
+"ready" | 
+/**
+ *  Windows keeps location from desktop apps; the panel says "Choose a city" and the module
+ *  does not ask again until "Try again".
+ */
+"denied" | 
+/**  The machine has no location source. */
+"unavailable" | 
+/**  The fix failed for another reason; retried with backoff. */
+"failed";
 
 /**
  *  The paired devices and the radio as the module now sees them (docs/modules/bluetooth.md):
@@ -359,6 +392,62 @@ export type BrightnessMonitor = {
 	kind: BrightnessKind,
 };
 
+/**
+ *  The conditions at the place right now. Every number came out of JSON, which cannot spell
+ *  `NaN`, so they export as plain `number`s ([`Finite`]).
+ */
+export type CurrentConditions = {
+	/**  Local wall time of the reading, `YYYY-MM-DDTHH:MM`. */
+	time: string,
+	condition: WeatherCondition,
+	isDay: boolean,
+	temperatureC: number,
+	apparentTemperatureC: number,
+	humidityPercent: number,
+	windKmh: number,
+	pressureHpa: number,
+	/**  The UV index of the current hour; `None` when the provider has none. */
+	uvIndex: number | null,
+};
+
+/**  One day of the row. */
+export type DayForecast = {
+	/**  Local date, `YYYY-MM-DD`. */
+	date: string,
+	condition: WeatherCondition,
+	highC: number,
+	lowC: number,
+	/**  Local wall time, `YYYY-MM-DDTHH:MM`. */
+	sunrise: string,
+	sunset: string,
+	/**  The day's highest hourly chance, 0–100. */
+	precipitationPercent: number | null,
+};
+
+/**
+ *  Why a refresh or a search did not produce a result. Never carries what the provider said:
+ *  the UI has two sentences, one per case.
+ */
+export type FetchError = 
+/**  No connection, a DNS failure or a timeout: the last forecast stands with its time. */
+"offline" | 
+/**
+ *  The service answered, but not with a forecast (an error status or a shape this build
+ *  does not understand).
+ */
+"provider";
+
+/**  A whole forecast for one place. */
+export type Forecast = {
+	/**  IANA zone the times are in, e.g. `Europe/Berlin`. */
+	timezone: string,
+	current: CurrentConditions,
+	/**  From the current hour on, at most [`HOURS_KEPT`] entries. */
+	hourly: HourForecast[],
+	/**  From today on, at most [`DAYS_KEPT`] entries. */
+	daily: DayForecast[],
+};
+
 export type GeneralSettings = {
 	launchAtLogin: boolean,
 	reducedMotion: ReducedMotion,
@@ -387,6 +476,17 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 "checkCircle" | 
 /**  A processor (docs/modules/system-monitor.md): the CPU strip gauge. */
 "cpu";
+
+/**  One hour of the strip. */
+export type HourForecast = {
+	/**  Local wall time, `YYYY-MM-DDTHH:MM`. */
+	time: string,
+	condition: WeatherCondition,
+	isDay: boolean,
+	temperatureC: number,
+	/**  0–100; `None` beyond the provider's horizon. */
+	precipitationPercent: number | null,
+};
 
 /**  Everything the HUD UI renders and the settings pane reads. */
 export type HudState = {
@@ -440,6 +540,9 @@ export type Leading = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
  *  media.md, strip form); `None` draws no halo (no palette yet, or adaptive colours off).
  */
 { kind: "image"; src: string; glow?: string | null };
+
+/**  Where the forecast is for, as the panel shows it. */
+export type LocationView = { kind: "auto"; status: AutoLocationStatus } | { kind: "manual"; place: Place };
 
 /**  The artwork for the active media session arrived or no longer applies. */
 export type MediaArtChanged = {
@@ -604,6 +707,19 @@ export type OsdState =
  *  suppressed and nothing breaks.
  */
 "unavailable";
+
+/**
+ *  A place the user can pick (docs/modules/weather.md "manual city"), as the geocoder
+ *  describes it. The coordinates came out of JSON, so they are finite.
+ */
+export type Place = {
+	name: string,
+	/**  The first administrative level (a state, a land, a prefecture), when known. */
+	region: string | null,
+	country: string | null,
+	latitude: number,
+	longitude: number,
+};
 
 /**
  *  Overlay draws over other windows and yields; Reserved registers an `AppBar` of strip height
@@ -1002,10 +1118,84 @@ export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
  */
 { kind: "time"; atMs: number };
 
+/**  How temperatures and wind speeds read; the forecast itself is always metric. */
+export type Units = 
+/**  °C and km/h. */
+"metric" | 
+/**  °F and mph. */
+"imperial";
+
 /**  The default render endpoint's level. */
 export type VolumeLevel = {
 	percent: number,
 	muted: boolean,
+};
+
+/**
+ *  The forecast, its place and the refresh state as the module now sees them
+ *  (docs/modules/weather.md): after a fetch, a position fix, a command or a settings change.
+ */
+export type WeatherChanged = {
+	snapshot: WeatherSnapshot,
+};
+
+/**
+ *  What the panel can ask for. Settings (on/off, units, place) go through the settings
+ *  document like every module's.
+ */
+export type WeatherCommand = 
+/**  Fetches now, whatever the schedule says. */
+{ kind: "refresh" } | 
+/**  Asks Windows for the position again after a denial, an unavailable source or a failure. */
+{ kind: "retryLocation" };
+
+/**
+ *  A WMO weather interpretation code grouped for an icon, a label and a sky
+ *  (Open-Meteo's `weather_code`; docs/modules/weather.md "Visual").
+ */
+export type WeatherCondition = 
+/**  0. */
+"clear" | 
+/**  1. */
+"mainlyClear" | 
+/**  2. */
+"partlyCloudy" | 
+/**  3. */
+"overcast" | 
+/**  45, 48. */
+"fog" | 
+/**  51–57. */
+"drizzle" | 
+/**  61–67. */
+"rain" | 
+/**  71–77. */
+"snow" | 
+/**  80–82. */
+"showers" | 
+/**  85, 86. */
+"snowShowers" | 
+/**  95–99. */
+"thunderstorm" | 
+/**  Anything the table does not list. */
+"unknown";
+
+/**  What the UI renders (docs/modules/weather.md). */
+export type WeatherSnapshot = {
+	/**  `false` until the user turns the module on; nothing below is populated meanwhile. */
+	enabled: boolean,
+	units: Units,
+	location: LocationView,
+	/**  The last good forecast, possibly from a previous launch or an earlier hour. */
+	forecast: Forecast | null,
+	/**  When `forecast` was fetched, Unix milliseconds; the timestamp chip while offline. */
+	fetchedAtMs: number | null,
+	/**  A request is on the wire. */
+	fetching: boolean,
+	/**
+	 *  Why the last refresh failed; cleared by the next one that works. The forecast, if any,
+	 *  stays.
+	 */
+	error: FetchError | null,
 };
 
 /**  What one notch window does about the world around it. */

@@ -69,6 +69,9 @@ log = "0.4"
 muna-core.workspace = true
 muna-platform.workspace = true
 parking_lot.workspace = true
+# Forecasts for the weather module (docs/modules/weather.md). Already in the graph through
+# `tauri-plugin-updater` with these same features, so this adds an edge, not a crate.
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "http2", "system-proxy"] }
 serde.workspace = true
 serde_json.workspace = true
 specta.workspace = true

@@ -335,6 +335,17 @@ pub struct BatteryState {
     pub charging: bool,
 }
 
+/// One device position from Windows Geolocation (docs/modules/weather.md). Degrees; the
+/// weather module rounds it before anything leaves the machine.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeoPosition {
+    pub latitude: f64,
+    pub longitude: f64,
+    /// Horizontal accuracy in metres, when the source reports one.
+    pub accuracy_m: Option<f64>,
+}
+
 /// One reading of the machine's load (docs/modules/system-monitor.md). Counters are raw:
 /// the module derives rates and percentages from consecutive samples with its own clock.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]

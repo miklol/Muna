@@ -19,18 +19,22 @@ import {
   TODO_INBOX_LIST_ID,
   TODO_SETTINGS_KEY,
   TODO_STRIP_IDS,
+  WEATHER_REFRESH_MS,
+  WEATHER_SETTINGS_KEY,
   defaultHudSettings,
   defaultMediaSettings,
   defaultPomodoroSettings,
   defaultSettings,
   defaultSystemMonitorSettings,
   defaultTodoSettings,
+  defaultWeatherSettings,
   monitorLayoutSchema,
   readHudSettings,
   readMediaSettings,
   readPomodoroSettings,
   readSystemMonitorSettings,
   readTodoSettings,
+  readWeatherSettings,
   settingsSchema,
   shellLayoutSchema,
   shellSettingsSchema,
@@ -40,6 +44,7 @@ import {
   writePomodoroSettings,
   writeSystemMonitorSettings,
   writeTodoSettings,
+  writeWeatherSettings,
 } from './schemas';
 
 describe('settings schema', () => {
@@ -570,5 +575,88 @@ describe('system monitor settings namespace', () => {
   it('names the strip id and the cadence the Rust module uses', () => {
     expect(SYSTEM_MONITOR_STRIP_IDS).toEqual({ cpu: 'system-monitor:cpu' });
     expect(SYSTEM_MONITOR_PERIODS).toEqual({ visibleMs: 1000, stripMs: 10_000 });
+  });
+});
+
+describe('weather settings namespace', () => {
+  const berlin = {
+    name: 'Berlin',
+    region: 'Land Berlin',
+    country: 'Germany',
+    latitude: 52.52,
+    longitude: 13.41,
+  };
+
+  it('is off, metric and automatic when the namespace is missing', () => {
+    expect(readWeatherSettings(defaultSettings())).toEqual({
+      enabled: false,
+      units: 'metric',
+      location: { kind: 'auto' },
+    });
+    expect(defaultWeatherSettings()).toEqual(readWeatherSettings(defaultSettings()));
+  });
+
+  it('fills in missing keys and ignores unknown ones', () => {
+    const partial: Settings = {
+      ...defaultSettings(),
+      modules: { [WEATHER_SETTINGS_KEY]: { enabled: true, alerts: true } },
+    };
+    expect(readWeatherSettings(partial)).toEqual({ ...defaultWeatherSettings(), enabled: true });
+    const manual: Settings = {
+      ...defaultSettings(),
+      modules: {
+        [WEATHER_SETTINGS_KEY]: {
+          enabled: true,
+          units: 'imperial',
+          location: { kind: 'manual', place: berlin },
+        },
+      },
+    };
+    expect(readWeatherSettings(manual)).toEqual({
+      enabled: true,
+      units: 'imperial',
+      location: { kind: 'manual', place: berlin },
+    });
+  });
+
+  it('falls back to the defaults for a malformed namespace', () => {
+    const wrongUnits: Settings = {
+      ...defaultSettings(),
+      modules: { [WEATHER_SETTINGS_KEY]: { enabled: true, units: 'kelvin' } },
+    };
+    expect(readWeatherSettings(wrongUnits)).toEqual(defaultWeatherSettings());
+    const offTheGlobe: Settings = {
+      ...defaultSettings(),
+      modules: {
+        [WEATHER_SETTINGS_KEY]: {
+          location: { kind: 'manual', place: { ...berlin, latitude: 91 } },
+        },
+      },
+    };
+    expect(readWeatherSettings(offTheGlobe)).toEqual(defaultWeatherSettings());
+    const notAnObject: Settings = {
+      ...defaultSettings(),
+      modules: { [WEATHER_SETTINGS_KEY]: 'sunny' },
+    };
+    expect(readWeatherSettings(notAnObject)).toEqual(defaultWeatherSettings());
+  });
+
+  it('writes the namespace without touching the rest of the document', () => {
+    const before: Settings = { ...defaultSettings(), modules: { hud: { showLevelText: true } } };
+    const after = writeWeatherSettings(before, {
+      enabled: true,
+      units: 'metric',
+      location: { kind: 'manual', place: berlin },
+    });
+    expect(after.modules).toEqual({
+      hud: { showLevelText: true },
+      weather: { enabled: true, units: 'metric', location: { kind: 'manual', place: berlin } },
+    });
+    expect(before.modules).toEqual({ hud: { showLevelText: true } });
+    expect(settingsSchema.parse(after)).toEqual(after);
+  });
+
+  it('names the refresh period the Rust module uses', () => {
+    expect(WEATHER_REFRESH_MS).toBe(900_000);
   });
 });
