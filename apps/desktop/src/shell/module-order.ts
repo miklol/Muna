@@ -1,21 +1,30 @@
 import type { ModuleDefinition } from '../modules/registry';
 
+/** A module the bar can show: it has a panel body to switch to. */
+export interface BarModule extends ModuleDefinition {
+  readonly panel: NonNullable<ModuleDefinition['panel']>;
+}
+
+const hasPanel = (module: ModuleDefinition): module is BarModule => module.panel !== undefined;
+
 /**
  * Bar order: the saved order first (ids the registry no longer knows are dropped), then any
  * module the order has not seen yet in registry order — a freshly added module appears at the
- * end rather than nowhere. Disabled ids are left out entirely (Settings → Modules).
+ * end rather than nowhere. Disabled ids are left out entirely (Settings → Modules), and so are
+ * modules without a panel (the HUD): they have no tab to order.
  */
 export const orderModules = (
   definitions: readonly ModuleDefinition[],
   order: readonly string[],
   disabled: readonly string[] = [],
-): readonly ModuleDefinition[] => {
+): readonly BarModule[] => {
   const byId = new Map(
     definitions
+      .filter(hasPanel)
       .filter((module) => !disabled.includes(module.id))
       .map((module) => [module.id, module] as const),
   );
-  const ordered: ModuleDefinition[] = [];
+  const ordered: BarModule[] = [];
   for (const id of order) {
     const module = byId.get(id);
     if (module !== undefined) {
@@ -27,11 +36,10 @@ export const orderModules = (
 };
 
 /** The module the panel shows: the chosen one when it exists, else the first, else nothing. */
-export const resolveActive = (
-  ordered: readonly ModuleDefinition[],
+export const resolveActive = <M extends ModuleDefinition>(
+  ordered: readonly M[],
   activeId: string | null,
-): ModuleDefinition | null =>
-  ordered.find((module) => module.id === activeId) ?? ordered[0] ?? null;
+): M | null => ordered.find((module) => module.id === activeId) ?? ordered[0] ?? null;
 
 /** The id `delta` tabs away from the active module, wrapping (`Ctrl+Tab` / `Ctrl+Shift+Tab`). */
 export const stepModule = (

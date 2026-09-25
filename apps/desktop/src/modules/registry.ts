@@ -1,6 +1,7 @@
 import type { MessageKey } from '@muna/i18n';
 import type { ComponentType } from 'react';
 
+import { hudModule } from './hud';
 import { mediaModule } from './media';
 
 /** What the shell passes to a module's glyph: 20 px in the module bar, 16 px in the right rail. */
@@ -20,8 +21,12 @@ export interface ModuleDefinition {
   readonly titleKey: MessageKey;
   /** Glyph for the module bar tab (a Lucide icon fits). */
   readonly icon: ComponentType<ModuleIconProps>;
-  /** The expanded-panel body; mounted only while the module is the active one. */
-  readonly panel: ComponentType;
+  /**
+   * The expanded-panel body; mounted only while the module is the active one. A module
+   * without one (the HUD) lives in the strip and Settings only: it takes no bar tab and the
+   * Modules pane does not list it.
+   */
+  readonly panel?: ComponentType;
   /**
    * Settings section, shown as the module's own pane in the settings window. Declare it as
    * `lazy(() => import('./settings'))` at module scope so the chunk loads on first visit and
@@ -31,7 +36,7 @@ export interface ModuleDefinition {
 }
 
 /** Every module, in default order; Settings → Modules reorders and disables from here. */
-export const modules: readonly ModuleDefinition[] = [mediaModule];
+export const modules: readonly ModuleDefinition[] = [mediaModule, hudModule];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>
   modules.find((module) => module.id === id);

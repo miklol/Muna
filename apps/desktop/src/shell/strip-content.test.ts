@@ -1,10 +1,20 @@
-import type { StripContent, Trailing } from '@muna/contracts';
-import { describe, expect, it } from 'vitest';
+import { HUD_NOTICE_IDS, type StripContent, type Trailing } from '@muna/contracts';
+import { describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '../lib/i18n';
-import { formatPercent, messageText, present, toSlot, wantsWide } from './strip-content';
+import {
+  formatPercent,
+  hudNoticeShowing,
+  levelLabelKey,
+  messageText,
+  present,
+  type SlotContext,
+  toSlot,
+  wantsWide,
+} from './strip-content';
 
 const t = i18n.t.bind(i18n);
+const ctx: SlotContext = { locale: 'en', receivedAt: 0, levelLabel: 'Volume' };
 
 const activity = (wide: boolean): StripContent => ({
   kind: 'activity',
@@ -44,15 +54,18 @@ describe('strip content mapping', () => {
   });
 
   it('maps contract slots to the UI vocabulary and anchors timers to their arrival', () => {
-    expect(toSlot(null, 'en', 0)).toBeNull();
-    expect(toSlot({ kind: 'percent', value: 80 }, 'en', 0)).toEqual({ kind: 'text', value: '80%' });
-    expect(toSlot({ kind: 'battery', percent: 80, charging: true }, 'en', 0)).toEqual({
+    expect(toSlot(null, ctx)).toBeNull();
+    expect(toSlot({ kind: 'percent', value: 80 }, ctx)).toEqual({ kind: 'text', value: '80%' });
+    expect(toSlot({ kind: 'battery', percent: 80, charging: true }, ctx)).toEqual({
       kind: 'battery',
       percent: 80,
       charging: true,
     });
     expect(
-      toSlot({ kind: 'timer', remainingMs: 1000, totalMs: 2000, running: false }, 'en', 1234),
+      toSlot(
+        { kind: 'timer', remainingMs: 1000, totalMs: 2000, running: false },
+        { ...ctx, receivedAt: 1234 },
+      ),
     ).toEqual({
       kind: 'timer',
       remainingMs: 1000,
@@ -60,29 +73,36 @@ describe('strip content mapping', () => {
       running: false,
       receivedAt: 1234,
     });
-    const icon = toSlot({ kind: 'icon', glyph: 'lock', tint: null }, 'en', 0);
-    expect(icon).toMatchObject({ kind: 'icon' });
+    const icon = toSlot({ kind: 'icon', glyph: 'lock', tint: null }, ctx);
+    // The glyph names the icon so a swap under the same item crossfades in `StripView`.
+    expect(icon).toMatchObject({ kind: 'icon', id: 'lock' });
     expect(icon).not.toHaveProperty('tint');
-    expect(toSlot({ kind: 'icon', glyph: 'bluetooth', tint: 'blue' }, 'en', 0)).toMatchObject({
+    expect(toSlot({ kind: 'icon', glyph: 'bluetooth', tint: 'blue' }, ctx)).toMatchObject({
       kind: 'icon',
+      id: 'bluetooth',
       tint: 'blue',
     });
-    expect(toSlot({ kind: 'waveform', playing: true }, 'en', 0)).toEqual({
+    expect(toSlot({ kind: 'waveform', playing: true }, ctx)).toEqual({
       kind: 'waveform',
       playing: true,
     });
-    // The HUD level draws as a progress track until its own primitive lands.
-    expect(toSlot({ kind: 'level', percent: 42, muted: true }, 'en', 0)).toEqual({
-      kind: 'progress',
+    // The HUD level becomes a display-only track named for what it controls.
+    expect(toSlot({ kind: 'level', percent: 42, muted: true }, ctx)).toEqual({
+      kind: 'level',
       percent: 42,
+      muted: true,
+      label: 'Volume',
+      valueText: null,
+      onChange: undefined,
+      onChangeEnd: undefined,
     });
     // Album art carries its palette colour as the halo tint; other images have none.
-    expect(toSlot({ kind: 'image', src: 'a.png', glow: '#5ac8fa' }, 'en', 0)).toEqual({
+    expect(toSlot({ kind: 'image', src: 'a.png', glow: '#5ac8fa' }, ctx)).toEqual({
       kind: 'image',
       src: 'a.png',
       tint: '#5ac8fa',
     });
-    expect(toSlot({ kind: 'image', src: 'a.png', glow: null }, 'en', 0)).toEqual({
+    expect(toSlot({ kind: 'image', src: 'a.png', glow: null }, ctx)).toEqual({
       kind: 'image',
       src: 'a.png',
     });
@@ -219,5 +239,58 @@ describe('strip content mapping', () => {
         0,
       ).description,
     ).toBe('Music, Paused');
+  });
+
+  it('presents the HUD notice as a level track that follows the settings and the drag', () => {
+    const hudNotice = (
+      glyph: 'volumeMedium' | 'volumeMuted' | 'sun',
+      id: string,
+    ): StripContent => ({
+      kind: 'notice',
+      notice: {
+        id,
+        module: 'hud',
+        priority: 80,
+        leading: { kind: 'icon', glyph, tint: null },
+        trailing: { kind: 'level', percent: 42, muted: glyph === 'volumeMuted' },
+        wide: null,
+        holdMs: 1500,
+      },
+    });
+    const volume = hudNotice('volumeMedium', HUD_NOTICE_IDS.volume);
+    const brightness = hudNotice('sun', HUD_NOTICE_IDS.brightness);
+
+    expect(levelLabelKey({ kind: 'icon', glyph: 'volumeMedium', tint: null })).toBe('hud.volume');
+    expect(levelLabelKey({ kind: 'icon', glyph: 'sun', tint: null })).toBe('hud.brightness');
+    expect(levelLabelKey(null)).toBe('hud.volume');
+
+    expect(hudNoticeShowing(volume)).toBe('volume');
+    expect(hudNoticeShowing(brightness)).toBe('brightness');
+    expect(hudNoticeShowing(hudNotice('volumeMedium', 'session:locked'))).toBeNull();
+    expect(hudNoticeShowing({ kind: 'idle' })).toBeNull();
+
+    // Display-only by default: no value text, no handlers, the label names what it controls.
+    expect(present(volume, t, 'en', 0).trailing).toEqual({
+      kind: 'level',
+      percent: 42,
+      muted: false,
+      label: 'Volume',
+      valueText: null,
+      onChange: undefined,
+      onChangeEnd: undefined,
+    });
+    expect(present(brightness, t, 'en', 0).trailing).toMatchObject({ label: 'Brightness' });
+    expect(present(hudNotice('volumeMuted', HUD_NOTICE_IDS.volume), t, 'en', 0)).toMatchObject({
+      trailing: { muted: true },
+      description: 'Muted, 42%',
+    });
+
+    // Settings and the shell's handlers ride along.
+    const onLevelChange = vi.fn();
+    const onLevelChangeEnd = vi.fn();
+    expect(
+      present(volume, t, 'en', 0, { hud: { showLevelText: true, onLevelChange, onLevelChangeEnd } })
+        .trailing,
+    ).toMatchObject({ valueText: '42%', onChange: onLevelChange, onChangeEnd: onLevelChangeEnd });
   });
 });

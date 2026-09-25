@@ -123,7 +123,8 @@ per scenario with the measured latency; the first is
 [checklists/notch-shell.md](qa/checklists/notch-shell.md) with `scripts/qa/notch-yield.ps1`
 (ten yield scenarios against a running Muna, own test windows only); the second is
 [checklists/media.md](qa/checklists/media.md) with `scripts/qa/media-latency.ps1` (media-key
-presses timed against the module's log).
+presses timed against the module's log); [checklists/hud.md](qa/checklists/hud.md) is manual
+(volume, brightness, wheel and drag over the strip, the flyout after a hard kill).
 
 ## Bug workflow
 

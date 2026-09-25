@@ -15,6 +15,11 @@
   touch-action: none;
 }
 
+/* The HUD level in the strip: a white fill on the black glass (docs/modules/hud.md "Visual"). */
+.muna-slider--plain {
+  --muna-tint: var(--text-1);
+}
+
 .muna-slider__track {
   position: relative;
   display: block;

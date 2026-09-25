@@ -3,7 +3,7 @@
  * primitive ships a Storybook story and a Vitest render test. M0-E4 landed the seven the shell
  * needs first; M1-E4 added the panel chrome, the module bar and the shared controls; M1-E2 the
  * strip's slot renderers; M1-E3 the search field; M1-E5 the option tiles; M2-E2 the media
- * pieces (album art, marquee, waveform).
+ * pieces (album art, marquee, waveform); M2-E3 the HUD level track.
  */
 export { AlbumArt, type AlbumArtProps, paletteVars } from './album-art';
 export { BatteryGlyph, type BatteryGlyphProps, batteryLevels, batteryTint } from './battery-glyph';
@@ -14,6 +14,7 @@ export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ErrorState, type ErrorStateProps } from './error-state';
 export { Hairline, type HairlineProps } from './hairline';
 export { IconButton, type IconButtonProps } from './icon-button';
+export { LevelTrack, type LevelTrackProps } from './level-track';
 export {
   ListRow,
   type ListRowProps,

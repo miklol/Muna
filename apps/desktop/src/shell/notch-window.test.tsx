@@ -7,7 +7,12 @@ import type {
   YieldState,
 } from '@muna/contracts';
 import type * as Contracts from '@muna/contracts';
-import { defaultSettings, STRIP_HEIGHT_PX } from '@muna/contracts';
+import {
+  defaultSettings,
+  HUD_NOTICE_IDS,
+  STRIP_HEIGHT_PX,
+  writeHudSettings,
+} from '@muna/contracts';
 import type { MessageKey } from '@muna/i18n';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -66,6 +71,17 @@ const ipc = vi.hoisted(() => {
       getSettings: vi.fn(() => Promise.resolve(defaultSettings())),
       updateSettings: vi.fn((settings: Settings) =>
         Promise.resolve({ status: 'ok' as const, data: settings }),
+      ),
+      hudNudgeVolume: vi.fn((_delta: number) => ok()),
+      hudSetVolume: vi.fn((_percent: number) => ok()),
+      hudSetBrightness: vi.fn((_monitorId: string, _percent: number) => ok()),
+      getHudSnapshot: vi.fn(() =>
+        Promise.resolve({
+          volume: { percent: 40, muted: false },
+          micMuted: null,
+          monitors: [{ id: 'panel', name: 'Built-in display', percent: 70, kind: 'internal' }],
+          osd: 'suppressed',
+        }),
       ),
     },
     content: channel<{ content: StripContent }>(),
@@ -153,6 +169,20 @@ const notice: StripContent = {
     holdMs: 4000,
   },
 };
+
+/** The HUD's volume or brightness notice, glyph plus level track (docs/modules/hud.md). */
+const hudNotice = (control: 'volume' | 'brightness', percent: number): StripContent => ({
+  kind: 'notice',
+  notice: {
+    id: HUD_NOTICE_IDS[control],
+    module: 'hud',
+    priority: 80,
+    leading: { kind: 'icon', glyph: control === 'volume' ? 'volumeMedium' : 'sun', tint: null },
+    trailing: { kind: 'level', percent, muted: false },
+    wide: null,
+    holdMs: 1500,
+  },
+});
 
 // --- driving the component -----------------------------------------------------------------
 
@@ -412,6 +442,99 @@ describe('NotchWindow scenario suite', () => {
     expect(stateOf(main)).toBe('collapsed');
     fireEvent.wheel(shell, { deltaY: 40 });
     expect(stateOf(main)).toBe('expanded');
+  });
+
+  it('HUD: the wheel moves the volume while its notice shows, one step per notch, and the panel stays closed', async () => {
+    const { main, shell } = renderNotch();
+    act(() => {
+      ipc.content.emit({ content: hudNotice('volume', 40) });
+    });
+    await settle();
+    expect(screen.getByRole('slider', { name: 'Volume' })).toHaveValue('40');
+
+    fireEvent.wheel(shell, { deltaY: 40 });
+    fireEvent.wheel(shell, { deltaY: -120 });
+    expect(ipc.commands.hudNudgeVolume.mock.calls).toEqual([[-2], [2]]);
+    expect(stateOf(main)).toBe('collapsed');
+
+    // Any other content: the wheel is the shell's again.
+    act(() => {
+      ipc.content.emit({ content: notice });
+    });
+    fireEvent.wheel(shell, { deltaY: 40 });
+    expect(ipc.commands.hudNudgeVolume).toHaveBeenCalledTimes(2);
+    expect(stateOf(main)).toBe('expanded');
+  });
+
+  it('HUD: "Scroll on strip: volume" makes the wheel a volume control over any closed strip', async () => {
+    cacheSettings(
+      queryClient,
+      writeHudSettings(defaultSettings(), {
+        replaceSystemFlyout: true,
+        scrollOnStrip: 'volume',
+        showLevelText: true,
+      }),
+    );
+    const { main, shell } = renderNotch();
+    await advance(40);
+    fireEvent.wheel(shell, { deltaY: 40 });
+    expect(ipc.commands.hudNudgeVolume).toHaveBeenLastCalledWith(-2);
+    expect(stateOf(main)).toBe('collapsed');
+
+    // The level text follows the setting.
+    act(() => {
+      ipc.content.emit({ content: hudNotice('volume', 40) });
+    });
+    await settle();
+    expect(screen.getByRole('region', { name: 'Notch strip' })).toHaveTextContent('40%');
+
+    // A press still opens the panel, and inside it the wheel scrolls content, not the volume.
+    pointer(main, 'pointerdown', ON_STRIP, 0);
+    expect(stateOf(main)).toBe('expanded');
+    fireEvent.wheel(shell, { deltaY: 40 });
+    expect(ipc.commands.hudNudgeVolume).toHaveBeenCalledTimes(1);
+  });
+
+  it('HUD: a press on the level track drags the level instead of opening the panel', async () => {
+    const { main } = renderNotch();
+    act(() => {
+      ipc.content.emit({ content: hudNotice('volume', 40) });
+    });
+    await settle();
+    const slider = screen.getByRole('slider', { name: 'Volume' });
+    const track = slider.closest('.muna-level-track');
+    if (track === null) {
+      throw new Error('the level track is missing');
+    }
+
+    // Hovering the track is not hover intent for the panel.
+    pointer(track, 'pointermove', ON_STRIP, 0);
+    pointer(track, 'pointermove', ON_STRIP, 100);
+    await advance(700);
+    expect(stateOf(main)).toBe('collapsed');
+
+    pointer(track, 'pointerdown', ON_STRIP, 800);
+    expect(stateOf(main)).toBe('collapsed');
+
+    // Keyboard steps count as a drag: volume follows live.
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    expect(ipc.commands.hudSetVolume).toHaveBeenLastCalledWith(41);
+    expect(ipc.commands.hudSetBrightness).not.toHaveBeenCalled();
+  });
+
+  it('HUD: brightness is written once on release, to the only adjustable display', async () => {
+    renderNotch();
+    act(() => {
+      ipc.content.emit({ content: hudNotice('brightness', 70) });
+    });
+    await settle();
+    const slider = screen.getByRole('slider', { name: 'Brightness' });
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    expect(ipc.commands.hudSetVolume).not.toHaveBeenCalled();
+    fireEvent.keyUp(slider, { key: 'ArrowRight' });
+    await advance(10);
+    expect(ipc.commands.getHudSnapshot).toHaveBeenCalledTimes(1);
+    expect(ipc.commands.hudSetBrightness).toHaveBeenCalledWith('panel', 71);
   });
 
   it('the hotkey toggles this window only, and a panel it opened waits for the pointer', async () => {
