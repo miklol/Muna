@@ -131,9 +131,24 @@ Epics
 Exit criteria
 
 - [ ] Spotify, Edge/YouTube, Apple Music (Store), foobar2000 all show correct now-playing
-  within 300 ms of change; wrong-session rate 0 in a 30-switch script.
+  within 300 ms of change; wrong-session rate 0 in a 30-switch script. **Measured** with
+  Spotify on Win11 25H2 via `scripts/qa/media-latency.ps1`: play 19–23 ms, pause 275–292 ms
+  (Spotify's own fade-out), track change 71–86 ms; 0 wrong picks in the 30-switch script,
+  which also runs against the fake platform in `tests/media.rs`
+  ([media → Implementation notes (M2-E1)](modules/media.md#implementation-notes-m2-e1)). The
+  Edge/YouTube, Apple Music and foobar2000 columns wait for the maintainer's machines
+  ([qa/checklists/media](qa/checklists/media.md)).
 - [ ] Idle CPU with media playing and strip visible ≤ 1 %; visualizer off when not visible.
+  Not measured yet: the harness's idle window runs with nothing playing (0.003–0.014 %
+  normalised; [notch-shell → Memory target](modules/notch-shell.md#memory-target)), and the
+  media-playing window waits for the bundled SMTC test player deferred from M2-E4. The
+  spectrum visualiser itself waits for WASAPI (M2-E2 shipped the SMTC-driven waveform).
 - [ ] HUD replaces native flyout on Win11 24H2 and Win10 22H2; native restored after kill -9.
+  **Measured** on Win11 25H2 (26200): flyout hidden 5 ms after the call, re-asserted ≤ 50 ms
+  after a foreign restore, restored 19–31 ms after a hard kill against the 2 s budget
+  ([hud → Implementation notes (M2-E3 PR A)](modules/hud.md#implementation-notes-m2-e3-pr-a)).
+  Win11 24H2 (rows 1 and 14 on that build) and the Win10 22H2 `NativeHWNDHost` flyout (row 15)
+  wait for hardware ([qa/checklists/hud](qa/checklists/hud.md)).
 
 ## M3 · Daily modules (4 weeks)
 
