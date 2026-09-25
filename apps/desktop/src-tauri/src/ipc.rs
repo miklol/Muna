@@ -18,6 +18,7 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
+use crate::modules::bluetooth::{BluetoothCommand, BluetoothSink, BluetoothSnapshot};
 use crate::modules::hud::{HudSink, HudState};
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
 use crate::modules::pomodoro::{PomodoroCommand, PomodoroSink, PomodoroState};
@@ -385,6 +386,44 @@ impl SystemMonitorSink for SystemMonitorEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit SystemMonitorChanged");
+        }
+    }
+}
+
+/// The paired devices and the radio as the module now sees them (docs/modules/bluetooth.md):
+/// after a platform report, a command, or a settings change that hides or shows a device.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct BluetoothChanged {
+    pub snapshot: BluetoothSnapshot,
+}
+
+/// Bridges the Bluetooth service to [`BluetoothChanged`].
+pub struct BluetoothEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for BluetoothEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BluetoothEventSink").finish_non_exhaustive()
+    }
+}
+
+impl BluetoothEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl BluetoothSink for BluetoothEventSink {
+    fn changed(&self, snapshot: &BluetoothSnapshot) {
+        if let Err(error) = (BluetoothChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit BluetoothChanged");
         }
     }
 }
@@ -849,6 +888,32 @@ fn system_monitor_watch(
     state.modules.system_monitor.watch(window.label(), watching)
 }
 
+/// The paired devices and the radio as the module now sees them (a panel that just opened;
+/// afterwards it follows `BluetoothChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_bluetooth_snapshot(state: State<'_, Shared>) -> BluetoothSnapshot {
+    state.modules.bluetooth.snapshot()
+}
+
+/// Connects or disconnects a device, or switches the radio, and returns the snapshot as it
+/// stands afterwards. Connecting pages the device and can take seconds when it is out of
+/// range, so the platform call runs on a blocking thread. A device that will not connect or
+/// a radio the system refuses to switch surfaces as `platform.unsupported` /
+/// `platform.accessDenied`, which the panel reports in place.
+#[tauri::command]
+#[specta::specta]
+async fn bluetooth_command(
+    state: State<'_, Shared>,
+    command: BluetoothCommand,
+) -> Result<BluetoothSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.bluetooth);
+    let snapshot = tauri::async_runtime::spawn_blocking(move || service.command(command))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(snapshot)
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -888,6 +953,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             todo_command,
             get_system_monitor_snapshot,
             system_monitor_watch,
+            get_bluetooth_snapshot,
+            bluetooth_command,
             quit_app
         ])
         .events(collect_events![
@@ -903,7 +970,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             HudStateChanged,
             PomodoroStateChanged,
             TodoChanged,
-            SystemMonitorChanged
+            SystemMonitorChanged,
+            BluetoothChanged
         ])
 }
 

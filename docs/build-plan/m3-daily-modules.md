@@ -66,8 +66,22 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
   (1 s) when identity absent; group by app; dismiss/clear; Focus Assist state read-only with
   deep link. Test both installers.
 - **M3-E6 Day progress** — pure UI; working-hours settings; strip bar form.
-- **M3-E7 Bluetooth** — panel with paired devices, connect/disconnect (journaled
-  `BluetoothSetServiceState`), battery (GATT + HFP DEVPKEY), radio toggle.
+- **M3-E7 Bluetooth** — panel with paired devices, connect/disconnect, device kinds, battery
+  (GATT), low-battery notices, hide devices, radio toggle.
+
+  **Progress.** Landed as one PR stacked on M3-E8: the platform grew `BluetoothDeviceKind`
+  (from `System.Devices.Aep.Category`, matched by segment), `connect` (best effort: page the
+  device, then read `ConnectionStatus`), `disconnect` (`IOCTL_BTH_DISCONNECT_DEVICE` on the
+  radio — nothing persisted, so the journaled `BluetoothSetServiceState` plan was dropped) and
+  the radio (`Windows.Devices.Radios`, `BluetoothRadioChanged`), all scripted in the fake. The
+  `BluetoothService` reduces platform reports into a connected-first snapshot, announces
+  `bluetooth:low:<id>` once per threshold (20 orange, 10 red) per connection, and runs the
+  blocking commands off the async threads; the contract is `get_bluetooth_snapshot`,
+  `bluetooth_command`, `BluetoothChanged`. The panel has the radio switch, a row per visible
+  device with connect / disconnect and the refusal in place, and empty states for off,
+  unavailable and nothing paired; the settings pane toggles notices and hides devices
+  ([bluetooth → Implementation notes](../modules/bluetooth.md#implementation-notes-m3-e7)).
+  Classic HFP battery, AirPods adverts and nicknames are deferred and listed there.
 - **M3-E8 System monitor** — `sysinfo` + `nvml-wrapper`; 1 Hz visible, 10 s hidden; top
   processes; no temps (P3).
 

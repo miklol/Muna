@@ -7,9 +7,9 @@ use tokio::sync::broadcast;
 use crate::error::PlatformResult;
 use crate::events::PlatformEvent;
 use crate::types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessMonitor,
-    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect, SystemSample,
-    Thumbnail, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
+    BrightnessMonitor, ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect,
+    SystemSample, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md). Snapshots come from a cache the
@@ -65,11 +65,24 @@ pub trait SystemOsd: Send + Sync {
     fn state(&self) -> OsdState;
 }
 
-/// `WinRT` Bluetooth (docs/modules/bluetooth.md).
+/// `WinRT` Bluetooth (docs/modules/bluetooth.md). Connect and disconnect block for as long as
+/// the radio takes to reach the device (seconds when it is out of range); callers run them off
+/// the async threads.
 pub trait Bluetooth: Send + Sync {
     fn devices(&self) -> PlatformResult<Vec<BluetoothDevice>>;
+    /// Asks the radio to reach a paired device. `Ok` once the link is up; `Unsupported` when
+    /// Windows offers no way to connect this device from an app (the device may still connect
+    /// itself later), `NotFound` for an unknown id. The connection state arrives as a
+    /// [`PlatformEvent::BluetoothChanged`](crate::PlatformEvent::BluetoothChanged).
     fn connect(&self, id: &str) -> PlatformResult<()>;
+    /// Drops the link to a connected device without unpairing it; `Ok` when it was already
+    /// disconnected.
     fn disconnect(&self, id: &str) -> PlatformResult<()>;
+    /// Whether the Bluetooth radio is on.
+    fn radio(&self) -> BluetoothRadioState;
+    /// Turns the radio on or off; `AccessDenied` when Windows refuses, `Unsupported` without a
+    /// radio.
+    fn set_radio(&self, on: bool) -> PlatformResult<()>;
 }
 
 /// Battery and power source.

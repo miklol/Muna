@@ -1,8 +1,8 @@
 //! Real Windows implementation. M0 wires the services the notch shell needs (power, monitors,
 //! foreground tracking and window affinities, ADR-0002); M1 adds paired Bluetooth devices for
-//! the live-activities strip; M2 adds System Media Transport Controls sessions; every other
-//! service reports [`PlatformError::Unsupported`] until its module milestone lands
-//! (docs/07-roadmap.md).
+//! the live-activities strip; M2 adds System Media Transport Controls sessions; M3 adds
+//! Bluetooth connect, disconnect and the radio toggle; every other service reports
+//! [`PlatformError::Unsupported`] until its module milestone lands (docs/07-roadmap.md).
 //!
 //! Every Win32 call in this module checks its result and every `unsafe` block carries a
 //! `// SAFETY:` comment (repository rule).
@@ -18,6 +18,7 @@ mod media;
 mod monitors;
 mod power;
 mod pump;
+mod radio;
 mod system_stats;
 pub mod undocumented;
 pub mod webview;
@@ -36,9 +37,9 @@ use crate::traits::{
     SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessMonitor,
-    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect, SystemSample,
-    Thumbnail, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
+    BrightnessMonitor, ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect,
+    SystemSample, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -66,6 +67,8 @@ pub struct WindowsPlatform {
     _pump: Option<pump::Pump>,
     /// `None` when the watchers could not start; Bluetooth then reports `Unsupported`.
     bluetooth: Option<bluetooth::Watcher>,
+    /// The Bluetooth radio, looked up on first use.
+    radio: radio::RadioWatch,
     /// `None` when the worker could not start; media then reports `Unsupported`.
     media: Option<media::Watcher>,
     /// `None` when the worker could not start; volume then reports `Unsupported`.
@@ -132,6 +135,7 @@ impl WindowsPlatform {
             }
         };
         Self {
+            radio: radio::RadioWatch::new(events.clone()),
             events,
             _pump: pump,
             bluetooth,
@@ -260,14 +264,26 @@ impl Bluetooth for WindowsPlatform {
             .ok_or(PlatformError::Unsupported("bluetooth"))
     }
 
-    // Classic connect/disconnect need `BluetoothSetServiceState` (docs/04 ⚠️); the P1 module
-    // owns that.
-    fn connect(&self, _id: &str) -> PlatformResult<()> {
-        Err(PlatformError::Unsupported("bluetooth connect"))
+    fn connect(&self, id: &str) -> PlatformResult<()> {
+        self.bluetooth
+            .as_ref()
+            .ok_or(PlatformError::Unsupported("bluetooth connect"))?
+            .connect(id)
     }
 
-    fn disconnect(&self, _id: &str) -> PlatformResult<()> {
-        Err(PlatformError::Unsupported("bluetooth disconnect"))
+    fn disconnect(&self, id: &str) -> PlatformResult<()> {
+        self.bluetooth
+            .as_ref()
+            .ok_or(PlatformError::Unsupported("bluetooth disconnect"))?
+            .disconnect(id)
+    }
+
+    fn radio(&self) -> BluetoothRadioState {
+        self.radio.state()
+    }
+
+    fn set_radio(&self, on: bool) -> PlatformResult<()> {
+        self.radio.set(on)
     }
 }
 
@@ -452,10 +468,18 @@ mod tests {
             Err(PlatformError::NotFound(_) | PlatformError::Unsupported(_)) => {}
             Err(other) => panic!("unexpected error: {other}"),
         }
+        // An id nobody paired is `NotFound`; a machine that cannot start the watchers degrades
+        // to `Unsupported`. Never a panic.
         assert!(matches!(
             platform.bluetooth().connect("any"),
-            Err(PlatformError::Unsupported(_))
+            Err(PlatformError::NotFound(_) | PlatformError::Unsupported(_))
         ));
+        assert!(matches!(
+            platform.bluetooth().disconnect("any"),
+            Err(PlatformError::NotFound(_) | PlatformError::Unsupported(_))
+        ));
+        // The radio answers one of its three states without a panic, radio or not.
+        let _ = platform.bluetooth().radio();
         // A session that does not exist is `NotFound`, never a panic; a machine that cannot
         // start the worker degrades to `Unsupported`.
         match platform.media().send("Nope.exe", MediaCommand::Play) {
