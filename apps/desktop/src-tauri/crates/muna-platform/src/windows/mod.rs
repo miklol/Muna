@@ -18,6 +18,7 @@ mod media;
 mod monitors;
 mod power;
 mod pump;
+mod system_stats;
 pub mod undocumented;
 pub mod webview;
 mod window;
@@ -32,12 +33,12 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Media, Monitors, Platform, Power,
-    SystemOsd, Windowing,
+    SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessMonitor,
-    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect, Thumbnail,
-    UserNotificationState, WindowHandle,
+    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect, SystemSample,
+    Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -74,6 +75,8 @@ pub struct WindowsPlatform {
     /// `None` when the keeper thread could not start; the native flyout then stays visible.
     osd: Option<undocumented::flyout::Keeper>,
     app_bars: app_bar::AppBars,
+    /// Lazy: opens its counters on the first sample.
+    system_stats: system_stats::Sampler,
 }
 
 impl Default for WindowsPlatform {
@@ -137,6 +140,7 @@ impl WindowsPlatform {
             brightness,
             osd,
             app_bars: app_bar::AppBars::default(),
+            system_stats: system_stats::Sampler::default(),
         }
     }
 }
@@ -273,6 +277,12 @@ impl Power for WindowsPlatform {
     }
 }
 
+impl SystemStats for WindowsPlatform {
+    fn sample(&self, top_processes: usize) -> PlatformResult<SystemSample> {
+        Ok(self.system_stats.sample(top_processes))
+    }
+}
+
 impl Monitors for WindowsPlatform {
     fn all(&self) -> PlatformResult<Vec<MonitorInfo>> {
         monitors::enumerate()
@@ -387,6 +397,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn power(&self) -> &dyn Power {
+        self
+    }
+
+    fn system_stats(&self) -> &dyn SystemStats {
         self
     }
 

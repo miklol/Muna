@@ -8,8 +8,8 @@ use crate::error::PlatformResult;
 use crate::events::PlatformEvent;
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessMonitor,
-    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect, Thumbnail,
-    UserNotificationState, WindowHandle,
+    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect, SystemSample,
+    Thumbnail, UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md). Snapshots come from a cache the
@@ -75,6 +75,16 @@ pub trait Bluetooth: Send + Sync {
 /// Battery and power source.
 pub trait Power: Send + Sync {
     fn battery(&self) -> PlatformResult<BatteryState>;
+}
+
+/// Machine load for the system monitor (docs/modules/system-monitor.md). Pull-based on
+/// purpose: the module owns the cadence (1 Hz while its panel shows, 10 s for the strip gauge,
+/// nothing otherwise), so an implementation keeps no timer of its own — it refreshes its
+/// counters when asked and reports the change since the previous call.
+pub trait SystemStats: Send + Sync {
+    /// One reading. `top_processes` is how many of the busiest processes to include; `0` skips
+    /// the process walk, which costs more than everything else in the sample together.
+    fn sample(&self, top_processes: usize) -> PlatformResult<SystemSample>;
 }
 
 /// Display topology, needed for one notch window per monitor (ADR-0002).
@@ -159,6 +169,7 @@ pub trait Platform: Send + Sync {
     fn system_osd(&self) -> &dyn SystemOsd;
     fn bluetooth(&self) -> &dyn Bluetooth;
     fn power(&self) -> &dyn Power;
+    fn system_stats(&self) -> &dyn SystemStats;
     fn monitors(&self) -> &dyn Monitors;
     fn foreground(&self) -> &dyn Foreground;
     fn windowing(&self) -> &dyn Windowing;

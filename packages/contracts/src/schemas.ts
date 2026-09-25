@@ -151,6 +151,7 @@ export const glyphSchema = z.enum([
   'mic',
   'micMuted',
   'checkCircle',
+  'cpu',
 ]) satisfies z.ZodType<Glyph>;
 
 export const tintSchema = z.enum([
@@ -461,4 +462,61 @@ export const writeTodoSettings = (settings: Settings, todo: TodoSettings): Setti
 export const TODO_STRIP_IDS = {
   activity: 'todo:due',
   noticePrefix: 'todo:due:',
+} as const;
+
+/** The key of the system monitor's namespace; also its module id. */
+export const SYSTEM_MONITOR_SETTINGS_KEY = 'system-monitor';
+
+/**
+ * Bounds the settings pane offers and the module clamps to (mirrors
+ * `modules::system_monitor::settings`).
+ */
+export const SYSTEM_MONITOR_BOUNDS = {
+  processCount: { min: 0, max: 10 },
+} as const;
+
+/**
+ * Mirrors `modules::system_monitor::SystemMonitorSettings`: defaults for missing fields, a
+ * clamped range, and a wrong type fails the whole entry, like the Rust side.
+ */
+export const systemMonitorSettingsSchema = z.object({
+  /** Keep a CPU gauge in the collapsed strip, sampled every 10 s. */
+  showCpuInStrip: z.boolean().default(false),
+  /** How many of the busiest processes the panel lists; 0 hides the list. */
+  processCount: clampedInt(SYSTEM_MONITOR_BOUNDS.processCount, 5),
+});
+export type SystemMonitorSettings = z.infer<typeof systemMonitorSettingsSchema>;
+
+export const defaultSystemMonitorSettings = (): SystemMonitorSettings =>
+  systemMonitorSettingsSchema.parse({});
+
+/** Reads the system monitor namespace; a missing or malformed entry yields the defaults. */
+export const readSystemMonitorSettings = (settings: Settings): SystemMonitorSettings => {
+  const parsed = systemMonitorSettingsSchema.safeParse(
+    settings.modules[SYSTEM_MONITOR_SETTINGS_KEY] ?? {},
+  );
+  return parsed.success ? parsed.data : defaultSystemMonitorSettings();
+};
+
+/** Returns a new document with the system monitor namespace replaced. */
+export const writeSystemMonitorSettings = (
+  settings: Settings,
+  systemMonitor: SystemMonitorSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [SYSTEM_MONITOR_SETTINGS_KEY]: systemMonitor },
+});
+
+/** The system monitor's strip ids (docs/modules/system-monitor.md "Contract"). */
+export const SYSTEM_MONITOR_STRIP_IDS = {
+  cpu: 'system-monitor:cpu',
+} as const;
+
+/**
+ * The module's sampling cadence in milliseconds (mirrors `modules::system_monitor::*_PERIOD`),
+ * so a panel knows how stale a reading may be.
+ */
+export const SYSTEM_MONITOR_PERIODS = {
+  visibleMs: 1000,
+  stripMs: 10_000,
 } as const;

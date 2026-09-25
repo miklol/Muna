@@ -3,8 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { findModule, modules } from './registry';
 
 describe('module registry', () => {
-  it('registers the media and HUD modules (M2) and the to-do and pomodoro modules (M3)', () => {
-    expect(modules.map((module) => module.id)).toEqual(['media', 'todo', 'pomodoro', 'hud']);
+  it('registers the media and HUD modules (M2) and the to-do, pomodoro and system monitor modules (M3)', () => {
+    expect(modules.map((module) => module.id)).toEqual([
+      'media',
+      'todo',
+      'pomodoro',
+      'system-monitor',
+      'hud',
+    ]);
     expect(findModule('media')?.titleKey).toBe('media.title');
     expect(findModule('media')?.settings).toBeDefined();
     expect(findModule('media')?.panel).toBeDefined();
@@ -14,6 +20,9 @@ describe('module registry', () => {
     expect(findModule('pomodoro')?.titleKey).toBe('pomodoro.title');
     expect(findModule('pomodoro')?.settings).toBeDefined();
     expect(findModule('pomodoro')?.panel).toBeDefined();
+    expect(findModule('system-monitor')?.titleKey).toBe('systemMonitor.title');
+    expect(findModule('system-monitor')?.settings).toBeDefined();
+    expect(findModule('system-monitor')?.panel).toBeDefined();
   });
 
   it('gives the HUD a settings pane but no panel: it lives in the strip', () => {

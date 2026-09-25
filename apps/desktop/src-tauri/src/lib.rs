@@ -137,8 +137,10 @@ pub fn run() {
                 event: WindowEvent::Destroyed,
                 ..
             } => {
-                // A destroyed notch window must not keep the strip suspended.
+                // A destroyed notch window must not keep the strip suspended, nor keep the
+                // system monitor sampling for a panel that is gone.
                 exit_state.activities.forget_window(&label);
+                exit_state.modules.system_monitor.forget_window(&label);
             }
             _ => {}
         });
@@ -158,4 +160,7 @@ fn wire_module_sinks(app: &tauri::AppHandle, modules: &modules::ModuleServices) 
     modules
         .todo
         .set_sink(Arc::new(ipc::TodoEventSink::new(app.clone())));
+    modules
+        .system_monitor
+        .set_sink(Arc::new(ipc::SystemMonitorEventSink::new(app.clone())));
 }
