@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use super::scoring::pick_active;
+use super::settings::{MediaSettings, Visualiser};
 
 /// The one strip activity this module owns.
 pub const ACTIVITY_ID: &str = "media:now-playing";
@@ -70,12 +71,18 @@ pub struct MediaTracker {
     art: Option<ArtSlot>,
     /// `(source_app_id, art_version)` requested and not yet delivered.
     pending_art: Option<(String, u32)>,
+    /// Strip presentation switches from `settings.modules.media`.
+    adaptive_colours: bool,
+    visualiser: Visualiser,
 }
 
 impl MediaTracker {
     #[must_use]
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            adaptive_colours: true,
+            ..Self::default()
+        }
     }
 
     /// Number of snapshots observed so far; the command watchdog compares it before and after.
@@ -131,6 +138,22 @@ impl MediaTracker {
         let before = self.state();
         let before_activity = self.activity();
         self.pinned = pinned;
+        self.reevaluate(&before, before_activity.as_ref())
+    }
+
+    #[must_use]
+    pub fn pinned(&self) -> Option<&str> {
+        self.pinned.as_deref()
+    }
+
+    /// Applies the module's settings: the preferred app becomes the pin and the strip
+    /// presentation switches take effect on the next activity.
+    pub fn set_settings(&mut self, settings: &MediaSettings) -> Observation {
+        let before = self.state();
+        let before_activity = self.activity();
+        self.pinned.clone_from(&settings.preferred_app);
+        self.adaptive_colours = settings.adaptive_colours;
+        self.visualiser = settings.visualiser;
         self.reevaluate(&before, before_activity.as_ref())
     }
 
@@ -228,6 +251,12 @@ impl MediaTracker {
         let leading = match self.artwork() {
             Some(art) => Leading::Image {
                 src: art.src.clone(),
+                // The dominant swatch tints the halo (docs/05-design-system.md: the palette
+                // tints surfaces, never text); off with adaptive colours.
+                glow: self
+                    .adaptive_colours
+                    .then(|| art.palette.first().cloned())
+                    .flatten(),
             },
             None => Leading::Icon {
                 glyph: Glyph::Music,
@@ -235,12 +264,15 @@ impl MediaTracker {
             },
         };
         let trailing = if session.status == PlaybackStatus::Playing {
-            Trailing::Waveform { playing: true }
+            match self.visualiser {
+                Visualiser::Bars => Some(Trailing::Waveform { playing: true }),
+                Visualiser::Off => None,
+            }
         } else {
-            Trailing::Icon {
+            Some(Trailing::Icon {
                 glyph: Glyph::Play,
                 tint: None,
-            }
+            })
         };
         let wide = (!session.title.is_empty()).then(|| StripMessage::NowPlaying {
             title: session.title.clone(),
@@ -251,7 +283,7 @@ impl MediaTracker {
             module: MODULE.into(),
             priority,
             leading: Some(leading),
-            trailing: Some(trailing),
+            trailing,
             wide,
         })
     }

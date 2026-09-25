@@ -32,6 +32,12 @@ Scope in `muna-platform::media` + `muna-core::media`:
 
 ## M2-E2 · Media UI — agent: `muna-ui-engineer`
 
+**Progress:** landed (see [media → Implementation notes (M2-E2)](../modules/media.md#implementation-notes-m2-e2)).
+Strip waveform, wide-form marquee, panel, app pinning and the Media pane shipped; the volume
+slider, output-device popover, lyrics drawer and `spectrum` visualiser wait for the WASAPI work
+recorded there. The palette bleed is two `box-shadow`s rather than a gradient because
+`color-mix(… transparent …)` dithers over the black glass (measured, same notes).
+
 ```text
 Implement the media surfaces from docs/modules/media.md using the reference layout in
 docs/reference/ui-observations.md (media panel). Read docs/06-motion-spec.md (track-change

@@ -1,7 +1,6 @@
 import type { Glyph } from '@muna/contracts';
 import type { MessageKey } from '@muna/i18n';
 import {
-  AudioLines,
   Battery,
   BatteryCharging,
   Bell,
@@ -27,8 +26,11 @@ const glyphProps = {
   focusable: false,
 } as const;
 
+/** The `strip.glyph.*` keys, narrow enough for i18next's typed `t` to resolve cheaply. */
+export type GlyphLabelKey = Extract<MessageKey, `strip.glyph.${string}`>;
+
 /** What a screen reader hears for a glyph alone (`strip.glyph.*` in the catalog). */
-export const glyphLabelKey: Readonly<Record<Glyph, MessageKey>> = {
+export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   battery: 'strip.glyph.battery',
   batteryCharging: 'strip.glyph.batteryCharging',
   bluetooth: 'strip.glyph.bluetooth',
@@ -41,12 +43,6 @@ export const glyphLabelKey: Readonly<Record<Glyph, MessageKey>> = {
   moon: 'strip.glyph.moon',
   play: 'strip.glyph.play',
 };
-
-/**
- * Stands in for the media module's audio bars until the animated primitive lands with the
- * media UI (docs/build-plan/m2-media-hud.md, E2). Static so it costs nothing while playing.
- */
-export const waveformGlyph = (): ReactNode => <AudioLines {...glyphProps} />;
 
 /**
  * The contract's closed glyph set drawn with Lucide. Exhaustive on purpose: adding a `Glyph`

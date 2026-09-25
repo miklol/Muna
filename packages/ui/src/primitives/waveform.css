@@ -1,0 +1,24 @@
+/*
+ * Waveform primitive — four 3 px bars in the media tint, each scaled from its bottom edge
+ * (docs/06-motion-spec.md "Waveform": amplitude 4–20 px, transform only). Nothing here
+ * animates on its own: the bars' `scaleY` is driven by Motion while playing and holds still
+ * otherwise, so a paused or reduced-motion strip costs no frames.
+ */
+
+.muna-waveform {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  align-items: flex-end;
+  justify-content: center;
+  color: var(--muna-tint);
+}
+
+.muna-waveform__bar {
+  display: block;
+  inline-size: 3px;
+  block-size: 100%;
+  transform-origin: bottom center;
+  border-radius: 1.5px;
+  background: currentcolor;
+}

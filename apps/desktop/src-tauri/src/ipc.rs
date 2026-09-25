@@ -533,14 +533,28 @@ fn media_command(
     Ok(())
 }
 
-/// Pins the shown session to one app (`None` follows the scoring again). In memory for now;
-/// the Media pane persists a preferred app in M2-E2.
+/// Pins the shown session to one app (`None` follows the scoring again) and remembers it as
+/// the preferred app in `settings.modules.media`, so the choice survives a relaunch and the
+/// Media pane shows the same value.
 #[tauri::command]
 #[specta::specta]
-fn media_pin(state: State<'_, Shared>, source_app_id: Option<String>) -> MediaState {
-    let observation = state.modules.media.set_pinned(source_app_id);
+fn media_pin(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    source_app_id: Option<String>,
+) -> Result<MediaState, IpcError> {
+    let observation = state.modules.media.set_pinned(source_app_id.clone());
     media::schedule_art(&state.modules.media, &observation);
-    state.modules.media.snapshot().state
+    let mut settings = state.settings.lock().clone();
+    let mut media_settings = media::MediaSettings::from_document(&settings);
+    if media_settings.preferred_app != source_app_id {
+        media_settings.preferred_app = source_app_id;
+        media_settings
+            .write(&mut settings)
+            .map_err(|error| IpcError::new("settings.invalid", error.to_string()))?;
+        commit_settings(&app, &state, settings)?;
+    }
+    Ok(state.modules.media.snapshot().state)
 }
 
 /// Asks the OS for its session list again (settings "Refresh", diagnostics).

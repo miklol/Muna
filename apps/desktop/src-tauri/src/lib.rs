@@ -115,8 +115,9 @@ pub fn run() {
                 .set_sink(Arc::new(ipc::MediaEventSink::new(app.handle().clone())));
             let started = modules::start_all(&state.module_ctx(), &state.modules);
             tracing::info!(modules = ?started, "modules running");
-            let launch_at_login = state.settings.lock().general.launch_at_login;
-            state.sync_autostart(app.handle(), launch_at_login);
+            let settings = state.settings.lock().clone();
+            state.apply_module_settings(&settings);
+            state.sync_autostart(app.handle(), settings.general.launch_at_login);
 
             // The tray icon is the everyday entry point; the settings window only opens by
             // itself on the very first launch (docs/modules/notch-shell.md).

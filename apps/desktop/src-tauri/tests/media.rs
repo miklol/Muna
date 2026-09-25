@@ -5,9 +5,12 @@
 use std::sync::Arc;
 
 use muna_core::{
-    Glyph, Hub, Leading, StripContent, StripMessage, SystemClock, Trailing, activities::priority,
+    Glyph, Hub, Leading, Settings, StripContent, StripMessage, SystemClock, Trailing,
+    activities::priority,
 };
-use muna_lib::modules::media::{ACTIVITY_ID, MediaService, MediaSink, MediaState};
+use muna_lib::modules::media::{
+    ACTIVITY_ID, MediaService, MediaSettings, MediaSink, MediaState, Visualiser,
+};
 use muna_platform::{
     FakePlatform, MediaCommand, MediaSession, Platform, PlatformError, PlaybackStatus, RepeatMode,
 };
@@ -307,9 +310,124 @@ fn artwork_is_fetched_prepared_and_applied_when_a_version_arrives() {
     assert_eq!(snapshot.state.art_key.as_deref(), Some(art.key.as_str()));
     assert_eq!(
         shown_activity(&rig.hub).unwrap().leading,
-        Some(Leading::Image { src: art.src })
+        Some(Leading::Image {
+            src: art.src,
+            glow: Some(art.palette[0].clone()),
+        })
     );
     assert_eq!(rig.recorder.art.lock().last(), Some(&Some(art.key)));
+}
+
+// --- settings namespace -------------------------------------------------------------------
+
+fn document_with(media: serde_json::Value) -> Settings {
+    let mut settings = Settings::default();
+    settings.modules.insert("media".into(), media);
+    settings
+}
+
+#[test]
+fn media_settings_read_leniently_and_write_camel_case() {
+    assert_eq!(
+        MediaSettings::from_document(&Settings::default()),
+        MediaSettings::default()
+    );
+    let partial = MediaSettings::from_document(&document_with(
+        serde_json::json!({ "preferredApp": "Spotify.exe", "lyrics": true }),
+    ));
+    assert_eq!(partial.preferred_app.as_deref(), Some("Spotify.exe"));
+    assert!(partial.adaptive_colours);
+    assert_eq!(partial.visualiser, Visualiser::Bars);
+    assert_eq!(
+        MediaSettings::from_document(&document_with(
+            serde_json::json!({ "visualiser": "spectrum" })
+        )),
+        MediaSettings::default(),
+        "a malformed namespace falls back to the defaults"
+    );
+
+    let mut settings = Settings::default();
+    let media = MediaSettings {
+        preferred_app: Some("Spotify.exe".into()),
+        adaptive_colours: false,
+        visualiser: Visualiser::Off,
+    };
+    media.write(&mut settings).unwrap();
+    assert_eq!(
+        settings.modules["media"],
+        serde_json::json!({
+            "preferredApp": "Spotify.exe",
+            "adaptiveColours": false,
+            "visualiser": "off"
+        })
+    );
+    assert_eq!(MediaSettings::from_document(&settings), media);
+}
+
+#[test]
+fn the_preferred_app_from_settings_is_the_pin() {
+    let rig = rig();
+    feed(
+        &rig,
+        vec![playing("Spotify.exe", "A"), paused("Edge.exe", "B")],
+    );
+    assert_eq!(
+        rig.service.snapshot().state.active.unwrap().source_app_id,
+        "Spotify.exe"
+    );
+
+    rig.service.apply_settings(&document_with(
+        serde_json::json!({ "preferredApp": "Edge.exe" }),
+    ));
+    let state = rig.service.snapshot().state;
+    assert_eq!(state.active.unwrap().source_app_id, "Edge.exe");
+    assert_eq!(state.pinned.as_deref(), Some("Edge.exe"));
+    assert_eq!(rig.service.pinned().as_deref(), Some("Edge.exe"));
+
+    rig.service.apply_settings(&Settings::default());
+    let state = rig.service.snapshot().state;
+    assert_eq!(state.active.unwrap().source_app_id, "Spotify.exe");
+    assert_eq!(state.pinned, None);
+}
+
+#[test]
+fn adaptive_colours_off_drops_the_glow_and_visualiser_off_drops_the_bars() {
+    let rig = rig();
+    rig.platform
+        .set_media_sessions(vec![playing("Spotify.exe", "Song")]);
+    rig.platform
+        .set_media_thumbnail("Spotify.exe", PNG_BLUE.to_vec(), "image/png");
+    feed(&rig, rig.platform.media().sessions().unwrap());
+    let activity = shown_activity(&rig.hub).unwrap();
+    assert!(matches!(
+        activity.leading,
+        Some(Leading::Image { glow: Some(_), .. })
+    ));
+    assert_eq!(
+        activity.trailing,
+        Some(Trailing::Waveform { playing: true })
+    );
+
+    let observation = rig.service.apply_settings(&document_with(
+        serde_json::json!({ "adaptiveColours": false, "visualiser": "off" }),
+    ));
+    assert!(observation.activity_changed);
+    let activity = shown_activity(&rig.hub).unwrap();
+    assert!(matches!(
+        activity.leading,
+        Some(Leading::Image { glow: None, .. })
+    ));
+    assert_eq!(activity.trailing, None, "no bars while playing");
+
+    feed(&rig, vec![paused("Spotify.exe", "Song")]);
+    assert_eq!(
+        shown_activity(&rig.hub).unwrap().trailing,
+        Some(Trailing::Icon {
+            glyph: Glyph::Play,
+            tint: None
+        }),
+        "the paused glyph does not depend on the visualiser"
+    );
 }
 
 #[test]

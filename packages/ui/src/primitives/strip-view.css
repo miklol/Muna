@@ -62,6 +62,25 @@
   object-fit: cover;
 }
 
+/*
+ * Album art carries its palette as a soft halo (docs/build-plan/m2-media-hud.md E2), ≤ 30 %.
+ * Relative colour syntax rather than `color-mix(… transparent …)`: mixing towards transparent
+ * in oklab dithers over the black glass.
+ */
+.muna-strip__image--tinted {
+  box-shadow: 0 0 6px rgb(from var(--muna-art-tint) r g b / 0.3);
+}
+
+@media (prefers-contrast: more) {
+  .muna-strip__image--tinted {
+    box-shadow: none;
+  }
+}
+
+[data-contrast='more'] .muna-strip__image--tinted {
+  box-shadow: none;
+}
+
 .muna-strip__text {
   padding-inline: var(--space-1);
   white-space: nowrap;

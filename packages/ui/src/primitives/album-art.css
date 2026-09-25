@@ -1,0 +1,70 @@
+/*
+ * AlbumArt primitive — a rounded square of artwork with an optional palette bleed
+ * (docs/05-design-system.md "Colour": media surfaces may carry the album palette at ≤ 30 %,
+ * never on text). The bleed is two static box-shadows that follow the art's corners — the same
+ * technique as the strip halo. Skia dithers low-alpha gradients over black glass, which shows
+ * as speckle; shadow blur does not. No blur filter, no animation, nothing after paint.
+ * Contrast themes drop it.
+ */
+
+.muna-album-art {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+  transition: opacity var(--muna-motion-toggle);
+}
+
+.muna-album-art[data-dimmed] {
+  opacity: 0.6;
+}
+
+.muna-album-art[data-tinted] {
+  box-shadow:
+    0 0 24px 4px rgb(from var(--media-accent-1) r g b / 0.3),
+    0 0 56px 12px rgb(from var(--media-accent-2, var(--media-accent-1)) r g b / 0.12);
+}
+
+.muna-album-art__image {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  box-shadow: var(--catch-light);
+}
+
+.muna-album-art__fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+
+.muna-album-art__fallback > svg {
+  inline-size: 24px;
+  block-size: 24px;
+}
+
+@media (prefers-contrast: more) {
+  .muna-album-art[data-tinted] {
+    box-shadow: none;
+  }
+}
+
+[data-contrast='more'] .muna-album-art[data-tinted] {
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-album-art {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-album-art {
+  transition: none;
+}

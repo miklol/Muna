@@ -1,6 +1,8 @@
 import type { MessageKey } from '@muna/i18n';
 import type { ComponentType } from 'react';
 
+import { mediaModule } from './media';
+
 /** What the shell passes to a module's glyph: 20 px in the module bar, 16 px in the right rail. */
 export interface ModuleIconProps {
   readonly size?: number;
@@ -28,7 +30,8 @@ export interface ModuleDefinition {
   readonly settings?: ComponentType;
 }
 
-export const modules: readonly ModuleDefinition[] = [];
+/** Every module, in default order; Settings → Modules reorders and disables from here. */
+export const modules: readonly ModuleDefinition[] = [mediaModule];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>
   modules.find((module) => module.id === id);
