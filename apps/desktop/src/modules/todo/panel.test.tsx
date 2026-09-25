@@ -161,6 +161,19 @@ describe('TodoPanel', () => {
     expect(dues[2]).not.toHaveAttribute('data-overdue');
   });
 
+  it('holds no timers once the rows have settled', async () => {
+    ipc.getTodoSnapshot.mockResolvedValue(
+      ok(snapshot([task({ title: 'Call Sam', dueMs: local(2026, 8, 26, 15) })])),
+    );
+    renderPanel();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.getByText('Call Sam')).toBeInTheDocument();
+    // Due labels are derived from the snapshot's arrival time, so no interval keeps them fresh.
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('adds a task from the field with the parsed due and clears it', async () => {
     const added = task({ title: 'Call Sam', dueMs: local(2026, 8, 26, 15) });
     ipc.todoCommand.mockResolvedValue(ok(snapshot([added])));
