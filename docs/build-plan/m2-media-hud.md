@@ -102,3 +102,28 @@ player (Rust binary using SystemMediaTransportControls) so SMTC tests run on CI 
 Output perf.json + markdown summary; fail on budget breach; post trend comment on PRs labelled
 `perf`. Add the fps overlay dev tool (`MUNA_FPS=1`) if not present.
 ```
+
+---
+
+## M2 close — agent: `muna-architect`
+
+**Blocked on CI (2026-09-25).** Every M2 epic is implemented and locally green, but nothing
+has merged: the Actions budget ran out while #22 was open, so the required checks fail in
+3 s before a runner starts ("The job was not started because an Actions budget is preventing
+further use"). The stack waits in merge order — #22 media backend → #24 media UI → #25 HUD
+backend → #26 HUD UI → #27 perf harness, with #23 (autostart fix, on `main`) independent — and
+each PR carries a comment with its local parity run; once the budget is back,
+`gh run rerun --failed` on each run in that order, then squash-merge one at a time and let
+GitHub retarget the next
+PR's base to `main`.
+
+The roadmap's M2 exit criteria carry their evidence but stay unticked: the now-playing and
+HUD criteria are measured on Spotify and Win11 25H2 only, the media-playing CPU window is
+not measured at all (it needs the bundled SMTC test player deferred from M2-E4), and the
+Edge/YouTube, Apple Music, foobar2000, Win11 24H2 and Win10 22H2 columns plus the external
+DDC/CI monitor are maintainer hardware
+([qa/checklists/media](../qa/checklists/media.md), [qa/checklists/hud](../qa/checklists/hud.md),
+[qa/checklists/notch-shell → Still to run](../qa/checklists/notch-shell.md#still-to-run-maintainer)).
+M3 ([m3-daily-modules.md](m3-daily-modules.md)) can start on a branch from `main` before the
+stack lands — its modules touch neither `media` nor `hud`, only the two module registries,
+which is a trivial rebase — but its PRs will queue behind the same budget.
