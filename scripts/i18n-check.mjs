@@ -1,8 +1,10 @@
 // Message catalog checks (docs/11-ci-cd.md quality gates, docs/05 UX copy rules):
-//   1. every locale has exactly the keys of en.json (no missing, no extra);
+//   1. every locale has exactly the keys of en.json (no missing, no extra); a plural key
+//      (`key_one`, `key_other`, …) counts by its base, since forms differ per language, and
+//      every locale must carry the `_other` form i18next falls back to;
 //   2. no empty strings;
 //   3. no exclamation marks in English copy;
-//   4. every `t('key')` literal used by the apps exists in en.json.
+//   4. every `t('key')` literal used by the apps exists in en.json, plural bases included.
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -13,6 +15,21 @@ const sourceDirs = [
   path.join(repoRoot, 'apps', 'desktop', 'src'),
   path.join(repoRoot, 'packages', 'ui', 'src'),
 ];
+
+/** i18next's CLDR plural suffixes (`t('key', { count })` resolves to `key_<form>`). */
+const PLURAL_SUFFIX = /_(?:zero|one|two|few|many|other)$/;
+
+const pluralBase = (key) => {
+  const match = PLURAL_SUFFIX.exec(key);
+  return match === null ? null : key.slice(0, -match[0].length);
+};
+
+/** The keys a catalog answers: plain keys plus the base of every plural family. */
+function catalogKeys(flat) {
+  const keys = new Set();
+  for (const key of flat.keys()) keys.add(pluralBase(key) ?? key);
+  return keys;
+}
 
 function flatten(value, prefix = '') {
   const out = new Map();
@@ -49,12 +66,25 @@ for (const [key, text] of en) {
   if (text.includes('!')) problems.push(`en.json: ${key} contains an exclamation mark`);
 }
 
+const enKeys = catalogKeys(en);
+for (const base of enKeys) {
+  if (!en.has(base) && !en.has(`${base}_other`)) {
+    problems.push(`en.json: plural key ${base} has no _other form`);
+  }
+}
+
 for (const file of locales) {
   if (file === 'en.json') continue;
   const other = flatten(JSON.parse(readFileSync(path.join(localesDir, file), 'utf8')));
-  for (const key of en.keys()) if (!other.has(key)) problems.push(`${file}: missing ${key}`);
+  const otherKeys = catalogKeys(other);
+  for (const key of enKeys) if (!otherKeys.has(key)) problems.push(`${file}: missing ${key}`);
+  for (const key of otherKeys) if (!enKeys.has(key)) problems.push(`${file}: unknown key ${key}`);
+  for (const key of enKeys) {
+    if (en.has(`${key}_other`) && !other.has(key) && !other.has(`${key}_other`)) {
+      problems.push(`${file}: plural key ${key} has no _other form`);
+    }
+  }
   for (const [key, text] of other) {
-    if (!en.has(key)) problems.push(`${file}: unknown key ${key}`);
     if (text.trim() === '') problems.push(`${file}: ${key} is empty`);
   }
 }
@@ -64,7 +94,7 @@ for (const dir of sourceDirs) {
   for (const file of walk(dir)) {
     const source = readFileSync(file, 'utf8');
     for (const match of source.matchAll(keyPattern)) {
-      if (!en.has(match[1])) {
+      if (!enKeys.has(match[1])) {
         problems.push(`${path.relative(repoRoot, file)}: key "${match[1]}" is not in en.json`);
       }
     }
