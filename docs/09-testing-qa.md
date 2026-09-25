@@ -93,17 +93,42 @@ already resting there, whereas a real mouse always does.
 
 ## Performance harness (`scripts/perf`)
 
-1. Launch debug build with `--remote-debugging-port` and `MUNA_PERF=1`.
-2. Warm-up 30 s. Sample **idle CPU** via PDH `\Process(muna*)\% Processor Time` (all processes,
-   incl. WebView2) for 60 s → assert ≤ 0.3 %.
-3. Start media (bundled test player publishing SMTC). Sample 60 s → assert ≤ 1 %.
-4. Drive 20 expand/collapse cycles through the harness; capture `Performance.getMetrics` and
-   `Tracing` frame events → assert p95 frame ≤ 17 ms (≥ 58 fps).
-5. `Process.WorkingSet64` after collapse → assert ≤ 120 MB.
-6. Cold start to first strip paint (log timestamp diff) → assert ≤ 1.5 s.
-7. Emit `perf.json`; CI comments the trend on the PR; nightly fails on breach. Which steps run
-   on PRs (`perf:smoke`) versus nightly (`perf:full`), and the regression rule, are defined in
+`node scripts/perf/index.mjs --smoke|--full [--out perf.json] [--markdown perf.md] [--exe path]
+[--baseline earlier.json] [--morphs N] [--verbose]` — `pnpm -w perf:smoke` / `perf:full`. Pure
+logic (budgets, plans, statistics, report) lives in `report.mjs` and is unit-tested; `probe.ps1`
+is the Win32 helper (process tree, CPU time, private working set, notch window rects, cursor).
+
+1. Launch the built app (`target/debug/muna.exe`, else `release`; `--exe` overrides) with a
+   scratch `LOCALAPPDATA` profile and `--autostart`, so the first-run settings window stays
+   closed and nothing from the developer's profile leaks in. The single-instance plugin means a
+   running Muna makes the run fail fast ("exited before the shell was ready").
+2. **Cold start**: wall time from process spawn to the shell's `shell ready label="notch"` log
+   line (the notch's first painted frame) → assert ≤ 1.5 s. The in-process
+   `since_start_ms` is reported as a detail.
+3. Park the cursor away from the notch. Warm up (smoke 5 s, full 30 s), then sample **idle CPU**
+   as the delta of `TotalProcessorTime` over every process of the tree (`muna.exe`, the OSD
+   watchdog, the WebView2 browser, renderer and utility processes) over the window (smoke
+   30 s, full 60 s), normalised to all logical processors like Task Manager → assert ≤ 0.3 %.
+   The one-core figure is reported alongside.
+4. **Memory**: private working set summed over the tree every 5 s (smoke, until 90 s) or 10 s
+   (full, until 300 s). The shell asks WebView2 for its low memory target 30 s after the cursor
+   left the notch while nothing on the strip animates ([modules/notch-shell.md](modules/notch-shell.md#memory-target));
+   the gated value is the median of the samples taken at that target (the last sample when the
+   trim never ran, with a note) → assert ≤ 120 MB. The pre-trim median is reported too.
+5. Full mode only: drive 20 expand/collapse cycles by drifting the cursor onto the strip below
+   the hover-intent velocity, waiting for the shell's `morph` log lines (frames, duration,
+   longest frame, dropped) and parking the cursor again → assert the slowest morph ≥ 58 fps.
+   Memory is sampled once more after the last collapse.
+6. Write the JSON report and the markdown the `app` job posts on the PR (with the
+   `<!-- muna-perf-report -->` marker); exit 1 on any breach or when nothing was measured.
+   `--baseline` renders a delta column against an earlier JSON. Which steps run on PRs
+   (`perf:smoke`) versus nightly (`perf:full`) is defined in
    [11-ci-cd.md](11-ci-cd.md#performance-gates).
+
+Not yet automated: the media-playing CPU window (≤ 1 %; needs a bundled SMTC test player) and
+the 4K emulation pass. The harness runs against whatever build the workflow made — today the
+debug build in both `ci.yml` and `nightly.yml` — so its startup and CPU numbers are upper
+bounds for the release build (the report says so in a note).
 
 ## Manual QA matrix (milestone close)
 

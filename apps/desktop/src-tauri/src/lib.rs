@@ -53,7 +53,7 @@ pub fn run() {
     if shell::spike::enabled() {
         state = state.with_spike(started_at, &profile_dir);
     } else {
-        state = state.with_shell();
+        state = state.with_shell(started_at);
     }
     let state = Arc::new(state);
     let exit_state = Arc::clone(&state);

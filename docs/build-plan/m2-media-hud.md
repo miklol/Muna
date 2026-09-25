@@ -80,6 +80,21 @@ restore).
 
 ## M2-E4 · Performance harness — agent: `muna-qa-engineer`
 
+**Progress:** `scripts/perf` landed as `report.mjs` (pure: budgets, plans, parsing, statistics,
+markdown; unit-tested) + `probe.ps1` (Win32 helper) + `harness.mjs` (launch, idle window,
+cursor-driven morphs) + `index.mjs` (`--smoke` / `--full` CLI the `ci.yml` and `nightly.yml`
+jobs already call). The first real run found two idle bugs in the shell — `useShellReady`
+re-arming on every layout event (a shell ↔ UI loop at half the refresh rate, 31 % of one core
+idle) and a morph frame sampler that never stopped after a mid-morph park — and, once fixed,
+a memory budget miss (126 MB debug / 118–123 MB release private working set against 120 MB),
+answered by the shell's idle memory target
+([notch-shell → Memory target](../modules/notch-shell.md#memory-target)). Measured on
+Win11 25H2: idle CPU 0.003–0.014 % normalised (0.09–0.46 % of one core), cold start
+520–870 ms (debug) / 595–650 ms (release), idle memory 17–31 MB after the trim. Deferred:
+the bundled SMTC test player and the media-playing CPU window, 4K emulation, the `MUNA_FPS`
+overlay, the automatic delta against `main`; the morph-driving part of `--full` and the
+first-morph-after-trim frame rate need an unlocked desktop (maintainer checklist).
+
 ```text
 Build scripts/perf per docs/09-testing-qa.md#performance-harness-scriptsperf and wire it to
 a nightly workflow (.github/workflows/nightly.yml on windows-latest). Bundle a tiny test media

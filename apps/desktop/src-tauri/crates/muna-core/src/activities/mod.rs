@@ -250,6 +250,19 @@ pub enum StripContent {
     Notice { notice: Notice },
 }
 
+impl Trailing {
+    /// Whether the slot keeps moving on its own after it arrived: playing audio bars and a
+    /// running countdown tick without any new content; everything else animates once, when it
+    /// changes.
+    #[must_use]
+    pub const fn animates(&self) -> bool {
+        matches!(
+            self,
+            Self::Waveform { playing: true } | Self::Timer { running: true, .. }
+        )
+    }
+}
+
 impl StripContent {
     /// The id of the item on the strip, if any.
     #[must_use]
@@ -258,6 +271,21 @@ impl StripContent {
             Self::Idle => None,
             Self::Activity { activity, .. } => Some(&activity.id),
             Self::Notice { notice } => Some(&notice.id),
+        }
+    }
+
+    /// Whether the strip keeps animating without further changes: the wide text burst (its
+    /// marquee), a playing waveform or a running timer, or any notice (short-lived, its text
+    /// may scroll). A paused chip or a plain icon is still; the shell may trim the webviews
+    /// while it shows.
+    #[must_use]
+    pub fn animates(&self) -> bool {
+        match self {
+            Self::Idle => false,
+            Self::Activity { activity, wide } => {
+                *wide || activity.trailing.as_ref().is_some_and(Trailing::animates)
+            }
+            Self::Notice { .. } => true,
         }
     }
 }
@@ -359,5 +387,66 @@ mod tests {
         assert_eq!(notice.hold(), NOTICE_HOLD);
         notice.hold_ms = 1500;
         assert_eq!(notice.hold(), Duration::from_millis(1500));
+    }
+
+    #[test]
+    fn only_moving_content_animates_without_changes() {
+        let chip = |trailing: Option<Trailing>| Activity {
+            id: "media:now-playing".into(),
+            module: "media".into(),
+            priority: priority::MEDIA_PLAYING,
+            leading: None,
+            trailing,
+            wide: Some(StripMessage::Text {
+                value: "Song".into(),
+            }),
+        };
+        let still = |activity: Activity| StripContent::Activity {
+            activity,
+            wide: false,
+        };
+        assert!(!StripContent::Idle.animates());
+        assert!(!still(chip(None)).animates());
+        assert!(!still(chip(Some(Trailing::Waveform { playing: false }))).animates());
+        assert!(!still(chip(Some(Trailing::Progress { percent: 40 }))).animates());
+        assert!(
+            !still(chip(Some(Trailing::Timer {
+                remaining_ms: 5000,
+                total_ms: 9000,
+                running: false,
+            })))
+            .animates()
+        );
+        assert!(still(chip(Some(Trailing::Waveform { playing: true }))).animates());
+        assert!(
+            still(chip(Some(Trailing::Timer {
+                remaining_ms: 5000,
+                total_ms: 9000,
+                running: true,
+            })))
+            .animates()
+        );
+        assert!(
+            StripContent::Activity {
+                activity: chip(None),
+                wide: true,
+            }
+            .animates(),
+            "the wide burst scrolls its text"
+        );
+        assert!(
+            StripContent::Notice {
+                notice: Notice {
+                    id: "hud:volume".into(),
+                    module: "hud".into(),
+                    priority: 1,
+                    leading: None,
+                    trailing: None,
+                    wide: None,
+                    hold_ms: 0,
+                },
+            }
+            .animates()
+        );
     }
 }

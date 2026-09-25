@@ -95,6 +95,12 @@ debounce starts from there.
 - A single-monitor laptop at 100 % and 125 %, and a portrait secondary monitor.
 - An exclusive-fullscreen D3D game (the borderless stand-in covers the PILLAR heuristic; the
   `SHQueryUserNotificationState` route — `RUNNING_D3D_FULL_SCREEN` — needs a real game).
+- Performance on an unlocked desktop (M2-E4 measured with the session locked, where the
+  notch is parked): `pnpm -w perf:full -- --exe apps/desktop/src-tauri/target/release/muna.exe`
+  must drive its 20 morphs and report the slowest ≥ 58 fps; then leave the cursor away from
+  the notch for ≥ 60 s (the log shows `webview memory target target=Low`), hover, and read the
+  first `morph` line — the panel must still open at ≥ 58 fps after the trim. Record both
+  numbers in [notch-shell → Memory target](../../modules/notch-shell.md#memory-target).
 
 ## Harness notes
 
