@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use muna_core::{Hub, Settings, SettingsStore, Store, SystemClock};
+use muna_core::{Clock, Hub, Settings, SettingsStore, Store, SystemClock};
 use muna_platform::{Platform, PlatformError};
 use parking_lot::Mutex;
 use tauri::AppHandle;
@@ -23,7 +23,7 @@ pub struct AppState {
     pub activities: Arc<Hub>,
     /// Module objects the IPC commands reach directly (ADR-0004).
     pub modules: ModuleServices,
-    pub store: Store,
+    pub store: Arc<Store>,
     /// `true` when no settings file existed before this launch (show the settings window).
     pub first_run: bool,
     /// The production notch shell; `None` in spike mode and in tests.
@@ -50,9 +50,16 @@ impl AppState {
         let settings_store = SettingsStore::new(profile_dir.join("settings.json"));
         let first_run = !settings_store.path().exists();
         let settings = settings_store.load()?;
-        let store = Store::open(&profile_dir.join("muna.db"))?;
-        let activities = Arc::new(Hub::new(Arc::new(SystemClock)));
-        let modules = ModuleServices::new(&platform, &activities, Some(&profile_dir.join("cache")));
+        let store = Arc::new(Store::open(&profile_dir.join("muna.db"))?);
+        let clock: Arc<dyn Clock> = Arc::new(SystemClock);
+        let activities = Arc::new(Hub::new(Arc::clone(&clock)));
+        let modules = ModuleServices::new(
+            &platform,
+            &activities,
+            Some(&profile_dir.join("cache")),
+            &store,
+            &clock,
+        );
         Ok(Self {
             platform,
             settings_store,
@@ -94,15 +101,17 @@ impl AppState {
     /// `profile_dir` until a command saves settings. Used by tests and tooling.
     pub fn in_memory(profile_dir: &Path) -> anyhow::Result<Self> {
         let platform: Arc<dyn Platform> = Arc::new(muna_platform::FakePlatform::new());
-        let activities = Arc::new(Hub::new(Arc::new(SystemClock)));
-        let modules = ModuleServices::new(&platform, &activities, None);
+        let store = Arc::new(Store::open_in_memory()?);
+        let clock: Arc<dyn Clock> = Arc::new(SystemClock);
+        let activities = Arc::new(Hub::new(Arc::clone(&clock)));
+        let modules = ModuleServices::new(&platform, &activities, None, &store, &clock);
         Ok(Self {
             platform,
             settings_store: SettingsStore::new(profile_dir.join("settings.json")),
             settings: Mutex::new(Settings::default()),
             activities,
             modules,
-            store: Store::open_in_memory()?,
+            store,
             first_run: true,
             shell: None,
             spike: None,
@@ -125,6 +134,7 @@ impl AppState {
         let observation = self.modules.media.apply_settings(settings);
         crate::modules::media::schedule_art(&self.modules.media, &observation);
         self.modules.hud.apply_settings(settings);
+        self.modules.pomodoro.apply_settings(settings);
     }
 
     /// Releases what the modules hold on the OS (the hidden system flyout) on a clean exit.

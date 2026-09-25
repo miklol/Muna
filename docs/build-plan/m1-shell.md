@@ -68,7 +68,8 @@ Evidence: laptop recording of plug/unplug and headset connect. Update spec statu
 **Progress.** PR 1 landed the runtime and the strip: `muna-core::activities` (closed slot
 vocabulary, `Scheduler`, `Hub` with per-window suspend and an event-driven deadline task), the
 module contract (`Surface`, `ModuleCtx`, `ModuleBackend::start`), the live-activities backend
-with the power, session and Bluetooth reducers, the Pomodoro demo (`MUNA_DEMO=pomodoro`), the
+with the power, session and Bluetooth reducers, the Pomodoro demo (`MUNA_DEMO=pomodoro`,
+replaced by the real module in M3-E3), the
 `@muna/ui` `StripView` / `BatteryGlyph` / `TimerText` primitives with stories, the shell mapping
 with localised screen-reader descriptions, and S8. PR 2 landed the Windows `Bluetooth`
 implementation: two paired-endpoint `DeviceWatcher`s merged per container id, a GATT Battery

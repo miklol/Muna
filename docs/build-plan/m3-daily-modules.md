@@ -32,6 +32,22 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
   when Pinned.
 - **M3-E3 Pomodoro** — replaces the M1 placeholder source; ring in strip; sounds via Web Audio;
   never auto-restart the app while a session runs.
+
+  **Progress.** Landed as one PR stacked on the M2 stack (#27), since it plugs into the
+  `ModuleServices` wiring, `apply_module_settings` and the per-module event-sink bridge that
+  the media and HUD modules introduced there: the
+  `PomodoroTimer` state machine over `muna-core::Clock` (monotonic countdown + wall deadline),
+  the `PomodoroService` with its 5 s tick while running and `Notify`-only wait otherwise, the
+  strip activity and finished notice, the SQLite session log, the contract
+  (`get_pomodoro_snapshot`, `pomodoro_command`, `PomodoroStateChanged`), the panel with the
+  ring dial and presets, and the settings pane
+  ([pomodoro → Implementation notes](../modules/pomodoro.md#implementation-notes-m3-e3)).
+  Presets beyond the three phases, sound, the Timer Done overlay, Focus Assist and Focus
+  Target are deferred and listed there; the strip countdown is the `TimerText` trailing slot
+  without hover controls. The Storybook states from the generic prompt are covered by the
+  `Ring`, `TimerText` and `SegmentedControl` primitive stories rather than a panel story (the
+  panel is data-bound to the IPC snapshot; a module story harness is an M3-E9 item alongside
+  the dashboard widgets).
 - **M3-E4 Weather** — Open-Meteo (no key) with geocoding; location from Windows Geolocation
   (capability `location`) or manual city. Hourly/daily, alerts if available.
 - **M3-E5 Notifications** — identity path with `NotificationChanged`, polling fallback

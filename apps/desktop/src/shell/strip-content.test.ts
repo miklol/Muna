@@ -51,6 +51,13 @@ describe('strip content mapping', () => {
       'Song · Artist',
     );
     expect(messageText({ kind: 'nowPlaying', title: 'Song', artist: '' }, t)).toBe('Song');
+    expect(messageText({ kind: 'pomodoro', phase: 'work' }, t)).toBe('Focus');
+    expect(messageText({ kind: 'pomodoro', phase: 'shortBreak' }, t)).toBe('Short break');
+    expect(messageText({ kind: 'pomodoro', phase: 'longBreak' }, t)).toBe('Long break');
+    expect(messageText({ kind: 'pomodoroFinished', phase: 'work' }, t)).toBe('Focus finished');
+    expect(messageText({ kind: 'pomodoroFinished', phase: 'longBreak' }, t)).toBe(
+      'Long break finished',
+    );
   });
 
   it('maps contract slots to the UI vocabulary and anchors timers to their arrival', () => {
@@ -149,7 +156,7 @@ describe('strip content mapping', () => {
             priority: 70,
             leading: { kind: 'icon', glyph: 'timer', tint: 'orange' },
             trailing: { kind: 'timer', remainingMs: 65_000, totalMs: 90_000, running: false },
-            wide: { kind: 'text', value: 'Focus' },
+            wide: { kind: 'pomodoro', phase: 'work' },
           },
         },
         t,
@@ -157,6 +164,29 @@ describe('strip content mapping', () => {
         0,
       ).description,
     ).toBe('Focus, 1:05 left, paused');
+    expect(
+      present(
+        {
+          kind: 'notice',
+          notice: {
+            id: 'pomodoro:finished',
+            module: 'pomodoro',
+            priority: 70,
+            leading: { kind: 'icon', glyph: 'timer', tint: 'green' },
+            trailing: null,
+            wide: { kind: 'pomodoroFinished', phase: 'shortBreak' },
+            holdMs: 0,
+          },
+        },
+        t,
+        'en',
+        0,
+      ),
+    ).toMatchObject({
+      text: 'Short break finished',
+      wide: true,
+      description: 'Short break finished',
+    });
     expect(
       present(
         {
