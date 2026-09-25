@@ -122,6 +122,12 @@ impl AppState {
     pub fn apply_module_settings(&self, settings: &Settings) {
         let observation = self.modules.media.apply_settings(settings);
         crate::modules::media::schedule_art(&self.modules.media, &observation);
+        self.modules.hud.apply_settings(settings);
+    }
+
+    /// Releases what the modules hold on the OS (the hidden system flyout) on a clean exit.
+    pub fn shutdown_modules(&self) {
+        self.modules.hud.shutdown();
     }
 
     /// The context handed to every module backend.

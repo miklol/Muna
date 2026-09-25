@@ -8,14 +8,17 @@
 //! `// SAFETY:` comment (repository rule).
 
 mod app_bar;
+mod audio;
 mod autostart;
 mod bluetooth;
+mod brightness;
 mod foreground;
 pub mod identity;
 mod media;
 mod monitors;
 mod power;
 mod pump;
+pub mod undocumented;
 pub mod webview;
 mod window;
 
@@ -28,11 +31,13 @@ pub use autostart::{AUTOSTART_ARG, STARTUP_TASK_ID};
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Media, Monitors, Platform, Power,
+    SystemOsd, Windowing,
 };
 use crate::types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
-    MediaSession, MonitorInfo, Rect, Thumbnail, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessMonitor,
+    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect, Thumbnail,
+    UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -62,6 +67,12 @@ pub struct WindowsPlatform {
     bluetooth: Option<bluetooth::Watcher>,
     /// `None` when the worker could not start; media then reports `Unsupported`.
     media: Option<media::Watcher>,
+    /// `None` when the worker could not start; volume then reports `Unsupported`.
+    audio: Option<audio::Watcher>,
+    /// `None` when the worker could not start; brightness then reports `Unsupported`.
+    brightness: Option<brightness::Watcher>,
+    /// `None` when the keeper thread could not start; the native flyout then stays visible.
+    osd: Option<undocumented::flyout::Keeper>,
     app_bars: app_bar::AppBars,
 }
 
@@ -96,11 +107,35 @@ impl WindowsPlatform {
                 None
             }
         };
+        let audio = match audio::Watcher::start(events.clone()) {
+            Ok(watcher) => Some(watcher),
+            Err(error) => {
+                warn!(%error, "audio watcher unavailable; volume HUD disabled");
+                None
+            }
+        };
+        let brightness = match brightness::Watcher::start(events.clone()) {
+            Ok(watcher) => Some(watcher),
+            Err(error) => {
+                warn!(%error, "brightness watcher unavailable; brightness HUD disabled");
+                None
+            }
+        };
+        let osd = match undocumented::flyout::Keeper::start() {
+            Ok(keeper) => Some(keeper),
+            Err(error) => {
+                warn!(%error, "flyout keeper unavailable; the native OSD stays visible");
+                None
+            }
+        };
         Self {
             events,
             _pump: pump,
             bluetooth,
             media,
+            audio,
+            brightness,
+            osd,
             app_bars: app_bar::AppBars::default(),
         }
     }
@@ -138,19 +173,78 @@ impl Media for WindowsPlatform {
 
 impl Audio for WindowsPlatform {
     fn devices(&self) -> PlatformResult<Vec<AudioDevice>> {
-        Err(PlatformError::Unsupported("audio devices"))
+        self.audio
+            .as_ref()
+            .map(audio::Watcher::devices)
+            .ok_or(PlatformError::Unsupported("audio devices"))
     }
 
     fn volume(&self) -> PlatformResult<u8> {
-        Err(PlatformError::Unsupported("audio volume"))
+        self.audio_watcher()?.volume()
     }
 
-    fn set_volume(&self, _percent: u8) -> PlatformResult<()> {
-        Err(PlatformError::Unsupported("audio volume"))
+    fn set_volume(&self, percent: u8) -> PlatformResult<()> {
+        self.audio_watcher()?.set_volume(percent)
     }
 
+    fn muted(&self) -> PlatformResult<bool> {
+        self.audio_watcher()?.muted()
+    }
+
+    fn set_muted(&self, muted: bool) -> PlatformResult<()> {
+        self.audio_watcher()?.set_muted(muted)
+    }
+
+    fn mic_muted(&self) -> PlatformResult<Option<bool>> {
+        Ok(self.audio_watcher()?.mic_muted())
+    }
+
+    fn set_mic_muted(&self, muted: bool) -> PlatformResult<()> {
+        self.audio_watcher()?.set_mic_muted(muted)
+    }
+
+    // Needs the undocumented `IPolicyConfig`; the P1 audio-output picker owns that (docs/04).
     fn set_default_device(&self, _id: &str) -> PlatformResult<()> {
         Err(PlatformError::Unsupported("audio default device"))
+    }
+}
+
+impl WindowsPlatform {
+    fn audio_watcher(&self) -> PlatformResult<&audio::Watcher> {
+        self.audio
+            .as_ref()
+            .ok_or(PlatformError::Unsupported("audio volume"))
+    }
+}
+
+impl Brightness for WindowsPlatform {
+    fn monitors(&self) -> PlatformResult<Vec<BrightnessMonitor>> {
+        self.brightness
+            .as_ref()
+            .map(brightness::Watcher::monitors)
+            .ok_or(PlatformError::Unsupported("brightness"))
+    }
+
+    fn set(&self, id: &str, percent: u8) -> PlatformResult<()> {
+        self.brightness
+            .as_ref()
+            .ok_or(PlatformError::Unsupported("brightness"))?
+            .set(id, percent)
+    }
+}
+
+impl SystemOsd for WindowsPlatform {
+    fn set_suppressed(&self, suppressed: bool) -> PlatformResult<OsdState> {
+        match &self.osd {
+            Some(keeper) => keeper.set_suppressed(suppressed),
+            None => Ok(OsdState::Unavailable),
+        }
+    }
+
+    fn state(&self) -> OsdState {
+        self.osd
+            .as_ref()
+            .map_or(OsdState::Unavailable, undocumented::flyout::Keeper::state)
     }
 }
 
@@ -280,6 +374,14 @@ impl Platform for WindowsPlatform {
         self
     }
 
+    fn brightness(&self) -> &dyn Brightness {
+        self
+    }
+
+    fn system_osd(&self) -> &dyn SystemOsd {
+        self
+    }
+
     fn bluetooth(&self) -> &dyn Bluetooth {
         self
     }
@@ -324,10 +426,18 @@ mod tests {
     #[test]
     fn unsupported_services_degrade_instead_of_panicking() {
         let platform = WindowsPlatform::new();
+        // The default-device switch is still the P1 picker's job.
         assert!(matches!(
-            platform.audio().volume(),
+            platform.audio().set_default_device("any"),
             Err(PlatformError::Unsupported(_))
         ));
+        // Volume answers, or says why not, but never panics: a machine without a render
+        // endpoint is `NotFound`, one where the worker could not start is `Unsupported`.
+        match platform.audio().volume() {
+            Ok(percent) => assert!(percent <= 100),
+            Err(PlatformError::NotFound(_) | PlatformError::Unsupported(_)) => {}
+            Err(other) => panic!("unexpected error: {other}"),
+        }
         assert!(matches!(
             platform.bluetooth().connect("any"),
             Err(PlatformError::Unsupported(_))

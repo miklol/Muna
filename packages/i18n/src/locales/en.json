@@ -50,7 +50,15 @@
       "bell": "Notification",
       "music": "Music",
       "moon": "Focus assist",
-      "play": "Paused"
+      "play": "Paused",
+      "volume": "Volume",
+      "volumeLow": "Volume",
+      "volumeMedium": "Volume",
+      "volumeHigh": "Volume",
+      "volumeMuted": "Muted",
+      "sun": "Brightness",
+      "mic": "Microphone on",
+      "micMuted": "Microphone muted"
     }
   },
   "spike": {

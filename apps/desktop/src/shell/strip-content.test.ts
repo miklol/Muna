@@ -71,6 +71,11 @@ describe('strip content mapping', () => {
       kind: 'waveform',
       playing: true,
     });
+    // The HUD level draws as a progress track until its own primitive lands.
+    expect(toSlot({ kind: 'level', percent: 42, muted: true }, 'en', 0)).toEqual({
+      kind: 'progress',
+      percent: 42,
+    });
     // Album art carries its palette colour as the halo tint; other images have none.
     expect(toSlot({ kind: 'image', src: 'a.png', glow: '#5ac8fa' }, 'en', 0)).toEqual({
       kind: 'image',
@@ -151,6 +156,26 @@ describe('strip content mapping', () => {
         0,
       ).description,
     ).toBe('Buds connected, battery 80%');
+    // A HUD notice reads its glyph then the level; the glyph names the control.
+    expect(
+      present(
+        {
+          kind: 'notice',
+          notice: {
+            id: 'hud:volume',
+            module: 'hud',
+            priority: 100,
+            leading: { kind: 'icon', glyph: 'volumeMuted', tint: null },
+            trailing: { kind: 'level', percent: 42, muted: true },
+            wide: null,
+            holdMs: 1200,
+          },
+        },
+        t,
+        'en',
+        0,
+      ),
+    ).toMatchObject({ text: null, wide: false, description: 'Muted, 42%' });
   });
 
   it('describes now playing with its playback state', () => {

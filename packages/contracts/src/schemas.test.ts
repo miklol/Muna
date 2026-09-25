@@ -155,6 +155,18 @@ describe('strip content schema', () => {
           holdMs: 0,
         },
       },
+      {
+        kind: 'notice',
+        notice: {
+          id: 'hud:volume',
+          module: 'hud',
+          priority: 100,
+          leading: { kind: 'icon', glyph: 'volumeHigh', tint: null },
+          trailing: { kind: 'level', percent: 80, muted: false },
+          wide: null,
+          holdMs: 1200,
+        },
+      },
     ];
     for (const value of cases) {
       expect(stripContentSchema.parse(value)).toEqual(value);

@@ -50,7 +50,8 @@ fn title(hwnd: HWND) -> String {
     String::from_utf16_lossy(&buffer[..usize::try_from(len).unwrap_or(0).min(buffer.len())])
 }
 
-fn process_name(hwnd: HWND) -> String {
+/// Image file name (`explorer.exe`) of the process owning `hwnd`; empty when unknown.
+pub(super) fn process_name(hwnd: HWND) -> String {
     let mut pid = 0_u32;
     // SAFETY: `pid` is a valid, writable `u32`; a zero return means the window is gone.
     #[allow(unsafe_code)]

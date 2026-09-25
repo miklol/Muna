@@ -81,6 +81,10 @@ export const toSlot = (
       return { kind: 'progress', percent: slot.percent };
     case 'waveform':
       return { kind: 'waveform', playing: slot.playing };
+    case 'level':
+      // Drawn as a progress track until the HUD's own `LevelTrack` lands (docs/modules/hud.md,
+      // "Visual"); `muted` will dim its fill there.
+      return { kind: 'progress', percent: slot.percent };
   }
 };
 
@@ -111,6 +115,9 @@ const describeSlot = (
       return t('strip.describe.progress', { percent: formatPercent(slot.percent, locale) });
     case 'waveform':
       return t(slot.playing ? 'strip.describe.waveform' : 'strip.describe.waveformPaused');
+    case 'level':
+      // The leading glyph already names the control (volume, brightness, muted).
+      return formatPercent(slot.percent, locale);
   }
 };
 

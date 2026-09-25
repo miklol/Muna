@@ -107,12 +107,16 @@ pub fn run() {
                 shell.start(app.handle());
             }
             // Strip content flows hub → event; the module backends publish into the hub, and
-            // the media module additionally reports its state through typed events.
+            // the media and HUD modules additionally report their state through typed events.
             activities::start(app.handle(), &state.activities);
             state
                 .modules
                 .media
                 .set_sink(Arc::new(ipc::MediaEventSink::new(app.handle().clone())));
+            state
+                .modules
+                .hud
+                .set_sink(Arc::new(ipc::HudEventSink::new(app.handle().clone())));
             let started = modules::start_all(&state.module_ctx(), &state.modules);
             tracing::info!(modules = ?started, "modules running");
             let settings = state.settings.lock().clone();
@@ -130,6 +134,7 @@ pub fn run() {
         .expect("failed to start Muna")
         .run(move |_app, event| match event {
             RunEvent::Exit => {
+                exit_state.shutdown_modules();
                 if let Some(shell) = &exit_state.shell {
                     shell.shutdown();
                 }

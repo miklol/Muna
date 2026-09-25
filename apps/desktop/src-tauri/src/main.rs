@@ -23,6 +23,18 @@ fn main() -> ExitCode {
                 }
             };
         }
+        // Must be handled before Tauri starts: the single-instance plugin would otherwise hand
+        // the arguments to the running app and exit, and the watchdog would never wait.
+        if arg == muna_platform::OSD_WATCHDOG_ARG {
+            let Some(parent_pid) = args.next().and_then(|pid| pid.parse::<u32>().ok()) else {
+                eprintln!("usage: muna {} <pid>", muna_platform::OSD_WATCHDOG_ARG);
+                return ExitCode::FAILURE;
+            };
+            return match u8::try_from(muna_platform::run_osd_watchdog(parent_pid)) {
+                Ok(code) => ExitCode::from(code),
+                Err(_) => ExitCode::FAILURE,
+            };
+        }
     }
 
     muna_lib::run();

@@ -141,6 +141,14 @@ export const glyphSchema = z.enum([
   'music',
   'moon',
   'play',
+  'volume',
+  'volumeLow',
+  'volumeMedium',
+  'volumeHigh',
+  'volumeMuted',
+  'sun',
+  'mic',
+  'micMuted',
 ]) satisfies z.ZodType<Glyph>;
 
 export const tintSchema = z.enum([
@@ -186,6 +194,7 @@ export const trailingSchema = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('progress'), percent }),
   z.object({ kind: z.literal('waveform'), playing: z.boolean() }),
+  z.object({ kind: z.literal('level'), percent, muted: z.boolean() }),
 ]) satisfies z.ZodType<Trailing>;
 
 export const stripMessageSchema = z.discriminatedUnion('kind', [

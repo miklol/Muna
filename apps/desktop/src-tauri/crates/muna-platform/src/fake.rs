@@ -10,11 +10,13 @@ use tokio::sync::broadcast;
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Media, Monitors, Platform, Power,
+    SystemOsd, Windowing,
 };
 use crate::types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
-    MediaSession, MonitorInfo, PowerSource, Rect, Thumbnail, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessMonitor,
+    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, PowerSource, Rect,
+    Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -40,6 +42,8 @@ struct Pointer {
     button_down: bool,
 }
 
+/// A scripted state bag: the flags are independent test knobs, not a state machine.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug)]
 struct State {
     sessions: Vec<MediaSession>,
@@ -49,6 +53,16 @@ struct State {
     audio_devices: Vec<AudioDevice>,
     volume: u8,
     muted: bool,
+    /// `None` scripts a machine without a microphone.
+    mic_muted: Option<bool>,
+    brightness: Vec<BrightnessMonitor>,
+    /// Every `set(id, percent)` the fake received, in order.
+    brightness_sets: Vec<(String, u8)>,
+    osd: OsdState,
+    /// Scripted: the build has no flyout window, so suppression reports `Unavailable`.
+    osd_unavailable: bool,
+    /// Every `set_suppressed` request, in order.
+    osd_requests: Vec<bool>,
     bluetooth: Vec<BluetoothDevice>,
     battery: BatteryState,
     monitors: Vec<MonitorInfo>,
@@ -78,6 +92,12 @@ impl Default for State {
             }],
             volume: 50,
             muted: false,
+            mic_muted: Some(false),
+            brightness: Vec::new(),
+            brightness_sets: Vec::new(),
+            osd: OsdState::Native,
+            osd_unavailable: false,
+            osd_requests: Vec::new(),
             bluetooth: Vec::new(),
             battery: BatteryState {
                 percent: None,
@@ -205,6 +225,60 @@ impl FakePlatform {
             state.muted = muted;
         }
         self.publish(PlatformEvent::VolumeChanged { percent, muted });
+    }
+
+    /// Scripts the default microphone's mute state; `None` removes the microphone.
+    pub fn set_mic_muted_state(&self, muted: Option<bool>) {
+        self.state.lock().mic_muted = muted;
+        if let Some(muted) = muted {
+            self.publish(PlatformEvent::MicMuteChanged { muted });
+        }
+    }
+
+    /// Adds (or replaces, by id) a brightness-capable monitor without publishing anything —
+    /// the probe found it at start-up.
+    pub fn add_brightness_monitor(&self, monitor: BrightnessMonitor) {
+        let mut state = self.state.lock();
+        state.brightness.retain(|m| m.id != monitor.id);
+        state.brightness.push(monitor);
+    }
+
+    /// Scripts a brightness change from outside Muna (a laptop's brightness keys) and
+    /// notifies subscribers. Ignored for unknown monitors.
+    pub fn set_brightness_state(&self, id: &str, percent: u8) {
+        let percent = percent.min(100);
+        {
+            let mut state = self.state.lock();
+            let Some(monitor) = state.brightness.iter_mut().find(|m| m.id == id) else {
+                return;
+            };
+            monitor.percent = percent;
+        }
+        self.publish(PlatformEvent::BrightnessChanged {
+            monitor_id: id.to_owned(),
+            percent,
+        });
+    }
+
+    /// Every [`Brightness::set`] the fake received, in order.
+    #[must_use]
+    pub fn brightness_sets(&self) -> Vec<(String, u8)> {
+        self.state.lock().brightness_sets.clone()
+    }
+
+    /// Scripts a build without a flyout window: suppression reports `Unavailable`.
+    pub fn set_osd_unavailable(&self, unavailable: bool) {
+        let mut state = self.state.lock();
+        state.osd_unavailable = unavailable;
+        if unavailable {
+            state.osd = OsdState::Unavailable;
+        }
+    }
+
+    /// Every [`SystemOsd::set_suppressed`] request, in order.
+    #[must_use]
+    pub fn osd_requests(&self) -> Vec<bool> {
+        self.state.lock().osd_requests.clone()
     }
 
     pub fn set_bluetooth_device(&self, device: BluetoothDevice) {
@@ -479,6 +553,28 @@ impl Audio for FakePlatform {
         Ok(())
     }
 
+    fn muted(&self) -> PlatformResult<bool> {
+        Ok(self.state.lock().muted)
+    }
+
+    fn set_muted(&self, muted: bool) -> PlatformResult<()> {
+        let percent = self.state.lock().volume;
+        self.set_volume_state(percent, muted);
+        Ok(())
+    }
+
+    fn mic_muted(&self) -> PlatformResult<Option<bool>> {
+        Ok(self.state.lock().mic_muted)
+    }
+
+    fn set_mic_muted(&self, muted: bool) -> PlatformResult<()> {
+        if self.state.lock().mic_muted.is_none() {
+            return Err(PlatformError::NotFound("default capture device".into()));
+        }
+        self.set_mic_muted_state(Some(muted));
+        Ok(())
+    }
+
     fn set_default_device(&self, id: &str) -> PlatformResult<()> {
         let mut state = self.state.lock();
         if !state.audio_devices.iter().any(|d| d.id == id) {
@@ -488,6 +584,45 @@ impl Audio for FakePlatform {
             device.is_default = device.id == id;
         }
         Ok(())
+    }
+}
+
+impl Brightness for FakePlatform {
+    fn monitors(&self) -> PlatformResult<Vec<BrightnessMonitor>> {
+        Ok(self.state.lock().brightness.clone())
+    }
+
+    fn set(&self, id: &str, percent: u8) -> PlatformResult<()> {
+        let percent = percent.min(100);
+        {
+            let mut state = self.state.lock();
+            if !state.brightness.iter().any(|m| m.id == id) {
+                return Err(PlatformError::NotFound(format!("brightness monitor {id}")));
+            }
+            state.brightness_sets.push((id.to_owned(), percent));
+        }
+        // The real implementation answers through the event once the monitor confirmed.
+        self.set_brightness_state(id, percent);
+        Ok(())
+    }
+}
+
+impl SystemOsd for FakePlatform {
+    fn set_suppressed(&self, suppressed: bool) -> PlatformResult<OsdState> {
+        let mut state = self.state.lock();
+        state.osd_requests.push(suppressed);
+        state.osd = if state.osd_unavailable {
+            OsdState::Unavailable
+        } else if suppressed {
+            OsdState::Suppressed
+        } else {
+            OsdState::Native
+        };
+        Ok(state.osd)
+    }
+
+    fn state(&self) -> OsdState {
+        self.state.lock().osd
     }
 }
 
@@ -546,6 +681,14 @@ impl Platform for FakePlatform {
     }
 
     fn audio(&self) -> &dyn Audio {
+        self
+    }
+
+    fn brightness(&self) -> &dyn Brightness {
+        self
+    }
+
+    fn system_osd(&self) -> &dyn SystemOsd {
         self
     }
 
@@ -685,6 +828,112 @@ mod tests {
                 percent: 100,
                 muted: false
             }
+        );
+    }
+
+    #[test]
+    fn mute_keeps_the_level_and_publishes_one_event() {
+        let fake = FakePlatform::new();
+        fake.audio().set_volume(30).unwrap();
+        let mut rx = fake.subscribe();
+        fake.audio().set_muted(true).unwrap();
+        assert!(fake.audio().muted().unwrap());
+        assert_eq!(fake.audio().volume().unwrap(), 30);
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            PlatformEvent::VolumeChanged {
+                percent: 30,
+                muted: true
+            }
+        );
+    }
+
+    #[test]
+    fn microphone_mute_is_scripted_and_absent_when_there_is_no_capture_device() {
+        let fake = FakePlatform::new();
+        let mut rx = fake.subscribe();
+        fake.audio().set_mic_muted(true).unwrap();
+        assert_eq!(fake.audio().mic_muted().unwrap(), Some(true));
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            PlatformEvent::MicMuteChanged { muted: true }
+        );
+
+        fake.set_mic_muted_state(None);
+        assert_eq!(fake.audio().mic_muted().unwrap(), None);
+        assert!(matches!(
+            fake.audio().set_mic_muted(false),
+            Err(PlatformError::NotFound(_))
+        ));
+        assert!(rx.try_recv().is_err(), "removing the mic publishes nothing");
+    }
+
+    #[test]
+    fn brightness_is_per_monitor_recorded_and_published() {
+        use crate::types::BrightnessKind;
+        let fake = FakePlatform::new();
+        assert!(fake.brightness().monitors().unwrap().is_empty());
+        assert!(matches!(
+            fake.brightness().set("nope", 10),
+            Err(PlatformError::NotFound(_))
+        ));
+
+        fake.add_brightness_monitor(BrightnessMonitor {
+            id: r"\\.\DISPLAY1#0".into(),
+            name: "DELL U2723QE".into(),
+            percent: 40,
+            kind: BrightnessKind::External,
+        });
+        let mut rx = fake.subscribe();
+        fake.brightness().set(r"\\.\DISPLAY1#0", 180).unwrap();
+        assert_eq!(fake.brightness().monitors().unwrap()[0].percent, 100);
+        assert_eq!(
+            fake.brightness_sets(),
+            vec![(r"\\.\DISPLAY1#0".to_owned(), 100)]
+        );
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            PlatformEvent::BrightnessChanged {
+                monitor_id: r"\\.\DISPLAY1#0".into(),
+                percent: 100
+            }
+        );
+
+        // A change from outside Muna (brightness keys) is not a recorded set.
+        fake.set_brightness_state(r"\\.\DISPLAY1#0", 55);
+        assert_eq!(fake.brightness().monitors().unwrap()[0].percent, 55);
+        assert_eq!(fake.brightness_sets().len(), 1);
+        fake.set_brightness_state("unknown", 1);
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            PlatformEvent::BrightnessChanged {
+                monitor_id: r"\\.\DISPLAY1#0".into(),
+                percent: 55
+            }
+        );
+        assert!(rx.try_recv().is_err(), "unknown monitors publish nothing");
+    }
+
+    #[test]
+    fn osd_suppression_is_recorded_and_reports_unavailable_builds() {
+        let fake = FakePlatform::new();
+        assert_eq!(fake.system_osd().state(), OsdState::Native);
+        assert_eq!(
+            fake.system_osd().set_suppressed(true).unwrap(),
+            OsdState::Suppressed
+        );
+        assert_eq!(fake.system_osd().state(), OsdState::Suppressed);
+        assert_eq!(
+            fake.system_osd().set_suppressed(false).unwrap(),
+            OsdState::Native
+        );
+        assert_eq!(fake.osd_requests(), vec![true, false]);
+
+        fake.set_osd_unavailable(true);
+        assert_eq!(fake.system_osd().state(), OsdState::Unavailable);
+        assert_eq!(
+            fake.system_osd().set_suppressed(true).unwrap(),
+            OsdState::Unavailable
         );
     }
 

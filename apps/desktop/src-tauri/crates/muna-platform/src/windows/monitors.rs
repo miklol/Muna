@@ -14,6 +14,12 @@ use crate::error::PlatformResult;
 use crate::types::{MonitorInfo, Rect};
 
 pub(super) fn enumerate() -> PlatformResult<Vec<MonitorInfo>> {
+    handles()?.into_iter().map(describe).collect()
+}
+
+/// Every display's `HMONITOR`, in enumeration order, for callers that need the handle itself
+/// (DDC/CI brightness opens physical monitors from it).
+pub(super) fn handles() -> PlatformResult<Vec<HMONITOR>> {
     let mut handles: Vec<HMONITOR> = Vec::new();
     // SAFETY: `collect` only dereferences `lparam` as the `Vec<HMONITOR>` passed right here,
     // and `EnumDisplayMonitors` invokes it synchronously on this thread before returning, so
@@ -30,7 +36,12 @@ pub(super) fn enumerate() -> PlatformResult<Vec<MonitorInfo>> {
     if !ok.as_bool() {
         return Err(last_error("EnumDisplayMonitors"));
     }
-    handles.into_iter().map(describe).collect()
+    Ok(handles)
+}
+
+/// The GDI device name of a monitor (`\\.\DISPLAY1`).
+pub(super) fn device_name(monitor: HMONITOR) -> PlatformResult<String> {
+    describe(monitor).map(|info| info.id)
 }
 
 #[allow(unsafe_code)]

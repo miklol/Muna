@@ -9,6 +9,11 @@ pub enum PlatformEvent {
     MediaSessionsChanged(Vec<MediaSession>),
     /// Default render device volume (0–100) or mute changed.
     VolumeChanged { percent: u8, muted: bool },
+    /// The default capture device was muted or unmuted (docs/modules/hud.md, mic glyph).
+    MicMuteChanged { muted: bool },
+    /// A display's brightness changed, by Muna or by the OS (brightness keys on a laptop
+    /// arrive as `WmiMonitorBrightnessEvent`).
+    BrightnessChanged { monitor_id: String, percent: u8 },
     /// A Bluetooth device connected, disconnected or reported a new battery level.
     BluetoothChanged(BluetoothDevice),
     /// Battery level or power source changed.
