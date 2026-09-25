@@ -7,8 +7,9 @@ use tokio::sync::broadcast;
 use crate::error::PlatformResult;
 use crate::events::PlatformEvent;
 use crate::types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
-    MediaSession, MonitorInfo, Rect, Thumbnail, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessMonitor,
+    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect, Thumbnail,
+    UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md). Snapshots come from a cache the
@@ -29,13 +30,39 @@ pub trait Media: Send + Sync {
     fn refresh(&self) -> PlatformResult<()>;
 }
 
-/// Core Audio render endpoint (docs/modules/hud.md).
+/// Core Audio endpoints (docs/modules/hud.md). Volume and mute mirror the default render
+/// device; the implementation re-binds when the default device changes and reports every
+/// change — including Muna's own — as [`PlatformEvent::VolumeChanged`].
 pub trait Audio: Send + Sync {
     fn devices(&self) -> PlatformResult<Vec<AudioDevice>>;
     /// Master volume of the default render device, 0–100.
     fn volume(&self) -> PlatformResult<u8>;
     fn set_volume(&self, percent: u8) -> PlatformResult<()>;
+    fn muted(&self) -> PlatformResult<bool>;
+    fn set_muted(&self, muted: bool) -> PlatformResult<()>;
+    /// Mute state of the default capture device; `None` when there is none.
+    fn mic_muted(&self) -> PlatformResult<Option<bool>>;
+    fn set_mic_muted(&self, muted: bool) -> PlatformResult<()>;
     fn set_default_device(&self, id: &str) -> PlatformResult<()>;
+}
+
+/// Display brightness (docs/modules/hud.md "Brightness"): internal panels through WMI,
+/// external monitors through DDC/CI when the capability probe allows it. Reads answer from a
+/// cache; `set` is queued and the new level comes back as
+/// [`PlatformEvent::BrightnessChanged`].
+pub trait Brightness: Send + Sync {
+    fn monitors(&self) -> PlatformResult<Vec<BrightnessMonitor>>;
+    /// [`crate::PlatformError::NotFound`] when `id` is not a monitor from [`Self::monitors`].
+    fn set(&self, id: &str, percent: u8) -> PlatformResult<()>;
+}
+
+/// The shell's own volume/brightness flyout (docs/modules/hud.md "Suppress native flyout",
+/// undocumented and best effort). Suppression hides the flyout's content window and keeps it
+/// hidden while the shell recreates it; turning it off restores it. Implementations must
+/// arrange for the flyout to come back if the process dies (the watchdog).
+pub trait SystemOsd: Send + Sync {
+    fn set_suppressed(&self, suppressed: bool) -> PlatformResult<OsdState>;
+    fn state(&self) -> OsdState;
 }
 
 /// `WinRT` Bluetooth (docs/modules/bluetooth.md).
@@ -128,6 +155,8 @@ pub trait Autostart: Send + Sync {
 pub trait Platform: Send + Sync {
     fn media(&self) -> &dyn Media;
     fn audio(&self) -> &dyn Audio;
+    fn brightness(&self) -> &dyn Brightness;
+    fn system_osd(&self) -> &dyn SystemOsd;
     fn bluetooth(&self) -> &dyn Bluetooth;
     fn power(&self) -> &dyn Power;
     fn monitors(&self) -> &dyn Monitors;

@@ -187,6 +187,45 @@ pub struct AudioDevice {
     pub is_default: bool,
 }
 
+/// How a display's backlight is driven (docs/modules/hud.md "Brightness").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum BrightnessKind {
+    /// A laptop panel through WMI (`WmiMonitorBrightness`); changes arrive as events.
+    Internal,
+    /// An external monitor through DDC/CI (`dxva2`); ~50 ms per call and best effort, so the
+    /// HUD only offers it once the capability probe said yes.
+    External,
+}
+
+/// A display whose brightness Muna can read and set.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BrightnessMonitor {
+    /// Stable for the session: the WMI instance name for a panel, the GDI device name plus
+    /// the physical index (`\\.\DISPLAY1#0`) for DDC/CI.
+    pub id: String,
+    /// What the monitor calls itself (`szPhysicalMonitorDescription`), or the panel's name.
+    pub name: String,
+    /// 0–100, normalised from the monitor's own range.
+    pub percent: u8,
+    pub kind: BrightnessKind,
+}
+
+/// Whether the shell's own volume/brightness flyout is showing or hidden by Muna
+/// (docs/modules/hud.md "Suppress native flyout").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum OsdState {
+    /// Windows draws its flyout as usual.
+    Native,
+    /// Muna hid the flyout's content window; the watchdog restores it if Muna dies.
+    Suppressed,
+    /// No flyout window exists on this build or it failed the ownership checks; nothing is
+    /// suppressed and nothing breaks.
+    Unavailable,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BluetoothDevice {

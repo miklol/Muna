@@ -21,12 +21,14 @@ pub use error::{PlatformError, PlatformResult};
 pub use events::PlatformEvent;
 pub use fake::{FakePlatform, WindowingCall};
 pub use traits::{
-    AppBar, Audio, Autostart, Bluetooth, Foreground, Media, Monitors, Platform, Power, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Media, Monitors, Platform, Power,
+    SystemOsd, Windowing,
 };
 pub use types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
-    MediaControls, MediaSession, MonitorInfo, PlaybackStatus, PowerSource, Rect, RepeatMode,
-    Thumbnail, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessKind,
+    BrightnessMonitor, ForegroundWindow, MediaCommand, MediaControls, MediaSession, MonitorInfo,
+    OsdState, PlaybackStatus, PowerSource, Rect, RepeatMode, Thumbnail, UserNotificationState,
+    WindowHandle,
 };
 
 /// Constructs the platform implementation for the current build.
@@ -42,5 +44,24 @@ pub fn default_platform() -> std::sync::Arc<dyn Platform> {
     #[cfg(not(windows))]
     {
         std::sync::Arc::new(FakePlatform::new())
+    }
+}
+
+/// Command-line switch the app passes to its own executable to run as the system-OSD
+/// watchdog (`muna.exe --watchdog <pid>`, docs/modules/hud.md "Crash safety").
+pub const OSD_WATCHDOG_ARG: &str = "--watchdog";
+
+/// Runs the system-OSD watchdog: blocks until `parent_pid` exits, undoes any flyout
+/// suppression and returns the process exit code. A no-op that returns `0` off Windows.
+#[must_use]
+pub fn run_osd_watchdog(parent_pid: u32) -> i32 {
+    #[cfg(windows)]
+    {
+        windows::undocumented::flyout::run_watchdog(parent_pid)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = parent_pid;
+        0
     }
 }

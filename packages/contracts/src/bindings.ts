@@ -107,12 +107,35 @@ export const commands = {
 	mediaPin: (sourceAppId: string | null) => typedError<MediaState, IpcError>(__TAURI_INVOKE("media_pin", { sourceAppId })),
 	/**  Asks the OS for its session list again (settings "Refresh", diagnostics). */
 	mediaRefresh: () => typedError<null, IpcError>(__TAURI_INVOKE("media_refresh")),
+	/**
+	 *  The HUD module's levels, monitors and flyout state (a window that just opened; afterwards
+	 *  it follows `HudStateChanged`).
+	 */
+	getHudSnapshot: () => __TAURI_INVOKE<HudState>("get_hud_snapshot"),
+	/**
+	 *  Sets the default output level (HUD slider drag). The strip shows the result through the
+	 *  platform's own event, so a change made elsewhere looks the same.
+	 */
+	hudSetVolume: (percent: number) => typedError<null, IpcError>(__TAURI_INVOKE("hud_set_volume", { percent })),
+	/**
+	 *  Moves the output level by `delta` (wheel notches × `hud::VOLUME_STEP`), clamped, and
+	 *  unmutes when turning up.
+	 */
+	hudNudgeVolume: (delta: number) => typedError<null, IpcError>(__TAURI_INVOKE("hud_nudge_volume", { delta })),
+	hudSetMuted: (muted: boolean) => typedError<null, IpcError>(__TAURI_INVOKE("hud_set_muted", { muted })),
+	hudSetMicMuted: (muted: boolean) => typedError<null, IpcError>(__TAURI_INVOKE("hud_set_mic_muted", { muted })),
+	/**
+	 *  Sets one monitor's brightness (`monitor_id` from the HUD state). Best effort per monitor:
+	 *  a DDC/CI write that fails surfaces as `platform.os`.
+	 */
+	hudSetBrightness: (monitorId: string, percent: number) => typedError<null, IpcError>(__TAURI_INVOKE("hud_set_brightness", { monitorId, percent })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
 
 /** Events */
 export const events = {
+	hudStateChanged: makeEvent<HudStateChanged>("hud-state-changed"),
 	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
 	mediaStateChanged: makeEvent<MediaStateChanged>("media-state-changed"),
 	morphRequested: makeEvent<MorphRequested>("morph-requested"),
@@ -164,6 +187,30 @@ export type Artwork = {
 	height: number,
 };
 
+/**  How a display's backlight is driven (docs/modules/hud.md "Brightness"). */
+export type BrightnessKind = 
+/**  A laptop panel through WMI (`WmiMonitorBrightness`); changes arrive as events. */
+"internal" | 
+/**
+ *  An external monitor through DDC/CI (`dxva2`); ~50 ms per call and best effort, so the
+ *  HUD only offers it once the capability probe said yes.
+ */
+"external";
+
+/**  A display whose brightness Muna can read and set. */
+export type BrightnessMonitor = {
+	/**
+	 *  Stable for the session: the WMI instance name for a panel, the GDI device name plus
+	 *  the physical index (`\\.\DISPLAY1#0`) for DDC/CI.
+	 */
+	id: string,
+	/**  What the monitor calls itself (`szPhysicalMonitorDescription`), or the panel's name. */
+	name: string,
+	/**  0–100, normalised from the monitor's own range. */
+	percent: number,
+	kind: BrightnessKind,
+};
+
 export type GeneralSettings = {
 	launchAtLogin: boolean,
 	reducedMotion: ReducedMotion,
@@ -177,7 +224,41 @@ export type GeneralSettings = {
  *  A glyph the strip can draw; the UI maps each to its icon. Closed on purpose so the
  *  mapping is exhaustive — add a variant here when a module needs a new one.
  */
-export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" | "lock" | "unlock" | "timer" | "bell" | "music" | "moon" | "play";
+export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" | "lock" | "unlock" | "timer" | "bell" | "music" | "moon" | "play" | 
+/**  Speaker with no waves (level 0). */
+"volume" | 
+/**  Speaker with one wave (1–33). */
+"volumeLow" | 
+/**  Speaker with two waves (34–66). */
+"volumeMedium" | 
+/**  Speaker with three waves (67–100). */
+"volumeHigh" | 
+/**  Speaker with a slash. */
+"volumeMuted" | "sun" | "mic" | "micMuted";
+
+/**  Everything the HUD UI renders and the settings pane reads. */
+export type HudState = {
+	/**  `None` until the platform reported a level (no render device, or not yet probed). */
+	volume: VolumeLevel | null,
+	/**  `None` when there is no default microphone. */
+	micMuted: boolean | null,
+	/**
+	 *  Monitors whose brightness can be read and set, in the platform's order. A monitor
+	 *  without DDC/CI never appears here (docs/modules/hud.md, acceptance criteria).
+	 */
+	monitors: BrightnessMonitor[],
+	/**  Whether the Windows flyout is currently hidden. */
+	osd: OsdState,
+};
+
+/**
+ *  The HUD module's state changed: a level, the microphone, the monitor list or whether the
+ *  Windows flyout is hidden (docs/modules/hud.md). The notice itself travels through
+ *  [`StripContentChanged`].
+ */
+export type HudStateChanged = {
+	state: HudState,
+};
 
 /**  Error shape every command returns. Messages are safe to show and to log (no user data). */
 export type IpcError = {
@@ -358,6 +439,21 @@ export type Notice = {
 };
 
 /**
+ *  Whether the shell's own volume/brightness flyout is showing or hidden by Muna
+ *  (docs/modules/hud.md "Suppress native flyout").
+ */
+export type OsdState = 
+/**  Windows draws its flyout as usual. */
+"native" | 
+/**  Muna hid the flyout's content window; the watchdog restores it if Muna dies. */
+"suppressed" | 
+/**
+ *  No flyout window exists on this build or it failed the ownership checks; nothing is
+ *  suppressed and nothing breaks.
+ */
+"unavailable";
+
+/**
  *  Overlay draws over other windows and yields; Reserved registers an `AppBar` of strip height
  *  so maximised windows start below the strip (ADR-0002 consequences).
  */
@@ -535,7 +631,18 @@ export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
  *  Audio bars beside album art (docs/modules/media.md, strip form). `playing` animates
  *  them; paused bars rest at a low level.
  */
-{ kind: "waveform"; playing: boolean };
+{ kind: "waveform"; playing: boolean } | 
+/**
+ *  The HUD's 96 px level track with a white fill (docs/modules/hud.md, "Visual"); the
+ *  UI animates the fill between values. `muted` draws the fill dimmed.
+ */
+{ kind: "level"; percent: number; muted: boolean };
+
+/**  The default render endpoint's level. */
+export type VolumeLevel = {
+	percent: number,
+	muted: boolean,
+};
 
 /**  What one notch window does about the world around it. */
 export type YieldState = 

@@ -71,6 +71,19 @@ pub enum Glyph {
     Music,
     Moon,
     Play,
+    /// Speaker with no waves (level 0).
+    Volume,
+    /// Speaker with one wave (1–33).
+    VolumeLow,
+    /// Speaker with two waves (34–66).
+    VolumeMedium,
+    /// Speaker with three waves (67–100).
+    VolumeHigh,
+    /// Speaker with a slash.
+    VolumeMuted,
+    Sun,
+    Mic,
+    MicMuted,
 }
 
 /// The leading (left) slot of the strip.
@@ -141,6 +154,12 @@ pub enum Trailing {
     /// them; paused bars rest at a low level.
     Waveform {
         playing: bool,
+    },
+    /// The HUD's 96 px level track with a white fill (docs/modules/hud.md, "Visual"); the
+    /// UI animates the fill between values. `muted` draws the fill dimmed.
+    Level {
+        percent: u8,
+        muted: bool,
     },
 }
 
@@ -311,6 +330,19 @@ mod tests {
         .unwrap();
         assert_eq!(json["kind"], "battery");
         assert_eq!(json["charging"], true);
+        let json = serde_json::to_value(Trailing::Level {
+            percent: 42,
+            muted: false,
+        })
+        .unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "level", "percent": 42, "muted": false })
+        );
+        assert_eq!(
+            serde_json::to_value(Glyph::VolumeMuted).unwrap(),
+            serde_json::json!("volumeMuted")
+        );
     }
 
     #[test]
