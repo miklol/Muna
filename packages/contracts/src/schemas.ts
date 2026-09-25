@@ -140,6 +140,7 @@ export const glyphSchema = z.enum([
   'bell',
   'music',
   'moon',
+  'play',
 ]) satisfies z.ZodType<Glyph>;
 
 export const tintSchema = z.enum([
@@ -179,6 +180,7 @@ export const trailingSchema = z.discriminatedUnion('kind', [
     running: z.boolean(),
   }),
   z.object({ kind: z.literal('progress'), percent }),
+  z.object({ kind: z.literal('waveform'), playing: z.boolean() }),
 ]) satisfies z.ZodType<Trailing>;
 
 export const stripMessageSchema = z.discriminatedUnion('kind', [
@@ -191,6 +193,7 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('bluetoothDisconnected'), name: z.string() }),
   z.object({ kind: z.literal('timerFinished'), label: z.string() }),
+  z.object({ kind: z.literal('nowPlaying'), title: z.string(), artist: z.string() }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({

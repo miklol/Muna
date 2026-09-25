@@ -104,6 +104,18 @@ describe('strip content schema', () => {
         },
       },
       {
+        kind: 'activity',
+        wide: true,
+        activity: {
+          id: 'media:now-playing',
+          module: 'media',
+          priority: 60,
+          leading: { kind: 'icon', glyph: 'play', tint: null },
+          trailing: { kind: 'waveform', playing: true },
+          wide: { kind: 'nowPlaying', title: 'Track', artist: 'Artist' },
+        },
+      },
+      {
         kind: 'notice',
         notice: {
           id: 'bluetooth:buds',

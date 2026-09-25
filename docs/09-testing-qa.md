@@ -121,7 +121,9 @@ Checklists live in `docs/qa/checklists/` (created per module by the QA agent). W
 can be driven, its script lives in `scripts/qa/` and prints one `PASS` / `FAIL` / `SKIP` line
 per scenario with the measured latency; the first is
 [checklists/notch-shell.md](qa/checklists/notch-shell.md) with `scripts/qa/notch-yield.ps1`
-(ten yield scenarios against a running Muna, own test windows only).
+(ten yield scenarios against a running Muna, own test windows only); the second is
+[checklists/media.md](qa/checklists/media.md) with `scripts/qa/media-latency.ps1` (media-key
+presses timed against the module's log).
 
 ## Bug workflow
 

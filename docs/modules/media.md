@@ -1,6 +1,6 @@
 # Media
 
-**Tier P0 · Owner: `muna-module-developer` · Status: spec**
+**Tier P0 · Owner: `muna-module-developer` · Status: in progress (backend landed in M2-E1)**
 
 ## Purpose
 
@@ -66,3 +66,65 @@ colours; show lyrics; per-app filters for the strip; output-device switching (fl
 ## Perf budget
 
 FFT + colour extraction in Rust ≤ 1 % CPU while playing; artwork ≤ 512 px cached.
+
+## Implementation notes (M2-E1)
+
+The backend landed in M2-E1; the UI, visualiser, lyrics and output device follow in M2-E2/E3.
+
+**Where the code lives.** Three layers, each testable without the one below it:
+
+- `muna-platform::Media` — `sessions()`, `thumbnail(app)`, `send(app, command)`, `refresh()`;
+  the `MediaSession` snapshot carries status, position (already advanced by its age while
+  playing), duration, shuffle, repeat, the app's `controls`, `is_current` and an `art_version`
+  that increments whenever the app's thumbnail bytes change (`0` while it has none). The
+  Windows implementation (`windows/media.rs`) runs one worker thread that re-requests the
+  manager on `SessionsChanged`, `CurrentSessionChanged`, `refresh()` and every 60 s; duplicate
+  `AppUserModelId`s are keyed `App#2`. The fake scripts sessions and thumbnails per app.
+- `muna-core::artwork` — OS-agnostic image work: `art_key(title, artist, album)`, `prepare`
+  (decode, downscale past 512 px to PNG, otherwise pass the bytes through with their real MIME,
+  three-swatch deterministic k-means palette) and `ArtCache` (`%LOCALAPPDATA%\Muna\cache\art\
+  <key>.json`, oldest-first eviction, atomic writes). `muna-core` still knows nothing about
+  `muna-platform` (crate boundary rule).
+- `muna::modules::media` — `MediaTracker` (pure reducer: scoring, art bookkeeping, strip
+  activity), `MediaService` (the shared object the backend feeds and the IPC commands drive)
+  and `MediaModule` (event loop). `tests/media.rs` drives the service with `FakePlatform`.
+
+**Scoring.** A pinned app wins while it has a session. Otherwise rank by status (Playing >
+Paused > Stopped), then the OS's own current session, then the most recent *content* change
+(title, artist, album or status — position ticks do not count), then the OS's list order. The
+30-switch script in `tests/media.rs` picks the wrong app 0 times.
+
+**Strip activity.** `media:now-playing`, priority 60 playing / 20 paused, retracted when the
+session is stopped or gone. Leading: `Image` (artwork) or the `Music` glyph until art lands;
+trailing: `Waveform { playing }` while playing (a static audio-lines glyph until E2 ships the
+bars), the `Play` glyph while paused; wide: `NowPlaying { title, artist }` ("Title · Artist";
+the UI never logs either).
+
+**Artwork.** Fetched only when `art_version` changes, prepared off the async runtime, cached by
+track. The previous picture stays across a track change until the new one arrives (no flash),
+is cleared when the active app changes, and late art for a session that is no longer active is
+dropped. 100 entries on disk (Spotify's pass-through PNGs measure 115–320 KB each).
+
+**Commands.** `media_command(source_app_id?, command)` targets the active session by default.
+After a send, if no snapshot for that app arrives within 2 s the module calls `refresh()` once
+(one `tokio::sleep` per command, no periodic timer). `media_pin` and `media_refresh` complete
+the surface; `get_media_snapshot` returns state + art for a window that just opened;
+`MediaStateChanged` / `MediaArtChanged` keep it current.
+
+**Measured** (Win11 25H2, Spotify 1.2.x, `scripts/qa/media-latency.ps1`, media key →
+activity published): play 19–23 ms; pause 275–292 ms (Spotify reports the pause after its
+fade-out; the first press after launch took 372 ms); track skip → title/artist 71–86 ms;
+artwork for the new track 0.8–2.1 s after the skip (Spotify delivers it late; the previous art
+holds meanwhile). Artwork arrives as 300 × 300 PNG and the palette comes out stable across
+re-deliveries.
+
+**Deviations from the spec, deferred:**
+
+- WASAPI `IAudioMeterInformation` tie-break — needs an `AppUserModelId` → process map; the
+  `is_current` + recency rule covered every switch in the script and on hardware. Revisit if a
+  wrong pick is reproduced.
+- Visualiser (WASAPI loopback + FFT), lyrics (LRCLIB), output-device switching (`IPolicyConfig`)
+  and the `Audio` Windows implementation — M2-E2/E3.
+- The preferred-app setting is in memory until the Media pane persists it (M2-E2).
+- Timeline: the platform advances the position by its age; the UI-side 1 s interpolation lands
+  with the panel.

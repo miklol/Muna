@@ -25,8 +25,8 @@ pub use traits::{
 };
 pub use types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
-    MediaSession, MonitorInfo, PlaybackStatus, PowerSource, Rect, UserNotificationState,
-    WindowHandle,
+    MediaControls, MediaSession, MonitorInfo, PlaybackStatus, PowerSource, Rect, RepeatMode,
+    Thumbnail, UserNotificationState, WindowHandle,
 };
 
 /// Constructs the platform implementation for the current build.

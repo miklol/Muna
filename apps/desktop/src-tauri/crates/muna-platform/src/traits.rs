@@ -8,14 +8,25 @@ use crate::error::PlatformResult;
 use crate::events::PlatformEvent;
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
-    MediaSession, MonitorInfo, Rect, UserNotificationState, WindowHandle,
+    MediaSession, MonitorInfo, Rect, Thumbnail, UserNotificationState, WindowHandle,
 };
 
-/// System Media Transport Controls (docs/modules/media.md).
+/// System Media Transport Controls (docs/modules/media.md). Snapshots come from a cache the
+/// implementation keeps current from the OS's change events; every change republishes the
+/// whole list as [`PlatformEvent::MediaSessionsChanged`].
 pub trait Media: Send + Sync {
     /// All current sessions; the media module scores them to pick the active one.
     fn sessions(&self) -> PlatformResult<Vec<MediaSession>>;
+    /// The session's current artwork, `None` while it has none. Compare
+    /// [`MediaSession::art_version`] first to avoid copying bytes that did not change.
+    fn thumbnail(&self, source_app_id: &str) -> PlatformResult<Option<Thumbnail>>;
+    /// Queues a transport command; the outcome shows up as a later snapshot, not a return
+    /// value. [`crate::PlatformError::NotFound`] when the session is gone.
     fn send(&self, source_app_id: &str, command: MediaCommand) -> PlatformResult<()>;
+    /// Asks for a fresh session manager. The media module calls it when a session looks stale
+    /// (playing, but its position stopped moving), on top of the implementation's own periodic
+    /// re-request (docs/04-windows-platform-apis.md, "Staleness").
+    fn refresh(&self) -> PlatformResult<()>;
 }
 
 /// Core Audio render endpoint (docs/modules/hud.md).

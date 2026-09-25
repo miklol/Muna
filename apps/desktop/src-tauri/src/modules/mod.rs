@@ -9,11 +9,13 @@
 //! dyn-compatible for the registry, which `async fn` in traits is not yet.
 
 pub mod live_activities;
+pub mod media;
 pub mod pomodoro;
 
+use std::path::Path;
 use std::sync::Arc;
 
-use muna_core::Hub;
+use muna_core::{ArtCache, Hub};
 use muna_platform::Platform;
 
 /// A shell surface a module can own, so the shell can route to the single owner
@@ -61,10 +63,37 @@ impl std::fmt::Debug for dyn ModuleBackend {
     }
 }
 
+/// Module objects that outlive `start` because the IPC layer reaches them too (a backend's
+/// `start` only gets a context). Created once with the app state; the registry hands each
+/// backend its service.
+#[derive(Debug, Clone)]
+pub struct ModuleServices {
+    pub media: Arc<media::MediaService>,
+}
+
+impl ModuleServices {
+    /// `cache_dir` is the profile's cache folder; `None` keeps caches in memory (tests).
+    #[must_use]
+    pub fn new(platform: &Arc<dyn Platform>, hub: &Arc<Hub>, cache_dir: Option<&Path>) -> Self {
+        let art_cache =
+            cache_dir.map(|dir| ArtCache::new(dir.join("art"), media::ART_CACHE_ENTRIES));
+        Self {
+            media: Arc::new(media::MediaService::new(
+                Arc::clone(platform),
+                Arc::clone(hub),
+                art_cache,
+            )),
+        }
+    }
+}
+
 /// Every backend in this build, in start order. Demo-only modules gate themselves.
 #[must_use]
-pub fn backends() -> Vec<Box<dyn ModuleBackend>> {
-    let mut all: Vec<Box<dyn ModuleBackend>> = vec![Box::new(live_activities::LiveActivities)];
+pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
+    let mut all: Vec<Box<dyn ModuleBackend>> = vec![
+        Box::new(live_activities::LiveActivities),
+        Box::new(media::MediaModule(Arc::clone(&services.media))),
+    ];
     if pomodoro::demo_enabled() {
         all.push(Box::new(pomodoro::PomodoroDemo));
     }
@@ -73,9 +102,9 @@ pub fn backends() -> Vec<Box<dyn ModuleBackend>> {
 
 /// Starts every backend; a module that fails to start is logged and skipped so one broken
 /// source never takes the strip down with it.
-pub fn start_all(ctx: &ModuleCtx) -> Vec<&'static str> {
+pub fn start_all(ctx: &ModuleCtx, services: &ModuleServices) -> Vec<&'static str> {
     let mut started = Vec::new();
-    for backend in backends() {
+    for backend in backends(services) {
         match backend.start(ctx.clone()) {
             Ok(()) => {
                 tracing::info!(module = backend.id(), "module started");

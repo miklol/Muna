@@ -1,4 +1,4 @@
-import type { StripContent } from '@muna/contracts';
+import type { StripContent, Trailing } from '@muna/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { i18n } from '../lib/i18n';
@@ -37,6 +37,10 @@ describe('strip content mapping', () => {
       'Buds disconnected',
     );
     expect(messageText({ kind: 'timerFinished', label: 'Focus' }, t)).toBe('Focus finished');
+    expect(messageText({ kind: 'nowPlaying', title: 'Song', artist: 'Artist' }, t)).toBe(
+      'Song · Artist',
+    );
+    expect(messageText({ kind: 'nowPlaying', title: 'Song', artist: '' }, t)).toBe('Song');
   });
 
   it('maps contract slots to the UI vocabulary and anchors timers to their arrival', () => {
@@ -63,6 +67,8 @@ describe('strip content mapping', () => {
       kind: 'icon',
       tint: 'blue',
     });
+    // The waveform stands in as a static glyph until the media UI lands its bars.
+    expect(toSlot({ kind: 'waveform', playing: true }, 'en', 0)).toMatchObject({ kind: 'icon' });
   });
 
   it('shows an activity wide only during the burst the scheduler signals', () => {
@@ -133,5 +139,48 @@ describe('strip content mapping', () => {
         0,
       ).description,
     ).toBe('Buds connected, battery 80%');
+  });
+
+  it('describes now playing with its playback state', () => {
+    const nowPlaying = (trailing: Trailing): StripContent => ({
+      kind: 'activity',
+      wide: true,
+      activity: {
+        id: 'media:now-playing',
+        module: 'media',
+        priority: 60,
+        leading: { kind: 'image', src: 'data:,' },
+        trailing,
+        wide: { kind: 'nowPlaying', title: 'Song', artist: 'Artist' },
+      },
+    });
+    expect(present(nowPlaying({ kind: 'waveform', playing: true }), t, 'en', 0)).toMatchObject({
+      text: 'Song · Artist',
+      wide: true,
+      description: 'Now playing Song by Artist',
+    });
+    expect(
+      present(nowPlaying({ kind: 'icon', glyph: 'play', tint: null }), t, 'en', 0).description,
+    ).toBe('Paused, Now playing Song by Artist');
+    // Glyph-only (no wide text): the slots are read left to right.
+    expect(
+      present(
+        {
+          kind: 'activity',
+          wide: false,
+          activity: {
+            id: 'media:now-playing',
+            module: 'media',
+            priority: 60,
+            leading: { kind: 'icon', glyph: 'music', tint: null },
+            trailing: { kind: 'waveform', playing: false },
+            wide: null,
+          },
+        },
+        t,
+        'en',
+        0,
+      ).description,
+    ).toBe('Music, Paused');
   });
 });

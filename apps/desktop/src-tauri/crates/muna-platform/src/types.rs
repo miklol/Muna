@@ -56,6 +56,45 @@ pub enum PlaybackStatus {
     Stopped,
 }
 
+/// `MediaPlaybackAutoRepeatMode`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum RepeatMode {
+    None,
+    Track,
+    List,
+}
+
+/// Which transport operations the session's app currently accepts
+/// (`GlobalSystemMediaTransportControlsSessionPlaybackControls`). The UI hides or disables a
+/// control the app refuses instead of faking it (docs/modules/media.md, "no fake seek").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+// A flag set mirroring the OS type; a bitfield would only obscure the JSON shape.
+#[allow(clippy::struct_excessive_bools)]
+pub struct MediaControls {
+    pub play: bool,
+    pub pause: bool,
+    pub next: bool,
+    pub previous: bool,
+    pub seek: bool,
+    pub shuffle: bool,
+    pub repeat: bool,
+}
+
+impl MediaControls {
+    /// Everything allowed; what a well-behaved player advertises.
+    pub const ALL: Self = Self {
+        play: true,
+        pause: true,
+        next: true,
+        previous: true,
+        seek: true,
+        shuffle: true,
+        repeat: true,
+    };
+}
+
 /// A System Media Transport Controls session, normalised.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -66,19 +105,78 @@ pub struct MediaSession {
     pub artist: String,
     pub album: Option<String>,
     pub status: PlaybackStatus,
+    /// Position as of this snapshot. The implementation advances the app's last reported
+    /// position by its age while `Playing`, so consumers interpolate from the moment the
+    /// snapshot arrives (docs/04-windows-platform-apis.md, "Timeline").
     // `u32` (≈ 49 days) rather than `u64`: the TypeScript exporter refuses 64-bit integers.
     pub position_ms: Option<u32>,
     pub duration_ms: Option<u32>,
+    /// `None` when the app does not report shuffle.
+    pub shuffle: Option<bool>,
+    /// `None` when the app does not report a repeat mode.
+    pub repeat: Option<RepeatMode>,
+    pub controls: MediaControls,
+    /// `true` for the session the OS itself calls current (`GetCurrentSession`).
+    pub is_current: bool,
+    /// Increments each time the session's artwork bytes change; `0` while it has none. Lets a
+    /// consumer fetch [`crate::Media::thumbnail`] only when something new arrived (Spotify
+    /// delivers art 300–1000 ms after the track change).
+    pub art_version: u32,
+}
+
+impl MediaSession {
+    /// A minimal session with the given app and title, everything else at rest. Handy in
+    /// tests and for scripting the fake.
+    #[must_use]
+    pub fn new(source_app_id: &str, title: &str) -> Self {
+        Self {
+            source_app_id: source_app_id.into(),
+            title: title.into(),
+            artist: String::new(),
+            album: None,
+            status: PlaybackStatus::Stopped,
+            position_ms: None,
+            duration_ms: None,
+            shuffle: None,
+            repeat: None,
+            controls: MediaControls::default(),
+            is_current: false,
+            art_version: 0,
+        }
+    }
+}
+
+/// Encoded artwork exactly as the app handed it to the OS (PNG or JPEG in practice).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Thumbnail {
+    pub bytes: Vec<u8>,
+    /// MIME type from the stream (`image/jpeg`, `image/png`); empty when unknown.
+    pub content_type: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum MediaCommand {
     Play,
     Pause,
     TogglePlayPause,
     Next,
     Previous,
+    SetShuffle {
+        enabled: bool,
+    },
+    SetRepeat {
+        mode: RepeatMode,
+    },
+    /// `TryChangePlaybackPositionAsync`; refused by the implementation when the session does
+    /// not advertise seeking.
+    Seek {
+        position_ms: u32,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]

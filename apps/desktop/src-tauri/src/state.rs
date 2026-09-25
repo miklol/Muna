@@ -11,6 +11,7 @@ use tauri::AppHandle;
 use tauri_specta::Event;
 
 use crate::ipc::SettingsChanged;
+use crate::modules::ModuleServices;
 use crate::shell::manager::ShellManager;
 use crate::shell::spike::Spike;
 
@@ -20,6 +21,8 @@ pub struct AppState {
     pub settings: Mutex<Settings>,
     /// Live activities and notices; the modules publish, the strip renders (ADR-0004).
     pub activities: Arc<Hub>,
+    /// Module objects the IPC commands reach directly (ADR-0004).
+    pub modules: ModuleServices,
     pub store: Store,
     /// `true` when no settings file existed before this launch (show the settings window).
     pub first_run: bool,
@@ -48,11 +51,14 @@ impl AppState {
         let first_run = !settings_store.path().exists();
         let settings = settings_store.load()?;
         let store = Store::open(&profile_dir.join("muna.db"))?;
+        let activities = Arc::new(Hub::new(Arc::new(SystemClock)));
+        let modules = ModuleServices::new(&platform, &activities, Some(&profile_dir.join("cache")));
         Ok(Self {
             platform,
             settings_store,
             settings: Mutex::new(settings),
-            activities: Arc::new(Hub::new(Arc::new(SystemClock))),
+            activities,
+            modules,
             store,
             first_run,
             shell: None,
@@ -85,11 +91,15 @@ impl AppState {
     /// State over the fake platform and an in-memory database. Nothing is written to
     /// `profile_dir` until a command saves settings. Used by tests and tooling.
     pub fn in_memory(profile_dir: &Path) -> anyhow::Result<Self> {
+        let platform: Arc<dyn Platform> = Arc::new(muna_platform::FakePlatform::new());
+        let activities = Arc::new(Hub::new(Arc::new(SystemClock)));
+        let modules = ModuleServices::new(&platform, &activities, None);
         Ok(Self {
-            platform: Arc::new(muna_platform::FakePlatform::new()),
+            platform,
             settings_store: SettingsStore::new(profile_dir.join("settings.json")),
             settings: Mutex::new(Settings::default()),
-            activities: Arc::new(Hub::new(Arc::new(SystemClock))),
+            activities,
+            modules,
             store: Store::open_in_memory()?,
             first_run: true,
             shell: None,

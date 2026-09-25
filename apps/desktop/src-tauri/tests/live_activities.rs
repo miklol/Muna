@@ -9,7 +9,7 @@ use muna_core::{
 };
 use muna_lib::modules::live_activities::Sources;
 use muna_lib::modules::live_activities::power::{LOW_THRESHOLDS, PowerSource};
-use muna_lib::modules::{Surface, backends};
+use muna_lib::modules::{ModuleServices, Surface, backends};
 use muna_platform::{
     BatteryState, BluetoothDevice, FakePlatform, PlatformEvent, PowerSource as Source,
 };
@@ -293,12 +293,19 @@ fn s8_notice_during_panel_queues_until_resume() {
 
 #[test]
 fn registry_lists_live_activities_with_strip_capability() {
-    let all = backends();
+    let platform: Arc<dyn muna_platform::Platform> = Arc::new(FakePlatform::new());
+    let hub = Arc::new(Hub::new(Arc::new(muna_core::SystemClock)));
+    let all = backends(&ModuleServices::new(&platform, &hub, None));
     let live = all
         .iter()
         .find(|backend| backend.id() == "live-activities")
         .expect("live-activities is always registered");
     assert_eq!(live.capabilities(), &[Surface::Strip]);
+    let media = all
+        .iter()
+        .find(|backend| backend.id() == "media")
+        .expect("media is always registered");
+    assert_eq!(media.capabilities(), &[Surface::Strip, Surface::Panel]);
     // The pomodoro placeholder only appears with MUNA_DEMO=pomodoro.
     let has_pomodoro = all.iter().any(|backend| backend.id() == "pomodoro");
     assert_eq!(

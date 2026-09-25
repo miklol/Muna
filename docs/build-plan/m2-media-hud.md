@@ -6,6 +6,11 @@ Read `docs/07-roadmap.md#m2--media--hud-3-weeks`. Requires M1 merged.
 
 ## M2-E1 · Media backend — agent: `muna-module-developer`
 
+**Progress:** landed (see [media → Implementation notes (M2-E1)](../modules/media.md#implementation-notes-m2-e1)).
+WASAPI verification, visualiser, lyrics, volume/devices and the persisted preferred app moved to
+E2/E3 as recorded there; the reducer lives in `src-tauri/src/modules/media/` rather than
+`muna-core::media` because session types belong to `muna-platform`, which core may not import.
+
 ```text
 Implement the Rust side of docs/modules/media.md. Read docs/04-windows-platform-apis.md#media
 carefully (staleness, session scoring, WASAPI verification).

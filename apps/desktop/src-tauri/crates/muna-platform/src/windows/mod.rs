@@ -1,7 +1,8 @@
 //! Real Windows implementation. M0 wires the services the notch shell needs (power, monitors,
 //! foreground tracking and window affinities, ADR-0002); M1 adds paired Bluetooth devices for
-//! the live-activities strip; every other service reports [`PlatformError::Unsupported`] until
-//! its module milestone lands (docs/07-roadmap.md).
+//! the live-activities strip; M2 adds System Media Transport Controls sessions; every other
+//! service reports [`PlatformError::Unsupported`] until its module milestone lands
+//! (docs/07-roadmap.md).
 //!
 //! Every Win32 call in this module checks its result and every `unsafe` block carries a
 //! `// SAFETY:` comment (repository rule).
@@ -11,6 +12,7 @@ mod autostart;
 mod bluetooth;
 mod foreground;
 pub mod identity;
+mod media;
 mod monitors;
 mod power;
 mod pump;
@@ -30,7 +32,7 @@ use crate::traits::{
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
-    MediaSession, MonitorInfo, Rect, UserNotificationState, WindowHandle,
+    MediaSession, MonitorInfo, Rect, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -58,6 +60,8 @@ pub struct WindowsPlatform {
     _pump: Option<pump::Pump>,
     /// `None` when the watchers could not start; Bluetooth then reports `Unsupported`.
     bluetooth: Option<bluetooth::Watcher>,
+    /// `None` when the worker could not start; media then reports `Unsupported`.
+    media: Option<media::Watcher>,
     app_bars: app_bar::AppBars,
 }
 
@@ -85,10 +89,18 @@ impl WindowsPlatform {
                 None
             }
         };
+        let media = match media::Watcher::start(events.clone()) {
+            Ok(watcher) => Some(watcher),
+            Err(error) => {
+                warn!(%error, "media watcher unavailable; now playing disabled");
+                None
+            }
+        };
         Self {
             events,
             _pump: pump,
             bluetooth,
+            media,
             app_bars: app_bar::AppBars::default(),
         }
     }
@@ -96,11 +108,31 @@ impl WindowsPlatform {
 
 impl Media for WindowsPlatform {
     fn sessions(&self) -> PlatformResult<Vec<MediaSession>> {
-        Err(PlatformError::Unsupported("media sessions"))
+        self.media
+            .as_ref()
+            .map(media::Watcher::sessions)
+            .ok_or(PlatformError::Unsupported("media sessions"))
     }
 
-    fn send(&self, _source_app_id: &str, _command: MediaCommand) -> PlatformResult<()> {
-        Err(PlatformError::Unsupported("media commands"))
+    fn thumbnail(&self, source_app_id: &str) -> PlatformResult<Option<Thumbnail>> {
+        self.media
+            .as_ref()
+            .ok_or(PlatformError::Unsupported("media thumbnails"))?
+            .thumbnail(source_app_id)
+    }
+
+    fn send(&self, source_app_id: &str, command: MediaCommand) -> PlatformResult<()> {
+        self.media
+            .as_ref()
+            .ok_or(PlatformError::Unsupported("media commands"))?
+            .send(source_app_id, command)
+    }
+
+    fn refresh(&self) -> PlatformResult<()> {
+        self.media
+            .as_ref()
+            .ok_or(PlatformError::Unsupported("media sessions"))?
+            .refresh()
     }
 }
 
@@ -293,13 +325,19 @@ mod tests {
     fn unsupported_services_degrade_instead_of_panicking() {
         let platform = WindowsPlatform::new();
         assert!(matches!(
-            platform.media().sessions(),
+            platform.audio().volume(),
             Err(PlatformError::Unsupported(_))
         ));
         assert!(matches!(
             platform.bluetooth().connect("any"),
             Err(PlatformError::Unsupported(_))
         ));
+        // A session that does not exist is `NotFound`, never a panic; a machine that cannot
+        // start the worker degrades to `Unsupported`.
+        match platform.media().send("Nope.exe", MediaCommand::Play) {
+            Err(PlatformError::NotFound(_) | PlatformError::Unsupported(_)) => {}
+            other => panic!("unexpected result: {other:?}"),
+        }
         // Enumeration works without a radio; a machine that cannot start the watchers degrades.
         match platform.bluetooth().devices() {
             Ok(devices) => assert!(

@@ -89,12 +89,31 @@ export const commands = {
 	setDisplayPaused: (monitorId: string, paused: boolean) => typedError<null, IpcError>(__TAURI_INVOKE("set_display_paused", { monitorId, paused })),
 	/**  Shows and focuses the settings window. */
 	openSettings: () => __TAURI_INVOKE<void>("open_settings"),
+	/**
+	 *  The media module's state and the current artwork in one round trip (a window that just
+	 *  opened; afterwards it follows `MediaStateChanged` and `MediaArtChanged`).
+	 */
+	getMediaSnapshot: () => __TAURI_INVOKE<MediaSnapshot>("get_media_snapshot"),
+	/**
+	 *  Sends a transport command to `source_app_id`, or to the active session when `None`. The
+	 *  module re-checks the session list when the app stays silent for 2 s.
+	 */
+	mediaCommand: (sourceAppId: string | null, command: MediaCommand) => typedError<null, IpcError>(__TAURI_INVOKE("media_command", { sourceAppId, command })),
+	/**
+	 *  Pins the shown session to one app (`None` follows the scoring again). In memory for now;
+	 *  the Media pane persists a preferred app in M2-E2.
+	 */
+	mediaPin: (sourceAppId: string | null) => __TAURI_INVOKE<MediaState>("media_pin", { sourceAppId }),
+	/**  Asks the OS for its session list again (settings "Refresh", diagnostics). */
+	mediaRefresh: () => typedError<null, IpcError>(__TAURI_INVOKE("media_refresh")),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
 
 /** Events */
 export const events = {
+	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
+	mediaStateChanged: makeEvent<MediaStateChanged>("media-state-changed"),
 	morphRequested: makeEvent<MorphRequested>("morph-requested"),
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
 	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
@@ -132,6 +151,18 @@ export type AppInfo = {
 	profileDir: string,
 };
 
+/**  Prepared artwork as the UI consumes it. */
+export type Artwork = {
+	/**  Cache key ([`art_key`]); the media state refers to artwork by it. */
+	key: string,
+	/**  `data:image/…;base64,…`, at most [`MAX_SIDE`] px on the longest side. */
+	src: string,
+	/**  Three CSS colours, dominant first (`--media-accent-1..3`). */
+	palette: string[],
+	width: number,
+	height: number,
+};
+
 export type GeneralSettings = {
 	launchAtLogin: boolean,
 	reducedMotion: ReducedMotion,
@@ -145,7 +176,7 @@ export type GeneralSettings = {
  *  A glyph the strip can draw; the UI maps each to its icon. Closed on purpose so the
  *  mapping is exhaustive — add a variant here when a module needs a new one.
  */
-export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" | "lock" | "unlock" | "timer" | "bell" | "music" | "moon";
+export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" | "lock" | "unlock" | "timer" | "bell" | "music" | "moon" | "play";
 
 /**  Error shape every command returns. Messages are safe to show and to log (no user data). */
 export type IpcError = {
@@ -171,6 +202,92 @@ export type Leading = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
 { kind: "battery"; percent: number; charging: boolean } | 
 /**  Album art or an app icon, as a data URL or asset URL. Rounded 6 px at 20 px. */
 { kind: "image"; src: string };
+
+/**  The artwork for the active media session arrived or no longer applies. */
+export type MediaArtChanged = {
+	art: Artwork | null,
+};
+
+export type MediaCommand = { kind: "play" } | { kind: "pause" } | { kind: "togglePlayPause" } | { kind: "next" } | { kind: "previous" } | { kind: "setShuffle"; enabled: boolean } | { kind: "setRepeat"; mode: RepeatMode } | 
+/**
+ *  `TryChangePlaybackPositionAsync`; refused by the implementation when the session does
+ *  not advertise seeking.
+ */
+{ kind: "seek"; positionMs: number };
+
+/**
+ *  Which transport operations the session's app currently accepts
+ *  (`GlobalSystemMediaTransportControlsSessionPlaybackControls`). The UI hides or disables a
+ *  control the app refuses instead of faking it (docs/modules/media.md, "no fake seek").
+ */
+export type MediaControls = {
+	play: boolean,
+	pause: boolean,
+	next: boolean,
+	previous: boolean,
+	seek: boolean,
+	shuffle: boolean,
+	repeat: boolean,
+};
+
+/**  A System Media Transport Controls session, normalised. */
+export type MediaSession = {
+	/**  Source `AppUserModelId` (e.g. `Spotify.exe`). */
+	sourceAppId: string,
+	title: string,
+	artist: string,
+	album: string | null,
+	status: PlaybackStatus,
+	/**
+	 *  Position as of this snapshot. The implementation advances the app's last reported
+	 *  position by its age while `Playing`, so consumers interpolate from the moment the
+	 *  snapshot arrives (docs/04-windows-platform-apis.md, "Timeline").
+	 */
+	positionMs: number | null,
+	durationMs: number | null,
+	/**  `None` when the app does not report shuffle. */
+	shuffle: boolean | null,
+	/**  `None` when the app does not report a repeat mode. */
+	repeat: RepeatMode | null,
+	controls: MediaControls,
+	/**  `true` for the session the OS itself calls current (`GetCurrentSession`). */
+	isCurrent: boolean,
+	/**
+	 *  Increments each time the session's artwork bytes change; `0` while it has none. Lets a
+	 *  consumer fetch [`crate::Media::thumbnail`] only when something new arrived (Spotify
+	 *  delivers art 300–1000 ms after the track change).
+	 */
+	artVersion: number,
+};
+
+/**
+ *  What `get_media_snapshot` returns: the state plus the pixels, so a window that just opened
+ *  needs one round trip.
+ */
+export type MediaSnapshot = {
+	state: MediaState,
+	art: Artwork | null,
+};
+
+/**  What the UI needs besides pixels; `MediaStateChanged` carries it on every change. */
+export type MediaState = {
+	/**  The session the module shows, after scoring and pinning. */
+	active: MediaSession | null,
+	/**  Every session the OS reports, for the app picker. */
+	sessions: MediaSession[],
+	/**  `source_app_id` the user pinned; `None` follows the scoring. */
+	pinned: string | null,
+	/**  Key of the artwork that applies to `active` (`MediaArtChanged` carries the pixels). */
+	artKey: string | null,
+};
+
+/**
+ *  The media module's state changed: sessions, the active one, the pin or which artwork
+ *  applies (docs/modules/media.md). Pixels travel separately in [`MediaArtChanged`].
+ */
+export type MediaStateChanged = {
+	state: MediaState,
+};
 
 /**  One attached display, as reported by `EnumDisplayMonitors` / `GetDpiForMonitor`. */
 export type MonitorInfo = {
@@ -241,6 +358,8 @@ export type Notice = {
  */
 export type PlacementMode = "overlay" | "reserved";
 
+export type PlaybackStatus = "playing" | "paused" | "stopped";
+
 /**  Integer rectangle in physical (device) pixels, screen coordinates. */
 export type Rect = {
 	x: number,
@@ -252,6 +371,9 @@ export type Rect = {
 export type ReducedMotion = 
 /**  Follow the Windows "animation effects" setting (default). */
 "system" | "on" | "off";
+
+/**  `MediaPlaybackAutoRepeatMode`. */
+export type RepeatMode = "none" | "track" | "list";
 
 export type Settings = {
 	version: number,
@@ -379,7 +501,12 @@ export type StripHeight = "compact" | "default" | "comfortable";
  *  (a track title, a user label) and is never logged. Glyph-only notices (charging, lock)
  *  have no message: the UI describes them from their slots for assistive technology.
  */
-export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow"; percent: number } | { kind: "bluetoothConnected"; name: string; batteryPercent: number | null } | { kind: "bluetoothDisconnected"; name: string } | { kind: "timerFinished"; label: string };
+export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow"; percent: number } | { kind: "bluetoothConnected"; name: string; batteryPercent: number | null } | { kind: "bluetoothDisconnected"; name: string } | { kind: "timerFinished"; label: string } | 
+/**
+ *  A track change; both fields are content and never logged. The UI lays them out as
+ *  title and artist (marquee only when they overflow).
+ */
+{ kind: "nowPlaying"; title: string; artist: string };
 
 /**  An accent from the design system (docs/05-design-system.md, colour tokens). */
 export type Tint = "blue" | "cyan" | "green" | "orange" | "red" | "purple" | "yellow" | "pink";
@@ -398,7 +525,12 @@ export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
  */
 { kind: "timer"; remainingMs: number; totalMs: number; running: boolean } | 
 /**  A 0–100 progress track. */
-{ kind: "progress"; percent: number };
+{ kind: "progress"; percent: number } | 
+/**
+ *  Audio bars beside album art (docs/modules/media.md, strip form). `playing` animates
+ *  them; paused bars rest at a low level.
+ */
+{ kind: "waveform"; playing: boolean };
 
 /**  What one notch window does about the world around it. */
 export type YieldState = 

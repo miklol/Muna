@@ -8,8 +8,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use muna_core::{ActivityState, Settings, SettingsError, StoreError, StripContent};
-use muna_platform::{MonitorInfo, PlatformError};
+use muna_core::{ActivityState, Artwork, Settings, SettingsError, StoreError, StripContent};
+use muna_platform::{MediaCommand, MonitorInfo, PlatformError};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use specta_typescript::Typescript;
@@ -18,6 +18,7 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
+use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
 use crate::shell::manager::ShellManager;
 use crate::shell::model::ShellLayout;
 use crate::shell::yield_rules::YieldState;
@@ -166,6 +167,57 @@ pub struct ShellToggleRequested {
 #[serde(rename_all = "camelCase")]
 pub struct ShellPointerDownOutside {
     pub label: String,
+}
+
+/// The media module's state changed: sessions, the active one, the pin or which artwork
+/// applies (docs/modules/media.md). Pixels travel separately in [`MediaArtChanged`].
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaStateChanged {
+    pub state: MediaState,
+}
+
+/// The artwork for the active media session arrived or no longer applies.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaArtChanged {
+    pub art: Option<Artwork>,
+}
+
+/// Bridges the media service to the two events above.
+pub struct MediaEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for MediaEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MediaEventSink").finish_non_exhaustive()
+    }
+}
+
+impl MediaEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl MediaSink for MediaEventSink {
+    fn state_changed(&self, state: &MediaState) {
+        if let Err(error) = (MediaStateChanged {
+            state: state.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit MediaStateChanged");
+        }
+    }
+
+    fn art_changed(&self, art: Option<&Artwork>) {
+        if let Err(error) = (MediaArtChanged { art: art.cloned() }).emit(&self.app) {
+            tracing::warn!(%error, "failed to emit MediaArtChanged");
+        }
+    }
 }
 
 type Shared = Arc<AppState>;
@@ -460,6 +512,45 @@ fn open_settings(app: AppHandle) {
     ShellManager::open_settings(&app);
 }
 
+/// The media module's state and the current artwork in one round trip (a window that just
+/// opened; afterwards it follows `MediaStateChanged` and `MediaArtChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_media_snapshot(state: State<'_, Shared>) -> MediaSnapshot {
+    state.modules.media.snapshot()
+}
+
+/// Sends a transport command to `source_app_id`, or to the active session when `None`. The
+/// module re-checks the session list when the app stays silent for 2 s.
+#[tauri::command]
+#[specta::specta]
+fn media_command(
+    state: State<'_, Shared>,
+    source_app_id: Option<String>,
+    command: MediaCommand,
+) -> Result<(), IpcError> {
+    media::send_with_watchdog(&state.modules.media, source_app_id.as_deref(), command)?;
+    Ok(())
+}
+
+/// Pins the shown session to one app (`None` follows the scoring again). In memory for now;
+/// the Media pane persists a preferred app in M2-E2.
+#[tauri::command]
+#[specta::specta]
+fn media_pin(state: State<'_, Shared>, source_app_id: Option<String>) -> MediaState {
+    let observation = state.modules.media.set_pinned(source_app_id);
+    media::schedule_art(&state.modules.media, &observation);
+    state.modules.media.snapshot().state
+}
+
+/// Asks the OS for its session list again (settings "Refresh", diagnostics).
+#[tauri::command]
+#[specta::specta]
+fn media_refresh(state: State<'_, Shared>) -> Result<(), IpcError> {
+    state.modules.media.refresh()?;
+    Ok(())
+}
+
 /// Quits the app, releasing OS reservations first.
 #[tauri::command]
 #[specta::specta]
@@ -493,6 +584,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             set_notch_focusable,
             set_display_paused,
             open_settings,
+            get_media_snapshot,
+            media_command,
+            media_pin,
+            media_refresh,
             quit_app
         ])
         .events(collect_events![
@@ -502,7 +597,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             ShellLayoutChanged,
             ShellYieldChanged,
             ShellToggleRequested,
-            ShellPointerDownOutside
+            ShellPointerDownOutside,
+            MediaStateChanged,
+            MediaArtChanged
         ])
 }
 
