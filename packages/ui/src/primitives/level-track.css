@@ -1,0 +1,26 @@
+/*
+ * LevelTrack primitive — the HUD level in the strip: the plain-fill Slider (96 × 6) with the
+ * optional caption value beside it (docs/05-design-system.md "Per-surface notes", HUD). The
+ * slider keeps its 28 px hit box; the strip slot clips what falls outside its 20 px.
+ */
+
+.muna-level-track {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--text-1);
+}
+
+.muna-level-track__slider {
+  flex-shrink: 0;
+}
+
+.muna-level-track__value {
+  min-inline-size: 3.5ch;
+  text-align: end;
+  white-space: nowrap;
+}
+
+.muna-level-track[data-muted] .muna-level-track__value {
+  color: var(--text-2);
+}

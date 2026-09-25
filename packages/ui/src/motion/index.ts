@@ -13,6 +13,7 @@ export {
   type AppleSpring,
   contentExitTransition,
   contentRecipe,
+  glyphCrossfadeTransition,
   type LinearEasing,
   moduleBarRecipe,
   reducedMotionTransition,

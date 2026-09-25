@@ -175,6 +175,16 @@ export const contentExitTransition = {
 } as const satisfies Transition;
 
 /**
+ * HUD glyph swap (docs/06-motion-spec.md "HUD"): the old and new glyph crossfade over
+ * `timings.hudGlyphCrossfadeMs`; nothing moves, so repeated key presses read as one glyph
+ * updating rather than content arriving.
+ */
+export const glyphCrossfadeTransition = {
+  duration: 0.1,
+  ease: [0.2, 0, 0, 1],
+} as const satisfies Transition;
+
+/**
  * Module bar choreography (docs/06-motion-spec.md "Strip → panel" and "Panel → strip"): the
  * pill rises 12 px into place with `expand` 80 ms after the shape starts, and drops 8 px while
  * fading together with the content exit.
@@ -221,6 +231,8 @@ export const timings = {
   wideFormHoldMs: 2500,
   /** HUD linger after the last value change. */
   hudLingerMs: 1500,
+  /** HUD glyph swap (speaker waves, mute slash): a plain crossfade this long. */
+  hudGlyphCrossfadeMs: 100,
   /** Notice default hold (priority table in the live-activities module doc). */
   noticeHoldMs: 4000,
   /** Tie rotation between activities, `switch` crossfade. */

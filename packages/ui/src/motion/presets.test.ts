@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  glyphCrossfadeTransition,
   reducedMotionTransition,
   shellSpringNames,
   type SpringName,
@@ -112,6 +113,9 @@ describe('reduced motion and timings', () => {
     expect(timings.contentExitMs).toBe(80);
     expect(timings.collapseToActivityMs).toBe(150);
     expect(timings.noticeHoldMs).toBe(4000);
+    expect(timings.hudLingerMs).toBe(1500);
+    expect(timings.hudGlyphCrossfadeMs).toBe(100);
+    expect(glyphCrossfadeTransition.duration * 1000).toBe(timings.hudGlyphCrossfadeMs);
     expect(timings.staggerMs).toBe(30);
     expect(timings.reducedMotionHoldMultiplier).toBe(1.5);
   });

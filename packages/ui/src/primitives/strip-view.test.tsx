@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { MunaMotionProvider } from '../motion/reduced-motion';
 import { StripView } from './strip-view';
@@ -120,5 +120,46 @@ describe('StripView', () => {
       </MunaMotionProvider>,
     );
     expect(screen.getByTestId('icon')).toBeInTheDocument();
+  });
+
+  it('shows the HUD level as a draggable track and keeps it mounted across value changes', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <StripView
+        aria-label="Notch strip"
+        itemId="hud:volume"
+        kind="notice"
+        leading={{ kind: 'icon', icon, id: 'volumeMedium' }}
+        trailing={{ kind: 'level', percent: 45, muted: false, label: 'Volume', onChange }}
+        description="Volume, 45%"
+      />,
+    );
+    const region = screen.getByRole('region', { name: 'Notch strip' });
+    const slider = screen.getByRole('slider', { name: 'Volume' });
+    expect(slider).toHaveValue('45');
+    const mounted = region.querySelector('[data-slot="trailing"] .muna-strip__slot-content');
+    expect(region.querySelector('.muna-strip__glyph-frame')).not.toBeNull();
+
+    // The same notice with a new level: the track updates in place, no re-entry.
+    rerender(
+      <StripView
+        aria-label="Notch strip"
+        itemId="hud:volume"
+        kind="notice"
+        leading={{ kind: 'icon', icon, id: 'volumeHigh' }}
+        trailing={{
+          kind: 'level',
+          percent: 70,
+          muted: false,
+          label: 'Volume',
+          valueText: '70%',
+          onChange,
+        }}
+        description="Volume, 70%"
+      />,
+    );
+    expect(screen.getByRole('slider', { name: 'Volume' })).toHaveValue('70');
+    expect(region.querySelector('[data-slot="trailing"] .muna-strip__slot-content')).toBe(mounted);
+    expect(region.querySelector('.muna-level-track__value')).toHaveTextContent('70%');
   });
 });

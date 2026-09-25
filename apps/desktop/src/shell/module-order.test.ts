@@ -36,6 +36,12 @@ describe('orderModules', () => {
     expect(orderModules(all, ['pomodoro', 'media'], ['pomodoro'])).toEqual([media, calendar]);
     expect(orderModules(all, [], ['media', 'calendar', 'pomodoro'])).toEqual([]);
   });
+
+  it('skips modules without a panel: they have no tab to order', () => {
+    const hud: ModuleDefinition = { id: 'hud', titleKey: 'app.name', icon: Glyph };
+    expect(orderModules([media, hud, calendar], ['hud', 'calendar'])).toEqual([calendar, media]);
+    expect(orderModules([hud], [])).toEqual([]);
+  });
 });
 
 describe('resolveActive', () => {

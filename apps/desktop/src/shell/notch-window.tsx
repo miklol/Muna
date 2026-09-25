@@ -1,5 +1,12 @@
 import type { MorphReport, ShapeRect, ShellLayout } from '@muna/contracts';
-import { STRIP_HEIGHT_PX } from '@muna/contracts';
+import {
+  commands,
+  defaultHudSettings,
+  HUD_VOLUME_STEP,
+  readHudSettings,
+  type ScrollOnStrip,
+  STRIP_HEIGHT_PX,
+} from '@muna/contracts';
 import {
   contentExitTransition,
   contentRecipe,
@@ -59,7 +66,7 @@ import {
   targetSize,
 } from './shell-geometry';
 import { Strip } from './strip';
-import { wantsWide } from './strip-content';
+import { type HudPresentation, hudNoticeShowing, wantsWide } from './strip-content';
 import {
   publishShapeRects,
   reportMorph,
@@ -103,6 +110,25 @@ const TEXT_FIELD_SELECTOR = [
 
 const isTextField = (target: EventTarget | null): boolean =>
   target instanceof Element && target.matches(TEXT_FIELD_SELECTOR);
+
+/** The HUD's level track: a press or hover there drags the level instead of working the shell. */
+const LEVEL_TRACK_SELECTOR = '.muna-level-track';
+
+const isLevelTrack = (target: EventTarget | null): boolean =>
+  target instanceof Element && target.closest(LEVEL_TRACK_SELECTOR) !== null;
+
+/** Whether a wheel notch over the strip should move the volume (docs/modules/hud.md). */
+export const wheelNudgesVolume = (
+  scrollOnStrip: ScrollOnStrip,
+  showing: ReturnType<typeof hudNoticeShowing>,
+): boolean => scrollOnStrip === 'volume' || showing === 'volume';
+
+/** Percent to move per wheel event: one step per notch, up when the wheel rolls up. */
+export const wheelVolumeDelta = (deltaY: number): number => -Math.sign(deltaY) * HUD_VOLUME_STEP;
+
+const ignoreRefusal = () => {
+  // The platform refused or the device vanished; the strip shows whatever is true next.
+};
 
 /** Radii the morph animates between, read from the tokens so theme changes are honoured. */
 const readRadiusPx = (element: Element, token: string, fallback: number): number => {
@@ -195,6 +221,47 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   );
   const activeModule = resolveActive(orderedModules, activeModuleId);
   const hasModuleBar = orderedModules.length > 0;
+
+  // --- hud -----------------------------------------------------------------------------------
+
+  const hudSettings = useMemo(
+    () => (settings === undefined ? defaultHudSettings() : readHudSettings(settings)),
+    [settings],
+  );
+  const hudShowing = hudNoticeShowing(content);
+  // Volume follows the drag live; brightness is written once on release (DDC/CI is ~50 ms a
+  // call) and only when one monitor exists, since the notice names none (docs/modules/hud.md).
+  const hud = useMemo<HudPresentation>(() => {
+    const showLevelText = hudSettings.showLevelText;
+    switch (hudShowing) {
+      case 'volume':
+        return {
+          showLevelText,
+          onLevelChange: (percent) => {
+            void commands.hudSetVolume(percent).catch(ignoreRefusal);
+          },
+        };
+      case 'brightness':
+        return {
+          showLevelText,
+          onLevelChangeEnd: (percent) => {
+            void commands
+              .getHudSnapshot()
+              .then((snapshot) => {
+                const [only, second] = snapshot.monitors;
+                if (only !== undefined && second === undefined) {
+                  return commands.hudSetBrightness(only.id, percent);
+                }
+                return undefined;
+              })
+              .catch(ignoreRefusal);
+          },
+        };
+      case 'mic':
+      case null:
+        return { showLevelText };
+    }
+  }, [hudSettings.showLevelText, hudShowing]);
   const moduleBarItems = useMemo<readonly ModuleBarItem[]>(
     () =>
       orderedModules.map((module) => {
@@ -488,10 +555,12 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     const point = { x: event.clientX, y: event.clientY };
     const speedPxPerS = speed.current.observe(point, event.timeStamp);
     const box = shellRef.current === null ? null : boxOf(shellRef.current);
+    // Hovering the HUD's track is aiming at the level, not at the panel: no reveal intent.
+    const overTrack = isLevelTrack(event.target);
     machine.send({
       type: 'pointer',
-      inside: box !== null && contains(box, point),
-      near: box !== null && contains(padded(box), point),
+      inside: !overTrack && box !== null && contains(box, point),
+      near: !overTrack && box !== null && contains(padded(box), point),
       speedPxPerS,
     });
   };
@@ -502,12 +571,23 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (isLevelTrack(event.target)) {
+      // The track owns the press: it starts a drag, not the panel.
+      return;
+    }
     const box = shellRef.current === null ? null : boxOf(shellRef.current);
     const inside = box !== null && contains(box, { x: event.clientX, y: event.clientY });
     machine.send({ type: inside ? 'press' : 'pressOutside' });
   };
 
   const onWheel = (event: ReactWheelEvent<HTMLElement>) => {
+    if (event.deltaY === 0) {
+      return;
+    }
+    if (!panelShown && wheelNudgesVolume(hudSettings.scrollOnStrip, hudShowing)) {
+      void commands.hudNudgeVolume(wheelVolumeDelta(event.deltaY)).catch(ignoreRefusal);
+      return;
+    }
     if (event.deltaY > 0) {
       machine.send({ type: 'scrollDown' });
     }
@@ -642,7 +722,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                   exit={contentExit}
                   transition={contentTransition}
                 >
-                  <Strip content={content} receivedAt={contentAt} />
+                  <Strip content={content} receivedAt={contentAt} hud={hud} />
                 </motion.div>
               )}
             </AnimatePresence>

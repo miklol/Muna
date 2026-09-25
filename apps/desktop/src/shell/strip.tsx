@@ -3,23 +3,25 @@ import { StripView } from '@muna/ui/primitives';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { present } from './strip-content';
+import { type HudPresentation, present } from './strip-content';
 
 export interface StripProps {
   content: StripContent;
   /** `Date.now()` when `content` arrived; countdowns tick from here between publishes. */
   receivedAt: number;
+  /** How a HUD level track shows and what dragging it does; absent: display-only. */
+  hud?: HudPresentation | undefined;
 }
 
 /**
  * The closed strip (docs/05-design-system.md "Per-surface notes"): the contract's slots mapped
  * to `StripView`'s vocabulary, localised for the window's language.
  */
-export function Strip({ content, receivedAt }: StripProps) {
+export function Strip({ content, receivedAt, hud }: StripProps) {
   const { t, i18n } = useTranslation();
   const presentation = useMemo(
-    () => present(content, t, i18n.language, receivedAt),
-    [content, t, i18n.language, receivedAt],
+    () => present(content, t, i18n.language, receivedAt, { hud }),
+    [content, t, i18n.language, receivedAt, hud],
   );
   return (
     <StripView

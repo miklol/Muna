@@ -54,6 +54,28 @@
   block-size: 100%;
 }
 
+/* A glyph with identity: the frames stack so old and new crossfade in place. */
+.muna-strip__glyph {
+  position: relative;
+  display: inline-grid;
+  inline-size: var(--size-strip-slot);
+  block-size: var(--size-strip-slot);
+}
+
+.muna-strip__glyph-frame {
+  grid-area: 1 / 1;
+  display: inline-flex;
+}
+
+/* The HUD level: wider than a slot; the slot box grows with it and still clips the slide-in. */
+.muna-strip__level {
+  block-size: var(--size-strip-slot);
+}
+
+.muna-strip__level .muna-slider {
+  min-block-size: var(--size-strip-slot);
+}
+
 .muna-strip__image {
   display: block;
   inline-size: var(--size-strip-slot);

@@ -3,16 +3,22 @@ import type { z } from 'zod';
 
 import type { Settings, ShellLayout, StripContent } from './bindings';
 import {
+  HUD_NOTICE_IDS,
+  HUD_SETTINGS_KEY,
+  HUD_VOLUME_STEP,
   MEDIA_SETTINGS_KEY,
   STRIP_HEIGHT_PX,
+  defaultHudSettings,
   defaultMediaSettings,
   defaultSettings,
   monitorLayoutSchema,
+  readHudSettings,
   readMediaSettings,
   settingsSchema,
   shellLayoutSchema,
   shellSettingsSchema,
   stripContentSchema,
+  writeHudSettings,
   writeMediaSettings,
 } from './schemas';
 
@@ -242,5 +248,56 @@ describe('media settings namespace', () => {
     });
     expect(before.modules).toEqual({ other: { keep: 1 } });
     expect(settingsSchema.parse(after)).toEqual(after);
+  });
+});
+
+describe('hud settings namespace', () => {
+  it('reads the defaults when the namespace is missing', () => {
+    expect(readHudSettings(defaultSettings())).toEqual({
+      replaceSystemFlyout: true,
+      scrollOnStrip: 'panel',
+      showLevelText: false,
+    });
+    expect(defaultHudSettings()).toEqual(readHudSettings(defaultSettings()));
+  });
+
+  it('fills in missing keys, ignores unknown ones and falls back when malformed', () => {
+    const partial: Settings = {
+      ...defaultSettings(),
+      modules: { [HUD_SETTINGS_KEY]: { scrollOnStrip: 'volume', keyboardBacklight: true } },
+    };
+    expect(readHudSettings(partial)).toEqual({
+      replaceSystemFlyout: true,
+      scrollOnStrip: 'volume',
+      showLevelText: false,
+    });
+    const malformed: Settings = {
+      ...defaultSettings(),
+      modules: { [HUD_SETTINGS_KEY]: { scrollOnStrip: 'brightness' } },
+    };
+    expect(readHudSettings(malformed)).toEqual(defaultHudSettings());
+  });
+
+  it('writes the namespace without touching the rest of the document', () => {
+    const before: Settings = { ...defaultSettings(), modules: { media: { visualiser: 'off' } } };
+    const after = writeHudSettings(before, {
+      replaceSystemFlyout: false,
+      scrollOnStrip: 'volume',
+      showLevelText: true,
+    });
+    expect(after.modules).toEqual({
+      media: { visualiser: 'off' },
+      hud: { replaceSystemFlyout: false, scrollOnStrip: 'volume', showLevelText: true },
+    });
+    expect(settingsSchema.parse(after)).toEqual(after);
+  });
+
+  it('names the HUD notices and the wheel step the Rust module uses', () => {
+    expect(HUD_NOTICE_IDS).toEqual({
+      volume: 'hud:volume',
+      mic: 'hud:mic',
+      brightness: 'hud:brightness',
+    });
+    expect(HUD_VOLUME_STEP).toBe(2);
   });
 });

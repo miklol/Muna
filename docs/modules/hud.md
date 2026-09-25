@@ -1,7 +1,7 @@
 # Volume / brightness HUD
 
-**Tier P0 · Owner: `muna-shell-engineer` · Status: backend shipped (M2-E3 PR A); strip UI in
-PR B**
+**Tier P0 · Owner: `muna-shell-engineer` · Status: shipped (M2-E3: backend in PR A, strip UI
+and settings pane in PR B)**
 
 ## Purpose
 
@@ -64,6 +64,21 @@ Strip trailing slot becomes a 96 px track with a white fill and a leading glyph 
 scale-in, fades 1.5 s after the last change (the motion spec's timing table is canonical; an
 earlier draft here said 1 200 ms).
 
+## Settings window
+
+Settings → *Volume and brightness* (the module's own pane; the HUD has no panel, so it takes
+no module-bar tab and the Modules pane does not list it):
+
+| Section | Rows |
+| --------- | ------ |
+| Windows flyout | *Replace system flyout* switch; *Status* (hidden / showing / not found yet) |
+| Strip | *Scroll on strip* (open panel / change volume); *Show level text* |
+| Levels | *Mute*, *Mute microphone* (only when the device exists) |
+| Brightness | one slider per adjustable display, written on release; empty state otherwise |
+
+Preferences save through the shared settings editor and reach Rust, which applies the flyout
+state. Level changes call the HUD commands directly and come back as `HudStateChanged`.
+
 ## Acceptance criteria
 
 - Given a volume key press, then the HUD updates within one frame and the Windows flyout does
@@ -106,4 +121,36 @@ Design decisions and deviations from the spec above:
   correctly excludes the internal panel (error 31), so an incapable monitor is never listed.
 - Brightness monitors are re-read 1.5 s after a `MonitorsChanged` event (the platform's own
   probe runs on the same event) and immediately when an event names an unknown monitor.
-- Until PR B lands its `LevelTrack`, the strip draws `level` with the progress track.
+
+## Implementation notes (M2-E3 PR B)
+
+The strip half and the settings pane. Pieces, in the order the data flows:
+
+- `@muna/ui` `LevelTrack`: a plain, muted-aware `Slider` (0–100, step 1) with an optional
+  tabular caption; `StripView` renders a `level` slot with it and enters it with the `reveal`
+  spring. The slot key is stable across value changes, so repeated key presses never restart
+  the appear animation; only the fill moves (`interactive`), and a mute drains it
+  (`collapse`).
+- Strip icons carry the glyph as their identity: a glyph swap under the same notice (two waves
+  → three, speaker → slash) crossfades in 100 ms (`timings.hudGlyphCrossfadeMs`).
+- Shell: the level slot is named for what it controls (*Volume* / *Brightness*, from the
+  leading glyph). While the volume notice shows — or always, with *Scroll on strip = volume* —
+  a wheel notch over the closed strip calls `hud_nudge_volume(±2)` instead of opening the
+  panel; the panel's own wheel is untouched. A press on the track drags the level instead of
+  opening the panel, and hovering it is not reveal intent. Volume follows the drag live
+  (`hud_set_volume` per step); brightness is written once on release.
+- Settings: the pane above, fed by `get_hud_snapshot` + `HudStateChanged` while it is mounted
+  (nothing polls; the listener is dropped on unmount).
+
+Deviations from the spec above, decided in PR B:
+
+- **Glyph crossfade instead of a path morph.** The motion spec's "slash morphs" is approximated
+  by a 100 ms opacity crossfade between two Lucide glyphs; a true path morph needs a custom
+  glyph set and is a P2 polish item.
+- **Brightness drag targets the only adjustable display.** The notice does not name a monitor,
+  so a drag on the brightness track writes to the single monitor when exactly one exists and
+  is display-only otherwise; the settings pane has one slider per display.
+- **Brightness writes on release only** (DDC/CI is ~50 ms a call); volume writes on every
+  step.
+- The strip keeps its 200 px rest width with the 96 px track (glyph + track fit within the
+  padding); it does not take the wide form for the HUD.

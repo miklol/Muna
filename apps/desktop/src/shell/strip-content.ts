@@ -1,4 +1,10 @@
-import type { Leading, StripContent, StripMessage, Trailing } from '@muna/contracts';
+import {
+  HUD_NOTICE_IDS,
+  type Leading,
+  type StripContent,
+  type StripMessage,
+  type Trailing,
+} from '@muna/contracts';
 import { formatCountdown, type StripSlotContent } from '@muna/ui/primitives';
 import type { useTranslation } from 'react-i18next';
 
@@ -20,6 +26,24 @@ export interface StripPresentation {
   /** Spoken description for the live region. */
   description: string;
 }
+
+/** How the HUD's level track presents and what a drag on it does (docs/modules/hud.md). */
+export interface HudPresentation {
+  /** *Show level text*: the percentage beside the track. */
+  readonly showLevelText: boolean;
+  /** Live drag; the shell forwards it to the platform. Absent: the track is display-only. */
+  readonly onLevelChange?: ((percent: number) => void) | undefined;
+  /** Pointer or key released. */
+  readonly onLevelChangeEnd?: ((percent: number) => void) | undefined;
+}
+
+export interface PresentOptions {
+  readonly hud?: HudPresentation | undefined;
+}
+
+/** What a `level` slot controls, read from the glyph beside it (the sun means brightness). */
+export const levelLabelKey = (leading: Leading | null): 'hud.volume' | 'hud.brightness' =>
+  leading?.kind === 'icon' && leading.glyph === 'sun' ? 'hud.brightness' : 'hud.volume';
 
 /** `57%` in the window's locale (`57 %` in French, `٥٧٪` in Arabic). */
 export const formatPercent = (percent: number, locale: string): string =>
@@ -47,18 +71,28 @@ export const messageText = (message: StripMessage, t: Translate): string => {
   }
 };
 
-/** Maps a contract slot to the UI vocabulary; `receivedAt` anchors local countdowns. */
+/** What `toSlot` needs beyond the slot itself. */
+export interface SlotContext {
+  readonly locale: string;
+  /** `Date.now()` when the content arrived; anchors local countdowns. */
+  readonly receivedAt: number;
+  /** Accessible name for a `level` slot ("Volume"). */
+  readonly levelLabel: string;
+  readonly hud?: HudPresentation | undefined;
+}
+
+/** Maps a contract slot to the UI vocabulary. */
 export const toSlot = (
   slot: Leading | Trailing | null,
-  locale: string,
-  receivedAt: number,
+  { locale, receivedAt, levelLabel, hud }: SlotContext,
 ): StripSlotContent | null => {
   if (slot === null) return null;
   switch (slot.kind) {
     case 'icon':
+      // The glyph is the icon's identity: a swap under the same item crossfades.
       return slot.tint === null
-        ? { kind: 'icon', icon: stripGlyph(slot.glyph) }
-        : { kind: 'icon', icon: stripGlyph(slot.glyph), tint: slot.tint };
+        ? { kind: 'icon', icon: stripGlyph(slot.glyph), id: slot.glyph }
+        : { kind: 'icon', icon: stripGlyph(slot.glyph), id: slot.glyph, tint: slot.tint };
     case 'image':
       return slot.glow === null || slot.glow === undefined
         ? { kind: 'image', src: slot.src }
@@ -82,9 +116,15 @@ export const toSlot = (
     case 'waveform':
       return { kind: 'waveform', playing: slot.playing };
     case 'level':
-      // Drawn as a progress track until the HUD's own `LevelTrack` lands (docs/modules/hud.md,
-      // "Visual"); `muted` will dim its fill there.
-      return { kind: 'progress', percent: slot.percent };
+      return {
+        kind: 'level',
+        percent: slot.percent,
+        muted: slot.muted,
+        label: levelLabel,
+        valueText: hud?.showLevelText === true ? formatPercent(slot.percent, locale) : null,
+        onChange: hud?.onLevelChange,
+        onChangeEnd: hud?.onLevelChangeEnd,
+      };
   }
 };
 
@@ -186,6 +226,7 @@ export const present = (
   t: Translate,
   locale: string,
   receivedAt: number,
+  options: PresentOptions = {},
 ): StripPresentation => {
   switch (content.kind) {
     case 'idle':
@@ -201,11 +242,17 @@ export const present = (
     case 'notice': {
       const { notice } = content;
       const text = notice.wide === null ? null : messageText(notice.wide, t);
+      const context: SlotContext = {
+        locale,
+        receivedAt,
+        levelLabel: t(levelLabelKey(notice.leading)),
+        hud: options.hud,
+      };
       return {
         itemId: notice.id,
         kind: 'notice',
-        leading: toSlot(notice.leading, locale, receivedAt),
-        trailing: toSlot(notice.trailing, locale, receivedAt),
+        leading: toSlot(notice.leading, context),
+        trailing: toSlot(notice.trailing, context),
         text,
         wide: text !== null,
         description: describe(content, t, locale),
@@ -214,11 +261,17 @@ export const present = (
     case 'activity': {
       const { activity } = content;
       const text = activity.wide === null ? null : messageText(activity.wide, t);
+      const context: SlotContext = {
+        locale,
+        receivedAt,
+        levelLabel: t(levelLabelKey(activity.leading)),
+        hud: options.hud,
+      };
       return {
         itemId: activity.id,
         kind: 'activity',
-        leading: toSlot(activity.leading, locale, receivedAt),
-        trailing: toSlot(activity.trailing, locale, receivedAt),
+        leading: toSlot(activity.leading, context),
+        trailing: toSlot(activity.trailing, context),
         text,
         wide: content.wide && text !== null,
         description: describe(content, t, locale),
@@ -236,5 +289,20 @@ export const wantsWide = (content: StripContent): boolean => {
       return content.notice.wide !== null;
     case 'activity':
       return content.wide && content.activity.wide !== null;
+  }
+};
+
+/** The HUD notice showing right now, if any: what the wheel and a drag on the strip control. */
+export const hudNoticeShowing = (content: StripContent): 'volume' | 'mic' | 'brightness' | null => {
+  if (content.kind !== 'notice') return null;
+  switch (content.notice.id) {
+    case HUD_NOTICE_IDS.volume:
+      return 'volume';
+    case HUD_NOTICE_IDS.mic:
+      return 'mic';
+    case HUD_NOTICE_IDS.brightness:
+      return 'brightness';
+    default:
+      return null;
   }
 };
