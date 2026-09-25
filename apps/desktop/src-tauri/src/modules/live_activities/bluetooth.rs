@@ -7,12 +7,9 @@
 use std::collections::HashMap;
 
 use muna_core::{Glyph, Leading, Notice, StripMessage, Trailing, activities::priority};
-use muna_platform::BluetoothDevice;
+use muna_platform::{BluetoothDevice, BluetoothDeviceKind};
 
 const MODULE: &str = "live-activities";
-
-/// Devices whose names suggest they sit on a head, for the headphones glyph.
-const HEADSET_HINTS: [&str; 6] = ["buds", "headphone", "headset", "airpods", "earbuds", "pods"];
 
 #[derive(Debug, Default)]
 pub struct BluetoothSource {
@@ -49,9 +46,15 @@ impl BluetoothSource {
     }
 }
 
+/// The strip has two Bluetooth glyphs: headphones for anything worn on the head, the Bluetooth
+/// rune for the rest. The platform's kind decides; a device it could not classify is still
+/// judged by its name.
 fn glyph_for(device: &BluetoothDevice) -> Glyph {
-    let name = device.name.to_lowercase();
-    if HEADSET_HINTS.iter().any(|hint| name.contains(hint)) {
+    let kind = match device.kind {
+        BluetoothDeviceKind::Other => BluetoothDeviceKind::from_name(&device.name),
+        kind => kind,
+    };
+    if kind == BluetoothDeviceKind::Headphones {
         Glyph::Headphones
     } else {
         Glyph::Bluetooth

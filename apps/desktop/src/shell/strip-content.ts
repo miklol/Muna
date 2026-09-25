@@ -84,6 +84,8 @@ export const messageText = (message: StripMessage, t: Translate): string => {
       return t('strip.message.bluetoothConnected', { name: message.name });
     case 'bluetoothDisconnected':
       return t('strip.message.bluetoothDisconnected', { name: message.name });
+    case 'deviceBatteryLow':
+      return t('strip.message.deviceBatteryLow', { name: message.name });
     case 'timerFinished':
       return t('strip.message.timerFinished', { label: message.label });
     case 'nowPlaying':
@@ -217,6 +219,11 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
               message,
               percent: formatPercent(item.wide.batteryPercent, locale),
             });
+      case 'deviceBatteryLow':
+        return t('strip.describe.deviceBatteryLow', {
+          name: item.wide.name,
+          percent: formatPercent(item.wide.percent, locale),
+        });
       case 'text':
       case 'pomodoro': {
         const fact =

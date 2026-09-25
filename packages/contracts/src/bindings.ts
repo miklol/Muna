@@ -207,12 +207,26 @@ export const commands = {
 	/**  Unix milliseconds of the sample, so a panel can tell a stale reading from a live one. */
 	sampledAtMs: number,
 } | null>("system_monitor_watch", { watching }),
+	/**
+	 *  The paired devices and the radio as the module now sees them (a panel that just opened;
+	 *  afterwards it follows `BluetoothChanged`).
+	 */
+	getBluetoothSnapshot: () => __TAURI_INVOKE<BluetoothSnapshot>("get_bluetooth_snapshot"),
+	/**
+	 *  Connects or disconnects a device, or switches the radio, and returns the snapshot as it
+	 *  stands afterwards. Connecting pages the device and can take seconds when it is out of
+	 *  range, so the platform call runs on a blocking thread. A device that will not connect or
+	 *  a radio the system refuses to switch surfaces as `platform.unsupported` /
+	 *  `platform.accessDenied`, which the panel reports in place.
+	 */
+	bluetoothCommand: (command: BluetoothCommand) => typedError<BluetoothSnapshot, IpcError>(__TAURI_INVOKE("bluetooth_command", { command })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
 
 /** Events */
 export const events = {
+	bluetoothChanged: makeEvent<BluetoothChanged>("bluetooth-changed"),
 	hudStateChanged: makeEvent<HudStateChanged>("hud-state-changed"),
 	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
 	mediaStateChanged: makeEvent<MediaStateChanged>("media-state-changed"),
@@ -266,6 +280,59 @@ export type Artwork = {
 	palette: string[],
 	width: number,
 	height: number,
+};
+
+/**
+ *  The paired devices and the radio as the module now sees them (docs/modules/bluetooth.md):
+ *  after a platform report, a command, or a settings change that hides or shows a device.
+ */
+export type BluetoothChanged = {
+	snapshot: BluetoothSnapshot,
+};
+
+/**
+ *  What the panel can ask for. Hiding a device is a setting (`hiddenDevices`), written through
+ *  the settings editor like any other.
+ */
+export type BluetoothCommand = { kind: "connect"; id: string } | { kind: "disconnect"; id: string } | { kind: "setRadio"; on: boolean };
+
+/**
+ *  What a paired device is, so the UI can pick its glyph (docs/modules/bluetooth.md). Windows
+ *  reports it as `System.Devices.Aep.Category`; a device without one falls back to hints in
+ *  its name, then to `Other`.
+ */
+export type BluetoothDeviceKind = "headphones" | "speaker" | "phone" | "mouse" | "keyboard" | "controller" | "other";
+
+export type BluetoothDeviceView = {
+	id: string,
+	name: string,
+	connected: boolean,
+	batteryPercent: number | null,
+	kind: BluetoothDeviceKind,
+	hidden: boolean,
+};
+
+/**  The Bluetooth radio's power state (docs/modules/bluetooth.md "Radio toggle"). */
+export type BluetoothRadioState = "on" | "off" | 
+/**
+ *  No Bluetooth radio, or Windows will not say (a policy, or the radio is disabled in
+ *  Device Manager). Paired devices may still enumerate.
+ */
+"unavailable";
+
+/**  What the panel and the settings pane show. */
+export type BluetoothSnapshot = {
+	radio: BluetoothRadioState,
+	/**
+	 *  `false` when this build cannot enumerate devices at all (the watchers failed to start,
+	 *  or a platform without Bluetooth); the panel then says so instead of showing an empty list.
+	 */
+	available: boolean,
+	/**
+	 *  Connected first, then by name. Hidden devices are included with `hidden: true` so the
+	 *  settings pane can offer them back; the panel leaves them out.
+	 */
+	devices: BluetoothDeviceView[],
 };
 
 /**  How a display's backlight is driven (docs/modules/hud.md "Brightness"). */
@@ -743,7 +810,12 @@ export type StripHeight = "compact" | "default" | "comfortable";
  *  (a track title, a user label) and is never logged. Glyph-only notices (charging, lock)
  *  have no message: the UI describes them from their slots for assistive technology.
  */
-export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow"; percent: number } | { kind: "bluetoothConnected"; name: string; batteryPercent: number | null } | { kind: "bluetoothDisconnected"; name: string } | { kind: "timerFinished"; label: string } | 
+export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow"; percent: number } | { kind: "bluetoothConnected"; name: string; batteryPercent: number | null } | { kind: "bluetoothDisconnected"; name: string } | 
+/**
+ *  A connected Bluetooth device's battery fell to a threshold (docs/modules/bluetooth.md);
+ *  the name is content and is never logged.
+ */
+{ kind: "deviceBatteryLow"; name: string; percent: number } | { kind: "timerFinished"; label: string } | 
 /**
  *  A track change; both fields are content and never logged. The UI lays them out as
  *  title and artist (marquee only when they overflow).

@@ -8,6 +8,7 @@
 //! `start` is synchronous and spawns whatever tasks the module needs: the trait must stay
 //! dyn-compatible for the registry, which `async fn` in traits is not yet.
 
+pub mod bluetooth;
 pub mod hud;
 pub mod live_activities;
 pub mod media;
@@ -76,6 +77,7 @@ pub struct ModuleServices {
     pub pomodoro: Arc<pomodoro::PomodoroService>,
     pub todo: Arc<todo::TodoService>,
     pub system_monitor: Arc<system_monitor::SystemMonitorService>,
+    pub bluetooth: Arc<bluetooth::BluetoothService>,
 }
 
 impl ModuleServices {
@@ -113,6 +115,10 @@ impl ModuleServices {
                 Arc::clone(hub),
                 Arc::clone(clock),
             )),
+            bluetooth: Arc::new(bluetooth::BluetoothService::new(
+                Arc::clone(platform),
+                Arc::clone(hub),
+            )),
         }
     }
 }
@@ -129,6 +135,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         Box::new(system_monitor::SystemMonitorModule(Arc::clone(
             &services.system_monitor,
         ))),
+        Box::new(bluetooth::BluetoothModule(Arc::clone(&services.bluetooth))),
     ]
 }
 

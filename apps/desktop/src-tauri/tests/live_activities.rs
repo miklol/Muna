@@ -36,6 +36,8 @@ fn buds(connected: bool, battery_percent: Option<u8>) -> BluetoothDevice {
         name: "Galaxy Buds".into(),
         connected,
         battery_percent,
+        // Unclassified on purpose: the name alone must still earn the headphones glyph.
+        kind: muna_platform::BluetoothDeviceKind::Other,
     }
 }
 

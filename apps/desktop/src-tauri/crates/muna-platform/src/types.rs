@@ -226,6 +226,75 @@ pub enum OsdState {
     Unavailable,
 }
 
+/// What a paired device is, so the UI can pick its glyph (docs/modules/bluetooth.md). Windows
+/// reports it as `System.Devices.Aep.Category`; a device without one falls back to hints in
+/// its name, then to `Other`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum BluetoothDeviceKind {
+    Headphones,
+    Speaker,
+    Phone,
+    Mouse,
+    Keyboard,
+    Controller,
+    #[default]
+    Other,
+}
+
+impl BluetoothDeviceKind {
+    /// Maps a `System.Devices.Aep.Category` value to a kind. Windows spells them as dotted
+    /// paths whose namespaces vary by driver stack (`Audio.Headphone`, `Audio.Headset`,
+    /// `Communication.Headset.Bluetooth`, `Communication.Phone.Smart`, `Input.Mouse`,
+    /// `Input.Gaming`), so the segments are what is matched; anything else is `Other`.
+    #[must_use]
+    pub fn from_category(category: &str) -> Self {
+        let mut segments = category.trim().split('.').map(str::trim);
+        let namespace = segments.next().unwrap_or_default();
+        let rest: Vec<&str> = segments.collect();
+        let has = |names: &[&str]| rest.iter().any(|segment| names.contains(segment));
+        if has(&["Headphone", "Headphones", "Headset"]) {
+            Self::Headphones
+        } else if has(&["Mouse", "Trackpad"]) {
+            Self::Mouse
+        } else if has(&["Keyboard"]) {
+            Self::Keyboard
+        } else if has(&["Gaming", "Gamepad", "Controller"]) {
+            Self::Controller
+        } else if has(&["Phone"]) {
+            Self::Phone
+        } else if namespace == "Audio" {
+            Self::Speaker
+        } else {
+            Self::Other
+        }
+    }
+
+    /// The first kind a list of categories names, or `Other`.
+    #[must_use]
+    pub fn from_categories<'a>(categories: impl IntoIterator<Item = &'a str>) -> Self {
+        categories
+            .into_iter()
+            .map(Self::from_category)
+            .find(|kind| *kind != Self::Other)
+            .unwrap_or_default()
+    }
+
+    /// Guesses from a device name when Windows reports no category: words that suggest the
+    /// device sits on a head give `Headphones`; nothing else is guessed.
+    #[must_use]
+    pub fn from_name(name: &str) -> Self {
+        const HEADSET_HINTS: [&str; 6] =
+            ["buds", "headphone", "headset", "airpods", "earbuds", "pods"];
+        let name = name.to_lowercase();
+        if HEADSET_HINTS.iter().any(|hint| name.contains(hint)) {
+            Self::Headphones
+        } else {
+            Self::Other
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BluetoothDevice {
@@ -234,6 +303,19 @@ pub struct BluetoothDevice {
     pub connected: bool,
     /// 0–100 when the device reports it.
     pub battery_percent: Option<u8>,
+    #[serde(default)]
+    pub kind: BluetoothDeviceKind,
+}
+
+/// The Bluetooth radio's power state (docs/modules/bluetooth.md "Radio toggle").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum BluetoothRadioState {
+    On,
+    Off,
+    /// No Bluetooth radio, or Windows will not say (a policy, or the radio is disabled in
+    /// Device Manager). Paired devices may still enumerate.
+    Unavailable,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -417,5 +499,44 @@ mod tests {
         for state in [S::NotPresent, S::AcceptsNotifications, S::QuietTime, S::App] {
             assert!(!state.should_park(Some(true)), "{state:?}");
         }
+    }
+
+    #[test]
+    fn bluetooth_categories_map_by_segment() {
+        use super::BluetoothDeviceKind as K;
+        // Observed on a Jabra Move SE (classic headset) and in the Windows category list.
+        assert_eq!(
+            K::from_category("Communication.Headset.Bluetooth"),
+            K::Headphones
+        );
+        assert_eq!(K::from_category("Audio.Headphone"), K::Headphones);
+        assert_eq!(K::from_category("Audio.Headset"), K::Headphones);
+        assert_eq!(K::from_category("Audio.Speaker"), K::Speaker);
+        assert_eq!(K::from_category("Audio.Portable"), K::Speaker);
+        assert_eq!(K::from_category("Communication.Phone.Smart"), K::Phone);
+        assert_eq!(K::from_category("Input.Mouse"), K::Mouse);
+        assert_eq!(K::from_category("Input.Trackpad"), K::Mouse);
+        assert_eq!(K::from_category("Input.Keyboard"), K::Keyboard);
+        assert_eq!(K::from_category("Input.Gaming"), K::Controller);
+        assert_eq!(K::from_category("Computer.Laptop"), K::Other);
+        assert_eq!(K::from_category(""), K::Other);
+    }
+
+    #[test]
+    fn the_first_category_that_names_a_kind_wins() {
+        use super::BluetoothDeviceKind as K;
+        assert_eq!(
+            K::from_categories(["Other", "Input.Keyboard", "Input.Mouse"]),
+            K::Keyboard
+        );
+        assert_eq!(K::from_categories([]), K::Other);
+    }
+
+    #[test]
+    fn names_only_ever_suggest_a_headset() {
+        use super::BluetoothDeviceKind as K;
+        assert_eq!(K::from_name("Galaxy Buds"), K::Headphones);
+        assert_eq!(K::from_name("WH-1000XM4 Headphones"), K::Headphones);
+        assert_eq!(K::from_name("MX Master 3"), K::Other);
     }
 }
