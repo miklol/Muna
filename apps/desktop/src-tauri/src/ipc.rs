@@ -21,6 +21,7 @@ use tauri_specta::{Builder, Event, collect_commands, collect_events};
 use crate::modules::hud::{HudSink, HudState};
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
 use crate::modules::pomodoro::{PomodoroCommand, PomodoroSink, PomodoroState};
+use crate::modules::system_monitor::{SystemMonitorSink, SystemMonitorSnapshot};
 use crate::modules::todo::{TodoCommand, TodoError, TodoSink, TodoSnapshot};
 use crate::shell::manager::ShellManager;
 use crate::shell::model::ShellLayout;
@@ -345,6 +346,45 @@ impl TodoSink for TodoEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit TodoChanged");
+        }
+    }
+}
+
+/// A fresh system reading (docs/modules/system-monitor.md), once a second while a panel
+/// watches. Nothing is emitted while no panel is open.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemMonitorChanged {
+    pub snapshot: SystemMonitorSnapshot,
+}
+
+/// Bridges the system monitor service to [`SystemMonitorChanged`].
+pub struct SystemMonitorEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for SystemMonitorEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SystemMonitorEventSink")
+            .finish_non_exhaustive()
+    }
+}
+
+impl SystemMonitorEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl SystemMonitorSink for SystemMonitorEventSink {
+    fn changed(&self, snapshot: &SystemMonitorSnapshot) {
+        if let Err(error) = (SystemMonitorChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit SystemMonitorChanged");
         }
     }
 }
@@ -788,6 +828,27 @@ fn todo_command(state: State<'_, Shared>, command: TodoCommand) -> Result<TodoSn
     Ok(state.modules.todo.command(command)?)
 }
 
+/// The latest system reading, if the module has taken one (a panel that just opened;
+/// afterwards it follows `SystemMonitorChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_system_monitor_snapshot(state: State<'_, Shared>) -> Option<SystemMonitorSnapshot> {
+    state.modules.system_monitor.snapshot()
+}
+
+/// Tells the module a panel in this window opened (`true`) or closed (`false`), which sets
+/// the sampling cadence (docs/modules/system-monitor.md). Returns the latest reading so the
+/// panel can draw at once.
+#[tauri::command]
+#[specta::specta]
+fn system_monitor_watch(
+    window: WebviewWindow,
+    state: State<'_, Shared>,
+    watching: bool,
+) -> Option<SystemMonitorSnapshot> {
+    state.modules.system_monitor.watch(window.label(), watching)
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -825,6 +886,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             pomodoro_command,
             get_todo_snapshot,
             todo_command,
+            get_system_monitor_snapshot,
+            system_monitor_watch,
             quit_app
         ])
         .events(collect_events![
@@ -839,7 +902,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             MediaArtChanged,
             HudStateChanged,
             PomodoroStateChanged,
-            TodoChanged
+            TodoChanged,
+            SystemMonitorChanged
         ])
 }
 

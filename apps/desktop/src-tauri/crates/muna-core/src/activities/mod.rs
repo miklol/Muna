@@ -44,6 +44,9 @@ pub mod priority {
     pub const UNREAD: u8 = 40;
     pub const SESSION: u8 = 30;
     pub const MEDIA_PAUSED: u8 = 20;
+    /// The system monitor's CPU strip gauge (docs/modules/system-monitor.md): ambient
+    /// telemetry, so it sits under everything with a message, including paused media.
+    pub const SYSTEM_GAUGE: u8 = 10;
 }
 
 /// An accent from the design system (docs/05-design-system.md, colour tokens).
@@ -91,6 +94,8 @@ pub enum Glyph {
     MicMuted,
     /// A task (docs/modules/todo.md): a circle with a check.
     CheckCircle,
+    /// A processor (docs/modules/system-monitor.md): the CPU strip gauge.
+    Cpu,
 }
 
 /// The leading (left) slot of the strip.

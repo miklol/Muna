@@ -11,12 +11,12 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Media, Monitors, Platform, Power,
-    SystemOsd, Windowing,
+    SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessMonitor,
     ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, PowerSource, Rect,
-    Thumbnail, UserNotificationState, WindowHandle,
+    SystemSample, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -77,6 +77,10 @@ struct State {
     autostart_enabled: bool,
     /// Scripted: `set_enabled(true)` fails with `AccessDenied` (user disabled it in Settings).
     autostart_denied: bool,
+    /// Scripted readings, oldest first; the last one repeats once the script runs out.
+    system_samples: Vec<SystemSample>,
+    /// Every `sample(top_processes)` the fake answered, in order.
+    system_sample_requests: Vec<usize>,
 }
 
 impl Default for State {
@@ -120,6 +124,8 @@ impl Default for State {
             app_bars: Vec::new(),
             autostart_enabled: false,
             autostart_denied: false,
+            system_samples: Vec::new(),
+            system_sample_requests: Vec::new(),
         }
     }
 }
@@ -351,6 +357,36 @@ impl FakePlatform {
     #[must_use]
     pub fn windowing_calls(&self) -> Vec<WindowingCall> {
         self.state.lock().windowing_calls.clone()
+    }
+
+    /// Scripts the readings [`SystemStats::sample`] hands out, oldest first. The last reading
+    /// repeats once the script runs out; with no script the sampler reports `Unsupported`.
+    pub fn script_system_samples(&self, samples: Vec<SystemSample>) {
+        let mut state = self.state.lock();
+        state.system_samples = samples;
+        state.system_samples.reverse();
+    }
+
+    /// The `top_processes` argument of every sample taken so far, in order — how often the
+    /// module sampled and whether it walked the processes.
+    #[must_use]
+    pub fn system_sample_requests(&self) -> Vec<usize> {
+        self.state.lock().system_sample_requests.clone()
+    }
+}
+
+impl SystemStats for FakePlatform {
+    fn sample(&self, top_processes: usize) -> PlatformResult<SystemSample> {
+        let mut state = self.state.lock();
+        state.system_sample_requests.push(top_processes);
+        let sample = if state.system_samples.len() > 1 {
+            state.system_samples.pop()
+        } else {
+            state.system_samples.last().cloned()
+        };
+        let mut sample = sample.ok_or(PlatformError::Unsupported("system stats"))?;
+        sample.processes.truncate(top_processes);
+        Ok(sample)
     }
 }
 
@@ -700,6 +736,10 @@ impl Platform for FakePlatform {
         self
     }
 
+    fn system_stats(&self) -> &dyn SystemStats {
+        self
+    }
+
     fn monitors(&self) -> &dyn Monitors {
         self
     }
@@ -957,6 +997,51 @@ mod tests {
         };
         fake.foreground_changed(window.clone());
         assert_eq!(fake.foreground().current().unwrap(), Some(window));
+    }
+
+    #[test]
+    fn system_samples_play_in_order_then_hold_the_last_reading() {
+        let fake = FakePlatform::new();
+        assert!(matches!(
+            fake.system_stats().sample(0),
+            Err(PlatformError::Unsupported("system stats"))
+        ));
+
+        let reading = |cpu: f32| SystemSample {
+            cpu_percent: Some(cpu),
+            logical_cpus: 8,
+            processes: vec![
+                crate::types::ProcessUsage {
+                    name: "muna".into(),
+                    cpu_percent: 1.0,
+                    memory_bytes: 1,
+                    count: 1,
+                },
+                crate::types::ProcessUsage {
+                    name: "idle".into(),
+                    cpu_percent: 0.5,
+                    memory_bytes: 1,
+                    count: 1,
+                },
+            ],
+            ..SystemSample::default()
+        };
+        fake.script_system_samples(vec![reading(10.0), reading(20.0)]);
+
+        let first = fake.system_stats().sample(0).unwrap();
+        assert_eq!(first.cpu_percent, Some(10.0));
+        assert!(first.processes.is_empty(), "no process walk was asked for");
+        let second = fake.system_stats().sample(1).unwrap();
+        assert_eq!(second.cpu_percent, Some(20.0));
+        assert_eq!(second.processes.len(), 1);
+        let third = fake.system_stats().sample(5).unwrap();
+        assert_eq!(third.cpu_percent, Some(20.0), "the last reading repeats");
+        assert_eq!(third.processes.len(), 2);
+        assert_eq!(
+            fake.system_sample_requests(),
+            vec![0, 0, 1, 5],
+            "the unsupported attempt counts too: the module did ask"
+        );
     }
 
     #[test]

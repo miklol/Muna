@@ -28,6 +28,10 @@ windows-collections = "0.3"
 # Internal-panel brightness (docs/modules/hud.md): `WmiMonitorBrightness*` in `ROOT\WMI`
 # through a typed WMI client instead of hand-rolled `IWbemServices` plumbing.
 wmi = { version = "0.18", default-features = false }
+# Machine load for the system monitor (docs/modules/system-monitor.md): CPU, memory, volumes,
+# network counters and the process walk. Without `multithread` the walk runs on the caller's
+# thread instead of a rayon pool the tray-utility footprint has no room for.
+sysinfo = { version = "0.39", default-features = false, features = ["system", "disk", "network"] }
 windows = { version = "0.62", features = [
   "ApplicationModel",
   "Devices_Bluetooth",

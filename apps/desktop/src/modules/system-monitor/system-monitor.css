@@ -1,0 +1,125 @@
+/*
+ * System monitor panel (docs/modules/system-monitor.md, docs/reference/ui-observations.md
+ * "System Analytics"): the 3×2 gauge grid on the left, the process table on the right.
+ * Composes tokens only; the primitives bring their own styles.
+ *
+ * Budget: the panel body has 284 px at most. A tile is 16 + 22 + 16 = 54 px of text beside a
+ * 36 px ring, so two rows and a 12 px gap take 120 px; the table is a 20 px header plus 24 px
+ * a row, so even the ten-row maximum (260 px) fits.
+ */
+
+.sysmon-panel {
+  display: flex;
+  gap: var(--space-6);
+  align-items: flex-start;
+  block-size: 100%;
+  min-block-size: 0;
+  padding-inline: var(--space-2);
+}
+
+.sysmon-grid {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-inline-size: 0;
+}
+
+.sysmon-tile {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.sysmon-tile__ring {
+  flex: 0 0 auto;
+}
+
+.sysmon-tile__text {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.sysmon-tile__label {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  white-space: nowrap;
+}
+
+.sysmon-tile__value,
+.sysmon-tile__detail {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The table takes what the grid leaves: five names and two number columns. Fixed layout so a
+   long name is clipped inside its cell instead of widening the table. */
+.sysmon-processes {
+  flex: 0 0 auto;
+  inline-size: 260px;
+  border-collapse: collapse;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.sysmon-processes__caption {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sysmon-processes th,
+.sysmon-processes td {
+  padding: 0;
+  block-size: 24px;
+  vertical-align: middle;
+  text-align: start;
+}
+
+.sysmon-processes th {
+  block-size: 20px;
+}
+
+.sysmon-processes__name {
+  overflow: hidden;
+}
+
+.sysmon-processes__cell {
+  display: flex;
+  gap: var(--space-1);
+  align-items: baseline;
+  min-inline-size: 0;
+}
+
+.sysmon-processes__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sysmon-processes__count {
+  flex: 0 0 auto;
+}
+
+.sysmon-processes__number {
+  inline-size: 68px;
+  padding-inline-start: var(--space-2);
+  text-align: end;
+}
+
+.sysmon-processes__number > * {
+  display: block;
+  text-align: end;
+}

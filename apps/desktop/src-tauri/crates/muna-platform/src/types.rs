@@ -253,6 +253,60 @@ pub struct BatteryState {
     pub charging: bool,
 }
 
+/// One reading of the machine's load (docs/modules/system-monitor.md). Counters are raw:
+/// the module derives rates and percentages from consecutive samples with its own clock.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemSample {
+    /// Whole-machine CPU use since the previous sample, 0–100 across every logical processor.
+    /// `None` for the first sample after the sampler started: there is no previous reading.
+    pub cpu_percent: Option<f32>,
+    pub logical_cpus: u16,
+    pub memory_used_bytes: u64,
+    pub memory_total_bytes: u64,
+    /// Every mounted volume; the module picks the system volume and sums the fixed ones.
+    pub disks: Vec<DiskSpace>,
+    /// Bytes received over every interface since boot; wraps are the caller's problem.
+    pub network_received_bytes: u64,
+    /// Bytes sent over every interface since boot.
+    pub network_transmitted_bytes: u64,
+    /// The busiest processes, most CPU first, at most as many as were asked for. Empty when
+    /// the caller asked for none — the process walk is the expensive part of a sample.
+    pub processes: Vec<ProcessUsage>,
+}
+
+/// Capacity of one volume.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiskSpace {
+    /// Volume label, or the mount when it has none.
+    pub name: String,
+    /// `C:\` on Windows.
+    pub mount: String,
+    pub total_bytes: u64,
+    pub available_bytes: u64,
+    /// USB sticks and cards; not part of the machine's storage.
+    pub removable: bool,
+    /// The volume Windows booted from.
+    pub system: bool,
+}
+
+/// One process, or every process sharing an executable name, in a sample. The module maps it
+/// to its wire type; the raw sample never crosses the IPC boundary.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProcessUsage {
+    /// Executable name without the extension ("chrome"); never a window title or path.
+    pub name: String,
+    /// Share of the whole machine since the previous sample, 0–100.
+    pub cpu_percent: f32,
+    /// Working set summed over the group (what Task Manager's "Memory" column counts is the
+    /// private working set, so this reads a little higher).
+    pub memory_bytes: u64,
+    /// How many processes the row aggregates.
+    pub count: u16,
+}
+
 /// The foreground window, enough to decide whether the notch must yield.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]

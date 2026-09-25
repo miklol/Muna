@@ -68,7 +68,8 @@
       "sun": "Brightness",
       "mic": "Microphone on",
       "micMuted": "Microphone muted",
-      "checkCircle": "Task"
+      "checkCircle": "Task",
+      "cpu": "Processor"
     }
   },
   "spike": {
@@ -221,6 +222,43 @@
       "deleteList": "Delete the {{name}} list",
       "newList": "New list",
       "newListPlaceholder": "Name, then Enter"
+    }
+  },
+  "systemMonitor": {
+    "title": "System",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "storage": "Storage",
+    "network": "Network",
+    "battery": "Battery",
+    "freeDisk": "Free disk",
+    "pending": "—",
+    "waiting": "Reading…",
+    "cores_one": "{{count}} core",
+    "cores_other": "{{count}} cores",
+    "ofTotal": "of {{total}}",
+    "networkDetail": "↓ {{down}} ↑ {{up}}",
+    "charging": "Charging",
+    "notCharging": "Not charging",
+    "noBattery": "No battery",
+    "gaugeValue": "{{label}}: {{value}}",
+    "processes": "Top processes",
+    "processName": "Name",
+    "processCpu": "CPU",
+    "processMemory": "Memory",
+    "instances_one": "{{count}} process",
+    "instances_other": "{{count}} processes",
+    "instancesShort": "×{{count}}",
+    "settings": {
+      "strip": "Strip",
+      "showCpuInStrip": "Show CPU in the strip",
+      "showCpuInStripBody": "A small processor gauge in the collapsed strip, refreshed every 10 seconds. Without it, nothing is measured while the panel is closed.",
+      "panel": "Panel",
+      "processCount": "Processes shown",
+      "processCountBody": "The busiest processes, most CPU first. Set to none to hide the list and skip the process walk.",
+      "processRows_zero": "None",
+      "processRows_one": "{{count}} process",
+      "processRows_other": "{{count}} processes"
     }
   },
   "settings": {

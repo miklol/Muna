@@ -22,13 +22,13 @@ pub use events::PlatformEvent;
 pub use fake::{FakePlatform, WindowingCall};
 pub use traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Media, Monitors, Platform, Power,
-    SystemOsd, Windowing,
+    SystemOsd, SystemStats, Windowing,
 };
 pub use types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessKind,
-    BrightnessMonitor, ForegroundWindow, MediaCommand, MediaControls, MediaSession, MonitorInfo,
-    OsdState, PlaybackStatus, PowerSource, Rect, RepeatMode, Thumbnail, UserNotificationState,
-    WindowHandle,
+    BrightnessMonitor, DiskSpace, ForegroundWindow, MediaCommand, MediaControls, MediaSession,
+    MonitorInfo, OsdState, PlaybackStatus, PowerSource, ProcessUsage, Rect, RepeatMode,
+    SystemSample, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 /// Constructs the platform implementation for the current build.

@@ -146,6 +146,67 @@ export const commands = {
 	 *  snapshot after the command. The strip follows through `StripContentChanged`.
 	 */
 	todoCommand: (command: TodoCommand) => typedError<TodoSnapshot, IpcError>(__TAURI_INVOKE("todo_command", { command })),
+	/**
+	 *  The latest system reading, if the module has taken one (a panel that just opened;
+	 *  afterwards it follows `SystemMonitorChanged`).
+	 */
+	getSystemMonitorSnapshot: () => __TAURI_INVOKE<{
+	/**  Whole-machine CPU use, 0–100. `None` until two samples exist to difference. */
+	cpuPercent: number | null,
+	logicalCpus: number,
+	memoryUsedBytes: number,
+	memoryTotalBytes: number,
+	/**  Fixed volumes summed (removable media is not the machine's storage). */
+	storageUsedBytes: number,
+	storageTotalBytes: number,
+	/**  Free space on the system volume — the number that decides whether Windows updates fit. */
+	freeDiskBytes: number,
+	/**  Capacity of the same volume, so a gauge can draw the free share. */
+	systemDiskTotalBytes: number,
+	/**  Bytes per second over every hardware interface, `None` until two samples exist. */
+	networkDownBytesPerS: number | null,
+	networkUpBytesPerS: number | null,
+	/**  `None` on a machine without a battery. */
+	battery: SystemMonitorBattery | null,
+	/**
+	 *  The busiest processes, most CPU first; empty while the panel is closed or the setting
+	 *  is 0.
+	 */
+	processes: SystemMonitorProcess[],
+	/**  Unix milliseconds of the sample, so a panel can tell a stale reading from a live one. */
+	sampledAtMs: number,
+} | null>("get_system_monitor_snapshot"),
+	/**
+	 *  Tells the module a panel in this window opened (`true`) or closed (`false`), which sets
+	 *  the sampling cadence (docs/modules/system-monitor.md). Returns the latest reading so the
+	 *  panel can draw at once.
+	 */
+	systemMonitorWatch: (watching: boolean) => __TAURI_INVOKE<{
+	/**  Whole-machine CPU use, 0–100. `None` until two samples exist to difference. */
+	cpuPercent: number | null,
+	logicalCpus: number,
+	memoryUsedBytes: number,
+	memoryTotalBytes: number,
+	/**  Fixed volumes summed (removable media is not the machine's storage). */
+	storageUsedBytes: number,
+	storageTotalBytes: number,
+	/**  Free space on the system volume — the number that decides whether Windows updates fit. */
+	freeDiskBytes: number,
+	/**  Capacity of the same volume, so a gauge can draw the free share. */
+	systemDiskTotalBytes: number,
+	/**  Bytes per second over every hardware interface, `None` until two samples exist. */
+	networkDownBytesPerS: number | null,
+	networkUpBytesPerS: number | null,
+	/**  `None` on a machine without a battery. */
+	battery: SystemMonitorBattery | null,
+	/**
+	 *  The busiest processes, most CPU first; empty while the panel is closed or the setting
+	 *  is 0.
+	 */
+	processes: SystemMonitorProcess[],
+	/**  Unix milliseconds of the sample, so a panel can tell a stale reading from a live one. */
+	sampledAtMs: number,
+} | null>("system_monitor_watch", { watching }),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -163,6 +224,7 @@ export const events = {
 	shellToggleRequested: makeEvent<ShellToggleRequested>("shell-toggle-requested"),
 	shellYieldChanged: makeEvent<ShellYieldChanged>("shell-yield-changed"),
 	stripContentChanged: makeEvent<StripContentChanged>("strip-content-changed"),
+	systemMonitorChanged: makeEvent<SystemMonitorChanged>("system-monitor-changed"),
 	todoChanged: makeEvent<TodoChanged>("todo-changed"),
 };
 
@@ -255,7 +317,9 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 /**  Speaker with a slash. */
 "volumeMuted" | "sun" | "mic" | "micMuted" | 
 /**  A task (docs/modules/todo.md): a circle with a check. */
-"checkCircle";
+"checkCircle" | 
+/**  A processor (docs/modules/system-monitor.md): the CPU strip gauge. */
+"cpu";
 
 /**  Everything the HUD UI renders and the settings pane reads. */
 export type HudState = {
@@ -695,6 +759,64 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
  *  announces the moment.
  */
 { kind: "taskDue"; title: string };
+
+export type SystemMonitorBattery = {
+	percent: number,
+	charging: boolean,
+};
+
+/**
+ *  A fresh system reading (docs/modules/system-monitor.md), once a second while a panel
+ *  watches. Nothing is emitted while no panel is open.
+ */
+export type SystemMonitorChanged = {
+	snapshot: SystemMonitorSnapshot,
+};
+
+/**  One row of the process list: every process sharing an executable name, aggregated. */
+export type SystemMonitorProcess = {
+	/**  Executable name without its extension; never a window title or a path. */
+	name: string,
+	/**
+	 *  Share of the whole machine in tenths of a percent (123 is 12.3 %), so a quiet process
+	 *  still reads as more than zero.
+	 */
+	cpuTenths: number,
+	memoryBytes: number,
+	/**  How many processes the row aggregates. */
+	count: number,
+};
+
+/**
+ *  One reading for the panel. Byte counts are saturated to [`Int53`] so a JavaScript
+ *  `number` holds them exactly; percentages are whole numbers, as the gauges draw them.
+ */
+export type SystemMonitorSnapshot = {
+	/**  Whole-machine CPU use, 0–100. `None` until two samples exist to difference. */
+	cpuPercent: number | null,
+	logicalCpus: number,
+	memoryUsedBytes: number,
+	memoryTotalBytes: number,
+	/**  Fixed volumes summed (removable media is not the machine's storage). */
+	storageUsedBytes: number,
+	storageTotalBytes: number,
+	/**  Free space on the system volume — the number that decides whether Windows updates fit. */
+	freeDiskBytes: number,
+	/**  Capacity of the same volume, so a gauge can draw the free share. */
+	systemDiskTotalBytes: number,
+	/**  Bytes per second over every hardware interface, `None` until two samples exist. */
+	networkDownBytesPerS: number | null,
+	networkUpBytesPerS: number | null,
+	/**  `None` on a machine without a battery. */
+	battery: SystemMonitorBattery | null,
+	/**
+	 *  The busiest processes, most CPU first; empty while the panel is closed or the setting
+	 *  is 0.
+	 */
+	processes: SystemMonitorProcess[],
+	/**  Unix milliseconds of the sample, so a panel can tell a stale reading from a live one. */
+	sampledAtMs: number,
+};
 
 /**
  *  One task, in any state: open, completed (`completed_at_ms`) or in the trash
