@@ -66,13 +66,15 @@ impl AppState {
         })
     }
 
-    /// Attaches the production notch shell.
+    /// Attaches the production notch shell. `started_at` is the process start (the shell logs
+    /// the cold-start time against it).
     #[must_use]
-    pub fn with_shell(mut self) -> Self {
+    pub fn with_shell(mut self, started_at: Instant) -> Self {
         let settings = self.settings.lock().shell.clone();
         self.shell = Some(Arc::new(ShellManager::new(
             Arc::clone(&self.platform),
             settings,
+            started_at,
         )));
         self
     }

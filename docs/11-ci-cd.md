@@ -210,14 +210,21 @@ budgets. Gates are never lowered to unblock a PR.
 
 ## Performance gates
 
-- **PR (`app`)**: `scripts/perf --smoke` starts the debug build, waits 5 s, samples 30 s of
-  idle CPU and RSS, measures cold start, and posts a comment with the numbers and the delta
-  against the last `main` run (comment skipped on fork PRs). Breaching a PRD budget fails the
-  check.
-- **Nightly**: the full harness from [09](09-testing-qa.md#performance-harness-scriptsperf) (100
-  expand/collapse cycles with fps capture, 10-minute idle, media playing, 4K 150 % monitor
-  emulation) on a release build. Results are appended to the `perf-history` branch as JSON;
-  `apps/site` renders the trend.
+- **PR (`app`)**: `pnpm -w perf:smoke -- --out perf-smoke.json --markdown perf-smoke.md`
+  starts the debug build the job just made, measures cold start, waits 5 s, samples 30 s of
+  idle CPU and keeps sampling memory until the shell's idle trim has settled (90 s), and the
+  job posts the markdown as a PR comment (edited in place through its
+  `<!-- muna-perf-report -->` marker; skipped on fork PRs). Breaching a PRD budget fails the
+  check. The comment's delta column fills in when the run is given `--baseline <json>`; the
+  automatic delta against the last `main` run is not wired yet (the `perf-smoke.json` artifact
+  of every run is kept so it can be).
+- **Nightly**: `perf:full` — the harness's full plan from
+  [09](09-testing-qa.md#performance-harness-scriptsperf): 30 s warm-up, 60 s idle CPU, memory
+  to 300 s, 20 cursor-driven expand/collapse cycles with the shell's per-morph frame reports.
+  The workflow builds `--debug --no-bundle`, so today's nightly numbers describe the debug
+  build; the 100-cycle, 10-minute idle, media-playing and 4K 150 % emulation passes and the
+  release build are the target state, not yet implemented. Results are appended to the
+  `perf-history` branch as JSON; `apps/site` renders the trend.
 - **Regression rule**: a nightly metric worse than the 7-day median by > 10 % (or any budget
   breach) fails the `perf` job; the `report` job then opens or updates the open `ci:nightly`
   issue with the run link and the offending commits since the last green run. The maintainer

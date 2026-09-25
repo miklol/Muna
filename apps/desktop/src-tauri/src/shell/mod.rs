@@ -7,6 +7,7 @@
 pub mod hit_test;
 pub mod layout;
 pub mod manager;
+pub mod memory_target;
 pub mod model;
 pub mod spike;
 pub mod yield_rules;

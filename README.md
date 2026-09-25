@@ -142,6 +142,22 @@ Rust tests run against `muna_platform::fake::FakePlatform` by default. Tests tha
 Windows APIs are `#[ignore]`d unless the `platform-tests` feature is enabled
 (`cargo test --all-features` does this, as CI does on `windows-latest`).
 
+### Performance harness
+
+```powershell
+pnpm --filter @muna/desktop tauri build --debug --no-bundle   # the harness needs a CLI-built exe
+pnpm -w perf:smoke -- --out perf-smoke.json --markdown perf-smoke.md   # what the `app` job runs (~2 min)
+pnpm -w perf:full  -- --exe apps/desktop/src-tauri/target/release/muna.exe --verbose   # nightly plan (~6 min)
+```
+
+The harness starts the exe with a scratch profile, reads the shell's `shell ready` and
+`webview memory target` log marks, samples CPU and private working set over the whole
+process tree, drives expand/collapse morphs in full mode, and exits 1 on a PRD budget breach
+([09-testing-qa → Performance harness](docs/09-testing-qa.md#performance-harness-scriptsperf)).
+Quit any running Muna first (single instance), and build through the Tauri CLI rather than
+plain `cargo build`: only the CLI enables `tauri/custom-protocol`, without which the binary
+tries to load the dev server. `perf-*.json` / `perf-*.md` are ignored by git.
+
 ### Packaging (local test only)
 
 ```powershell
