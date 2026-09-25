@@ -3,13 +3,17 @@ import type { z } from 'zod';
 
 import type { Settings, ShellLayout, StripContent } from './bindings';
 import {
+  MEDIA_SETTINGS_KEY,
   STRIP_HEIGHT_PX,
+  defaultMediaSettings,
   defaultSettings,
   monitorLayoutSchema,
+  readMediaSettings,
   settingsSchema,
   shellLayoutSchema,
   shellSettingsSchema,
   stripContentSchema,
+  writeMediaSettings,
 } from './schemas';
 
 describe('settings schema', () => {
@@ -86,7 +90,7 @@ describe('strip content schema', () => {
           id: 'a1',
           module: 'media',
           priority: 60,
-          leading: { kind: 'image', src: 'https://example.invalid/art.png' },
+          leading: { kind: 'image', src: 'https://example.invalid/art.png', glow: null },
           trailing: { kind: 'progress', percent: 42.5 },
           wide: { kind: 'text', value: 'Track — Artist' },
         },
@@ -110,9 +114,21 @@ describe('strip content schema', () => {
           id: 'media:now-playing',
           module: 'media',
           priority: 60,
-          leading: { kind: 'icon', glyph: 'play', tint: null },
+          leading: { kind: 'image', src: 'data:image/png;base64,AA==', glow: '#3060c0' },
           trailing: { kind: 'waveform', playing: true },
           wide: { kind: 'nowPlaying', title: 'Track', artist: 'Artist' },
+        },
+      },
+      {
+        kind: 'activity',
+        wide: false,
+        activity: {
+          id: 'media:now-playing',
+          module: 'media',
+          priority: 20,
+          leading: { kind: 'icon', glyph: 'play', tint: null },
+          trailing: null,
+          wide: { kind: 'nowPlaying', title: 'Track', artist: '' },
         },
       },
       {
@@ -145,8 +161,74 @@ describe('strip content schema', () => {
     }
   });
 
+  it('reads an image without a glow (older payloads) as glow null', () => {
+    const parsed = stripContentSchema.parse({
+      kind: 'notice',
+      notice: {
+        id: 'n1',
+        module: 'media',
+        priority: 60,
+        leading: { kind: 'image', src: 'a.png' },
+        trailing: null,
+        wide: null,
+        holdMs: 0,
+      },
+    });
+    expect(parsed.kind === 'notice' && parsed.notice.leading).toEqual({
+      kind: 'image',
+      src: 'a.png',
+      glow: null,
+    });
+  });
+
   it('matches the specta-generated type exactly', () => {
     // `.branded` resolves the intersections specta emits for internally tagged enums.
     expectTypeOf<z.infer<typeof stripContentSchema>>().branded.toEqualTypeOf<StripContent>();
+  });
+});
+
+describe('media settings namespace', () => {
+  it('reads the defaults when the namespace is missing', () => {
+    expect(readMediaSettings(defaultSettings())).toEqual({
+      preferredApp: null,
+      adaptiveColours: true,
+      visualiser: 'bars',
+    });
+    expect(defaultMediaSettings()).toEqual(readMediaSettings(defaultSettings()));
+  });
+
+  it('fills in missing keys and ignores unknown ones, like the Rust side', () => {
+    const settings: Settings = {
+      ...defaultSettings(),
+      modules: { [MEDIA_SETTINGS_KEY]: { preferredApp: 'Spotify.exe', lyrics: true } },
+    };
+    expect(readMediaSettings(settings)).toEqual({
+      preferredApp: 'Spotify.exe',
+      adaptiveColours: true,
+      visualiser: 'bars',
+    });
+  });
+
+  it('falls back to the defaults for a malformed namespace', () => {
+    const settings: Settings = {
+      ...defaultSettings(),
+      modules: { [MEDIA_SETTINGS_KEY]: { visualiser: 'spectrum' } },
+    };
+    expect(readMediaSettings(settings)).toEqual(defaultMediaSettings());
+  });
+
+  it('writes the namespace without touching the rest of the document', () => {
+    const before: Settings = { ...defaultSettings(), modules: { other: { keep: 1 } } };
+    const after = writeMediaSettings(before, {
+      preferredApp: 'Edge.exe',
+      adaptiveColours: false,
+      visualiser: 'off',
+    });
+    expect(after.modules).toEqual({
+      other: { keep: 1 },
+      media: { preferredApp: 'Edge.exe', adaptiveColours: false, visualiser: 'off' },
+    });
+    expect(before.modules).toEqual({ other: { keep: 1 } });
+    expect(settingsSchema.parse(after)).toEqual(after);
   });
 });

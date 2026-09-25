@@ -84,10 +84,11 @@ const fakeModules: readonly ModuleDefinition[] = [
   fakeModule('spike', 'spike.label'),
 ];
 
-const renderSettings = async (modules?: readonly ModuleDefinition[]) => {
+/** Built-in pane scenarios run without registered modules; module cases pass fakes. */
+const renderSettings = async (modules: readonly ModuleDefinition[] = []) => {
   render(
     <AppProviders>
-      <SettingsApp {...(modules === undefined ? {} : { modules })} />
+      <SettingsApp modules={modules} />
     </AppProviders>,
   );
   await screen.findByRole('heading', { level: 1, name: 'General' });

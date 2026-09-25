@@ -9,18 +9,20 @@
 //! it with the fake platform; the backend only adds the event loop and the timers.
 
 pub mod scoring;
+pub mod settings;
 pub mod tracker;
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use muna_core::{ArtCache, Artwork, Hub, artwork};
+use muna_core::{ArtCache, Artwork, Hub, Settings, artwork};
 use muna_platform::{MediaCommand, MediaSession, Platform, PlatformError, PlatformEvent};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use super::{ModuleBackend, ModuleCtx, Surface};
+pub use settings::{MediaSettings, Visualiser};
 pub use tracker::{ACTIVITY_ID, ArtRequest, MediaState, MediaTracker, Observation};
 
 pub const ID: &str = "media";
@@ -121,6 +123,25 @@ impl MediaService {
         let (observation, activity, state) = {
             let mut tracker = self.tracker.lock();
             let observation = tracker.set_pinned(pinned);
+            (observation, tracker.activity(), tracker.state())
+        };
+        self.apply(&observation, activity, &state);
+        observation
+    }
+
+    /// The pinned app, if any.
+    #[must_use]
+    pub fn pinned(&self) -> Option<String> {
+        self.tracker.lock().pinned().map(str::to_owned)
+    }
+
+    /// Applies `settings.modules.media` (start-up and every settings change): the preferred
+    /// app is pinned and the strip presentation switches take effect.
+    pub fn apply_settings(&self, settings: &Settings) -> Observation {
+        let media = MediaSettings::from_document(settings);
+        let (observation, activity, state) = {
+            let mut tracker = self.tracker.lock();
+            let observation = tracker.set_settings(&media);
             (observation, tracker.activity(), tracker.state())
         };
         self.apply(&observation, activity, &state);

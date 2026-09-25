@@ -100,10 +100,11 @@ export const commands = {
 	 */
 	mediaCommand: (sourceAppId: string | null, command: MediaCommand) => typedError<null, IpcError>(__TAURI_INVOKE("media_command", { sourceAppId, command })),
 	/**
-	 *  Pins the shown session to one app (`None` follows the scoring again). In memory for now;
-	 *  the Media pane persists a preferred app in M2-E2.
+	 *  Pins the shown session to one app (`None` follows the scoring again) and remembers it as
+	 *  the preferred app in `settings.modules.media`, so the choice survives a relaunch and the
+	 *  Media pane shows the same value.
 	 */
-	mediaPin: (sourceAppId: string | null) => __TAURI_INVOKE<MediaState>("media_pin", { sourceAppId }),
+	mediaPin: (sourceAppId: string | null) => typedError<MediaState, IpcError>(__TAURI_INVOKE("media_pin", { sourceAppId })),
 	/**  Asks the OS for its session list again (settings "Refresh", diagnostics). */
 	mediaRefresh: () => typedError<null, IpcError>(__TAURI_INVOKE("media_refresh")),
 	/**  Quits the app, releasing OS reservations first. */
@@ -200,8 +201,12 @@ export type Leading = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
  *  level (green charging, orange ≤ 20, red ≤ 10).
  */
 { kind: "battery"; percent: number; charging: boolean } | 
-/**  Album art or an app icon, as a data URL or asset URL. Rounded 6 px at 20 px. */
-{ kind: "image"; src: string };
+/**
+ *  Album art or an app icon, as a data URL or asset URL. Rounded 6 px at 20 px. `glow` is
+ *  a CSS colour from the artwork palette for the tinted halo behind it (docs/modules/
+ *  media.md, strip form); `None` draws no halo (no palette yet, or adaptive colours off).
+ */
+{ kind: "image"; src: string; glow?: string | null };
 
 /**  The artwork for the active media session arrived or no longer applies. */
 export type MediaArtChanged = {

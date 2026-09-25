@@ -1,6 +1,7 @@
 # Media
 
-**Tier P0 · Owner: `muna-module-developer` · Status: in progress (backend landed in M2-E1)**
+**Tier P0 · Owner: `muna-module-developer` · Status: in progress (backend landed in M2-E1, UI in
+M2-E2)**
 
 ## Purpose
 
@@ -128,3 +129,68 @@ re-deliveries.
 - The preferred-app setting is in memory until the Media pane persists it (M2-E2).
 - Timeline: the platform advances the position by its age; the UI-side 1 s interpolation lands
   with the panel.
+
+## Implementation notes (M2-E2)
+
+The UI landed in M2-E2: the strip form with waveform bars, the wide form marquee, the panel and
+the Media settings pane. Visualiser capture, lyrics and output devices are still open (below).
+
+**Where the code lives.**
+
+- `packages/ui` primitives — `Waveform` (four `transform`-only bars, static under reduced
+  motion), `Marquee` (measures overflow with `ResizeObserver`, scrolls only when the text does
+  not fit) and `AlbumArt` (`data-dimmed` while paused, `data-tinted` bleed from the palette).
+  `StripView` gained the waveform trailing slot and the `--muna-art-tint` halo. Every state has a
+  story; `pnpm -w storybook:ci` covers them.
+- `apps/desktop/src/modules/media` — `media-store.ts` (Zustand: state, art, palette),
+  `use-media.ts` (subscribes to `MediaStateChanged` / `MediaArtChanged`, seeds from
+  `get_media_snapshot`), `progress.ts` (position interpolation, `appDisplayName`), `panel.tsx`
+  (panel body), `settings.tsx` (pane) and `index.ts` (the `ModuleDefinition`). The module reads
+  and writes only its own settings namespace and talks to Rust through the generated bindings.
+- `src-tauri/src/modules/media/settings.rs` — `MediaSettings` for the `settings.modules.media`
+  namespace: `{ preferredApp: string | null, adaptiveColours: boolean, visualiser: "bars" |
+  "off" }`. A missing or malformed entry yields the defaults, unknown keys are ignored, and
+  `media_pin` writes `preferredApp` so a pin survives a relaunch. The tracker honours
+  `visualiser: "off"` by dropping the trailing slot while playing (the paused glyph stays) and
+  `adaptiveColours: false` by publishing artwork without a glow.
+
+**Panel.** 96 px art with radius 12 (spec; the reference notes observed 72 px / 10 — see
+deviations), title (`title3`), "Artist · Album" footnote, progress track, elapsed and remaining
+time, transport row (shuffle · previous · play/pause 44 px filled · next · repeat) and, when more
+than one app has a session, app chips ("Show Spotify", "Show Microsoft Edge", …) that pin
+through `media_pin`. Apps whose
+session reports `controls.seek: false` get a non-interactive `ProgressTrack`, never a fake
+slider. The position advances locally once a second while `Playing` and freezes on `Paused`.
+`appDisplayName` shortens `AppUserModelId`s (`Spotify.exe` → Spotify) and maps the common
+browsers and players (`MSEdge` → Microsoft Edge, `ZuneMusic` → Media Player, …).
+
+**Palette bleed.** The art's `data-tinted` bleed is two static `box-shadow`s, not a gradient:
+`radial-gradient(color-mix(in oklab, transparent, <accent> …))` rendered as an ordered dither
+(alternating pure-black and near-black pixels) over the black glass in WebView2. Measured on a
+55 × 81 px band beside the art: 62 pure-black speckles with `color-mix(… transparent …)`, 0 with
+`rgb(from var(--media-accent-1) r g b / 0.3)`. The same relative-colour syntax is used for the
+strip halo. `prefers-contrast: more` removes both.
+
+**Measured** (Win11 25H2, 2560 × 1600 at 150 %, Spotify 1.2.x, `scripts/dev.ps1`): the
+panel's art measures 144 physical px (96 CSS px); the strip window is 1120 × 480 CSS px. Spotify
+publishes `controls.seek: false`, so its progress is a track; a cached palette for one track came
+out `#87703a, #476caa, #a2bbc9` and the panel's bleed followed a Spotify ad's yellow artwork.
+Pause via the media key dimmed the art, swapped in the play glyph and froze the elapsed time
+(0:40 / 3:14) while the bleed stayed. The module bar paints `--surface-2` over `--notch-black`
+itself, because the window behind it is transparent (it read as see-through over a light
+wallpaper before).
+
+**Observed, not a regression.** With the desktop focused, Explorer's
+`XamlExplorerHostIslandWindow` (a borderless `WS_POPUP` covering the monitor) trips the
+fullscreen heuristic and parks the notch; clicking any captioned window brings it back.
+Excluding Explorer's shell-host classes from `is_fullscreen` is a shell follow-up.
+
+**Deviations from the spec, deferred:**
+
+- Art is 96 px / radius 12 per this document; `docs/reference/ui-observations.md` records the
+  macOS reference at 72 px / 10. Revisit with the design review.
+- Visualiser styles are `bars` / `off` only; `spectrum` needs the WASAPI loopback capture
+  (M2-E3 or later), as do the volume slider and the output-device popover.
+- Lyrics drawer, hover-reveal transport on the strip, per-app strip filters and settings-search
+  indexing of the Media pane are not built.
+- The bleed is static shadows rather than a blurred copy of the art (see the dither finding).

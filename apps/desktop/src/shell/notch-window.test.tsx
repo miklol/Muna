@@ -217,10 +217,14 @@ const surfaceOf = (main: HTMLElement) => {
   };
 };
 
-const renderNotch = (panelBody?: ReactNode, modules?: readonly ModuleDefinition[]) => {
+/**
+ * Shell scenarios run without real modules (registered modules bring their own IPC and
+ * timers); the module-bar cases pass `fakeModules` explicitly.
+ */
+const renderNotch = (panelBody?: ReactNode, modules: readonly ModuleDefinition[] = []) => {
   render(
     <AppProviders>
-      <NotchWindow panelBody={panelBody} {...(modules === undefined ? {} : { modules })} />
+      <NotchWindow panelBody={panelBody} modules={modules} />
     </AppProviders>,
   );
   const main = screen.getByRole('main');

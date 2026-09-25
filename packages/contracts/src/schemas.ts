@@ -165,7 +165,12 @@ const batterySlot = z.object({ kind: z.literal('battery'), percent, charging: z.
 export const leadingSchema = z.discriminatedUnion('kind', [
   iconSlot,
   batterySlot,
-  z.object({ kind: z.literal('image'), src: z.string() }),
+  z.object({
+    kind: z.literal('image'),
+    src: z.string(),
+    /** Absent from older payloads; reads as `null` so consumers see one shape. */
+    glow: z.string().nullable().default(null),
+  }),
 ]) satisfies z.ZodType<Leading>;
 
 export const trailingSchema = z.discriminatedUnion('kind', [
@@ -244,4 +249,41 @@ export const defaultSettings = (): Settings => ({
   general: { launchAtLogin: false, reducedMotion: 'system', accent: 'blue', onboarded: false },
   shell: defaultShellSettings(),
   modules: {},
+});
+
+// --- module namespaces ---------------------------------------------------------------------
+// `settings.modules.<id>` is opaque JSON to the document; each module owns and validates its
+// own shape here (UI) and in `src-tauri/src/modules/<id>/settings.rs` (Rust), which must agree.
+
+/** The key of the media module's namespace; also its module id. */
+export const MEDIA_SETTINGS_KEY = 'media';
+
+export const visualiserSchema = z.enum(['bars', 'off']);
+export type Visualiser = z.infer<typeof visualiserSchema>;
+
+/** Mirrors `modules::media::MediaSettings`: every field has a default so a partial entry reads. */
+export const mediaSettingsSchema = z.object({
+  /** `sourceAppId` to show while it has a session; `null` follows the scoring ("Auto"). */
+  preferredApp: z.string().nullable().default(null),
+  /** Tint the strip halo and the panel gradient with the artwork palette. */
+  adaptiveColours: z.boolean().default(true),
+  visualiser: visualiserSchema.default('bars'),
+});
+export type MediaSettings = z.infer<typeof mediaSettingsSchema>;
+
+export const defaultMediaSettings = (): MediaSettings => mediaSettingsSchema.parse({});
+
+/**
+ * Reads the media namespace out of a settings document; a missing or malformed entry yields
+ * the defaults, like the Rust side, so the two never disagree about what the user gets.
+ */
+export const readMediaSettings = (settings: Settings): MediaSettings => {
+  const parsed = mediaSettingsSchema.safeParse(settings.modules[MEDIA_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultMediaSettings();
+};
+
+/** Returns a new document with the media namespace replaced. */
+export const writeMediaSettings = (settings: Settings, media: MediaSettings): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [MEDIA_SETTINGS_KEY]: media },
 });
