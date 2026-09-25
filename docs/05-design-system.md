@@ -185,6 +185,8 @@ module via specta.
 | Slider (HUD) | track 96 × 6, radius 3 |
 | Ring | stroke 8 (S: 6), gap between rings 4 |
 | Toggle | 36 × 20, knob 16 |
+| Checkbox | 20 circle; 1.5 px `--hairline-strong` ring off, accent fill with an `--on-accent` check on |
+| Text field | height 28, padding 0 8, radius 8, `--surface-1`; focused border `--hairline-strong` |
 | Segmented control | height 28, segment padding 0 12 |
 | Drop tile | 112 × 88, icon 24, label 12 |
 | Tooltip | height 24, padding 0 8, `#000 / .9`, radius 8, 11/500 |
@@ -244,7 +246,8 @@ a single cyan dot — `packages/ui/assets/mark.svg`.
 Primitives (`packages/ui`): `NotchSurface`, `Hairline`, `Text`, `IconButton`, `Button`
 (primary = accent fill on black, secondary = `--surface-2`, destructive = red text), `Chip`,
 `Card`, `ListRow`, `SegmentedControl`, `OptionTiles` (radio tiles with an illustration slot,
-for choices worth a picture), `Toggle`, `Slider`, `SearchField`, `ProgressTrack`, `Ring`,
+for choices worth a picture), `Toggle`, `Checkbox` (a circle; completes a task), `Slider`,
+`SearchField`, `TextField` (single line; `onSubmit` for quick entry), `ProgressTrack`, `Ring`,
 `Skeleton`, `EmptyState` (icon 24 `--text-3`, one sentence, one action), `ErrorState`,
 `PanelChrome` (header, rail, body, footer slots), `ModuleBar` (the pill row), `Tooltip`,
 `Popover`, `Menu`, `Kbd`, `Avatar`, `AppIcon` (rounded 6 at 20 px), `Marquee`.

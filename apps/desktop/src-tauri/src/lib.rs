@@ -107,20 +107,9 @@ pub fn run() {
                 shell.start(app.handle());
             }
             // Strip content flows hub → event; the module backends publish into the hub, and
-            // the media and HUD modules additionally report their state through typed events.
+            // the modules with a panel additionally report their state through typed events.
             activities::start(app.handle(), &state.activities);
-            state
-                .modules
-                .media
-                .set_sink(Arc::new(ipc::MediaEventSink::new(app.handle().clone())));
-            state
-                .modules
-                .hud
-                .set_sink(Arc::new(ipc::HudEventSink::new(app.handle().clone())));
-            state
-                .modules
-                .pomodoro
-                .set_sink(Arc::new(ipc::PomodoroEventSink::new(app.handle().clone())));
+            wire_module_sinks(app.handle(), &state.modules);
             let started = modules::start_all(&state.module_ctx(), &state.modules);
             tracing::info!(modules = ?started, "modules running");
             let settings = state.settings.lock().clone();
@@ -153,4 +142,20 @@ pub fn run() {
             }
             _ => {}
         });
+}
+
+/// Hands each module with a panel a typed-event sink so its state reaches the webviews.
+fn wire_module_sinks(app: &tauri::AppHandle, modules: &modules::ModuleServices) {
+    modules
+        .media
+        .set_sink(Arc::new(ipc::MediaEventSink::new(app.clone())));
+    modules
+        .hud
+        .set_sink(Arc::new(ipc::HudEventSink::new(app.clone())));
+    modules
+        .pomodoro
+        .set_sink(Arc::new(ipc::PomodoroEventSink::new(app.clone())));
+    modules
+        .todo
+        .set_sink(Arc::new(ipc::TodoEventSink::new(app.clone())));
 }

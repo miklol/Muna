@@ -11,14 +11,20 @@ import {
   POMODORO_SETTINGS_KEY,
   POMODORO_STRIP_IDS,
   STRIP_HEIGHT_PX,
+  TODO_BOUNDS,
+  TODO_INBOX_LIST_ID,
+  TODO_SETTINGS_KEY,
+  TODO_STRIP_IDS,
   defaultHudSettings,
   defaultMediaSettings,
   defaultPomodoroSettings,
   defaultSettings,
+  defaultTodoSettings,
   monitorLayoutSchema,
   readHudSettings,
   readMediaSettings,
   readPomodoroSettings,
+  readTodoSettings,
   settingsSchema,
   shellLayoutSchema,
   shellSettingsSchema,
@@ -26,6 +32,7 @@ import {
   writeHudSettings,
   writeMediaSettings,
   writePomodoroSettings,
+  writeTodoSettings,
 } from './schemas';
 
 describe('settings schema', () => {
@@ -129,6 +136,18 @@ describe('strip content schema', () => {
           trailing: null,
           wide: { kind: 'pomodoroFinished', phase: 'longBreak' },
           holdMs: 0,
+        },
+      },
+      {
+        kind: 'activity',
+        wide: false,
+        activity: {
+          id: 'todo:due',
+          module: 'todo',
+          priority: 55,
+          leading: { kind: 'icon', glyph: 'checkCircle', tint: 'blue' },
+          trailing: { kind: 'time', atMs: 1_790_000_000_000 },
+          wide: { kind: 'taskDue', title: 'Call Sam' },
         },
       },
       {
@@ -408,5 +427,67 @@ describe('pomodoro settings namespace', () => {
       activity: 'pomodoro:timer',
       finished: 'pomodoro:finished',
     });
+  });
+});
+
+describe('todo settings namespace', () => {
+  it('reads the defaults when the namespace is missing', () => {
+    expect(readTodoSettings(defaultSettings())).toEqual({
+      retentionDays: 30,
+      dueNotices: true,
+      showDueInStrip: true,
+    });
+    expect(defaultTodoSettings()).toEqual(readTodoSettings(defaultSettings()));
+  });
+
+  it('fills in missing keys, ignores unknown ones and clamps like the Rust side', () => {
+    const partial: Settings = {
+      ...defaultSettings(),
+      modules: { [TODO_SETTINGS_KEY]: { dueNotices: false, sync: 'graph' } },
+    };
+    expect(readTodoSettings(partial)).toEqual({ ...defaultTodoSettings(), dueNotices: false });
+    const outOfRange: Settings = {
+      ...defaultSettings(),
+      modules: { [TODO_SETTINGS_KEY]: { retentionDays: 0 } },
+    };
+    expect(readTodoSettings(outOfRange).retentionDays).toBe(TODO_BOUNDS.retentionDays.min);
+    const tooLong: Settings = {
+      ...defaultSettings(),
+      modules: { [TODO_SETTINGS_KEY]: { retentionDays: 10_000 } },
+    };
+    expect(readTodoSettings(tooLong).retentionDays).toBe(TODO_BOUNDS.retentionDays.max);
+  });
+
+  it('falls back to the defaults for a malformed namespace', () => {
+    const malformed: Settings = {
+      ...defaultSettings(),
+      modules: { [TODO_SETTINGS_KEY]: { retentionDays: 'forever', dueNotices: false } },
+    };
+    expect(readTodoSettings(malformed)).toEqual(defaultTodoSettings());
+    const notAnObject: Settings = {
+      ...defaultSettings(),
+      modules: { [TODO_SETTINGS_KEY]: 7 },
+    };
+    expect(readTodoSettings(notAnObject)).toEqual(defaultTodoSettings());
+  });
+
+  it('writes the namespace without touching the rest of the document', () => {
+    const before: Settings = { ...defaultSettings(), modules: { hud: { showLevelText: true } } };
+    const after = writeTodoSettings(before, {
+      retentionDays: 7,
+      dueNotices: false,
+      showDueInStrip: true,
+    });
+    expect(after.modules).toEqual({
+      hud: { showLevelText: true },
+      todo: { retentionDays: 7, dueNotices: false, showDueInStrip: true },
+    });
+    expect(before.modules).toEqual({ hud: { showLevelText: true } });
+    expect(settingsSchema.parse(after)).toEqual(after);
+  });
+
+  it('names the strip ids and the default list the Rust module uses', () => {
+    expect(TODO_STRIP_IDS).toEqual({ activity: 'todo:due', noticePrefix: 'todo:due:' });
+    expect(TODO_INBOX_LIST_ID).toBe('inbox');
   });
 });

@@ -3,12 +3,14 @@
  * primitive ships a Storybook story and a Vitest render test. M0-E4 landed the seven the shell
  * needs first; M1-E4 added the panel chrome, the module bar and the shared controls; M1-E2 the
  * strip's slot renderers; M1-E3 the search field; M1-E5 the option tiles; M2-E2 the media
- * pieces (album art, marquee, waveform); M2-E3 the HUD level track.
+ * pieces (album art, marquee, waveform); M2-E3 the HUD level track; M3-E2 the checkbox and
+ * text field.
  */
 export { AlbumArt, type AlbumArtProps, paletteVars } from './album-art';
 export { BatteryGlyph, type BatteryGlyphProps, batteryLevels, batteryTint } from './battery-glyph';
 export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
+export { Checkbox, type CheckboxProps } from './checkbox';
 export { Chip, type ChipProps, type SelectableChipProps, type StaticChipProps } from './chip';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ErrorState, type ErrorStateProps } from './error-state';
@@ -59,6 +61,7 @@ export {
   stripSlotOffsetPx,
 } from './strip-view';
 export { Text, type TextProps, type TextTone, type TextVariant } from './text';
+export { TextField, type TextFieldProps } from './text-field';
 export { formatCountdown, remainingNow, TimerText, type TimerTextProps } from './timer-text';
 export { Toggle, type ToggleProps } from './toggle';
 export {

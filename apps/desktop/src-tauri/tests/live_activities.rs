@@ -313,4 +313,9 @@ fn registry_lists_live_activities_with_strip_capability() {
         .find(|backend| backend.id() == "pomodoro")
         .expect("pomodoro is always registered");
     assert_eq!(pomodoro.capabilities(), &[Surface::Strip, Surface::Panel]);
+    let todo = all
+        .iter()
+        .find(|backend| backend.id() == "todo")
+        .expect("todo is always registered");
+    assert_eq!(todo.capabilities(), &[Surface::Strip, Surface::Panel]);
 }

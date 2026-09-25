@@ -150,6 +150,7 @@ export const glyphSchema = z.enum([
   'sun',
   'mic',
   'micMuted',
+  'checkCircle',
 ]) satisfies z.ZodType<Glyph>;
 
 export const tintSchema = z.enum([
@@ -196,6 +197,7 @@ export const trailingSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('progress'), percent }),
   z.object({ kind: z.literal('waveform'), playing: z.boolean() }),
   z.object({ kind: z.literal('level'), percent, muted: z.boolean() }),
+  z.object({ kind: z.literal('time'), atMs: z.number().int() }),
 ]) satisfies z.ZodType<Trailing>;
 
 export const pomodoroPhaseSchema = z.enum([
@@ -217,6 +219,7 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('nowPlaying'), title: z.string(), artist: z.string() }),
   z.object({ kind: z.literal('pomodoro'), phase: pomodoroPhaseSchema }),
   z.object({ kind: z.literal('pomodoroFinished'), phase: pomodoroPhaseSchema }),
+  z.object({ kind: z.literal('taskDue'), title: z.string() }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({
@@ -365,7 +368,7 @@ export const POMODORO_BOUNDS = {
   longBreakEvery: { min: 2, max: 8 },
 } as const;
 
-const minutes = (bounds: { min: number; max: number }, fallback: number) =>
+const clampedInt = (bounds: { min: number; max: number }, fallback: number) =>
   z
     .number()
     .int()
@@ -379,11 +382,11 @@ const minutes = (bounds: { min: number; max: number }, fallback: number) =>
  * the Rust side, so the two never disagree about what the user gets.
  */
 export const pomodoroSettingsSchema = z.object({
-  workMinutes: minutes(POMODORO_BOUNDS.workMinutes, 25),
-  shortBreakMinutes: minutes(POMODORO_BOUNDS.shortBreakMinutes, 5),
-  longBreakMinutes: minutes(POMODORO_BOUNDS.longBreakMinutes, 15),
+  workMinutes: clampedInt(POMODORO_BOUNDS.workMinutes, 25),
+  shortBreakMinutes: clampedInt(POMODORO_BOUNDS.shortBreakMinutes, 5),
+  longBreakMinutes: clampedInt(POMODORO_BOUNDS.longBreakMinutes, 15),
   /** Work phases per cycle; the break after the last one is the long one. */
-  longBreakEvery: minutes(POMODORO_BOUNDS.longBreakEvery, 4),
+  longBreakEvery: clampedInt(POMODORO_BOUNDS.longBreakEvery, 4),
   /** Start the next phase as soon as one runs out. */
   autoStartNext: z.boolean().default(false),
 });
@@ -410,4 +413,52 @@ export const writePomodoroSettings = (
 export const POMODORO_STRIP_IDS = {
   activity: 'pomodoro:timer',
   finished: 'pomodoro:finished',
+} as const;
+
+/** The key of the todo module's namespace; also its module id. */
+export const TODO_SETTINGS_KEY = 'todo';
+
+/** The list every profile has (mirrors `muna_core::INBOX_LIST_ID`); the UI localises its name. */
+export const TODO_INBOX_LIST_ID = 'inbox';
+
+/** Bounds the settings pane offers and the module clamps to (mirrors `modules::todo::settings`). */
+export const TODO_BOUNDS = {
+  retentionDays: { min: 1, max: 365 },
+} as const;
+
+/**
+ * Mirrors `modules::todo::TodoSettings`: defaults for missing fields, clamped ranges, and a
+ * wrong type fails the whole entry, like the Rust side.
+ */
+export const todoSettingsSchema = z.object({
+  /** How long a trashed task can be restored before it is purged. */
+  retentionDays: clampedInt(TODO_BOUNDS.retentionDays, 30),
+  /** Announce a task in the strip at its due time. */
+  dueNotices: z.boolean().default(true),
+  /** Show the next task due within the hour as a strip activity. */
+  showDueInStrip: z.boolean().default(true),
+});
+export type TodoSettings = z.infer<typeof todoSettingsSchema>;
+
+export const defaultTodoSettings = (): TodoSettings => todoSettingsSchema.parse({});
+
+/** Reads the todo namespace; a missing or malformed entry yields the defaults, like Rust. */
+export const readTodoSettings = (settings: Settings): TodoSettings => {
+  const parsed = todoSettingsSchema.safeParse(settings.modules[TODO_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultTodoSettings();
+};
+
+/** Returns a new document with the todo namespace replaced. */
+export const writeTodoSettings = (settings: Settings, todo: TodoSettings): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [TODO_SETTINGS_KEY]: todo },
+});
+
+/**
+ * The todo module's strip ids (docs/modules/todo.md "Contract"); a due notice is
+ * `todo:due:<taskId>`.
+ */
+export const TODO_STRIP_IDS = {
+  activity: 'todo:due',
+  noticePrefix: 'todo:due:',
 } as const;

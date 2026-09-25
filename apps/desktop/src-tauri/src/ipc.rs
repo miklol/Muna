@@ -21,6 +21,7 @@ use tauri_specta::{Builder, Event, collect_commands, collect_events};
 use crate::modules::hud::{HudSink, HudState};
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
 use crate::modules::pomodoro::{PomodoroCommand, PomodoroSink, PomodoroState};
+use crate::modules::todo::{TodoCommand, TodoError, TodoSink, TodoSnapshot};
 use crate::shell::manager::ShellManager;
 use crate::shell::model::ShellLayout;
 use crate::shell::yield_rules::YieldState;
@@ -59,6 +60,16 @@ impl From<SettingsError> for IpcError {
 impl From<StoreError> for IpcError {
     fn from(error: StoreError) -> Self {
         Self::new("store.sqlite", error)
+    }
+}
+
+impl From<TodoError> for IpcError {
+    fn from(error: TodoError) -> Self {
+        match error {
+            TodoError::Store(error) => error.into(),
+            TodoError::EmptyTitle => Self::new("todo.emptyTitle", error),
+            TodoError::EmptyName => Self::new("todo.emptyName", error),
+        }
     }
 }
 
@@ -296,6 +307,44 @@ impl PomodoroSink for PomodoroEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit PomodoroStateChanged");
+        }
+    }
+}
+
+/// The task list changed: a command ran, the trash was purged or a settings change moved the
+/// retention (docs/modules/todo.md). Carries the whole snapshot; a personal list is small.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct TodoChanged {
+    pub snapshot: TodoSnapshot,
+}
+
+/// Bridges the todo service to [`TodoChanged`].
+pub struct TodoEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for TodoEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TodoEventSink").finish_non_exhaustive()
+    }
+}
+
+impl TodoEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl TodoSink for TodoEventSink {
+    fn changed(&self, snapshot: &TodoSnapshot) {
+        if let Err(error) = (TodoChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit TodoChanged");
         }
     }
 }
@@ -724,6 +773,21 @@ fn pomodoro_command(state: State<'_, Shared>, command: PomodoroCommand) -> Pomod
     state.modules.pomodoro.command(command)
 }
 
+/// Every task list and task (a panel that just opened; afterwards it follows `TodoChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_todo_snapshot(state: State<'_, Shared>) -> Result<TodoSnapshot, IpcError> {
+    Ok(state.modules.todo.snapshot()?)
+}
+
+/// Adds, edits, completes, trashes, restores or reorders tasks and lists; returns the
+/// snapshot after the command. The strip follows through `StripContentChanged`.
+#[tauri::command]
+#[specta::specta]
+fn todo_command(state: State<'_, Shared>, command: TodoCommand) -> Result<TodoSnapshot, IpcError> {
+    Ok(state.modules.todo.command(command)?)
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -759,6 +823,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             hud_set_brightness,
             get_pomodoro_snapshot,
             pomodoro_command,
+            get_todo_snapshot,
+            todo_command,
             quit_app
         ])
         .events(collect_events![
@@ -772,7 +838,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             MediaStateChanged,
             MediaArtChanged,
             HudStateChanged,
-            PomodoroStateChanged
+            PomodoroStateChanged,
+            TodoChanged
         ])
 }
 

@@ -30,6 +30,18 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
   `AppointmentStore` only when packaged, read-only.
 - **M3-E2 To-do** — local SQLite first; optional Microsoft To Do via Graph. Quick-add from strip
   when Pinned.
+
+  **Progress.** Landed as one PR stacked on M3-E3 (#28), since it reuses the module wiring
+  that PR settled: `muna-core::tasks` (migration 3: `task_lists` + `tasks`, soft delete into a
+  retention-bound trash), the `TodoService` (commands, `Notify`-driven wake at the next due
+  boundary, purge on every evaluation, refresh on unlock), the `todo:due` strip activity and
+  `todo:due:<id>` notice, the contract (`get_todo_snapshot`, `todo_command`, `TodoChanged`),
+  the `Checkbox` and `TextField` primitives, the panel (quick-add with `chrono-node` date
+  parsing and a due preview, list segments, task rows, trash view) and the settings pane
+  ([todo → Implementation notes](../modules/todo.md#implementation-notes-m3-e2)). Sync, the
+  quick-add hotkey, notes, task rename and drag reorder are deferred and listed there. An
+  `i64` millisecond timestamp exports as a plain `number` through the `Int53` marker; the M0
+  IPC rule records the exception.
 - **M3-E3 Pomodoro** — replaces the M1 placeholder source; ring in strip; sounds via Web Audio;
   never auto-restart the app while a session runs.
 

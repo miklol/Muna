@@ -18,6 +18,8 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::wire::Int53;
+
 pub use hub::{Hub, StripSink, Waker};
 pub use scheduler::{ActivityState, Scheduler};
 
@@ -36,6 +38,9 @@ pub mod priority {
     pub const POMODORO: u8 = 70;
     pub const EVENT_STARTING: u8 = 65;
     pub const MEDIA_PLAYING: u8 = 60;
+    /// A task due within the hour (docs/modules/todo.md); under playing media so an hour of
+    /// lead time never hijacks the now-playing strip.
+    pub const TASK_DUE: u8 = 55;
     pub const UNREAD: u8 = 40;
     pub const SESSION: u8 = 30;
     pub const MEDIA_PAUSED: u8 = 20;
@@ -84,6 +89,8 @@ pub enum Glyph {
     Sun,
     Mic,
     MicMuted,
+    /// A task (docs/modules/todo.md): a circle with a check.
+    CheckCircle,
 }
 
 /// The leading (left) slot of the strip.
@@ -161,6 +168,12 @@ pub enum Trailing {
         percent: u8,
         muted: bool,
     },
+    /// A wall-clock instant (Unix milliseconds) the UI formats as a short time for the locale
+    /// (a task's due time, an event's start).
+    Time {
+        #[specta(type = Int53)]
+        at_ms: i64,
+    },
 }
 
 /// One line of text for the wide form. Built-in notices carry their *facts* rather than a
@@ -203,6 +216,12 @@ pub enum StripMessage {
     /// A pomodoro phase ran out (docs/modules/pomodoro.md).
     PomodoroFinished {
         phase: PomodoroPhase,
+    },
+    /// A task that is due soon or due now (docs/modules/todo.md); the title is content and is
+    /// never logged. As an activity the trailing slot carries the due time; as a notice it
+    /// announces the moment.
+    TaskDue {
+        title: String,
     },
 }
 

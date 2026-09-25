@@ -31,6 +31,36 @@ const MIGRATIONS: &[&str] = &[
         completed INTEGER NOT NULL
     );
     CREATE INDEX pomodoro_sessions_ended_at ON pomodoro_sessions (ended_at);",
+    // M3-E2: task lists and tasks (docs/modules/todo.md, "Data"). Times are Unix milliseconds;
+    // `due` is NULL for no due date; `all_day` marks a due date without a time; `deleted_at`
+    // is the trash (purged after the retention period); `remote_id`/`provider` wait for sync.
+    // The default list is `inbox` with a NULL name, which the UI localises.
+    "CREATE TABLE task_lists (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        sort_order INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE tasks (
+        id TEXT PRIMARY KEY,
+        list_id TEXT NOT NULL REFERENCES task_lists (id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        due INTEGER,
+        all_day INTEGER NOT NULL DEFAULT 0,
+        completed_at INTEGER,
+        deleted_at INTEGER,
+        sort_order INTEGER NOT NULL,
+        remote_id TEXT,
+        provider TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX tasks_list ON tasks (list_id, deleted_at, completed_at, sort_order);
+    CREATE INDEX tasks_due ON tasks (due) WHERE deleted_at IS NULL AND completed_at IS NULL;
+    INSERT INTO task_lists (id, name, sort_order, created_at, updated_at)
+        VALUES ('inbox', NULL, 0, 0, 0);",
 ];
 
 /// One pomodoro phase that ran, as logged by the module. Times are Unix milliseconds.
@@ -50,6 +80,11 @@ pub struct Store {
 }
 
 impl Store {
+    /// The connection, for the per-domain `impl Store` blocks in sibling modules.
+    pub(crate) fn connection(&self) -> parking_lot::MutexGuard<'_, Connection> {
+        self.conn.lock()
+    }
+
     pub fn open(path: &Path) -> Result<Self, StoreError> {
         Self::init(Connection::open(path)?)
     }
