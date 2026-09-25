@@ -47,7 +47,8 @@ Brightness HUD"; Notch for Windows "Redesigned HUD").
 ## Contract
 
 - Strip: notices `hud:volume`, `hud:mic`, `hud:brightness` at `priority::HUD` (100), hold
-  1 200 ms, no text. Leading glyph `volume` / `volumeLow` / `volumeMedium` / `volumeHigh`
+  1.5 s ([motion spec timing table](../06-motion-spec.md#timings-non-spring)), no text. Leading
+  glyph `volume` / `volumeLow` / `volumeMedium` / `volumeHigh`
   (waves in thirds) or `volumeMuted`; `sun`; `mic` / `micMuted`. Trailing `level { percent,
   muted }` for volume and brightness; the mic notice is glyph-only.
 - Commands: `get_hud_snapshot`, `hud_set_volume(percent)`, `hud_nudge_volume(delta)` (clamped,
@@ -60,7 +61,8 @@ Brightness HUD"; Notch for Windows "Redesigned HUD").
 
 Strip trailing slot becomes a 96 px track with a white fill and a leading glyph (speaker with
 0–3 waves, mute slash, sun for brightness, mic). Level text optional. Appears with a spring
-scale-in, fades 1 200 ms after the last change.
+scale-in, fades 1.5 s after the last change (the motion spec's timing table is canonical; an
+earlier draft here said 1 200 ms).
 
 ## Acceptance criteria
 

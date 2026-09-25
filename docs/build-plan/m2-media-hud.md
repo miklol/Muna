@@ -57,8 +57,8 @@ playing". Storybook stories for all states; Vitest for scrub math and marquee ga
 brightness with the capability probe, flyout keeper and `--watchdog` process, the `hud` module
 with its six commands and `HudStateChanged` event, glyph and `level` vocabulary in the strip
 (see [hud → Implementation notes (M2-E3 PR A)](../modules/hud.md#implementation-notes-m2-e3-pr-a)).
-The hold is the spec's 1 200 ms (the "1.5 s" below was the placeholder). PR B (strip
-`LevelTrack`, scroll-on-strip, HUD settings pane, QA checklist and recordings) follows.
+The hold is the motion spec's 1.5 s; the module spec's earlier 1 200 ms was corrected. PR B
+(strip `LevelTrack`, scroll-on-strip, HUD settings pane, QA checklist and recordings) follows.
 
 ```text
 Implement docs/modules/hud.md. Read docs/04-windows-platform-apis.md#hud-volume-brightness-

@@ -7,9 +7,9 @@ use muna_platform::{BrightnessMonitor, OsdState};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-/// How long a HUD notice holds the strip after the last change (docs/modules/hud.md,
-/// "Visual": fades 1 200 ms after the last change).
-pub const HUD_HOLD_MS: u32 = 1200;
+/// How long a HUD notice holds the strip after the last change (docs/06-motion-spec.md timing
+/// table, "HUD linger after last change": 1.5 s).
+pub const HUD_HOLD_MS: u32 = 1500;
 
 pub const VOLUME_NOTICE_ID: &str = "hud:volume";
 pub const MIC_NOTICE_ID: &str = "hud:mic";
