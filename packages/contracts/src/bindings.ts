@@ -263,6 +263,24 @@ export const commands = {
 	 *  module itself read from the feed are opened; `calendar.noLink` when the event has none.
 	 */
 	calendarOpen: (eventId: string) => typedError<null, IpcError>(__TAURI_INVOKE("calendar_open", { eventId })),
+	/**
+	 *  The Action Center as the module now sees it (a panel that just opened; afterwards it
+	 *  follows `NotificationsChanged`).
+	 */
+	getNotificationsSnapshot: () => __TAURI_INVOKE<NotificationsSnapshot>("get_notifications_snapshot"),
+	/**
+	 *  Asks for access, marks read, dismisses, clears or opens, and returns the snapshot as it
+	 *  stands afterwards. Every listener call blocks (the consent prompt for as long as the user
+	 *  takes), so it runs on a blocking thread. A notification that has gone or a sender Windows
+	 *  cannot launch surfaces as `platform.notFound`, which the panel reports in place.
+	 */
+	notificationsCommand: (command: NotificationsCommand) => typedError<NotificationsSnapshot, IpcError>(__TAURI_INVOKE("notifications_command", { command })),
+	/**
+	 *  Opens one of the Windows Settings pages the panel points at: notification privacy (where
+	 *  access is granted or withdrawn) or focus (Focus Assist / Do not disturb). A closed list, so
+	 *  the webview cannot ask for an arbitrary URI.
+	 */
+	notificationsOpenSettings: (page: NotificationsSettingsPage) => typedError<null, IpcError>(__TAURI_INVOKE("notifications_open_settings", { page })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -275,6 +293,7 @@ export const events = {
 	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
 	mediaStateChanged: makeEvent<MediaStateChanged>("media-state-changed"),
 	morphRequested: makeEvent<MorphRequested>("morph-requested"),
+	notificationsChanged: makeEvent<NotificationsChanged>("notifications-changed"),
 	pomodoroStateChanged: makeEvent<PomodoroStateChanged>("pomodoro-state-changed"),
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
 	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
@@ -288,6 +307,15 @@ export const events = {
 };
 
 /* Types */
+/**  Whether Muna may read the Action Center, as the panel states it. */
+export type AccessState = "allowed" | 
+/**  The user said no in Settings → Privacy → Notifications; the panel offers that page. */
+"denied" | 
+/**  Never asked; the panel offers *Allow*, which shows the consent prompt. */
+"unspecified" | 
+/**  This Windows has no listener at all. */
+"unavailable";
+
 /**  Long-lived strip content owned by a module (`id` is `<module>:<key>`). */
 export type Activity = {
 	id: string,
@@ -788,6 +816,89 @@ export type Notice = {
 	holdMs: number,
 };
 
+/**  How changes to the Action Center reach the module (ADR-0003 and its M0-E3 amendment). */
+export type NotificationDelivery = 
+/**
+ *  `NotificationChanged` is subscribed: [`crate::PlatformEvent::NotificationsChanged`]
+ *  arrives within milliseconds. Needs package identity.
+ */
+"push" | 
+/**
+ *  The subscription is not available in this process (`0x80070490` without identity); the
+ *  module asks for the list once a second instead.
+ */
+"polling";
+
+export type NotificationGroup = {
+	appId: string,
+	appName: string,
+	/**  The sender's logo as a data URL; `None` when Windows has none for it. */
+	logo: string | null,
+	muted: boolean,
+	/**  Newest first. */
+	notifications: NotificationView[],
+};
+
+export type NotificationView = {
+	id: number,
+	appId: string,
+	title: string,
+	body: string,
+	createdAtMs: number,
+	unread: boolean,
+};
+
+/**
+ *  The Action Center as the module now sees it (docs/modules/notifications.md): after a
+ *  listener change, a poll that found a difference, a command, a focus change or a settings
+ *  change that mutes or unmutes a sender.
+ */
+export type NotificationsChanged = {
+	snapshot: NotificationsSnapshot,
+};
+
+/**
+ *  What the panel can ask for. Muting a sender is a setting (`mutedApps`), written through the
+ *  settings editor like any other.
+ */
+export type NotificationsCommand = 
+/**  Shows the consent prompt (or, once answered, re-reads the answer). */
+{ kind: "requestAccess" } | 
+/**  Re-reads the Action Center now. */
+{ kind: "refresh" } | 
+/**  Everything listed counts as read (the panel expanded). */
+{ kind: "markRead" } | 
+/**  Removes one notification from the Action Center too. */
+{ kind: "dismiss"; id: number } | 
+/**  Removes every notification of one sender from the Action Center too. */
+{ kind: "dismissApp"; appId: string } | 
+/**  Empties the Action Center. */
+{ kind: "clear" } | 
+/**
+ *  Brings the sender to the front and removes the notification, as Windows does when a
+ *  toast is activated.
+ */
+{ kind: "open"; id: number };
+
+/**  The Windows Settings pages [`notifications_open_settings`] can open. */
+export type NotificationsSettingsPage = "privacy" | "focus";
+
+/**  What the panel and the settings pane show. */
+export type NotificationsSnapshot = {
+	access: AccessState,
+	/**
+	 *  How changes arrive once access is allowed: `Push` with package identity, `Polling`
+	 *  without; `None` until the first watch (or while access is not allowed).
+	 */
+	delivery: NotificationDelivery | null,
+	/**  A Windows focus session is on (`None` before Windows 11 22H2). */
+	focusActive: boolean | null,
+	/**  Unread notifications from unmuted senders. */
+	unread: number,
+	/**  Newest sender first (by its latest notification). */
+	groups: NotificationGroup[],
+};
+
 /**
  *  Whether the shell's own volume/brightness flyout is showing or hidden by Muna
  *  (docs/modules/hud.md "Suppress native flyout").
@@ -1084,7 +1195,13 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
  *  is content and is never logged. As an activity the trailing slot carries the start
  *  time; as a notice it announces the ten-minute mark.
  */
-{ kind: "eventStarting"; title: string };
+{ kind: "eventStarting"; title: string } | 
+/**
+ *  A notification that just arrived, or the latest unread one (docs/modules/
+ *  notifications.md); both fields are content and never logged. The UI lays them out as
+ *  sender and title.
+ */
+{ kind: "notification"; app: string; title: string };
 
 export type SystemMonitorBattery = {
 	percent: number,
@@ -1254,7 +1371,9 @@ export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
  *  A wall-clock instant (Unix milliseconds) the UI formats as a short time for the locale
  *  (a task's due time, an event's start).
  */
-{ kind: "time"; atMs: number };
+{ kind: "time"; atMs: number } | 
+/**  A small whole number the UI formats for the locale (unread notifications). */
+{ kind: "count"; value: number };
 
 /**  How temperatures and wind speeds read; the forecast itself is always metric. */
 export type Units = 

@@ -190,6 +190,10 @@ pub enum Trailing {
         #[specta(type = Int53)]
         at_ms: i64,
     },
+    /// A small whole number the UI formats for the locale (unread notifications).
+    Count {
+        value: u32,
+    },
 }
 
 /// One line of text for the wide form. Built-in notices carry their *facts* rather than a
@@ -249,6 +253,13 @@ pub enum StripMessage {
     /// is content and is never logged. As an activity the trailing slot carries the start
     /// time; as a notice it announces the ten-minute mark.
     EventStarting {
+        title: String,
+    },
+    /// A notification that just arrived, or the latest unread one (docs/modules/
+    /// notifications.md); both fields are content and never logged. The UI lays them out as
+    /// sender and title.
+    Notification {
+        app: String,
         title: String,
     },
 }

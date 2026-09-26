@@ -1,9 +1,9 @@
 //! Real Windows implementation. M0 wires the services the notch shell needs (power, monitors,
 //! foreground tracking and window affinities, ADR-0002); M1 adds paired Bluetooth devices for
 //! the live-activities strip; M2 adds System Media Transport Controls sessions; M3 adds
-//! Bluetooth connect, disconnect and the radio toggle, and the device position for weather;
-//! every other service reports [`PlatformError::Unsupported`] until its module milestone lands
-//! (docs/07-roadmap.md).
+//! Bluetooth connect, disconnect and the radio toggle, the device position for weather, the
+//! Credential Manager and the Action Center listener; every other service reports
+//! [`PlatformError::Unsupported`] until its module milestone lands (docs/07-roadmap.md).
 //!
 //! Every Win32 call in this module checks its result and every `unsafe` block carries a
 //! `// SAFETY:` comment (repository rule).
@@ -19,6 +19,7 @@ pub mod identity;
 mod location;
 mod media;
 mod monitors;
+mod notifications;
 mod power;
 mod pump;
 mod radio;
@@ -26,6 +27,7 @@ mod system_stats;
 pub mod undocumented;
 pub mod webview;
 mod window;
+mod winrt;
 
 use tokio::sync::broadcast;
 use tracing::warn;
@@ -37,12 +39,13 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
-    Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
     BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
-    OsdState, Rect, SystemSample, Thumbnail, UserNotificationState, WindowHandle,
+    Notification, NotificationAccess, NotificationDelivery, OsdState, Rect, SystemSample,
+    Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -83,6 +86,8 @@ pub struct WindowsPlatform {
     app_bars: app_bar::AppBars,
     /// Lazy: opens its counters on the first sample.
     system_stats: system_stats::Sampler,
+    /// Lazy: subscribes on the module's first `watch`.
+    notifications: notifications::Listener,
 }
 
 impl Default for WindowsPlatform {
@@ -139,6 +144,7 @@ impl WindowsPlatform {
         };
         Self {
             radio: radio::RadioWatch::new(events.clone()),
+            notifications: notifications::Listener::new(events.clone()),
             events,
             _pump: pump,
             bluetooth,
@@ -322,6 +328,44 @@ impl Secrets for WindowsPlatform {
     }
 }
 
+impl Notifications for WindowsPlatform {
+    fn access(&self) -> PlatformResult<NotificationAccess> {
+        notifications::access()
+    }
+
+    fn request_access(&self) -> PlatformResult<NotificationAccess> {
+        notifications::request_access()
+    }
+
+    fn list(&self) -> PlatformResult<Vec<Notification>> {
+        self.notifications.list()
+    }
+
+    fn remove(&self, id: u32) -> PlatformResult<()> {
+        notifications::remove(id)
+    }
+
+    fn clear(&self) -> PlatformResult<()> {
+        notifications::clear()
+    }
+
+    fn watch(&self) -> PlatformResult<NotificationDelivery> {
+        self.notifications.watch()
+    }
+
+    fn app_logo(&self, app_id: &str) -> PlatformResult<Option<Thumbnail>> {
+        notifications::app_logo(app_id)
+    }
+
+    fn focus_active(&self) -> Option<bool> {
+        self.notifications.focus_active()
+    }
+
+    fn open_app(&self, app_id: &str) -> PlatformResult<()> {
+        notifications::open_app(app_id)
+    }
+}
+
 impl Monitors for WindowsPlatform {
     fn all(&self) -> PlatformResult<Vec<MonitorInfo>> {
         monitors::enumerate()
@@ -448,6 +492,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn secrets(&self) -> &dyn Secrets {
+        self
+    }
+
+    fn notifications(&self) -> &dyn Notifications {
         self
     }
 

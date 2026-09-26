@@ -484,6 +484,73 @@ impl UserNotificationState {
         }
         true
     }
+
+    /// `true` when the shell says the user should not be interrupted: a fullscreen app, a
+    /// presentation, or quiet hours (docs/modules/notifications.md, "respecting Focus Assist").
+    /// A strip notice for an arriving notification is held back in these states.
+    #[must_use]
+    pub const fn quiet(self) -> bool {
+        matches!(
+            self,
+            Self::Busy | Self::FullscreenD3d | Self::Presentation | Self::QuietTime
+        )
+    }
+}
+
+/// One toast in the Action Center as `UserNotificationListener` lists it
+/// (docs/modules/notifications.md). `title` and `body` are content: they are never logged,
+/// and `Debug` prints their lengths only.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Notification {
+    /// `UserNotification.Id`, unique for the session and increasing.
+    pub id: u32,
+    /// The sender's `AppUserModelId` (`Microsoft.WindowsStore_8wekyb3d8bbwe!App`, or a
+    /// path-shaped id for a desktop app); groups notifications and opens the app.
+    pub app_id: String,
+    /// `AppInfo.DisplayInfo.DisplayName`.
+    pub app_name: String,
+    /// The first text element of the `ToastGeneric` binding; empty when the toast has none.
+    pub title: String,
+    /// The remaining text elements, joined with newlines.
+    pub body: String,
+    /// `UserNotification.CreationTime` as Unix milliseconds.
+    pub created_at_ms: i64,
+}
+
+impl std::fmt::Debug for Notification {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Notification")
+            .field("id", &self.id)
+            .field("app_id", &self.app_id)
+            .field("app_name", &self.app_name)
+            .field("title_len", &self.title.len())
+            .field("body_len", &self.body.len())
+            .field("created_at_ms", &self.created_at_ms)
+            .finish()
+    }
+}
+
+/// `UserNotificationListenerAccessStatus`: whether Muna may read the Action Center.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationAccess {
+    Allowed,
+    /// The user said no (Settings → Privacy → Notifications); only they can change it.
+    Denied,
+    /// Never asked; `request_access` shows the consent prompt.
+    Unspecified,
+}
+
+/// How changes to the Action Center reach the module (ADR-0003 and its M0-E3 amendment).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationDelivery {
+    /// `NotificationChanged` is subscribed: [`crate::PlatformEvent::NotificationsChanged`]
+    /// arrives within milliseconds. Needs package identity.
+    Push,
+    /// The subscription is not available in this process (`0x80070490` without identity); the
+    /// module asks for the list once a second instead.
+    Polling,
 }
 
 #[cfg(test)]
