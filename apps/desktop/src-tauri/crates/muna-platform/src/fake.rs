@@ -104,6 +104,9 @@ pub enum PlacementCall {
 struct ForeignWindow {
     frame: Rect,
     snappable: bool,
+    /// Placement requests are recorded but leave the frame where it is (a window Aero Snap
+    /// keeps re-maximising, or one that resizes itself after a DPI change).
+    stuck: bool,
 }
 
 /// Scripted mouse state: where the cursor is and whether a button is held.
@@ -562,10 +565,26 @@ impl FakePlatform {
     /// Scripts another application's window for [`WindowPlacement`]: `frame` is its visible
     /// frame in physical screen pixels, `snappable` whether the eligibility filter passes it.
     pub fn set_foreign_window(&self, window: WindowHandle, frame: Rect, snappable: bool) {
-        self.state
-            .lock()
-            .foreign_windows
-            .insert(window, ForeignWindow { frame, snappable });
+        self.state.lock().foreign_windows.insert(
+            window,
+            ForeignWindow {
+                frame,
+                snappable,
+                stuck: false,
+            },
+        );
+    }
+
+    /// Scripts a foreign window to ignore placement requests while `stuck` (they are still
+    /// recorded); `false` for an unknown window.
+    pub fn set_foreign_window_stuck(&self, window: WindowHandle, stuck: bool) -> bool {
+        match self.state.lock().foreign_windows.get_mut(&window) {
+            Some(foreign) => {
+                foreign.stuck = stuck;
+                true
+            }
+            None => false,
+        }
     }
 
     /// Scripts every placement request to fail with `error` (`None` restores success).
@@ -1389,7 +1408,9 @@ impl WindowPlacement for FakePlatform {
         let Some(foreign) = state.foreign_windows.get_mut(&window) else {
             return Err(PlatformError::NotFound(format!("window {window}")));
         };
-        foreign.frame = target;
+        if !foreign.stuck {
+            foreign.frame = target;
+        }
         Ok(())
     }
 
@@ -1404,7 +1425,9 @@ impl WindowPlacement for FakePlatform {
         let Some(foreign) = state.foreign_windows.get_mut(&window) else {
             return Err(PlatformError::NotFound(format!("window {window}")));
         };
-        foreign.frame = work_area;
+        if !foreign.stuck {
+            foreign.frame = work_area;
+        }
         Ok(())
     }
 }

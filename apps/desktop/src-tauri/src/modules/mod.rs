@@ -23,6 +23,7 @@ pub mod shelf;
 pub mod system_monitor;
 pub mod todo;
 pub mod weather;
+pub mod window_snap;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -93,6 +94,7 @@ pub struct ModuleServices {
     pub keyboard_shortcuts: Arc<keyboard_shortcuts::HotkeyService>,
     pub drop_actions: Arc<drop_actions::DropActionsService>,
     pub shelf: Arc<shelf::ShelfService>,
+    pub window_snap: Arc<window_snap::WindowSnapService>,
 }
 
 impl ModuleServices {
@@ -170,6 +172,7 @@ impl ModuleServices {
             keyboard_shortcuts: Arc::new(keyboard_shortcuts::HotkeyService::new()),
             drop_actions,
             shelf,
+            window_snap: Arc::new(window_snap::WindowSnapService::new(Arc::clone(platform))),
         }
     }
 }
@@ -206,6 +209,9 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
             &services.drop_actions,
         ))),
         Box::new(shelf::ShelfModule(Arc::clone(&services.shelf))),
+        Box::new(window_snap::WindowSnapModule(Arc::clone(
+            &services.window_snap,
+        ))),
     ]
 }
 

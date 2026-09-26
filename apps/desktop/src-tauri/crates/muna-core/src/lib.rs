@@ -12,6 +12,7 @@ pub mod drops;
 pub mod settings;
 pub mod shelf;
 pub mod shell_settings;
+pub mod snap;
 pub mod store;
 pub mod tasks;
 pub mod wire;
@@ -28,6 +29,7 @@ pub use settings::{
 };
 pub use shelf::{NewShelfItem, ShelfIntake, ShelfIntakeError, ShelfItemKind, ShelfRecord};
 pub use shell_settings::{MonitorLayout, NotchShape, PlacementMode, ShellSettings, StripHeight};
+pub use snap::{SnapSession, SnapSessionId, SnapSessions, SnapWindow};
 pub use store::{PomodoroSessionRecord, Store, StoreError};
 pub use tasks::{Due, INBOX_LIST_ID, NewTask, Task, TaskList, TaskPatch};
 pub use wire::{Finite, Int53};
