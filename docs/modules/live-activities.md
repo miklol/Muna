@@ -24,7 +24,7 @@ the shell maps each fact to a renderer and builds the screen-reader description 
 
 ```ts
 type Glyph = 'battery' | 'batteryCharging' | 'bluetooth' | 'headphones' | 'lock' | 'unlock'
-  | 'timer' | 'bell' | 'music' | 'moon';
+  | 'timer' | 'bell' | 'music' | 'moon' | 'hourglass' | /* … */ 'cpu';
 type Leading =
   | { kind: 'icon'; glyph: Glyph; tint: Tint | null }
   | { kind: 'battery'; percent: number; charging: boolean }
@@ -78,7 +78,8 @@ Scheduler (`muna-core::activities::Scheduler`, driven through `Hub`):
 
 Default priorities (`muna-core::activities::priority`): HUD 100 · charging/battery 90 ·
 Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media playing 60 · Task due
-≤ 60 min 55 · Unread notifications 40 · Session lock 30 · Media paused 20 · CPU gauge 10.
+≤ 60 min 55 · Unread notifications 40 · Session lock 30 · Media paused 20 · CPU gauge 10 ·
+Day bar 5.
 
 ## Built-in notices (Windows sources)
 
@@ -126,6 +127,11 @@ Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media pla
   up to 15 minutes past the due time, and raises a `todo:due:<task id>` notice at the due time
   ([todo → Implementation notes](todo.md#implementation-notes-m3-e2)). All-day tasks never
   reach the strip.
+- The Day progress module publishes `day-progress:bar` (hourglass glyph, the share of the
+  working day gone in the trailing progress slot, no wide form) during working hours when
+  *Show the day bar in the strip* is on — off by default, and the lowest priority of all, so
+  any other activity takes the strip over
+  ([day progress → Implementation notes](day-progress.md#implementation-notes-m3-e6)).
 
 ## Settings (pane: Live Activities)
 

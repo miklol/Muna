@@ -153,6 +153,7 @@ export const glyphSchema = z.enum([
   'micMuted',
   'checkCircle',
   'cpu',
+  'hourglass',
 ]) satisfies z.ZodType<Glyph>;
 
 export const tintSchema = z.enum([
@@ -613,3 +614,89 @@ export const writeWeatherSettings = (settings: Settings, weather: WeatherSetting
  * `modules::weather::REFRESH`), so a panel can say how old a forecast is allowed to be.
  */
 export const WEATHER_REFRESH_MS = 15 * 60 * 1000;
+
+/** The key of the day-progress module's namespace; also its module id. */
+export const DAY_PROGRESS_SETTINGS_KEY = 'day-progress';
+
+/**
+ * Bounds of the module's times of day, in minutes since local midnight (mirrors
+ * `modules::day_progress::settings`): the last minute a time may name, the shortest working
+ * day, and the step the settings pane offers.
+ */
+export const DAY_PROGRESS_BOUNDS = {
+  minuteOfDay: { min: 0, max: 24 * 60 - 1 },
+  minWorkingMinutes: 15,
+  stepMinutes: 15,
+} as const;
+
+const minuteOfDay = (fallback: number) => clampedInt(DAY_PROGRESS_BOUNDS.minuteOfDay, fallback);
+
+/**
+ * Mirrors `modules::day_progress::DayProgressSettings`: defaults for missing fields, times
+ * clamped into the day, a working day that always ends after it starts (a backwards window is
+ * repaired the way Rust repairs it), and a wrong type fails the whole entry.
+ */
+export const dayProgressSettingsSchema = z
+  .object({
+    /** When the working day starts, minutes since local midnight (09:00). */
+    workStartMinutes: minuteOfDay(9 * 60),
+    /** When the working day ends, minutes since local midnight (18:00). */
+    workEndMinutes: minuteOfDay(18 * 60),
+    /** An optional bedtime marker at the end of the timeline. */
+    bedtimeMinutes: z
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .default(null)
+      .transform((value) =>
+        value === null ? null : Math.min(DAY_PROGRESS_BOUNDS.minuteOfDay.max, value),
+      ),
+    /** Keep a progress bar of the working day in the collapsed strip. */
+    showDayInStrip: z.boolean().default(false),
+    /** Whether tasks with a due time today appear on the timeline. */
+    showTasks: z.boolean().default(true),
+    /** Whether the running focus session and today's count appear on the timeline. */
+    showFocusSessions: z.boolean().default(true),
+  })
+  .transform((value) => {
+    const minWork = DAY_PROGRESS_BOUNDS.minWorkingMinutes;
+    const lastMinute = DAY_PROGRESS_BOUNDS.minuteOfDay.max;
+    if (value.workEndMinutes >= value.workStartMinutes + minWork) return value;
+    if (value.workStartMinutes + minWork <= lastMinute) {
+      return { ...value, workEndMinutes: value.workStartMinutes + minWork };
+    }
+    return { ...value, workStartMinutes: 9 * 60, workEndMinutes: 18 * 60 };
+  });
+export type DayProgressSettings = z.infer<typeof dayProgressSettingsSchema>;
+
+export const defaultDayProgressSettings = (): DayProgressSettings =>
+  dayProgressSettingsSchema.parse({});
+
+/** Reads the day-progress namespace; a missing or malformed entry yields the defaults. */
+export const readDayProgressSettings = (settings: Settings): DayProgressSettings => {
+  const parsed = dayProgressSettingsSchema.safeParse(
+    settings.modules[DAY_PROGRESS_SETTINGS_KEY] ?? {},
+  );
+  return parsed.success ? parsed.data : defaultDayProgressSettings();
+};
+
+/** Returns a new document with the day-progress namespace replaced. */
+export const writeDayProgressSettings = (
+  settings: Settings,
+  dayProgress: DayProgressSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [DAY_PROGRESS_SETTINGS_KEY]: dayProgress },
+});
+
+/** The day-progress module's strip ids (docs/modules/day-progress.md "Contract"). */
+export const DAY_PROGRESS_STRIP_IDS = {
+  bar: 'day-progress:bar',
+} as const;
+
+/**
+ * The shortest free stretch of the working day the timeline points out, in minutes
+ * (docs/modules/day-progress.md "Data": gap detection ≥ 90 min).
+ */
+export const DAY_PROGRESS_GAP_MINUTES = 90;

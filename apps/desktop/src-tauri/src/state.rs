@@ -139,6 +139,7 @@ impl AppState {
         self.modules.system_monitor.apply_settings(settings);
         self.modules.bluetooth.apply_settings(settings);
         self.modules.weather.apply_settings(settings);
+        self.modules.day_progress.apply_settings(settings);
     }
 
     /// Releases what the modules hold on the OS (the hidden system flyout) on a clean exit.

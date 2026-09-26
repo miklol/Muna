@@ -71,7 +71,8 @@
       "mic": "Microphone on",
       "micMuted": "Microphone muted",
       "checkCircle": "Task",
-      "cpu": "Processor"
+      "cpu": "Processor",
+      "hourglass": "Working day"
     }
   },
   "spike": {
@@ -402,6 +403,63 @@
       "units": "Units",
       "metric": "°C, km/h",
       "imperial": "°F, mph"
+    }
+  },
+  "dayProgress": {
+    "title": "Day",
+    "today": "Today",
+    "stats": "Today at a glance",
+    "completion": "Completed",
+    "completionValue": "{{done}} of {{total}}",
+    "completionNone": "No timed tasks yet",
+    "completionLabel": "Tasks completed today",
+    "workingDay": "Working day",
+    "workingDayLabel": "Share of the working day that has passed",
+    "workingDayValue": "{{percent}} over",
+    "startsAt": "Starts at {{time}}",
+    "over": "Over for today",
+    "tasks_one": "{{count}} task due",
+    "tasks_other": "{{count}} tasks due",
+    "focusSessions_one": "{{count}} focus session",
+    "focusSessions_other": "{{count}} focus sessions",
+    "bedtime": "Bedtime",
+    "bedtimeUnset": "Not set",
+    "timeline": "Timeline",
+    "now": "Now",
+    "focus": "Focus",
+    "focusPaused": "Focus, paused",
+    "focusUntil": "until {{time}}",
+    "taskDone": "Done",
+    "taskOpen": "Due",
+    "gap": "Long stretch — {{duration}} free",
+    "gapBody": "Nothing planned between {{start}} and {{end}}.",
+    "addTask": "Add a task",
+    "empty": {
+      "title": "Nothing on the timeline yet",
+      "body": "Give a task a due time today, or start a focus session, and it shows up here."
+    },
+    "duration": {
+      "hours": "{{count}} h",
+      "minutes": "{{count}} min",
+      "hoursMinutes": "{{hours}} h {{minutes}} min"
+    },
+    "settings": {
+      "hours": "Working hours",
+      "hoursBody": "The stretch the day bar and the free-time hint cover.",
+      "start": "Start",
+      "end": "End",
+      "bedtime": "Bedtime",
+      "showBedtime": "Show a bedtime marker",
+      "showBedtimeBody": "Ends the timeline with a bedtime of your choosing.",
+      "bedtimeAt": "Bedtime",
+      "strip": "Strip",
+      "showDayInStrip": "Show the day bar in the strip",
+      "showDayInStripBody": "A small bar of the working day in the collapsed strip, during working hours only.",
+      "sources": "Timeline",
+      "showTasks": "Tasks due today",
+      "showTasksBody": "Tasks with a due time today, from the to-do module.",
+      "showFocusSessions": "Focus sessions",
+      "showFocusSessionsBody": "The running pomodoro phase and today's count."
     }
   },
   "settings": {

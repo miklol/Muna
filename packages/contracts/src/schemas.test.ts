@@ -3,6 +3,10 @@ import type { z } from 'zod';
 
 import type { Settings, ShellLayout, StripContent } from './bindings';
 import {
+  DAY_PROGRESS_BOUNDS,
+  DAY_PROGRESS_GAP_MINUTES,
+  DAY_PROGRESS_SETTINGS_KEY,
+  DAY_PROGRESS_STRIP_IDS,
   HUD_NOTICE_IDS,
   HUD_SETTINGS_KEY,
   HUD_VOLUME_STEP,
@@ -21,6 +25,7 @@ import {
   TODO_STRIP_IDS,
   WEATHER_REFRESH_MS,
   WEATHER_SETTINGS_KEY,
+  defaultDayProgressSettings,
   defaultHudSettings,
   defaultMediaSettings,
   defaultPomodoroSettings,
@@ -29,6 +34,7 @@ import {
   defaultTodoSettings,
   defaultWeatherSettings,
   monitorLayoutSchema,
+  readDayProgressSettings,
   readHudSettings,
   readMediaSettings,
   readPomodoroSettings,
@@ -39,6 +45,7 @@ import {
   shellLayoutSchema,
   shellSettingsSchema,
   stripContentSchema,
+  writeDayProgressSettings,
   writeHudSettings,
   writeMediaSettings,
   writePomodoroSettings,
@@ -658,5 +665,92 @@ describe('weather settings namespace', () => {
 
   it('names the refresh period the Rust module uses', () => {
     expect(WEATHER_REFRESH_MS).toBe(900_000);
+  });
+});
+
+describe('day progress settings namespace', () => {
+  it('is a nine-to-six day with the bar off when the namespace is missing', () => {
+    expect(readDayProgressSettings(defaultSettings())).toEqual({
+      workStartMinutes: 540,
+      workEndMinutes: 1080,
+      bedtimeMinutes: null,
+      showDayInStrip: false,
+      showTasks: true,
+      showFocusSessions: true,
+    });
+    expect(defaultDayProgressSettings()).toEqual(readDayProgressSettings(defaultSettings()));
+  });
+
+  it('fills in missing keys, ignores unknown ones and clamps times into the day', () => {
+    const partial: Settings = {
+      ...defaultSettings(),
+      modules: { [DAY_PROGRESS_SETTINGS_KEY]: { showDayInStrip: true, calendar: 'outlook' } },
+    };
+    expect(readDayProgressSettings(partial)).toEqual({
+      ...defaultDayProgressSettings(),
+      showDayInStrip: true,
+    });
+    const late: Settings = {
+      ...defaultSettings(),
+      modules: {
+        [DAY_PROGRESS_SETTINGS_KEY]: {
+          workStartMinutes: 600,
+          workEndMinutes: 5000,
+          bedtimeMinutes: 9000,
+        },
+      },
+    };
+    expect(readDayProgressSettings(late)).toMatchObject({
+      workStartMinutes: 600,
+      workEndMinutes: DAY_PROGRESS_BOUNDS.minuteOfDay.max,
+      bedtimeMinutes: DAY_PROGRESS_BOUNDS.minuteOfDay.max,
+    });
+  });
+
+  it('repairs a working day that ends before it starts the way the Rust side does', () => {
+    const backwards: Settings = {
+      ...defaultSettings(),
+      modules: { [DAY_PROGRESS_SETTINGS_KEY]: { workStartMinutes: 600, workEndMinutes: 500 } },
+    };
+    expect(readDayProgressSettings(backwards)).toMatchObject({
+      workStartMinutes: 600,
+      workEndMinutes: 600 + DAY_PROGRESS_BOUNDS.minWorkingMinutes,
+    });
+    const unrepairable: Settings = {
+      ...defaultSettings(),
+      modules: { [DAY_PROGRESS_SETTINGS_KEY]: { workStartMinutes: 1439, workEndMinutes: 100 } },
+    };
+    expect(readDayProgressSettings(unrepairable)).toMatchObject({
+      workStartMinutes: 540,
+      workEndMinutes: 1080,
+    });
+  });
+
+  it('falls back to the defaults for a malformed namespace', () => {
+    const malformed: Settings = {
+      ...defaultSettings(),
+      modules: { [DAY_PROGRESS_SETTINGS_KEY]: { workStartMinutes: 'nine', showDayInStrip: true } },
+    };
+    expect(readDayProgressSettings(malformed)).toEqual(defaultDayProgressSettings());
+    const notAnObject: Settings = {
+      ...defaultSettings(),
+      modules: { [DAY_PROGRESS_SETTINGS_KEY]: 'busy' },
+    };
+    expect(readDayProgressSettings(notAnObject)).toEqual(defaultDayProgressSettings());
+  });
+
+  it('writes the namespace without touching the rest of the document', () => {
+    const before: Settings = { ...defaultSettings(), modules: { hud: { showLevelText: true } } };
+    const day = { ...defaultDayProgressSettings(), bedtimeMinutes: 1380, showDayInStrip: true };
+    const after = writeDayProgressSettings(before, day);
+    expect(after.modules).toEqual({ hud: { showLevelText: true }, 'day-progress': day });
+    expect(before.modules).toEqual({ hud: { showLevelText: true } });
+    expect(settingsSchema.parse(after)).toEqual(after);
+  });
+
+  it('names the strip id, the step and the gap the module uses', () => {
+    expect(DAY_PROGRESS_STRIP_IDS).toEqual({ bar: 'day-progress:bar' });
+    expect(DAY_PROGRESS_BOUNDS.stepMinutes).toBe(15);
+    expect(DAY_PROGRESS_GAP_MINUTES).toBe(90);
   });
 });

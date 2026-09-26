@@ -9,6 +9,7 @@
 //! dyn-compatible for the registry, which `async fn` in traits is not yet.
 
 pub mod bluetooth;
+pub mod day_progress;
 pub mod hud;
 pub mod live_activities;
 pub mod media;
@@ -80,6 +81,7 @@ pub struct ModuleServices {
     pub system_monitor: Arc<system_monitor::SystemMonitorService>,
     pub bluetooth: Arc<bluetooth::BluetoothService>,
     pub weather: Arc<weather::WeatherService>,
+    pub day_progress: Arc<day_progress::DayProgressService>,
 }
 
 impl ModuleServices {
@@ -126,6 +128,11 @@ impl ModuleServices {
                 Arc::clone(clock),
                 Arc::new(weather::OpenMeteo::new()),
             )),
+            day_progress: Arc::new(day_progress::DayProgressService::new(
+                Arc::clone(hub),
+                Arc::clone(clock),
+                Arc::new(day_progress::LocalZone),
+            )),
         }
     }
 }
@@ -144,6 +151,9 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         ))),
         Box::new(bluetooth::BluetoothModule(Arc::clone(&services.bluetooth))),
         Box::new(weather::WeatherModule(Arc::clone(&services.weather))),
+        Box::new(day_progress::DayProgressModule(Arc::clone(
+            &services.day_progress,
+        ))),
     ]
 }
 
