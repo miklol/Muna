@@ -101,6 +101,7 @@ Motion.
 | Tie rotation between activities | 8 s, `switch` crossfade |
 | Park/unpark debounce | 500 ms (fullscreen flapping never flickers) |
 | Stagger (tiles, list, widgets) | 30 ms per item, max 8 items animating concurrently, `expand`/`layout` |
+| Snap zones | appear 120 ms after a dragged window enters the hot zone (strip or zones ± 24 px); leave with the drag |
 | Marquee | starts after 1.5 s, 40 px/s linear, 1.5 s end pause, only if overflow |
 | Progress bars (media, pomodoro) | 1 s linear steps, interpolated with `interactive` on seek |
 | Waveform | 30 Hz sample, per-bar `interactive`; amplitude 4–20 px; frozen when paused |

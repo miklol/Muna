@@ -11,6 +11,8 @@ import {
   showsDrop,
   showsLarge,
   showsPanel,
+  showsSnap,
+  snapSize,
   stripSize,
   targetOffsetY,
   targetSize,
@@ -94,6 +96,37 @@ describe('shell geometry', () => {
     expect(showsLarge('drop')).toBe(true);
     expect(showsLarge('pinned')).toBe(true);
     expect(showsLarge('hoverReveal')).toBe(false);
+    expect(showsPanel('snap')).toBe(false);
+    expect(showsDrop('snap')).toBe(false);
+    expect(showsSnap('snap')).toBe(true);
+    expect(showsSnap('drop')).toBe(false);
+    expect(showsLarge('snap')).toBe(true);
+  });
+
+  it('sizes the snap zones like the drop row: from their tiles, capped at the panel, the strip until measured', () => {
+    expect(targetSize('snap', input())).toEqual({ width: 200, height: 32 });
+    expect(snapSize(input({ snapContentSize: { width: 0, height: 0 } }))).toEqual({
+      width: 200,
+      height: 32,
+    });
+    expect(targetSize('snap', input({ snapContentSize: { width: 420, height: 96 } }))).toEqual({
+      width: 420,
+      height: 96,
+    });
+    expect(
+      snapSize(
+        input({
+          ...layoutWith({ panelMaxWidth: 720 }),
+          snapContentSize: { width: 1100, height: 96 },
+        }),
+      ),
+    ).toEqual({ width: 720, height: 96 });
+    // The drop row's measurement never leaks into the zones, nor the other way round.
+    expect(targetSize('snap', input({ dropContentSize: { width: 544, height: 116 } }))).toEqual({
+      width: 200,
+      height: 32,
+    });
+    expect(targetOffsetY('snap', input())).toBe(0);
   });
 
   it('sizes the drop row from its tiles, no wider than the panel, and from the strip until measured', () => {

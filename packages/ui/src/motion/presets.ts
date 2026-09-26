@@ -243,6 +243,10 @@ export const timings = {
   staggerMs: 30,
   /** Maximum items animating concurrently in a stagger. */
   staggerMaxConcurrent: 8,
+  /** A dragged window near the notch shows the snap zones this long after arriving. */
+  snapZonesDelayMs: 120,
+  /** The snap zones' hot zone extends this far around the strip and around the zones. */
+  snapHotZonePx: 24,
   /** Marquee starts after this long, only if the text overflows. */
   marqueeStartDelayMs: 1500,
   /** Marquee speed. */
@@ -274,6 +278,18 @@ export const staggerDelayS = (index: number): number =>
 export const tileStaggerRecipe = {
   enterFrom: { opacity: 0, y: 8, scale: 0.94 },
   visible: { opacity: 1, y: 0, scale: 1 },
+  reducedEnterFrom: { opacity: 0 },
+  reducedVisible: { opacity: 1 },
+} as const;
+
+/**
+ * Snap zones (docs/06-motion-spec.md "Window snap"): the tiles fade in together with `toggle`
+ * — opacity with scale 0.98 → 1 — once the drag has been near the notch for
+ * `timings.snapZonesDelayMs`; the overlay leaves with the shell's `collapse`.
+ */
+export const snapZoneRecipe = {
+  enterFrom: { opacity: 0, scale: 0.98 },
+  visible: { opacity: 1, scale: 1 },
   reducedEnterFrom: { opacity: 0 },
   reducedVisible: { opacity: 1 },
 } as const;

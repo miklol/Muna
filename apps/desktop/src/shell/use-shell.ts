@@ -164,6 +164,53 @@ export const cancelDrop = (session: number): void => {
   commands.dropCancel(session).then(ignoreIpcFailure, ignoreIpcFailure);
 };
 
+/**
+ * Mirrors a tracked window drag into the store (docs/modules/window-snap.md): `SnapDragMoved`
+ * and `SnapDragLeft` are filtered on this window's label — the shell emits them for the notch
+ * window under the cursor with positions in its CSS px — while `SnapDragEnded` reaches every
+ * window, naming the one the cursor was over.
+ */
+export function useSnapSubscription() {
+  const moveSnap = useAppStore((state) => state.moveSnap);
+  const leaveSnap = useAppStore((state) => state.leaveSnap);
+  const markSnapEnded = useAppStore((state) => state.markSnapEnded);
+
+  useEffect(() => {
+    const label = currentWindowLabel();
+    const stops = [
+      listenWhileMounted(() =>
+        events.snapDragMoved.listen((event) => {
+          if (event.payload.label === label) {
+            moveSnap(event.payload.session, event.payload.position);
+          }
+        }),
+      ),
+      listenWhileMounted(() =>
+        events.snapDragLeft.listen((event) => {
+          if (event.payload.label === label) {
+            leaveSnap(event.payload.session);
+          }
+        }),
+      ),
+      listenWhileMounted(() =>
+        events.snapDragEnded.listen((event) => {
+          markSnapEnded(event.payload.session, event.payload.label);
+        }),
+      ),
+    ];
+    return () => {
+      for (const stop of stops) {
+        stop();
+      }
+    };
+  }, [leaveSnap, markSnapEnded, moveSnap]);
+}
+
+/** Forgets a window drag in Rust: it ended over no zone, or the zones were dismissed. */
+export const cancelSnap = (session: number): void => {
+  commands.snapCancel(session).then(ignoreIpcFailure, ignoreIpcFailure);
+};
+
 /** Asks the shell to let this window take keyboard focus (a text field is focused). */
 export const setNotchFocusable = (focusable: boolean): void => {
   commands.setNotchFocusable(focusable).then(ignoreIpcFailure, ignoreIpcFailure);
