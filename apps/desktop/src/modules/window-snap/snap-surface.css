@@ -1,0 +1,52 @@
+/*
+ * Snap zones (docs/modules/window-snap.md "Reference"): one row of equal glyph tiles — the
+ * screen outline with the zone filled, a name under it. The row lays out at its own width (the
+ * shell measures it and morphs to match) and never wider than the panel, so tracks are
+ * `minmax(0, 1fr)` inside a `max-content` box: full tiles when they fit, evenly narrower when
+ * they do not. The hovered tile follows the drag's cursor (a window drag never `:hover`s) and
+ * tints with `toggle`. Tokens only.
+ */
+
+.snap-surface {
+  --snap-tile-width: 76px;
+
+  display: grid;
+  box-sizing: border-box;
+  inline-size: max-content;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+}
+
+.snap-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  inline-size: var(--snap-tile-width);
+  max-inline-size: 100%;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius-tile);
+  text-align: center;
+  transition: background-color var(--muna-motion-toggle);
+}
+
+.snap-tile[data-hovered] {
+  background: var(--surface-3);
+}
+
+.snap-tile__glyph {
+  display: inline-flex;
+  color: var(--text-1);
+}
+
+.snap-tile__title {
+  max-inline-size: 100%;
+}
+
+.snap-tile[data-hovered] .snap-tile__title {
+  color: var(--text-1);
+}

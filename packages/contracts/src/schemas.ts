@@ -46,6 +46,11 @@ import type {
   ShelfSnapshot,
   ShellLayout,
   ShellSettings,
+  SnapDragEnded,
+  SnapDragLeft,
+  SnapDragMoved,
+  SnapZone,
+  SnapZoneRef,
   SourceSetting,
   StripContent,
   StripHeight,
@@ -1407,3 +1412,151 @@ export const shelfCommandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('reveal'), ids: z.array(z.string().min(1)).min(1) }),
   z.object({ kind: z.literal('copy'), ids: z.array(z.string().min(1)).min(1) }),
 ]) satisfies z.ZodType<ShelfCommand>;
+
+/** The key of the Window snap namespace; also its module id. */
+export const WINDOW_SNAP_SETTINGS_KEY = 'window-snap';
+
+/** Bounds the settings pane offers and the module clamps to (mirrors `modules::window_snap::settings`). */
+export const WINDOW_SNAP_BOUNDS = {
+  /** Built-in zones and grid cells together never exceed this many tiles. */
+  zones: { max: 10 },
+  rows: { min: 1, max: 4 },
+  cols: { min: 1, max: 4 },
+  /** Gutter between grid cells in CSS pixels at 100 %. */
+  gap: { min: 0, max: 32 },
+} as const;
+
+/** The built-in zones in the order the strip lays them out (mirrors `SnapZone::DEFAULT`). */
+export const SNAP_ZONES = [
+  'topLeft',
+  'bottomLeft',
+  'leftHalf',
+  'maximize',
+  'rightHalf',
+  'topRight',
+  'bottomRight',
+  'leftThird',
+  'centerThird',
+  'rightThird',
+] as const satisfies readonly SnapZone[];
+
+export const snapZoneSchema = z.enum(SNAP_ZONES) satisfies z.ZodType<SnapZone>;
+
+/** A tile the UI asks the module to place into: a built-in zone or a cell of the grid. */
+export const snapZoneRefSchema = z.union([
+  z.object({ builtIn: snapZoneSchema }),
+  z.object({
+    cell: z.object({
+      row: z
+        .number()
+        .int()
+        .min(0)
+        .max(WINDOW_SNAP_BOUNDS.rows.max - 1),
+      col: z
+        .number()
+        .int()
+        .min(0)
+        .max(WINDOW_SNAP_BOUNDS.cols.max - 1),
+    }),
+  }),
+]) satisfies z.ZodType<SnapZoneRef>;
+
+/**
+ * Mirrors `modules::window_snap::SnapGrid::normalised`: rows and columns clamp to 1..=4, the
+ * gap to 0..=32, and a grid with more than ten cells loses columns, then rows, until it fits.
+ */
+export const normaliseSnapGrid = (grid: {
+  rows: number;
+  cols: number;
+  gap: number;
+}): { rows: number; cols: number; gap: number } => {
+  const clamp = (bounds: { min: number; max: number }, value: number) =>
+    Math.min(bounds.max, Math.max(bounds.min, Math.trunc(value)));
+  let rows = clamp(WINDOW_SNAP_BOUNDS.rows, grid.rows);
+  let cols = clamp(WINDOW_SNAP_BOUNDS.cols, grid.cols);
+  while (rows * cols > WINDOW_SNAP_BOUNDS.zones.max) {
+    if (cols > rows) {
+      cols -= 1;
+    } else {
+      rows -= 1;
+    }
+  }
+  return { rows, cols, gap: clamp(WINDOW_SNAP_BOUNDS.gap, grid.gap) };
+};
+
+export const snapGridSchema = z
+  .object({
+    rows: z.number().int(),
+    cols: z.number().int(),
+    gap: z.number().int(),
+  })
+  .transform(normaliseSnapGrid);
+export type SnapGrid = z.infer<typeof snapGridSchema>;
+
+/**
+ * Mirrors `modules::window_snap::WindowSnapSettings::normalised`: repeated zones drop, the
+ * built-ins are cut so they and the grid cells make at most ten tiles, and no zones at all
+ * reads as the defaults. A wrong type fails the whole entry, like the Rust side.
+ */
+export const normaliseWindowSnapSettings = (value: {
+  zones: readonly SnapZone[];
+  grid: SnapGrid | null;
+}): { zones: SnapZone[]; grid: SnapGrid | null } => {
+  const cells = value.grid ? value.grid.rows * value.grid.cols : 0;
+  const unique = [...new Set(value.zones)];
+  const zones = (unique.length === 0 && !value.grid ? [...SNAP_ZONES] : unique).slice(
+    0,
+    Math.max(0, WINDOW_SNAP_BOUNDS.zones.max - cells),
+  );
+  return { zones, grid: value.grid };
+};
+
+export const windowSnapSettingsSchema = z
+  .object({
+    /** Built-in zones the strip offers, in `SNAP_ZONES` order. */
+    zones: z.array(snapZoneSchema).default([...SNAP_ZONES]),
+    /** An optional grid of equal cells with a gutter; its cells count towards the ten tiles. */
+    grid: snapGridSchema.nullable().default(null),
+  })
+  .transform(normaliseWindowSnapSettings);
+export type WindowSnapSettings = z.infer<typeof windowSnapSettingsSchema>;
+
+export const defaultWindowSnapSettings = (): WindowSnapSettings =>
+  windowSnapSettingsSchema.parse({});
+
+/** Reads the Window snap namespace; a missing or malformed entry yields the defaults, like Rust. */
+export const readWindowSnapSettings = (settings: Settings): WindowSnapSettings => {
+  const parsed = windowSnapSettingsSchema.safeParse(
+    settings.modules[WINDOW_SNAP_SETTINGS_KEY] ?? {},
+  );
+  return parsed.success ? parsed.data : defaultWindowSnapSettings();
+};
+
+/** Returns a new document with the Window snap namespace replaced. */
+export const writeWindowSnapSettings = (
+  settings: Settings,
+  windowSnap: WindowSnapSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [WINDOW_SNAP_SETTINGS_KEY]: windowSnap },
+});
+
+/** How many tiles the strip shows for `settings`: built-ins plus grid cells. */
+export const snapTileCount = (settings: WindowSnapSettings): number =>
+  settings.zones.length + (settings.grid ? settings.grid.rows * settings.grid.cols : 0);
+
+export const snapDragMovedSchema = z.object({
+  label: z.string().min(1),
+  session: z.number().int().min(0),
+  position: dropPointSchema,
+}) satisfies z.ZodType<SnapDragMoved>;
+
+export const snapDragLeftSchema = z.object({
+  label: z.string().min(1),
+  session: z.number().int().min(0),
+}) satisfies z.ZodType<SnapDragLeft>;
+
+export const snapDragEndedSchema = z.object({
+  session: z.number().int().min(0),
+  label: z.string().min(1).nullable(),
+}) satisfies z.ZodType<SnapDragEnded>;

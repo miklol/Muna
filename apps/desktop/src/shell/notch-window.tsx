@@ -13,6 +13,7 @@ import {
   contentRecipe,
   moduleBarRecipe,
   reducedMotionTransition,
+  snapZoneRecipe,
   springs,
   timings,
   useReduceMotion,
@@ -42,10 +43,12 @@ import { useTranslation } from 'react-i18next';
 
 import { type DragOutHandlers, useDragOut, useDragSpike } from '../lib/drag-out';
 import { persistSettings, useSettings } from '../lib/settings';
+import { currentWindowLabel } from '../lib/window-label';
 import {
   dropModuleOf,
   type ModuleDefinition,
   modules as registeredModules,
+  snapModuleOf,
 } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
 import { listActions, runAction, type ShellActionContext } from './actions';
@@ -72,6 +75,7 @@ import {
   showsDrop,
   showsLarge,
   showsPanel,
+  showsSnap,
   type Size,
   targetOffsetY,
   targetSize,
@@ -80,6 +84,7 @@ import { Strip } from './strip';
 import { type HudPresentation, hudNoticeShowing, wantsWide } from './strip-content';
 import {
   cancelDrop,
+  cancelSnap,
   publishShapeRects,
   reportMorph,
   setNotchFocusable,
@@ -89,6 +94,7 @@ import {
   useShellLayoutSubscription,
   useShellPointerDownOutsideSubscription,
   useShellReady,
+  useSnapSubscription,
 } from './use-shell';
 import { useStripContentSubscription } from './use-strip-content';
 
@@ -215,6 +221,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   useStripContentSubscription();
   useShellLayoutSubscription();
   useDropSubscription();
+  useSnapSubscription();
   const reduceMotion = useReduceMotion();
 
   const layout: Layout = layoutFromShell ?? fallbackLayout;
@@ -238,6 +245,13 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     [disabledModules, modules],
   );
   const DropSurface = dropModule?.drop;
+  // The snap zones likewise (docs/modules/window-snap.md); Rust reads the same disabled list,
+  // so a disabled module starts no drag session either.
+  const enabledModules = useMemo(
+    () => modules.filter((module) => !disabledModules.includes(module.id)),
+    [disabledModules, modules],
+  );
+  const SnapSurface = snapModuleOf(enabledModules)?.snap;
   const setModuleOrder = useCallback(
     (ids: readonly string[]) => {
       if (settings !== undefined) {
@@ -309,6 +323,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const shellRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+  const snapRef = useRef<HTMLDivElement>(null);
   const speed = useRef(new SpeedTracker());
   const sampler = useRef(new MorphSampler());
   const lastPublished = useRef<ShapeRect[]>([]);
@@ -320,6 +335,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
 
   const [panelContentHeight, setPanelContentHeight] = useState<number | null>(null);
   const [dropContentSize, setDropContentSize] = useState<Size | null>(null);
+  const [snapContentSize, setSnapContentSize] = useState<Size | null>(null);
   const [lastMorph, setLastMorph] = useState<MorphReport | null>(null);
   const [publishedRects, setPublishedRects] = useState<readonly ShapeRect[]>([]);
   const [radii, setRadii] = useState({ strip: 14, panel: 28 });
@@ -530,8 +546,8 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
 
   const wide = !largeShown && wantsWide(content);
   const geometry = useMemo<GeometryInput>(
-    () => ({ layout, wide, panelContentHeight, dropContentSize }),
-    [dropContentSize, layout, panelContentHeight, wide],
+    () => ({ layout, wide, panelContentHeight, dropContentSize, snapContentSize }),
+    [dropContentSize, layout, panelContentHeight, snapContentSize, wide],
   );
   const target = targetSize(state, geometry);
   const offsetY = targetOffsetY(state, geometry);
@@ -614,6 +630,88 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     },
     [layout.stripTopOffset],
   );
+
+  // --- window snap ---------------------------------------------------------------------------
+
+  // A window dragged near the notch (docs/modules/window-snap.md): Rust tracks the drag and
+  // reports the cursor over this window; the shell decides "near" against the strip at rest —
+  // or the zones while they show — plus the hot-zone padding, the machine waits out the intent
+  // delay, and the zones apply or cancel once the drag ends over this window. A drag that ends
+  // elsewhere, or before the zones showed, is forgotten here and in Rust.
+  const windowLabel = useMemo(() => currentWindowLabel(), []);
+  const snapSession = useAppStore((store) => store.snapSession);
+  const snapPosition = useAppStore((store) => store.snapPosition);
+  const endSnap = useAppStore((store) => store.endSnap);
+  const snapSessionId = snapSession?.session ?? null;
+  const snapEnded = snapSession?.ended ?? false;
+  const snapEndedHere = snapEnded && snapSession?.endedOver === windowLabel;
+  const snapShown = showsSnap(state);
+  useEffect(() => {
+    if (snapSessionId === null || snapEnded || SnapSurface === undefined) {
+      return;
+    }
+    if (snapPosition === null) {
+      machine.send({ type: 'snapFar' });
+      return;
+    }
+    // Against the rest boxes, not the live (mid-morph) one: the strip's hot zone stays valid
+    // while the zones grow out of it, and a narrow row never shrinks the zone under the cursor.
+    const near =
+      contains(padded(restBox('collapsed', geometry), timings.snapHotZonePx), snapPosition) ||
+      (snapShown &&
+        contains(padded(restBox('snap', geometry), timings.snapHotZonePx), snapPosition));
+    machine.send({ type: near ? 'snapNear' : 'snapFar' });
+  }, [SnapSurface, geometry, machine, restBox, snapEnded, snapPosition, snapSessionId, snapShown]);
+  useEffect(() => {
+    if (!snapSession?.ended) {
+      return;
+    }
+    if (snapSession.endedOver === windowLabel && snapShown && SnapSurface !== undefined) {
+      // The zones resolve the tile under the cursor and call `onSnapDone`.
+      return;
+    }
+    if (snapSession.endedOver === windowLabel) {
+      // Over this window, but the zones were not showing: nothing can place it.
+      cancelSnap(snapSession.session);
+    }
+    endSnap(snapSession.session);
+  }, [SnapSurface, endSnap, snapSession, snapShown, windowLabel]);
+  useEffect(() => {
+    // The session is gone (applied, cancelled or ended elsewhere) while the zones still show.
+    if (snapShown && snapSessionId === null) {
+      machine.send({ type: 'snapEnd' });
+    }
+  }, [machine, snapSessionId, snapShown]);
+  const onSnapDone = useCallback(() => {
+    if (snapSessionId !== null) {
+      endSnap(snapSessionId);
+    }
+  }, [endSnap, snapSessionId]);
+
+  // The zones are measured like the drop row.
+  useLayoutEffect(() => {
+    const node = snapRef.current;
+    if (node === null || !snapShown) {
+      setSnapContentSize(null);
+      return;
+    }
+    if (typeof ResizeObserver === 'undefined') {
+      setSnapContentSize({ width: node.offsetWidth, height: node.offsetHeight });
+      return;
+    }
+    const observer = new ResizeObserver((entries) => {
+      const box = entries[0]?.borderBoxSize[0];
+      setSnapContentSize(
+        box !== undefined
+          ? { width: box.inlineSize, height: box.blockSize }
+          : { width: node.offsetWidth, height: node.offsetHeight },
+      );
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [snapShown, snapSessionId]);
 
   const publish = useCallback((rects: ShapeRect[]) => {
     if (rects.length === 0 || sameRects(rects, lastPublished.current)) {
@@ -823,6 +921,10 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     ...(reduceMotion ? moduleBarRecipe.reducedExitTo : moduleBarRecipe.exitTo),
     transition: contentExitTransition,
   };
+  // Snap zones fade in with `toggle` once the shape has started (motion spec "Window snap").
+  const snapTransition: Transition = reduceMotion
+    ? reducedMotionTransition
+    : { ...springs.toggle, delay: timings.contentEnterDelayMs / 1000 };
   const moduleBarShown = panelShown && hasModuleBar;
   const panelTitle = paletteOpen
     ? t('shortcuts.palette.title')
@@ -894,6 +996,29 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                     dropped={dropSession.dropped}
                     maxWidth={targetSize('expanded', geometry).width}
                     onDone={onDropDone}
+                  />
+                </motion.div>
+              ) : snapShown && SnapSurface !== undefined && snapSession !== null ? (
+                // Keyed by session so a new drag mounts fresh zones (their own hit-test).
+                <motion.div
+                  key={`snap-${String(snapSession.session)}`}
+                  ref={snapRef}
+                  data-testid="snap-row"
+                  className="absolute top-0 left-1/2 w-max origin-top"
+                  style={{ x: '-50%' }}
+                  initial={
+                    reduceMotion ? snapZoneRecipe.reducedEnterFrom : snapZoneRecipe.enterFrom
+                  }
+                  animate={reduceMotion ? snapZoneRecipe.reducedVisible : snapZoneRecipe.visible}
+                  exit={contentExit}
+                  transition={snapTransition}
+                >
+                  <SnapSurface
+                    session={snapSession.session}
+                    position={snapPosition ?? originPoint}
+                    ended={snapEndedHere}
+                    maxWidth={targetSize('expanded', geometry).width}
+                    onDone={onSnapDone}
                   />
                 </motion.div>
               ) : panelShown ? (

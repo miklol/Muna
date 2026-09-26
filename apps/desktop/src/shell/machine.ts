@@ -4,8 +4,8 @@ import { timings } from '@muna/ui/motion';
 /**
  * The notch state machine (docs/modules/notch-shell.md, "States"): a pure reducer whose only
  * side effects are timers and the focus toggle, so every rule is unit-tested with fake
- * timers and the component merely forwards DOM events. Snap and Notice states arrive with the
- * modules that own them.
+ * timers and the component merely forwards DOM events. The Notice state arrives with the
+ * module that owns it.
  */
 export type ShellState =
   /** The strip, idle. */
@@ -24,10 +24,16 @@ export type ShellState =
    * and the row leaves when the drag does or once the drop has been handled.
    */
   | 'drop'
+  /**
+   * A window is being dragged near the notch: the snap zones show in place of the strip
+   * (docs/modules/window-snap.md). Pointer rules are off — the pointer holds the dragged
+   * window — and the zones leave when the drag moves away or ends.
+   */
+  | 'snap'
   /** The window is off-screen; nothing animates or ticks. */
   | 'parked';
 
-export type TimerId = 'hoverIntent' | 'revealToExpand' | 'hoverOut';
+export type TimerId = 'hoverIntent' | 'revealToExpand' | 'hoverOut' | 'snapIntent';
 
 export interface ShellSnapshot {
   readonly state: ShellState;
@@ -77,7 +83,17 @@ export type ShellEvent =
    * The drag left without dropping, or the drop has been handled (run or cancelled): the row
    * gives way to the strip.
    */
-  | { type: 'dropLeave' };
+  | { type: 'dropLeave' }
+  /**
+   * A tracked window drag is in the hot zone — the strip, or the zones while they show, plus
+   * `timings.snapHotZonePx` (docs/modules/window-snap.md). The zones appear once it has stayed
+   * `timings.snapZonesDelayMs`.
+   */
+  | { type: 'snapNear' }
+  /** The tracked drag left the hot zone: the zones (or the pending intent) go. */
+  | { type: 'snapFar' }
+  /** The tracked drag ended, wherever it was: the zones have applied or cancelled by now. */
+  | { type: 'snapEnd' };
 
 export type ShellEffect =
   | { type: 'startTimer'; id: TimerId; ms: number }
@@ -109,6 +125,7 @@ export const timerDurations: Readonly<Record<TimerId, number>> = {
   // The spec counts the 600 ms from the moment the pointer arrived, reveal included.
   revealToExpand: timings.revealToExpandMs - timings.hoverIntentMs,
   hoverOut: timings.hoverOutGraceRevealMs,
+  snapIntent: timings.snapZonesDelayMs,
 };
 
 const OPEN_STATES: readonly ShellState[] = ['expanded', 'pinned'];
@@ -121,6 +138,20 @@ const STRIP_STATES: readonly ShellState[] = ['collapsed', 'peek', 'hoverReveal']
 const DROP_EVENTS: readonly ShellEvent['type'][] = [
   'dropEnter',
   'dropLeave',
+  'escape',
+  'yield',
+  'timer',
+  'pointer',
+  'pointerLeave',
+];
+/**
+ * Likewise while the snap zones show: the drag's own events, yield and Esc. The pointer holds
+ * another window, so presses and the wheel cannot arrive; the hotkeys and pins wait.
+ */
+const SNAP_EVENTS: readonly ShellEvent['type'][] = [
+  'snapNear',
+  'snapFar',
+  'snapEnd',
   'escape',
   'yield',
   'timer',
@@ -283,6 +314,10 @@ const onTimer = (b: Builder, id: TimerId): Transition => {
       return state === 'hoverReveal' ? b.open().build() : b.build();
     case 'hoverOut':
       return state === 'hoverReveal' || state === 'expanded' ? b.close().build() : b.build();
+    case 'snapIntent':
+      // The drag stayed near the strip: the zones take its place. `previous` keeps where from,
+      // so the morph springs with `expand` out of any strip form.
+      return STRIP_STATES.includes(state) ? b.leave('snap').build() : b.build();
   }
 };
 
@@ -311,7 +346,7 @@ const onEscape = (b: Builder): Transition => {
     b.effects.push({ type: 'blurField' });
     return b.build();
   }
-  if (isOpen(state) || state === 'hoverReveal' || state === 'drop') {
+  if (isOpen(state) || state === 'hoverReveal' || state === 'drop' || state === 'snap') {
     return b.close().build();
   }
   return b.build();
@@ -360,6 +395,9 @@ export function transition(snapshot: ShellSnapshot, event: ShellEvent): Transiti
   if (snapshot.state === 'drop' && !DROP_EVENTS.includes(event.type)) {
     return b.build();
   }
+  if (snapshot.state === 'snap' && !SNAP_EVENTS.includes(event.type)) {
+    return b.build();
+  }
   switch (event.type) {
     case 'pointer':
       return onPointer(b, event.inside, event.near, event.speedPxPerS);
@@ -394,6 +432,19 @@ export function transition(snapshot: ShellSnapshot, event: ShellEvent): Transiti
       return snapshot.state === 'drop' ? b.build() : b.leave('drop').build();
     case 'dropLeave':
       return snapshot.state === 'drop' ? b.close().build() : b.build();
+    case 'snapNear':
+      // Only a strip form gives way to the zones: an open panel stays, since the user is busy
+      // with another window and would lose it otherwise. The intent clock runs once.
+      if (snapshot.state === 'snap' || !STRIP_STATES.includes(snapshot.state)) {
+        return b.build();
+      }
+      return snapshot.timers.includes('snapIntent')
+        ? b.build()
+        : b.startTimer('snapIntent').build();
+    case 'snapFar':
+    case 'snapEnd':
+      b.cancelTimer('snapIntent');
+      return snapshot.state === 'snap' ? b.close().build() : b.build();
   }
 }
 

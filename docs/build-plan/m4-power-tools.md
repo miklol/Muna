@@ -78,6 +78,22 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
   128 device px, cached per item. Details in
   [shelf → Implementation notes](../modules/shelf.md#implementation-notes-m4-e2); hardware and
   application rows in [qa/checklists/shelf](../qa/checklists/shelf.md).
+- **M4-E3 Window snap — built** (branch `m4-e3-window-snap`, stacked on `m4-e2-shelf`). Spike
+  S3 passed ([spikes/m4-snap](../spikes/m4-snap.md): the hook path holds an event in
+  0.64 ms median, `MOVESIZESTART` lands 42 ms after the first movement, the pump joins in
+  2 ms), so the M1 pump stays the only `WindowEvents` source and `MoveSizeChanged` gained the
+  dragged window's handle. Against the plan: the contract is `SnapDragMoved { label, session,
+  position }` / `SnapDragLeft` / `SnapDragEnded { session, label }` with `snap_apply(session,
+  label, zone)` and `snap_cancel(session)` rather than `SnapDragChanged { hwnd, cursor }` and
+  `snap_apply(zone)` — the window handle never leaves Rust (`muna_core::snap::SnapSessions`),
+  positions are per notch window in its CSS px, and the window under the cursor at release
+  resolves the tile; the zones are a new module surface (`ModuleDefinition.snap`) and a new
+  shell state (`snap`), like the drop row; the DWM thumbnail preview did not ship. Placement
+  is by `DWMWA_EXTENDED_FRAME_BOUNDS` with the invisible border added back, posted with
+  `SWP_ASYNCWINDOWPOS` / `ShowWindowAsync`, and verified 120 ms later against Aero Snap and
+  per-monitor-DPI resizes. Details in
+  [window-snap → Implementation notes](../modules/window-snap.md#implementation-notes-m4-e3);
+  hardware rows in [qa/checklists/window-snap](../qa/checklists/window-snap.md).
 
 ### Order
 
@@ -119,7 +135,7 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
 | `DropTarget` | Tauri `dragDropEnabled` events on the notch window first; `IDropTarget` on the window only if Tauri does not deliver *enter / over / leave* on a non-focusable transparent window (spike S1) | E1 |
 | `FileOps` | `IFileOperation` (copy, move, recycle with `FOF_ALLOWUNDO`), `CM_Request_Device_EjectW`, `ShellExecuteExW`, `DataTransferManager` via `IDataTransferManagerInterop` | E1, E2 |
 | `DragSource` | `DoDragDrop` with a `CF_HDROP` / `CF_UNICODETEXT` data object on the UI thread; thumbnails via `IShellItemImageFactory` | E2 |
-| `WindowEvents` | `SetWinEventHook(EVENT_SYSTEM_MOVESIZESTART / END, EVENT_SYSTEM_FOREGROUND)` on a dedicated message-pump thread, `DWMWA_EXTENDED_FRAME_BOUNDS`, `SetWindowPos`, `GetLastInputInfo` | E3, E8 |
+| `WindowEvents` | `SetWinEventHook(EVENT_SYSTEM_MOVESIZESTART / END, EVENT_SYSTEM_FOREGROUND)` on a dedicated message-pump thread, `DWMWA_EXTENDED_FRAME_BOUNDS`, `SetWindowPos`, `GetLastInputInfo` — built for E3 as `MoveSizeChanged { started, window }` plus the `WindowPlacement` trait (`is_snappable`, `frame_bounds`, `place`, `maximize`); `GetLastInputInfo` waits for E8 | E3, E8 |
 | `AppIcons` | `SHGetFileInfoW` → PNG bytes, cached by path | E8 |
 | `Http` | `reqwest` with ETag / `If-None-Match` and a per-host poll-interval, only inside user-enabled integrations; tokens in Credential Manager through `keyring` | E4 |
 | `LocalReceiver` | `127.0.0.1` listener on a random port with a per-launch token; body size and rate limits | E5 |
@@ -136,7 +152,8 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
   targets receive the file; the webview does not start its own HTML5 drag.
 - **S3 WinEvent hook thread** (before E3): a hook on its own thread delivers
   `MOVESIZESTART` within 16 ms and stops cleanly on shutdown (no orphan thread). Exit: timing
-  logged, `cargo test` for the fake, a manual run.
+  logged, `cargo test` for the fake, a manual run. **Done — go**
+  ([spikes/m4-snap](../spikes/m4-snap.md)).
 - **S4 GitHub device flow** needs a registered OAuth app (client id) from the maintainer;
   until then E4 ships PAT auth only and the device flow behind the same trait.
 

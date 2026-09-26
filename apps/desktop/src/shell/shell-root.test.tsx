@@ -38,6 +38,9 @@ vi.mock('@muna/contracts', async (importOriginal) => {
       dropMoved: silent,
       dropped: silent,
       dropLeft: silent,
+      snapDragMoved: silent,
+      snapDragLeft: silent,
+      snapDragEnded: silent,
     },
   };
 });

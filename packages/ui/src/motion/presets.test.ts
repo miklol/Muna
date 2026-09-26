@@ -4,6 +4,7 @@ import {
   glyphCrossfadeTransition,
   reducedMotionTransition,
   shellSpringNames,
+  snapZoneRecipe,
   type SpringName,
   springDampingRatio,
   springNames,
@@ -119,7 +120,15 @@ describe('reduced motion and timings', () => {
     expect(timings.hudGlyphCrossfadeMs).toBe(100);
     expect(glyphCrossfadeTransition.duration * 1000).toBe(timings.hudGlyphCrossfadeMs);
     expect(timings.staggerMs).toBe(30);
+    expect(timings.snapZonesDelayMs).toBe(120);
+    expect(timings.snapHotZonePx).toBe(24);
     expect(timings.reducedMotionHoldMultiplier).toBe(1.5);
+  });
+
+  it('fades snap zones in with scale 0.98 and only crossfades under reduced motion', () => {
+    expect(snapZoneRecipe.enterFrom).toEqual({ opacity: 0, scale: 0.98 });
+    expect(snapZoneRecipe.visible).toEqual({ opacity: 1, scale: 1 });
+    expect(snapZoneRecipe.reducedEnterFrom).toEqual({ opacity: 0 });
   });
 
   it('staggers 30 ms per item and caps the tail at the concurrency limit', () => {

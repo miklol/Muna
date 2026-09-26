@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use muna_core::{DropSessions, ShellSettings};
+use muna_core::{DropSessions, ShellSettings, SnapSessions};
 use muna_platform::{MonitorInfo, Platform, PlatformEvent, WindowHandle};
 use parking_lot::Mutex;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -29,7 +29,7 @@ use super::memory_target::{Hold, MemoryTarget, MemoryTargetPolicy};
 use super::model::{Effect, PRIMARY_LABEL, ReconcilePlan, ShellLayout, ShellModel};
 use crate::ipc::{
     DropEntered, DropItem, DropLeft, DropMoved, DropPoint, Dropped, ShapeRect, ShellLayoutChanged,
-    ShellPointerDownOutside, ShellYieldChanged,
+    ShellPointerDownOutside, ShellYieldChanged, SnapDragEnded, SnapDragLeft, SnapDragMoved,
 };
 
 /// Label of the settings window in `tauri.conf.json`.
@@ -68,6 +68,11 @@ pub struct ShellManager {
     drags: Mutex<DragLog>,
     /// What those drags carry, for the Drop actions module (paths never reach the UI).
     drops: Arc<DropSessions>,
+    /// The window drag the Window snap module is tracking, if any (handles never reach the UI).
+    snaps: Arc<SnapSessions>,
+    /// Last `SnapDragMoved` position sent, per the notch window it was over, so the cursor poll
+    /// only emits changes.
+    snap_over: Mutex<Option<(String, DropPoint)>>,
 }
 
 impl std::fmt::Debug for ShellManager {
@@ -85,6 +90,7 @@ impl ShellManager {
         settings: ShellSettings,
         started_at: Instant,
         drops: Arc<DropSessions>,
+        snaps: Arc<SnapSessions>,
     ) -> Self {
         Self {
             platform,
@@ -99,7 +105,18 @@ impl ShellManager {
             memory_target: Mutex::new(MemoryTargetPolicy::new()),
             drags: Mutex::new(DragLog::default()),
             drops,
+            snaps,
+            snap_over: Mutex::new(None),
         }
+    }
+
+    /// The monitor the notch window `label` belongs to; `None` for an unknown label.
+    #[must_use]
+    pub fn monitor_id_of(&self, label: &str) -> Option<String> {
+        self.model
+            .lock()
+            .window(label)
+            .map(|window| window.monitor.id.clone())
     }
 
     /// Wires the shell into a running app. Call from `setup` (main thread).
@@ -322,6 +339,121 @@ impl ShellManager {
             }
             _ => {}
         }
+    }
+
+    /// A window somewhere started (`started`) or finished being dragged or resized
+    /// (`EVENT_SYSTEM_MOVESIZESTART / END`). Every drag peeks the strip; one the Window snap
+    /// module wants — the module is on, the window is not ours and passes the eligibility
+    /// filter — becomes a snap session instead: the strip holds still and the cursor poll
+    /// reports where the drag is (docs/modules/window-snap.md).
+    fn on_move_size(self: &Arc<Self>, app: &AppHandle, started: bool, window: WindowHandle) {
+        let now = Instant::now();
+        if started {
+            let effects = self
+                .model
+                .lock()
+                .set_moving(self.platform.as_ref(), true, now);
+            self.apply(app, effects);
+            if !self.snaps.is_enabled() || self.model.lock().is_own_window(window) {
+                return;
+            }
+            let snappable = self
+                .platform
+                .window_placement()
+                .is_snappable(window)
+                .unwrap_or_else(|error| {
+                    tracing::debug!(%error, "snap eligibility check failed");
+                    false
+                });
+            if !snappable {
+                return;
+            }
+            let session = self.snaps.begin(window);
+            *self.snap_over.lock() = None;
+            tracing::info!(session, "snap drag started");
+            let effects = self
+                .model
+                .lock()
+                .set_snapping(self.platform.as_ref(), true, now);
+            self.apply(app, effects);
+            return;
+        }
+        let session = self.snaps.current().filter(|s| !s.ended);
+        if let Some(session) = &session {
+            let over = self.snap_over.lock().take();
+            if over.is_some() {
+                // The window under the cursor resolves the tile and applies or cancels.
+                self.snaps.mark_ended(session.id);
+            } else {
+                // Released over no notch window: nobody would cancel it, so forget it now.
+                self.snaps.remove(session.id);
+            }
+            tracing::info!(
+                session = session.id,
+                over = over.as_ref().map_or("", |(label, _)| label.as_str()),
+                "snap drag ended"
+            );
+            emit(
+                app,
+                &SnapDragEnded {
+                    session: session.id,
+                    label: over.map(|(label, _)| label),
+                },
+            );
+        }
+        let effects = {
+            let mut model = self.model.lock();
+            let mut effects = model.set_snapping(self.platform.as_ref(), false, now);
+            effects.extend(model.set_moving(self.platform.as_ref(), false, now));
+            effects
+        };
+        self.apply(app, effects);
+        // The dragged window may now sit under the strip.
+        self.refresh_foreground(app);
+    }
+
+    /// Turns the cursor poll's sample into `SnapDragMoved` / `SnapDragLeft`, only on change.
+    fn report_snap_cursor(&self, app: &AppHandle, over: Option<super::model::SnapOver>) {
+        let Some(session) = self.snaps.current().filter(|s| !s.ended) else {
+            return;
+        };
+        let now_over = over.map(|over| {
+            let position =
+                self.css_point(&over.label, DragPoint::new(over.x.into(), over.y.into()));
+            (over.label, position)
+        });
+        let mut last = self.snap_over.lock();
+        if *last == now_over {
+            return;
+        }
+        if let Some((old_label, _)) = last.as_ref()
+            && now_over
+                .as_ref()
+                .is_none_or(|(label, _)| label != old_label)
+        {
+            emit(
+                app,
+                &SnapDragLeft {
+                    label: old_label.clone(),
+                    session: session.id,
+                },
+            );
+        }
+        if let Some((label, position)) = &now_over {
+            emit(
+                app,
+                &SnapDragMoved {
+                    label: label.clone(),
+                    session: session.id,
+                    position: *position,
+                },
+            );
+        }
+        self.snaps.set_label(
+            session.id,
+            now_over.as_ref().map(|(label, _)| label.clone()),
+        );
+        *last = now_over;
     }
 
     fn end_drag(self: &Arc<Self>, app: &AppHandle, label: &str) {
@@ -708,6 +840,7 @@ impl ShellManager {
                 tracing::warn!(%error, "emit ShellPointerDownOutside failed");
             }
         }
+        self.report_snap_cursor(app, poll.snap_over);
         let target = self.memory_target.lock().observe(poll.rate, Instant::now());
         if let Some(target) = target {
             self.apply_memory_target(app, target);
@@ -944,17 +1077,8 @@ fn spawn_event_bridge(app: &AppHandle, manager: Arc<ShellManager>) {
                         manager.assert_all_topmost();
                     });
                 }
-                Ok(PlatformEvent::MoveSizeChanged { started }) => {
-                    let effects = manager.model.lock().set_moving(
-                        manager.platform.as_ref(),
-                        started,
-                        Instant::now(),
-                    );
-                    manager.apply(&app, effects);
-                    if !started {
-                        // The dragged window may now sit under the strip.
-                        manager.refresh_foreground(&app);
-                    }
+                Ok(PlatformEvent::MoveSizeChanged { started, window }) => {
+                    manager.on_move_size(&app, started, window);
                 }
                 Ok(PlatformEvent::SessionLockChanged { locked }) => {
                     let effects = manager.model.lock().set_locked(

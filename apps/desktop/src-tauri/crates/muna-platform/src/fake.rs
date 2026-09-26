@@ -14,7 +14,8 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground, Location,
-    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
+    WindowPlacement, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
@@ -86,6 +87,26 @@ pub enum WindowingCall {
     /// `reserve_top(window, monitor, height)`.
     ReserveAppBar(WindowHandle, Rect, u32),
     ReleaseAppBar(WindowHandle),
+}
+
+/// One recorded [`WindowPlacement`] request, in order, for assertions in the window-snap tests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlacementCall {
+    /// `place(window, target)`: the visible frame was asked to fill `target`.
+    Place(WindowHandle, Rect),
+    /// `maximize(window, work_area)`.
+    Maximize(WindowHandle, Rect),
+}
+
+/// A scripted foreign window for [`WindowPlacement`]: its visible frame and whether it passes
+/// the eligibility filter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ForeignWindow {
+    frame: Rect,
+    snappable: bool,
+    /// Placement requests are recorded but leave the frame where it is (a window Aero Snap
+    /// keeps re-maximising, or one that resizes itself after a DPI change).
+    stuck: bool,
 }
 
 /// Scripted mouse state: where the cursor is and whether a button is held.
@@ -181,6 +202,12 @@ struct State {
     clipboard_payloads: Vec<DragPayload>,
     /// Scripted file thumbnails by path; a path without one answers `NotFound`.
     file_thumbnails: BTreeMap<PathBuf, Vec<u8>>,
+    /// Other applications' windows the snap tests drag, by handle.
+    foreign_windows: BTreeMap<WindowHandle, ForeignWindow>,
+    /// Every placement request the fake received, in order.
+    placement_calls: Vec<PlacementCall>,
+    /// Scripted: every placement fails with this error (an elevated window refusing us).
+    placement_error: Option<PlatformError>,
 }
 
 impl Default for State {
@@ -251,6 +278,9 @@ impl Default for State {
             }),
             clipboard_payloads: Vec::new(),
             file_thumbnails: BTreeMap::new(),
+            foreign_windows: BTreeMap::new(),
+            placement_calls: Vec::new(),
+            placement_error: None,
         }
     }
 }
@@ -527,9 +557,45 @@ impl FakePlatform {
         self.publish(PlatformEvent::SessionLockChanged { locked });
     }
 
-    /// A window drag or resize started (`true`) or ended (`false`).
-    pub fn move_size_changed(&self, started: bool) {
-        self.publish(PlatformEvent::MoveSizeChanged { started });
+    /// `window` started (`true`) or finished (`false`) being dragged or resized.
+    pub fn move_size_changed(&self, started: bool, window: WindowHandle) {
+        self.publish(PlatformEvent::MoveSizeChanged { started, window });
+    }
+
+    /// Scripts another application's window for [`WindowPlacement`]: `frame` is its visible
+    /// frame in physical screen pixels, `snappable` whether the eligibility filter passes it.
+    pub fn set_foreign_window(&self, window: WindowHandle, frame: Rect, snappable: bool) {
+        self.state.lock().foreign_windows.insert(
+            window,
+            ForeignWindow {
+                frame,
+                snappable,
+                stuck: false,
+            },
+        );
+    }
+
+    /// Scripts a foreign window to ignore placement requests while `stuck` (they are still
+    /// recorded); `false` for an unknown window.
+    pub fn set_foreign_window_stuck(&self, window: WindowHandle, stuck: bool) -> bool {
+        match self.state.lock().foreign_windows.get_mut(&window) {
+            Some(foreign) => {
+                foreign.stuck = stuck;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Scripts every placement request to fail with `error` (`None` restores success).
+    pub fn set_placement_error(&self, error: Option<PlatformError>) {
+        self.state.lock().placement_error = error;
+    }
+
+    /// [`WindowPlacement`] requests received so far, in order.
+    #[must_use]
+    pub fn placement_calls(&self) -> Vec<PlacementCall> {
+        self.state.lock().placement_calls.clone()
     }
 
     /// Windows with a live `AppBar` reservation and the rect each was granted.
@@ -1312,6 +1378,60 @@ impl DragSource for FakePlatform {
     }
 }
 
+impl WindowPlacement for FakePlatform {
+    fn is_snappable(&self, window: WindowHandle) -> PlatformResult<bool> {
+        Ok(self
+            .state
+            .lock()
+            .foreign_windows
+            .get(&window)
+            .is_some_and(|w| w.snappable))
+    }
+
+    fn frame_bounds(&self, window: WindowHandle) -> PlatformResult<Rect> {
+        self.state
+            .lock()
+            .foreign_windows
+            .get(&window)
+            .map(|w| w.frame)
+            .ok_or_else(|| PlatformError::NotFound(format!("window {window}")))
+    }
+
+    fn place(&self, window: WindowHandle, target: Rect) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        state
+            .placement_calls
+            .push(PlacementCall::Place(window, target));
+        if let Some(error) = state.placement_error.clone() {
+            return Err(error);
+        }
+        let Some(foreign) = state.foreign_windows.get_mut(&window) else {
+            return Err(PlatformError::NotFound(format!("window {window}")));
+        };
+        if !foreign.stuck {
+            foreign.frame = target;
+        }
+        Ok(())
+    }
+
+    fn maximize(&self, window: WindowHandle, work_area: Rect) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        state
+            .placement_calls
+            .push(PlacementCall::Maximize(window, work_area));
+        if let Some(error) = state.placement_error.clone() {
+            return Err(error);
+        }
+        let Some(foreign) = state.foreign_windows.get_mut(&window) else {
+            return Err(PlatformError::NotFound(format!("window {window}")));
+        };
+        if !foreign.stuck {
+            foreign.frame = work_area;
+        }
+        Ok(())
+    }
+}
+
 impl Platform for FakePlatform {
     fn media(&self) -> &dyn Media {
         self
@@ -1378,6 +1498,10 @@ impl Platform for FakePlatform {
     }
 
     fn drag_source(&self) -> &dyn DragSource {
+        self
+    }
+
+    fn window_placement(&self) -> &dyn WindowPlacement {
         self
     }
 
@@ -1827,11 +1951,14 @@ mod tests {
     fn move_size_and_lock_scripts_publish_events() {
         let fake = FakePlatform::new();
         let mut rx = fake.subscribe();
-        fake.move_size_changed(true);
+        fake.move_size_changed(true, 0x4242);
         fake.set_session_locked(true);
         assert_eq!(
             rx.try_recv().unwrap(),
-            PlatformEvent::MoveSizeChanged { started: true }
+            PlatformEvent::MoveSizeChanged {
+                started: true,
+                window: 0x4242
+            }
         );
         assert_eq!(
             rx.try_recv().unwrap(),

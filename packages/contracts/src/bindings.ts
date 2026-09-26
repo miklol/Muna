@@ -361,6 +361,16 @@ export const commands = {
 	 *  call; the first call renders, so it runs on a blocking thread.
 	 */
 	shelfThumbnail: (id: string) => typedError<string | null, IpcError>(__TAURI_INVOKE("shelf_thumbnail", { id })),
+	/**
+	 *  Places the dragged window of `session` into `zone` on the monitor of the notch window
+	 *  `label` (docs/modules/window-snap.md). Waits for the placement to settle, so it runs on a
+	 *  blocking thread. `snap.unknownSession` when the drag is gone, `snap.zoneNotOffered` for a
+	 *  zone the settings do not enable, `snap.unknownMonitor` for a label that is no longer a
+	 *  notch window.
+	 */
+	snapApply: (session: number, label: string, zone: SnapZoneRef) => typedError<null, IpcError>(__TAURI_INVOKE("snap_apply", { session, label, zone })),
+	/**  The drag ended outside every zone: forgets the session. `false` when it was already gone. */
+	snapCancel: (session: number) => __TAURI_INVOKE<boolean>("snap_cancel", { session }),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -386,6 +396,9 @@ export const events = {
 	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
 	shellPointerDownOutside: makeEvent<ShellPointerDownOutside>("shell-pointer-down-outside"),
 	shellYieldChanged: makeEvent<ShellYieldChanged>("shell-yield-changed"),
+	snapDragEnded: makeEvent<SnapDragEnded>("snap-drag-ended"),
+	snapDragLeft: makeEvent<SnapDragLeft>("snap-drag-left"),
+	snapDragMoved: makeEvent<SnapDragMoved>("snap-drag-moved"),
 	stripContentChanged: makeEvent<StripContentChanged>("strip-content-changed"),
 	systemMonitorChanged: makeEvent<SystemMonitorChanged>("system-monitor-changed"),
 	todoChanged: makeEvent<TodoChanged>("todo-changed"),
@@ -1467,6 +1480,42 @@ export type ShellYieldChanged = {
 	label: string,
 	state: YieldState,
 };
+
+/**
+ *  The tracked drag ended (button released). `label` is the notch window the cursor was over
+ *  at that moment, if any: the UI resolves the tile under its last position and calls
+ *  `snap_apply`, or `snap_cancel` when nothing was hit.
+ */
+export type SnapDragEnded = {
+	session: number,
+	label: string | null,
+};
+
+/**  The tracked drag left the notch window `label`; the zones collapse. */
+export type SnapDragLeft = {
+	label: string,
+	session: number,
+};
+
+/**
+ *  A tracked window drag (docs/modules/window-snap.md) is over the notch window `label` at
+ *  `position`: the UI shows the zones once the cursor is in the hot zone and highlights the
+ *  tile under it. Only on change, at most once per cursor sample.
+ */
+export type SnapDragMoved = {
+	label: string,
+	session: number,
+	position: DropPoint,
+};
+
+/**  A built-in layout, in the strip's order. */
+export type SnapZone = "topLeft" | "bottomLeft" | "leftHalf" | "maximize" | "rightHalf" | "topRight" | "bottomRight" | "leftThird" | "centerThird" | "rightThird";
+
+/**  What the UI names at release: a built-in layout or one cell of the custom grid. */
+export type SnapZoneRef = ({ builtIn: SnapZone }) & { cell?: never } | ({ cell: {
+	row: number,
+	col: number,
+} }) & { builtIn?: never };
 
 /**  One subscribed calendar, as the settings document and the UI see it. */
 export type SourceSetting = {

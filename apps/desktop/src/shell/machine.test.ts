@@ -314,6 +314,94 @@ describe('transition (pure)', () => {
       expect(run([{ type: 'dropLeave' }], opened()).snapshot.state).toBe('expanded');
     });
   });
+
+  describe('window snap (docs/modules/window-snap.md)', () => {
+    const snapTimer: ShellEvent = { type: 'timer', id: 'snapIntent' };
+
+    it('a drag resting in the hot zone shows the zones after the intent delay', () => {
+      expect(timerDurations.snapIntent).toBe(timings.snapZonesDelayMs);
+      const near = run([{ type: 'snapNear' }]);
+      expect(near.snapshot.state).toBe('collapsed');
+      expect(near.effects).toEqual([
+        { type: 'startTimer', id: 'snapIntent', ms: timings.snapZonesDelayMs },
+      ]);
+      // Repeated "near" samples do not restart the clock.
+      expect(run([{ type: 'snapNear' }], near.snapshot).snapshot).toBe(near.snapshot);
+
+      const shown = run([snapTimer], near.snapshot);
+      expect(shown.snapshot.state).toBe('snap');
+      expect(shown.snapshot.previous).toBe('collapsed');
+      expect(shown.snapshot.timers).toEqual([]);
+      // Near again while showing changes nothing; far or the drag ending closes the zones.
+      expect(run([{ type: 'snapNear' }], shown.snapshot).snapshot).toBe(shown.snapshot);
+      expect(run([{ type: 'snapFar' }], shown.snapshot).snapshot.state).toBe('collapsed');
+      expect(run([{ type: 'snapEnd' }], shown.snapshot).snapshot.state).toBe('collapsed');
+
+      // Under a yield rule asking for peek the zones give way to the sliver.
+      const peeked = run([{ type: 'yield', state: 'peek' }, { type: 'snapNear' }, snapTimer]);
+      expect(peeked.snapshot.state).toBe('snap');
+      expect(run([{ type: 'snapEnd' }], peeked.snapshot).snapshot.state).toBe('peek');
+    });
+
+    it('leaving the hot zone before the delay cancels the zones', () => {
+      const near = run([{ type: 'snapNear' }]).snapshot;
+      const left = run([{ type: 'snapFar' }], near);
+      expect(left.snapshot.state).toBe('collapsed');
+      expect(left.snapshot.timers).toEqual([]);
+      expect(left.effects).toEqual([{ type: 'cancelTimer', id: 'snapIntent' }]);
+      // A late tick from a cancelled timer is ignored.
+      expect(run([snapTimer], left.snapshot).snapshot).toBe(left.snapshot);
+      // The drag ending does the same; far or end with nothing pending changes nothing.
+      expect(run([{ type: 'snapEnd' }], near).snapshot.timers).toEqual([]);
+      expect(run([{ type: 'snapFar' }]).snapshot).toBe(initialSnapshot);
+      expect(run([{ type: 'snapEnd' }]).snapshot).toBe(initialSnapshot);
+    });
+
+    it('never interrupts an open panel or the drop row, but takes over a reveal', () => {
+      for (const from of [
+        opened(),
+        run([{ type: 'pin', pinned: true }], opened()).snapshot,
+        run([{ type: 'dropEnter' }]).snapshot,
+      ]) {
+        const near = run([{ type: 'snapNear' }], from);
+        expect(near.snapshot).toBe(from);
+        expect(near.effects).toEqual([]);
+      }
+      // A reveal is a strip form: the zones replace it and drop its pending timer.
+      const revealed = run([hover(), timer('hoverIntent')]).snapshot;
+      const fromReveal = run([{ type: 'snapNear' }, snapTimer], revealed);
+      expect(fromReveal.snapshot.state).toBe('snap');
+      expect(fromReveal.snapshot.previous).toBe('hoverReveal');
+      expect(fromReveal.snapshot.timers).toEqual([]);
+      expect(fromReveal.effects).toContainEqual({ type: 'cancelTimer', id: 'revealToExpand' });
+    });
+
+    it('ignores the pointer and panel controls while the zones show, but Esc and parking close them', () => {
+      const snapping = run([{ type: 'snapNear' }, snapTimer]).snapshot;
+      for (const event of [
+        { type: 'press' },
+        { type: 'pressOutside' },
+        { type: 'scrollDown' },
+        { type: 'toggle' },
+        { type: 'open' },
+        { type: 'collapse' },
+        { type: 'pin', pinned: true },
+        { type: 'fieldFocus', focused: true },
+        { type: 'dropEnter' },
+        { type: 'dropLeave' },
+      ] as const satisfies readonly ShellEvent[]) {
+        expect(run([event], snapping).snapshot).toBe(snapping);
+      }
+      const sampled = run([hover()], snapping);
+      expect(sampled.snapshot.state).toBe('snap');
+      expect(sampled.effects).toEqual([]);
+
+      expect(run([{ type: 'escape' }], snapping).snapshot.state).toBe('collapsed');
+      const parked = run([{ type: 'yield', state: 'parked' }], snapping).snapshot;
+      expect(parked.state).toBe('parked');
+      expect(run([{ type: 'yield', state: 'none' }], parked).snapshot.state).toBe('collapsed');
+    });
+  });
 });
 
 describe('ShellMachine (timers)', () => {

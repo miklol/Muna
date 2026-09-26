@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { dropModuleOf, findModule, modules } from './registry';
+import { dropModuleOf, findModule, modules, snapModuleOf } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions and the shelf (M4)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf and window snap (M4)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
@@ -19,6 +19,7 @@ describe('module registry', () => {
       'keyboard-shortcuts',
       'drop-actions',
       'shelf',
+      'window-snap',
     ]);
     expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
     expect(findModule('dashboard')?.settings).toBeDefined();
@@ -75,6 +76,16 @@ describe('module registry', () => {
     expect(findModule('drop-actions')?.drop).toBeDefined();
     expect(dropModuleOf(modules)?.id).toBe('drop-actions');
     expect(dropModuleOf(modules.filter((module) => module.id !== 'drop-actions'))).toBeUndefined();
+  });
+
+  it("gives window snap a settings pane and the zones but no panel: the zones are the shell's snap state", () => {
+    expect(findModule('window-snap')?.titleKey).toBe('windowSnap.title');
+    expect(findModule('window-snap')?.settings).toBeDefined();
+    expect(findModule('window-snap')?.panel).toBeUndefined();
+    expect(findModule('window-snap')?.drop).toBeUndefined();
+    expect(findModule('window-snap')?.snap).toBeDefined();
+    expect(snapModuleOf(modules)?.id).toBe('window-snap');
+    expect(snapModuleOf(modules.filter((module) => module.id !== 'window-snap'))).toBeUndefined();
   });
 
   it('declares the M4-E6 module actions on the media, to-do and pomodoro modules only', () => {
