@@ -1,7 +1,16 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
 
-import type { HotkeyBinding, Settings, ShellLayout, SourceSetting, StripContent } from './bindings';
+import type {
+  DropActionsSnapshot,
+  DropEntered,
+  DropJob,
+  HotkeyBinding,
+  Settings,
+  ShellLayout,
+  SourceSetting,
+  StripContent,
+} from './bindings';
 import {
   CALENDAR_MAX_NAME_CHARS,
   CALENDAR_REFRESH_CHOICES_MINUTES,
@@ -15,6 +24,11 @@ import {
   DAY_PROGRESS_SETTINGS_KEY,
   DAY_PROGRESS_STRIP_IDS,
   DEFAULT_DASHBOARD_SLOTS,
+  DEFAULT_DROP_TILES,
+  DROP_ACTIONS_SETTINGS_KEY,
+  DROP_MAX_FOLDERS,
+  DROP_TILES_PER_ROW,
+  DROP_TILES_PER_ROW_EXPANDED,
   HUD_NOTICE_IDS,
   HUD_SETTINGS_KEY,
   HUD_VOLUME_STEP,
@@ -45,6 +59,7 @@ import {
   defaultCalendarSettings,
   defaultDashboardSettings,
   defaultDayProgressSettings,
+  defaultDropActionsSettings,
   defaultHudSettings,
   defaultKeyboardShortcutsSettings,
   defaultMediaSettings,
@@ -54,6 +69,16 @@ import {
   defaultSystemMonitorSettings,
   defaultTodoSettings,
   defaultWeatherSettings,
+  dropActionSchema,
+  dropActionsChangedSchema,
+  dropActionsSnapshotSchema,
+  dropEnteredSchema,
+  dropFolderDisplayName,
+  dropJobSchema,
+  dropLeftSchema,
+  dropMovedSchema,
+  dropTilesPerRow,
+  droppedSchema,
   hotkeyBindingSchema,
   isSnoozeMinutes,
   monitorLayoutSchema,
@@ -61,6 +86,7 @@ import {
   readCalendarSettings,
   readDashboardSettings,
   readDayProgressSettings,
+  readDropActionsSettings,
   readHudSettings,
   readKeyboardShortcutsSettings,
   readMediaSettings,
@@ -77,6 +103,7 @@ import {
   writeCalendarSettings,
   writeDashboardSettings,
   writeDayProgressSettings,
+  writeDropActionsSettings,
   writeHudSettings,
   writeKeyboardShortcutsSettings,
   writeMediaSettings,
@@ -1131,5 +1158,198 @@ describe('keyboard shortcuts settings namespace', () => {
       hotkeyBindingSchema.safeParse({ action: 'x', chord: null, state: 'taken' }).success,
     ).toBe(false);
     expectTypeOf<z.infer<typeof hotkeyBindingSchema>>().toEqualTypeOf<HotkeyBinding>();
+  });
+});
+
+describe('drop actions schemas', () => {
+  it('defaults to every built-in tile, share first and the destructive ones last', () => {
+    const settings = readDropActionsSettings(defaultSettings());
+    expect(settings.tiles).toEqual(DEFAULT_DROP_TILES);
+    expect(settings.tiles[0]).toEqual({ kind: 'nearbyShare' });
+    expect(settings.tiles.slice(-2)).toEqual([{ kind: 'trash' }, { kind: 'eject' }]);
+    expect(settings.folders).toEqual([]);
+    expect(settings.expandNotch).toBe(false);
+    expect(defaultDropActionsSettings()).toEqual(settings);
+    expect(dropTilesPerRow(settings)).toBe(DROP_TILES_PER_ROW);
+    expect(dropTilesPerRow({ expandNotch: true })).toBe(DROP_TILES_PER_ROW_EXPANDED);
+  });
+
+  it('repairs a hand-edited namespace the way Rust does', () => {
+    const edited: Settings = {
+      ...defaultSettings(),
+      modules: {
+        [DROP_ACTIONS_SETTINGS_KEY]: {
+          tiles: [
+            { kind: 'zip' },
+            { kind: 'divider' },
+            { kind: 'folder', id: 'gone' },
+            { kind: 'zip' },
+            { kind: 'divider' },
+            { kind: 'folder', id: 'one' },
+          ],
+          folders: [
+            { id: 'one', name: '', path: 'C:\\Users\\me\\OneDrive\\', mode: 'copy' },
+            { id: 'one', name: 'Twin', path: 'C:\\twin', mode: 'move' },
+            { id: ' ', name: 'No id', path: 'C:\\nowhere', mode: 'copy' },
+            { id: 'three', name: 'Projects', path: 'D:/work/projects', mode: 'move' },
+          ],
+        },
+      },
+    };
+    expect(readDropActionsSettings(edited)).toEqual({
+      tiles: [
+        { kind: 'zip' },
+        { kind: 'divider' },
+        { kind: 'divider' },
+        { kind: 'folder', id: 'one' },
+        { kind: 'folder', id: 'three' },
+      ],
+      folders: [
+        { id: 'one', name: 'OneDrive', path: 'C:\\Users\\me\\OneDrive\\', mode: 'copy' },
+        { id: 'three', name: 'Projects', path: 'D:/work/projects', mode: 'move' },
+      ],
+      expandNotch: false,
+    });
+  });
+
+  it('caps the folders and gives each kept one a tile', () => {
+    const folders = Array.from({ length: DROP_MAX_FOLDERS + 3 }, (_, index) => ({
+      id: `f${String(index)}`,
+      name: '',
+      path: `C:\\f${String(index)}`,
+      mode: 'copy' as const,
+    }));
+    const settings = readDropActionsSettings({
+      ...defaultSettings(),
+      modules: { [DROP_ACTIONS_SETTINGS_KEY]: { tiles: [], folders } },
+    });
+    expect(settings.folders).toHaveLength(DROP_MAX_FOLDERS);
+    expect(settings.tiles).toHaveLength(DROP_MAX_FOLDERS);
+    expect(settings.tiles.every((tile) => tile.kind === 'folder')).toBe(true);
+  });
+
+  it('falls back to the defaults for a malformed entry and round-trips through write', () => {
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [DROP_ACTIONS_SETTINGS_KEY]: { tiles: 12 } },
+    };
+    expect(readDropActionsSettings(broken)).toEqual(defaultDropActionsSettings());
+    const written = writeDropActionsSettings(defaultSettings(), {
+      tiles: [{ kind: 'trash' }, { kind: 'folder', id: 'one' }],
+      folders: [{ id: 'one', name: 'Drive', path: 'C:\\Users\\me\\Drive', mode: 'move' }],
+      expandNotch: true,
+    });
+    expect(readDropActionsSettings(written)).toEqual({
+      tiles: [{ kind: 'trash' }, { kind: 'folder', id: 'one' }],
+      folders: [{ id: 'one', name: 'Drive', path: 'C:\\Users\\me\\Drive', mode: 'move' }],
+      expandNotch: true,
+    });
+  });
+
+  it('names a folder after its last path segment', () => {
+    expect(dropFolderDisplayName('C:\\Users\\me\\OneDrive')).toBe('OneDrive');
+    expect(dropFolderDisplayName('C:\\Users\\me\\OneDrive\\')).toBe('OneDrive');
+    expect(dropFolderDisplayName('D:/work/projects')).toBe('projects');
+    expect(dropFolderDisplayName('C:\\')).toBe('C:');
+    expect(dropFolderDisplayName('\\\\')).toBe('\\\\');
+  });
+
+  it('parses jobs and snapshots and matches the generated types', () => {
+    const jobs: DropJob[] = [
+      { id: 1, action: 'zip', count: 3, state: { kind: 'running', percent: 42 } },
+      { id: 2, action: 'trash', count: 1, state: { kind: 'running', percent: null } },
+      { id: 3, action: 'copy', count: 2, state: { kind: 'done' } },
+      { id: 4, action: 'unzip', count: 1, state: { kind: 'failed', reason: 'noArchive' } },
+    ];
+    for (const job of jobs) {
+      expect(dropJobSchema.parse(job)).toEqual(job);
+    }
+    expect(dropJobSchema.safeParse({ ...jobs[0], action: 'burn' }).success).toBe(false);
+    expect(
+      dropJobSchema.safeParse({ ...jobs[0], state: { kind: 'running', percent: 101 } }).success,
+    ).toBe(false);
+
+    const snapshot: DropActionsSnapshot = { settings: {}, jobs };
+    const parsed = dropActionsSnapshotSchema.parse(snapshot);
+    expect(parsed.jobs).toEqual(jobs);
+    expect(parsed.settings).toEqual(defaultDropActionsSettings());
+    expect(dropActionsChangedSchema.parse({ snapshot }).snapshot).toEqual(parsed);
+    expectTypeOf<z.infer<typeof dropJobSchema>>().branded.toEqualTypeOf<DropJob>();
+  });
+
+  it('parses the drag events the shell emits', () => {
+    const entered: DropEntered = {
+      label: 'notch',
+      session: 1,
+      items: [
+        { name: 'report.pdf', extension: 'pdf', isDirectory: false },
+        { name: 'Photos', extension: null, isDirectory: true },
+      ],
+      position: { x: 120, y: 14 },
+    };
+    expect(dropEnteredSchema.parse(entered)).toEqual(entered);
+    expect(dropMovedSchema.parse({ label: 'notch', session: 1, position: { x: 1, y: 2 } })).toEqual(
+      { label: 'notch', session: 1, position: { x: 1, y: 2 } },
+    );
+    expect(droppedSchema.parse({ label: 'notch', session: 1, position: { x: 1, y: 2 } })).toEqual({
+      label: 'notch',
+      session: 1,
+      position: { x: 1, y: 2 },
+    });
+    expect(dropLeftSchema.parse({ label: 'notch', session: 1 })).toEqual({
+      label: 'notch',
+      session: 1,
+    });
+    expect(dropEnteredSchema.safeParse({ ...entered, session: 0 }).success).toBe(false);
+    expectTypeOf<z.infer<typeof dropEnteredSchema>>().toEqualTypeOf<DropEntered>();
+  });
+
+  it('accepts every action a tile can ask for', () => {
+    const actions = [
+      { kind: 'share' },
+      { kind: 'folder', id: 'one' },
+      { kind: 'copyTo', title: 'Copy to' },
+      { kind: 'moveTo', title: '' },
+      { kind: 'openWith' },
+      { kind: 'zip' },
+      { kind: 'unzip' },
+      { kind: 'reveal' },
+      { kind: 'trash' },
+      { kind: 'eject' },
+    ] as const;
+    for (const action of actions) {
+      expect(dropActionSchema.parse(action)).toEqual(action);
+    }
+    expect(dropActionSchema.safeParse({ kind: 'folder', id: '' }).success).toBe(false);
+    expect(dropActionSchema.safeParse({ kind: 'divider' }).success).toBe(false);
+  });
+
+  it('renders drop jobs in the strip', () => {
+    const content: StripContent = {
+      kind: 'activity',
+      wide: true,
+      activity: {
+        id: 'drop-actions:job-1',
+        module: 'drop-actions',
+        priority: 68,
+        leading: { kind: 'icon', glyph: 'archive', tint: null },
+        trailing: { kind: 'progress', percent: 42 },
+        wide: { kind: 'dropRunning', action: 'zip', count: 3 },
+      },
+    };
+    expect(stripContentSchema.parse(content)).toEqual(content);
+    const failed: StripContent = {
+      kind: 'notice',
+      notice: {
+        id: 'drop-actions:failed-2',
+        module: 'drop-actions',
+        priority: 68,
+        leading: { kind: 'icon', glyph: 'drive', tint: 'red' },
+        trailing: null,
+        wide: { kind: 'dropFailed', action: 'eject' },
+        holdMs: 0,
+      },
+    };
+    expect(stripContentSchema.parse(failed)).toEqual(failed);
   });
 });

@@ -14,18 +14,22 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use muna_core::ShellSettings;
+use muna_core::{DropSessions, ShellSettings};
 use muna_platform::{MonitorInfo, Platform, PlatformEvent, WindowHandle};
 use parking_lot::Mutex;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, DragDropEvent, Manager, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 use tauri_specta::Event;
 
+use super::drag::{DragLog, DragPoint};
 use super::hit_test::PollRate;
 use super::memory_target::{Hold, MemoryTarget, MemoryTargetPolicy};
 use super::model::{Effect, PRIMARY_LABEL, ReconcilePlan, ShellLayout, ShellModel};
-use crate::ipc::{ShapeRect, ShellLayoutChanged, ShellPointerDownOutside, ShellYieldChanged};
+use crate::ipc::{
+    DropEntered, DropItem, DropLeft, DropMoved, DropPoint, Dropped, ShapeRect, ShellLayoutChanged,
+    ShellPointerDownOutside, ShellYieldChanged,
+};
 
 /// Label of the settings window in `tauri.conf.json`.
 pub const SETTINGS_LABEL: &str = "settings";
@@ -59,6 +63,10 @@ pub struct ShellManager {
     ready_reported: Mutex<HashSet<String>>,
     /// Low memory target while the cursor stays away from the notch (PRD ≤ 120 MB budget).
     memory_target: Mutex<MemoryTargetPolicy>,
+    /// OLE drags in flight over the notch windows, one summary per window label.
+    drags: Mutex<DragLog>,
+    /// What those drags carry, for the Drop actions module (paths never reach the UI).
+    drops: Arc<DropSessions>,
 }
 
 impl std::fmt::Debug for ShellManager {
@@ -71,7 +79,12 @@ impl std::fmt::Debug for ShellManager {
 
 impl ShellManager {
     #[must_use]
-    pub fn new(platform: Arc<dyn Platform>, settings: ShellSettings, started_at: Instant) -> Self {
+    pub fn new(
+        platform: Arc<dyn Platform>,
+        settings: ShellSettings,
+        started_at: Instant,
+        drops: Arc<DropSessions>,
+    ) -> Self {
         Self {
             platform,
             model: Mutex::new(ShellModel::new(settings)),
@@ -83,6 +96,8 @@ impl ShellManager {
             started_at,
             ready_reported: Mutex::new(HashSet::new()),
             memory_target: Mutex::new(MemoryTargetPolicy::new()),
+            drags: Mutex::new(DragLog::default()),
+            drops,
         }
     }
 
@@ -188,7 +203,7 @@ impl ShellManager {
         let Some(hwnd) = handle_of(&window) else {
             return;
         };
-        self.watch_scale(app, &window);
+        self.watch_window(app, &window);
         tracing::info!(label, monitor = %monitor.id, "notch window attached");
         let effects =
             self.model
@@ -197,11 +212,12 @@ impl ShellManager {
         self.apply(app, effects);
     }
 
-    fn watch_scale(self: &Arc<Self>, app: &AppHandle, window: &WebviewWindow) {
+    fn watch_window(self: &Arc<Self>, app: &AppHandle, window: &WebviewWindow) {
         let manager = Arc::clone(self);
         let app = app.clone();
-        window.on_window_event(move |event| {
-            if let WindowEvent::ScaleFactorChanged { .. } = event {
+        let label = window.label().to_owned();
+        window.on_window_event(move |event| match event {
+            WindowEvent::ScaleFactorChanged { .. } => {
                 // tao repositions the window to the OS-suggested rect; put it back. Hop through
                 // the async runtime so `run_on_main_thread` is queued, never inline.
                 let manager = Arc::clone(&manager);
@@ -210,7 +226,143 @@ impl ShellManager {
                     manager.request_reconcile(&app);
                 });
             }
+            // OLE drags reach the window through wry's drop target (docs/spikes/m4-drop.md).
+            WindowEvent::DragDrop(drag) => manager.on_drag_drop(&app, &label, drag),
+            // The notch never takes focus on its own (`focusable: false`); a focus gain here
+            // means a drag or a click activated it, which the spike and the QA checklist watch.
+            WindowEvent::Focused(true) => tracing::warn!(label, "notch window focused"),
+            _ => {}
         });
+    }
+
+    /// Turns wry's drag-drop events into the typed `Drop*` events the UI renders the tiles
+    /// from (docs/modules/drop-actions.md), keeps the paths in the drop registry for the
+    /// module, and tells the model so the yield rules hold the strip in place meanwhile.
+    fn on_drag_drop(self: &Arc<Self>, app: &AppHandle, label: &str, event: &DragDropEvent) {
+        match event {
+            DragDropEvent::Enter { paths, position } => {
+                let session = self.drops.begin(label, paths.clone());
+                self.drags.lock().enter(label, position.x, position.y);
+                let effects = self.model.lock().set_dragging(
+                    self.platform.as_ref(),
+                    label,
+                    true,
+                    Instant::now(),
+                );
+                self.apply(app, effects);
+                tracing::info!(label, session, count = paths.len(), "drag enter");
+                let position = self.css_point(label, DragPoint::new(position.x, position.y));
+                // Stat-ing the items can stall on a slow share; never on the event loop.
+                let app = app.clone();
+                let label = label.to_owned();
+                let paths = paths.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    let items = paths.iter().map(|path| drop_item(path)).collect();
+                    emit(
+                        &app,
+                        &DropEntered {
+                            label,
+                            session,
+                            items,
+                            position,
+                        },
+                    );
+                });
+            }
+            DragDropEvent::Over { position } => {
+                let Some(session) = self.drops.current(label) else {
+                    return;
+                };
+                let due = {
+                    let mut drags = self.drags.lock();
+                    drags.over(label, position.x, position.y);
+                    drags.take_move_if_due(label, Instant::now())
+                };
+                if let Some(point) = due {
+                    emit(
+                        app,
+                        &DropMoved {
+                            label: label.to_owned(),
+                            session,
+                            position: self.css_point(label, point),
+                        },
+                    );
+                }
+            }
+            DragDropEvent::Leave => {
+                let summary = self.drags.lock().finish(label);
+                let session = self.drops.current(label);
+                self.drops.forget_window(label);
+                self.end_drag(app, label);
+                tracing::info!(
+                    label,
+                    session = session.unwrap_or_default(),
+                    overs = summary.overs,
+                    first = %summary.first(),
+                    last = %summary.last(),
+                    "drag leave"
+                );
+                if let Some(session) = session {
+                    emit(
+                        app,
+                        &DropLeft {
+                            label: label.to_owned(),
+                            session,
+                        },
+                    );
+                }
+            }
+            DragDropEvent::Drop { paths, position } => {
+                let summary = self.drags.lock().finish(label);
+                let session = self.drops.current(label);
+                self.end_drag(app, label);
+                let Some(session) = session else {
+                    tracing::warn!(label, "drop without a drag session");
+                    return;
+                };
+                self.drops.mark_dropped(session, Some(paths.clone()));
+                tracing::info!(
+                    label,
+                    session,
+                    count = paths.len(),
+                    overs = summary.overs,
+                    "drag drop"
+                );
+                emit(
+                    app,
+                    &Dropped {
+                        label: label.to_owned(),
+                        session,
+                        position: self.css_point(label, DragPoint::new(position.x, position.y)),
+                    },
+                );
+            }
+            _ => {}
+        }
+    }
+
+    fn end_drag(self: &Arc<Self>, app: &AppHandle, label: &str) {
+        let effects =
+            self.model
+                .lock()
+                .set_dragging(self.platform.as_ref(), label, false, Instant::now());
+        self.apply(app, effects);
+    }
+
+    /// A drag position in physical client pixels as whole CSS pixels for the window `label`.
+    fn css_point(&self, label: &str, point: DragPoint) -> DropPoint {
+        let dpi = self
+            .model
+            .lock()
+            .window(label)
+            .map_or(96, |window| window.monitor.dpi.max(1));
+        let scale = 96.0 / f64::from(dpi);
+        // Client coordinates fit an i32 by construction; `round` then saturating casts.
+        #[allow(clippy::cast_possible_truncation)]
+        DropPoint {
+            x: (point.x * scale).round() as i32,
+            y: (point.y * scale).round() as i32,
+        }
     }
 
     /// Queues a reconcile on the main thread from any thread.
@@ -636,6 +788,31 @@ fn create_window(app: &AppHandle, label: &str) -> anyhow::Result<WebviewWindow> 
         .ok_or_else(|| anyhow::anyhow!("no `{PRIMARY_LABEL}` window in tauri.conf.json"))?;
     label.clone_into(&mut config.label);
     Ok(WebviewWindowBuilder::from_config(app, &config)?.build()?)
+}
+
+/// Emits a typed event to every window, logging instead of failing.
+fn emit<E: Event + serde::Serialize + Clone>(app: &AppHandle, event: &E) {
+    if let Err(error) = event.emit(app) {
+        tracing::warn!(%error, event = std::any::type_name::<E>(), "emit failed");
+    }
+}
+
+/// What the UI may know about a dragged item: name and kind, never the path.
+fn drop_item(path: &std::path::Path) -> DropItem {
+    DropItem {
+        name: path
+            .file_name()
+            .map_or_else(String::new, |name| name.to_string_lossy().into_owned()),
+        extension: path
+            .extension()
+            .map(|extension| extension.to_string_lossy().to_ascii_lowercase()),
+        is_directory: path.is_dir(),
+    }
+}
+
+/// The native handle of a Tauri window, for the platform layer.
+pub fn window_handle(window: &WebviewWindow) -> Option<WindowHandle> {
+    handle_of(window)
 }
 
 fn handle_of(window: &WebviewWindow) -> Option<WindowHandle> {

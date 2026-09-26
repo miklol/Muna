@@ -41,7 +41,11 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { persistSettings, useSettings } from '../lib/settings';
-import { type ModuleDefinition, modules as registeredModules } from '../modules/registry';
+import {
+  dropModuleOf,
+  type ModuleDefinition,
+  modules as registeredModules,
+} from '../modules/registry';
 import { useAppStore } from '../store/app-store';
 import { listActions, runAction, type ShellActionContext } from './actions';
 import { HitTestOverlay, hitTestOverlayEnabled } from './hit-test-overlay';
@@ -64,17 +68,22 @@ import {
   type GeometryInput,
   moduleBarOffsetY,
   moduleBarSize,
+  showsDrop,
+  showsLarge,
   showsPanel,
+  type Size,
   targetOffsetY,
   targetSize,
 } from './shell-geometry';
 import { Strip } from './strip';
 import { type HudPresentation, hudNoticeShowing, wantsWide } from './strip-content';
 import {
+  cancelDrop,
   publishShapeRects,
   reportMorph,
   setNotchFocusable,
   setStripSuspended,
+  useDropSubscription,
   useHotkeySubscription,
   useShellLayoutSubscription,
   useShellPointerDownOutsideSubscription,
@@ -93,6 +102,8 @@ export interface NotchWindowProps {
 const MODULE_ICON_SIZE = 20;
 const MODULE_ICON_STROKE = 1.75;
 const noModules: readonly string[] = [];
+/** Where a drag is before its first `DropMoved`: no tile is there. */
+const originPoint = { x: -1, y: -1 } as const;
 
 type Layout = Pick<ShellLayout, 'shape' | 'stripHeight' | 'stripTopOffset' | 'panelMaxWidth'>;
 
@@ -195,6 +206,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const queryClient = useQueryClient();
   useStripContentSubscription();
   useShellLayoutSubscription();
+  useDropSubscription();
   const reduceMotion = useReduceMotion();
 
   const layout: Layout = layoutFromShell ?? fallbackLayout;
@@ -211,6 +223,13 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     () => orderModules(modules, moduleOrder, disabledModules),
     [disabledModules, moduleOrder, modules],
   );
+  // The drop row comes from a module without a panel, so it is looked up in the full list less
+  // the disabled ones — disabling the module turns drops off (docs/modules/drop-actions.md).
+  const dropModule = useMemo(
+    () => dropModuleOf(modules.filter((module) => !disabledModules.includes(module.id))),
+    [disabledModules, modules],
+  );
+  const DropSurface = dropModule?.drop;
   const setModuleOrder = useCallback(
     (ids: readonly string[]) => {
       if (settings !== undefined) {
@@ -281,11 +300,13 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const rootRef = useRef<HTMLElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
   const speed = useRef(new SpeedTracker());
   const sampler = useRef(new MorphSampler());
   const lastPublished = useRef<ShapeRect[]>([]);
 
   const [panelContentHeight, setPanelContentHeight] = useState<number | null>(null);
+  const [dropContentSize, setDropContentSize] = useState<Size | null>(null);
   const [lastMorph, setLastMorph] = useState<MorphReport | null>(null);
   const [publishedRects, setPublishedRects] = useState<readonly ShapeRect[]>([]);
   const [radii, setRadii] = useState({ strip: 14, panel: 28 });
@@ -410,9 +431,64 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     };
   }, [machine]);
 
+  // --- drops ---------------------------------------------------------------------------------
+
+  // A drag carrying files (docs/modules/drop-actions.md): Rust opens a session and the shell
+  // shows the row; the row runs or cancels the drop and ends the session, and the machine
+  // follows the session out. The machine's live state is read after `dropEnter` because the
+  // rendered one is a commit behind: a refused entry (parked, or no module offers a row) means
+  // nothing will ever handle the items, so Rust forgets them at once.
+  const dropSession = useAppStore((store) => store.dropSession);
+  const dropPosition = useAppStore((store) => store.dropPosition);
+  const endDrop = useAppStore((store) => store.endDrop);
+  const dropSessionId = dropSession?.session ?? null;
+  const forgottenDrop = useRef<number | null>(null);
+  /** Rust forgets the items (once per session) and the store the session. */
+  const forgetDrop = useCallback(
+    (session: number) => {
+      if (forgottenDrop.current !== session) {
+        forgottenDrop.current = session;
+        cancelDrop(session);
+      }
+      endDrop(session);
+    },
+    [endDrop],
+  );
+  useEffect(() => {
+    if (dropSessionId === null) {
+      return;
+    }
+    if (DropSurface !== undefined) {
+      machine.send({ type: 'dropEnter' });
+    }
+    if (machine.snapshot.state !== 'drop') {
+      forgetDrop(dropSessionId);
+    }
+  }, [DropSurface, dropSessionId, forgetDrop, machine]);
+  const dropShown = showsDrop(state);
+  useEffect(() => {
+    // The row closed under an open session (Esc, park): the items have nowhere to land.
+    if (dropShown || dropSessionId === null || machine.snapshot.state === 'drop') {
+      return;
+    }
+    forgetDrop(dropSessionId);
+  }, [dropSessionId, dropShown, forgetDrop, machine]);
+  useEffect(() => {
+    // The session ended (the drag left, or the row handled it) while the row still shows.
+    if (dropShown && dropSessionId === null) {
+      machine.send({ type: 'dropLeave' });
+    }
+  }, [dropSessionId, dropShown, machine]);
+  const onDropDone = useCallback(() => {
+    if (dropSessionId !== null) {
+      endDrop(dropSessionId);
+    }
+  }, [dropSessionId, endDrop]);
+
   // Ctrl+Tab / Ctrl+Shift+Tab step through the modules while the panel is open
   // (docs/modules/notch-shell.md, "Rules").
   const panelShown = showsPanel(state);
+  const largeShown = showsLarge(state);
   if (paletteOpen && !panelShown) {
     // The palette lives inside the panel; adjusting during render avoids a cascading effect.
     setPaletteOpen(false);
@@ -439,10 +515,10 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
 
   // --- geometry ------------------------------------------------------------------------------
 
-  const wide = !panelShown && wantsWide(content);
+  const wide = !largeShown && wantsWide(content);
   const geometry = useMemo<GeometryInput>(
-    () => ({ layout, wide, panelContentHeight }),
-    [layout, wide, panelContentHeight],
+    () => ({ layout, wide, panelContentHeight, dropContentSize }),
+    [dropContentSize, layout, panelContentHeight, wide],
   );
   const target = targetSize(state, geometry);
   const offsetY = targetOffsetY(state, geometry);
@@ -468,6 +544,33 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
       observer.disconnect();
     };
   }, [panelShown]);
+
+  // The drop row is measured the same way, in both axes: it lays out at its natural width
+  // (never wider than the panel) and the shell morphs to hold it. The measurement is cleared
+  // when the row goes, so the next drag starts its morph from the strip again.
+  useLayoutEffect(() => {
+    const node = dropRef.current;
+    if (node === null || !dropShown) {
+      setDropContentSize(null);
+      return;
+    }
+    if (typeof ResizeObserver === 'undefined') {
+      setDropContentSize({ width: node.offsetWidth, height: node.offsetHeight });
+      return;
+    }
+    const observer = new ResizeObserver((entries) => {
+      const box = entries[0]?.borderBoxSize[0];
+      setDropContentSize(
+        box !== undefined
+          ? { width: box.inlineSize, height: box.blockSize }
+          : { width: node.offsetWidth, height: node.offsetHeight },
+      );
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [dropShown, dropSessionId]);
 
   const restBox = useCallback(
     (forState: ShellState, input: GeometryInput): Box => {
@@ -551,9 +654,9 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   // --- morph -------------------------------------------------------------------------------
 
   // The morph is in flight from the moment the target changes until Motion settles on it; the
-  // material follows: the panel's while a panel shows or is still collapsing, black otherwise
-  // (they are alike at strip size, where the switch happens).
-  const radius = panelShown ? radii.panel : radii.strip;
+  // material follows: the panel's while a panel or the drop row shows or is still collapsing,
+  // black otherwise (they are alike at strip size, where the switch happens).
+  const radius = largeShown ? radii.panel : radii.strip;
   const currentGeometry = geometryKey(target.width, target.height, offsetY, radius);
   const [settledGeometry, setSettledGeometry] = useState(currentGeometry);
   const [wasParked, setWasParked] = useState(parked);
@@ -564,16 +667,16 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     setSettledGeometry(currentGeometry);
   }
   const morphing = settledGeometry !== currentGeometry;
-  const closing = morphing && !panelShown && showsPanel(snapshot.previous);
-  const surfaceExpanded = panelShown || closing;
+  const closing = morphing && !largeShown && showsLarge(snapshot.previous);
+  const surfaceExpanded = largeShown || closing;
   const transition = morphTransition(snapshot.previous, state, wide, reduceMotion);
 
-  // The strip's scheduler pauses while the panel covers it and resumes once the collapse has
-  // settled, so whatever is due appears `collapseToActivityMs` later with `notice`
-  // (docs/06-motion-spec.md "Panel → strip"; docs/modules/live-activities.md "Rules").
+  // The strip's scheduler pauses while the panel (or the drop row) covers it and resumes once
+  // the collapse has settled, so whatever is due appears `collapseToActivityMs` later with
+  // `notice` (docs/06-motion-spec.md "Panel → strip"; docs/modules/live-activities.md "Rules").
   const stripSuspended = useRef(false);
   useEffect(() => {
-    if (panelShown) {
+    if (largeShown) {
       if (!stripSuspended.current) {
         stripSuspended.current = true;
         setStripSuspended(true);
@@ -590,7 +693,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     return () => {
       window.clearTimeout(handle);
     };
-  }, [morphing, panelShown]);
+  }, [largeShown, morphing]);
 
   // While a morph is in flight the pointer stays interactive over both the old and the new
   // bounds; at rest (and after a layout change that moved nothing) the rects are the settled
@@ -605,7 +708,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
 
   const onMorphComplete = () => {
     setSettledGeometry(currentGeometry);
-    const report = sampler.current.stop(panelShown);
+    const report = sampler.current.stop(largeShown);
     // Mount and instant (reduced-motion) morphs span no frame: nothing worth logging.
     if (report !== null && report.frames > 0) {
       setLastMorph(report);
@@ -663,7 +766,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     if (event.deltaY === 0) {
       return;
     }
-    if (!panelShown && wheelNudgesVolume(hudSettings.scrollOnStrip, hudShowing)) {
+    if (!largeShown && wheelNudgesVolume(hudSettings.scrollOnStrip, hudShowing)) {
       void commands.hudNudgeVolume(wheelVolumeDelta(event.deltaY)).catch(ignoreRefusal);
       return;
     }
@@ -756,7 +859,31 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
             style={{ width: '100%', height: '100%' }}
           >
             <AnimatePresence mode="popLayout" initial={false}>
-              {panelShown ? (
+              {dropShown && DropSurface !== undefined && dropSession !== null ? (
+                // Keyed by session so a new drag mounts a fresh row (its own hit-test and pulse).
+                <motion.div
+                  key={`drop-${String(dropSession.session)}`}
+                  ref={dropRef}
+                  data-testid="drop-row"
+                  className="absolute top-0 left-1/2 w-max origin-top"
+                  style={{ x: '-50%' }}
+                  initial={
+                    reduceMotion ? contentRecipe.reducedEnterFrom : contentRecipe.enterFromLarge
+                  }
+                  animate={reduceMotion ? contentRecipe.reducedVisible : contentRecipe.visible}
+                  exit={contentExit}
+                  transition={contentTransition}
+                >
+                  <DropSurface
+                    session={dropSession.session}
+                    items={dropSession.items}
+                    position={dropPosition ?? originPoint}
+                    dropped={dropSession.dropped}
+                    maxWidth={targetSize('expanded', geometry).width}
+                    onDone={onDropDone}
+                  />
+                </motion.div>
+              ) : panelShown ? (
                 <motion.div
                   key="panel"
                   ref={panelRef}

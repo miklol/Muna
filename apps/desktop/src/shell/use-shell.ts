@@ -107,6 +107,63 @@ export function useShellPointerDownOutsideSubscription(onPress: () => void) {
   }, [onPress]);
 }
 
+/**
+ * Mirrors a drag carrying files over this window into the store (docs/modules/drop-actions.md):
+ * `DropEntered` opens a session, `DropMoved` follows the pointer, `Dropped` marks the release
+ * and `DropLeft` ends it. Every event is filtered on this window's label; the shell emits them
+ * from its drag-drop handler with positions already in this window's CSS px.
+ */
+export function useDropSubscription() {
+  const beginDrop = useAppStore((state) => state.beginDrop);
+  const moveDrop = useAppStore((state) => state.moveDrop);
+  const markDropped = useAppStore((state) => state.markDropped);
+  const endDrop = useAppStore((state) => state.endDrop);
+
+  useEffect(() => {
+    const label = currentWindowLabel();
+    const stops = [
+      listenWhileMounted(() =>
+        events.dropEntered.listen((event) => {
+          if (event.payload.label === label) {
+            beginDrop(event.payload.session, event.payload.items, event.payload.position);
+          }
+        }),
+      ),
+      listenWhileMounted(() =>
+        events.dropMoved.listen((event) => {
+          if (event.payload.label === label) {
+            moveDrop(event.payload.session, event.payload.position);
+          }
+        }),
+      ),
+      listenWhileMounted(() =>
+        events.dropped.listen((event) => {
+          if (event.payload.label === label) {
+            markDropped(event.payload.session, event.payload.position);
+          }
+        }),
+      ),
+      listenWhileMounted(() =>
+        events.dropLeft.listen((event) => {
+          if (event.payload.label === label) {
+            endDrop(event.payload.session);
+          }
+        }),
+      ),
+    ];
+    return () => {
+      for (const stop of stops) {
+        stop();
+      }
+    };
+  }, [beginDrop, endDrop, markDropped, moveDrop]);
+}
+
+/** Forgets a drag's items in Rust: the drop landed on no tile, or the row was dismissed. */
+export const cancelDrop = (session: number): void => {
+  commands.dropCancel(session).then(ignoreIpcFailure, ignoreIpcFailure);
+};
+
 /** Asks the shell to let this window take keyboard focus (a text field is focused). */
 export const setNotchFocusable = (focusable: boolean): void => {
   commands.setNotchFocusable(focusable).then(ignoreIpcFailure, ignoreIpcFailure);

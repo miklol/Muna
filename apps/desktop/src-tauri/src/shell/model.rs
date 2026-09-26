@@ -81,6 +81,8 @@ pub struct NotchState {
     pub debounce: ParkDebounce,
     /// `true` while the UI asked to take focus (a text field is focused while Pinned).
     pub focusable: bool,
+    /// `true` while an OLE file drag is over this window (docs/modules/drop-actions.md).
+    pub dragging: bool,
     /// Physical height of the live `AppBar` reservation, when in Reserved mode.
     pub reserved: Option<u32>,
 }
@@ -380,6 +382,7 @@ impl ShellModel {
             yield_state: YieldState::None,
             debounce: ParkDebounce::new(),
             focusable: false,
+            dragging: false,
             reserved: None,
         });
         let mut effects = Vec::new();
@@ -540,6 +543,26 @@ impl ShellModel {
         self.evaluate(platform, now)
     }
 
+    /// An OLE file drag entered (`true`) or left (`false`) one notch window
+    /// (docs/modules/drop-actions.md): while it is over the window the strip stays put so the
+    /// drop tiles can be hit, whatever a caption or a window drag would otherwise ask.
+    pub fn set_dragging(
+        &mut self,
+        platform: &dyn Platform,
+        label: &str,
+        dragging: bool,
+        now: Instant,
+    ) -> Vec<Effect> {
+        let Some(window) = self.window_mut(label) else {
+            return Vec::new();
+        };
+        if window.dragging == dragging {
+            return Vec::new();
+        }
+        window.dragging = dragging;
+        self.evaluate(platform, now)
+    }
+
     /// Pauses or resumes the notch on one monitor (tray "Pause on this display").
     pub fn set_paused(
         &mut self,
@@ -628,6 +651,7 @@ impl ShellModel {
                     foreground: self.foreground.as_ref(),
                     quiet: self.quiet,
                     moving: self.moving,
+                    dragging: window.dragging,
                     locked: self.locked,
                     paused: self.paused.contains(&window.monitor.id),
                 })

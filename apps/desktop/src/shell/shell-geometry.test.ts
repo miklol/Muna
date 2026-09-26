@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  dropSize,
   type GeometryInput,
   moduleBarOffsetY,
   moduleBarSize,
   panelSize,
   revealSize,
   shellSizes,
+  showsDrop,
+  showsLarge,
   showsPanel,
   stripSize,
   targetOffsetY,
@@ -85,6 +88,35 @@ describe('shell geometry', () => {
     expect(showsPanel('pinned')).toBe(true);
     expect(showsPanel('hoverReveal')).toBe(false);
     expect(showsPanel('collapsed')).toBe(false);
+    expect(showsPanel('drop')).toBe(false);
+    expect(showsDrop('drop')).toBe(true);
+    expect(showsDrop('expanded')).toBe(false);
+    expect(showsLarge('drop')).toBe(true);
+    expect(showsLarge('pinned')).toBe(true);
+    expect(showsLarge('hoverReveal')).toBe(false);
+  });
+
+  it('sizes the drop row from its tiles, no wider than the panel, and from the strip until measured', () => {
+    expect(targetSize('drop', input())).toEqual({ width: 200, height: 32 });
+    expect(dropSize(input({ dropContentSize: null }))).toEqual({ width: 200, height: 32 });
+    expect(dropSize(input({ wide: true, dropContentSize: { width: 0, height: 0 } }))).toEqual({
+      width: 420,
+      height: 32,
+    });
+    expect(targetSize('drop', input({ dropContentSize: { width: 544, height: 116 } }))).toEqual({
+      width: 544,
+      height: 116,
+    });
+    expect(
+      dropSize(
+        input({
+          ...layoutWith({ panelMaxWidth: 720 }),
+          dropContentSize: { width: 1100, height: 116 },
+        }),
+      ),
+    ).toEqual({ width: 720, height: 116 });
+    // The row never slides for peek: it replaces the strip at the top edge.
+    expect(targetOffsetY('drop', input())).toBe(0);
   });
 
   it('hangs the module bar 12 px under whatever silhouette the shell is heading for', () => {

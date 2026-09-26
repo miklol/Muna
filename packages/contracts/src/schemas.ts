@@ -7,6 +7,21 @@ import { z } from 'zod';
 
 import type {
   Activity,
+  DropAction,
+  DropActionKind,
+  DropActionsChanged,
+  DropActionsSnapshot,
+  DropEntered,
+  DropFailure,
+  DropFolder,
+  DropItem,
+  DropJob,
+  DropJobState,
+  DropLeft,
+  DropMoved,
+  DropPoint,
+  DropTile,
+  Dropped,
   Glyph,
   HotkeyBinding,
   HotkeyState,
@@ -28,6 +43,7 @@ import type {
   StripMessage,
   Tint,
   Trailing,
+  TransferMode,
   YieldState,
 } from './bindings';
 
@@ -154,7 +170,26 @@ export const glyphSchema = z.enum([
   'cpu',
   'hourglass',
   'calendar',
+  'folder',
+  'archive',
+  'share',
+  'trash',
+  'drive',
 ]) satisfies z.ZodType<Glyph>;
+
+/** What a drop action does with the items (docs/modules/drop-actions.md "Tiles"). */
+export const dropActionKindSchema = z.enum([
+  'share',
+  'copy',
+  'move',
+  'open',
+  'openWith',
+  'zip',
+  'unzip',
+  'reveal',
+  'trash',
+  'eject',
+]) satisfies z.ZodType<DropActionKind>;
 
 export const tintSchema = z.enum([
   'blue',
@@ -227,6 +262,17 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('taskDue'), title: z.string() }),
   z.object({ kind: z.literal('eventStarting'), title: z.string() }),
   z.object({ kind: z.literal('notification'), app: z.string(), title: z.string() }),
+  z.object({
+    kind: z.literal('dropRunning'),
+    action: dropActionKindSchema,
+    count: z.number().int().min(0),
+  }),
+  z.object({
+    kind: z.literal('dropFinished'),
+    action: dropActionKindSchema,
+    count: z.number().int().min(0),
+  }),
+  z.object({ kind: z.literal('dropFailed'), action: dropActionKindSchema }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({
@@ -1031,3 +1077,222 @@ export const hotkeyBindingSchema = z.object({
   chord: z.string().nullable(),
   state: hotkeyStateSchema,
 }) satisfies z.ZodType<HotkeyBinding>;
+
+/** The key of the drop actions module's namespace; also its module id. */
+export const DROP_ACTIONS_SETTINGS_KEY = 'drop-actions';
+
+/** Mirrors `modules::drop_actions::settings` (docs/modules/drop-actions.md "Behaviour"). */
+export const DROP_MAX_FOLDERS = 8;
+export const DROP_TILES_PER_ROW = 4;
+export const DROP_TILES_PER_ROW_EXPANDED = 8;
+
+export const transferModeSchema = z.enum(['copy', 'move']) satisfies z.ZodType<TransferMode>;
+
+/** A folder tile: copy or move the dropped items into `path`. */
+export const dropFolderSchema = z.object({
+  id: z.string().min(1),
+  /** The tile's title; an empty one reads as the folder's name. */
+  name: z.string(),
+  path: z.string().min(1),
+  mode: transferModeSchema,
+}) satisfies z.ZodType<DropFolder>;
+
+/** One tile in the row, in display order (docs/modules/drop-actions.md "Tiles"). */
+export const dropTileSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('nearbyShare') }),
+  z.object({ kind: z.literal('folder'), id: z.string().min(1) }),
+  z.object({ kind: z.literal('copyTo') }),
+  z.object({ kind: z.literal('moveTo') }),
+  z.object({ kind: z.literal('openWith') }),
+  z.object({ kind: z.literal('zip') }),
+  z.object({ kind: z.literal('unzip') }),
+  z.object({ kind: z.literal('reveal') }),
+  z.object({ kind: z.literal('trash') }),
+  z.object({ kind: z.literal('eject') }),
+  z.object({ kind: z.literal('divider') }),
+]) satisfies z.ZodType<DropTile>;
+
+/** Every built-in tile, share first and the two destructive ones last; mirrors Rust. */
+export const DEFAULT_DROP_TILES: readonly DropTile[] = [
+  { kind: 'nearbyShare' },
+  { kind: 'copyTo' },
+  { kind: 'moveTo' },
+  { kind: 'openWith' },
+  { kind: 'zip' },
+  { kind: 'unzip' },
+  { kind: 'reveal' },
+  { kind: 'trash' },
+  { kind: 'eject' },
+];
+
+/** The last segment of a path as a display name (`C:\Users\me\OneDrive` → `OneDrive`). */
+export const dropFolderDisplayName = (path: string): string => {
+  const trimmed = path.replace(/[\\/]+$/u, '');
+  const segment = trimmed.split(/[\\/]/u).pop();
+  return segment !== undefined && segment.length > 0 ? segment : path;
+};
+
+const sameDropTile = (a: DropTile, b: DropTile): boolean =>
+  a.kind !== 'divider' &&
+  a.kind === b.kind &&
+  (a.kind !== 'folder' || b.kind !== 'folder' || a.id === b.id);
+
+/**
+ * The repair Rust applies (`DropActionsSettings::normalised`): folders without a path or with
+ * a repeated id go (first wins), the list is capped, unnamed folders take their last path
+ * segment; duplicate tiles and folder tiles that point nowhere go, dividers stay, and every
+ * folder ends up with a tile.
+ */
+export const normaliseDropActionsSettings = (value: {
+  tiles: readonly DropTile[];
+  folders: readonly DropFolder[];
+  expandNotch: boolean;
+}): { tiles: DropTile[]; folders: DropFolder[]; expandNotch: boolean } => {
+  const folders: DropFolder[] = [];
+  for (const folder of value.folders) {
+    const id = folder.id.trim();
+    const path = folder.path.trim();
+    if (id.length === 0 || path.length === 0 || folders.some((f) => f.id === id)) continue;
+    if (folders.length === DROP_MAX_FOLDERS) break;
+    const name = folder.name.trim();
+    folders.push({
+      id,
+      name: name.length > 0 ? name : dropFolderDisplayName(path),
+      path,
+      mode: folder.mode,
+    });
+  }
+  const tiles: DropTile[] = [];
+  for (const tile of value.tiles) {
+    if (tile.kind === 'folder' && !folders.some((f) => f.id === tile.id)) continue;
+    if (tiles.some((t) => sameDropTile(t, tile))) continue;
+    tiles.push(tile);
+  }
+  for (const folder of folders) {
+    if (!tiles.some((t) => t.kind === 'folder' && t.id === folder.id)) {
+      tiles.push({ kind: 'folder', id: folder.id });
+    }
+  }
+  return { tiles, folders, expandNotch: value.expandNotch };
+};
+
+/**
+ * Mirrors `modules::drop_actions::DropActionsSettings`: the row in order, the folders it
+ * refers to and whether the notch widens to hold eight tiles per row. A missing entry yields
+ * the defaults; a malformed one fails the whole entry.
+ */
+export const dropActionsSettingsSchema = z
+  .object({
+    tiles: z.array(dropTileSchema).default([...DEFAULT_DROP_TILES]),
+    folders: z.array(dropFolderSchema).default([]),
+    expandNotch: z.boolean().default(false),
+  })
+  .transform(normaliseDropActionsSettings);
+export type DropActionsSettings = z.infer<typeof dropActionsSettingsSchema>;
+
+export const defaultDropActionsSettings = (): DropActionsSettings =>
+  dropActionsSettingsSchema.parse({});
+
+/** Reads the drop actions namespace; a missing or malformed entry yields the defaults. */
+export const readDropActionsSettings = (settings: Settings): DropActionsSettings => {
+  const parsed = dropActionsSettingsSchema.safeParse(
+    settings.modules[DROP_ACTIONS_SETTINGS_KEY] ?? {},
+  );
+  return parsed.success ? parsed.data : defaultDropActionsSettings();
+};
+
+/** Returns a new document with the drop actions namespace replaced. */
+export const writeDropActionsSettings = (
+  settings: Settings,
+  dropActions: DropActionsSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [DROP_ACTIONS_SETTINGS_KEY]: dropActions },
+});
+
+/** How many tiles fit in one row for these settings. */
+export const dropTilesPerRow = (settings: Pick<DropActionsSettings, 'expandNotch'>): number =>
+  settings.expandNotch ? DROP_TILES_PER_ROW_EXPANDED : DROP_TILES_PER_ROW;
+
+export const dropFailureSchema = z.enum([
+  'cancelled',
+  'notFound',
+  'unsupported',
+  'noArchive',
+  'failed',
+]) satisfies z.ZodType<DropFailure>;
+
+export const dropJobStateSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('running'), percent: percent.nullable() }),
+  z.object({ kind: z.literal('done') }),
+  z.object({ kind: z.literal('failed'), reason: dropFailureSchema }),
+]) satisfies z.ZodType<DropJobState>;
+
+/** One action on one drop, as the UI sees it (docs/modules/drop-actions.md). */
+export const dropJobSchema = z.object({
+  id: z.number().int().min(1),
+  action: dropActionKindSchema,
+  count: z.number().int().min(0),
+  state: dropJobStateSchema,
+}) satisfies z.ZodType<DropJob>;
+
+/** What `commands.getDropActionsSnapshot` returns and `events.dropActionsChanged` carries. */
+export const dropActionsSnapshotSchema = z.object({
+  settings: dropActionsSettingsSchema,
+  jobs: z.array(dropJobSchema),
+}) satisfies z.ZodType<DropActionsSnapshot>;
+
+export const dropActionsChangedSchema = z.object({
+  snapshot: dropActionsSnapshotSchema,
+}) satisfies z.ZodType<DropActionsChanged>;
+
+/** The argument of `commands.dropRun`: what the tile the items landed on asks for. */
+export const dropActionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('share') }),
+  z.object({ kind: z.literal('folder'), id: z.string().min(1) }),
+  z.object({ kind: z.literal('copyTo'), title: z.string() }),
+  z.object({ kind: z.literal('moveTo'), title: z.string() }),
+  z.object({ kind: z.literal('openWith') }),
+  z.object({ kind: z.literal('zip') }),
+  z.object({ kind: z.literal('unzip') }),
+  z.object({ kind: z.literal('reveal') }),
+  z.object({ kind: z.literal('trash') }),
+  z.object({ kind: z.literal('eject') }),
+]) satisfies z.ZodType<DropAction>;
+
+/** A dragged item as the UI may know it: its name and kind, never its path. */
+export const dropItemSchema = z.object({
+  name: z.string(),
+  extension: z.string().nullable(),
+  isDirectory: z.boolean(),
+}) satisfies z.ZodType<DropItem>;
+
+/** A pointer position in the notch window's CSS pixels. */
+export const dropPointSchema = z.object({
+  x: z.number().int(),
+  y: z.number().int(),
+}) satisfies z.ZodType<DropPoint>;
+
+export const dropEnteredSchema = z.object({
+  label: z.string().min(1),
+  session: z.number().int().min(1),
+  items: z.array(dropItemSchema),
+  position: dropPointSchema,
+}) satisfies z.ZodType<DropEntered>;
+
+export const dropMovedSchema = z.object({
+  label: z.string().min(1),
+  session: z.number().int().min(1),
+  position: dropPointSchema,
+}) satisfies z.ZodType<DropMoved>;
+
+export const dropLeftSchema = z.object({
+  label: z.string().min(1),
+  session: z.number().int().min(1),
+}) satisfies z.ZodType<DropLeft>;
+
+export const droppedSchema = z.object({
+  label: z.string().min(1),
+  session: z.number().int().min(1),
+  position: dropPointSchema,
+}) satisfies z.ZodType<Dropped>;

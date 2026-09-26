@@ -110,7 +110,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | Bluetooth connect (best effort) | Classic: `BluetoothDevice.FromIdAsync` + `GetRfcommServicesWithCacheModeAsync(Uncached)` pages the device, then `ConnectionStatus`; LE: `GetGattServicesWithCacheModeAsync` | Blocks for seconds when out of range → off the async threads. Not every stack reconnects A2DP from a page; report `Unsupported` |
 | Bluetooth connect via services ⚠️ | `BluetoothSetServiceState(hRadio, &info, &A2DP_SINK / HFP, DISABLE→ENABLE)` | Disabled state is **persistent** → would need a journal re-enabled on start/`Drop`. Not used (M3-E7); kept as the fallback |
 | Radio power | `Windows.Devices.Radios.Radio.GetRadiosAsync()` → `RequestAccessAsync` → `SetStateAsync` (capability `radios`); `StateChanged` for the OS toggle | Consent prompt first time; `Disabled`/`Unknown` → unavailable |
-| USB eject | `CM_Request_Device_EjectW` on the volume's devnode; `IOCTL_STORAGE_EJECT_MEDIA` fallback | Drop-action tile |
+| USB eject | `CM_Request_Device_EjectW` on the volume's devnode; `IOCTL_STORAGE_EJECT_MEDIA` fallback | Drop-action tile. **Implemented (M4-E1)**: `GetDriveTypeW` removable check → `IOCTL_STORAGE_GET_DEVICE_NUMBER` → the disk interface's devnode → `CM_Get_Parent` → eject; no `IOCTL_STORAGE_EJECT_MEDIA` fallback yet |
 | Webcam (Mirror) | WebView2 `getUserMedia` (needs `webcam` capability under MSIX + Windows privacy toggle) | Zero Rust; stop tracks on collapse |
 
 ## System stats
@@ -126,14 +126,14 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 
 | Need | API | Notes |
 | ------ | ----- | ------- |
-| Inbound drop | Tauri `onDragDropEvent` (native OLE `IDropTarget`, `CF_HDROP`) | Enter/over/drop/leave with screen coords |
+| Inbound drop | Tauri `onDragDropEvent` (native OLE `IDropTarget`, `CF_HDROP`) | Enter/over/drop/leave with screen coords. **Implemented (M4-E1)**: wry's target on the WebView2 child re-targets after the click-through flag flips ([spikes/m4-drop](spikes/m4-drop.md)); coordinates are physical client px; text and virtual-file drags produce no events |
 | Outbound drag (Shelf) | `tauri-plugin-drag` / `drag::start_drag(DragItem::Files, preview)` → `DoDragDrop` | Drag files out to Explorer, browsers, Teams |
-| File ops | `IFileOperation` (copy/move with shell progress, undo) via `windows` crate; `SHOpenFolderAndSelectItems`; recycle via `FOF_ALLOWUNDO` | Never `std::fs::remove_file` for user files |
-| Nearby Share | `IDataTransferManagerInterop::GetForWindow(hwnd)` → `DataTransferManager.DataRequested` → `ShowShareUIForWindow` | Works from desktop apps (community); DynamicWin uses it |
-| Compress | `zip` crate (store/deflate) with progress | Drop-action tile |
+| File ops | `IFileOperation` (copy/move with shell progress, undo) via `windows` crate; `SHOpenFolderAndSelectItems`; recycle via `FOF_ALLOWUNDO` | Never `std::fs::remove_file` for user files. **Implemented (M4-E1)** as `muna_platform::FileOps`: each operation on a short-lived STA thread (`FOF_ALLOWUNDO \| FOF_NOCONFIRMMKDIR`; recycle adds `FOFX_RECYCLEONDELETE`); folder picker `IFileOpenDialog(FOS_PICKFOLDERS)` |
+| Nearby Share | `IDataTransferManagerInterop::GetForWindow(hwnd)` → `DataTransferManager.DataRequested` → `ShowShareUIForWindow` | Works from desktop apps (community); DynamicWin uses it. **Implemented (M4-E1)** on the notch window's thread with `SetStorageItemsReadOnly`; anchoring unverified on hardware |
+| Compress | `zip` crate (store/deflate) with progress | Drop-action tile. **Implemented (M4-E1)**: streamed, cancellable, ZIP64 past 4 GiB; extraction refuses escaping entries |
 | Clipboard history | `Windows.ApplicationModel.DataTransfer.Clipboard.HistoryChanged` (1809+, `IsHistoryEnabled`) | Shelf "recent copies" (P2) |
 | Screenshot | `Windows.Graphics.Capture` via `windows-capture` crate (`GraphicsCaptureItem.CreateForMonitor`), `GraphicsCapturePicker` for region | Yellow border drawn by OS; exclude Muna via `WDA_EXCLUDEFROMCAPTURE` |
-| Open with / reveal | `ShellExecuteExW(SEE_MASK_INVOKEIDLIST, "openas")`, `SHOpenFolderAndSelectItems` | Drop tiles |
+| Open with / reveal | `ShellExecuteExW(SEE_MASK_INVOKEIDLIST, "openas")`, `SHOpenFolderAndSelectItems` | Drop tiles. **Implemented (M4-E1)** with `SEE_MASK_NOASYNC` so the short-lived thread outlives the call |
 
 ## Window snap
 

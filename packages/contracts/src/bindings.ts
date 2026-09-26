@@ -296,6 +296,35 @@ export const commands = {
 	setHotkey: (action: string, chord: string) => typedError<HotkeyBinding[], IpcError>(__TAURI_INVOKE("set_hotkey", { action, chord })),
 	/**  Removes the binding of `action`, releases the chord and persists the namespace. */
 	clearHotkey: (action: string) => typedError<HotkeyBinding[], IpcError>(__TAURI_INVOKE("clear_hotkey", { action })),
+	/**
+	 *  The drop-actions row and recent jobs (a window that just opened; afterwards it follows
+	 *  `DropActionsChanged`).
+	 */
+	getDropActionsSnapshot: () => __TAURI_INVOKE<DropActionsSnapshot>("get_drop_actions_snapshot"),
+	/**
+	 *  Runs `action` on the items of a dropped session and returns the finished job
+	 *  (docs/modules/drop-actions.md). Blocks for as long as the shell's own dialogs are up, so
+	 *  it runs on a blocking thread. `drop.unknownSession` when the drag is gone or its items
+	 *  were never released over the window; `drop.unknownFolder` for a folder tile that was
+	 *  removed meanwhile.
+	 */
+	dropRun: (session: number, action: DropAction) => typedError<DropJob, IpcError>(__TAURI_INVOKE("drop_run", { session, action })),
+	/**
+	 *  The drop landed outside every tile (or the user declined the confirmation): forgets the
+	 *  session's items. `false` when it was already gone.
+	 */
+	dropCancel: (session: number) => __TAURI_INVOKE<boolean>("drop_cancel", { session }),
+	/**
+	 *  Stops a running zip or unzip job at its next buffer; `false` for a job that is not
+	 *  running.
+	 */
+	dropCancelJob: (job: number) => __TAURI_INVOKE<boolean>("drop_cancel_job", { job }),
+	/**
+	 *  Opens the folder picker for Settings › Drop actions ("Add folder") and returns the chosen
+	 *  path, or `null` when the user dismissed it. Blocks while the dialog is up, so it runs on a
+	 *  blocking thread.
+	 */
+	dropPickFolder: (title: string) => typedError<string | null, IpcError>(__TAURI_INVOKE("drop_pick_folder", { title })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -304,6 +333,11 @@ export const commands = {
 export const events = {
 	bluetoothChanged: makeEvent<BluetoothChanged>("bluetooth-changed"),
 	calendarChanged: makeEvent<CalendarChanged>("calendar-changed"),
+	dropActionsChanged: makeEvent<DropActionsChanged>("drop-actions-changed"),
+	dropEntered: makeEvent<DropEntered>("drop-entered"),
+	dropLeft: makeEvent<DropLeft>("drop-left"),
+	dropMoved: makeEvent<DropMoved>("drop-moved"),
+	dropped: makeEvent<Dropped>("dropped"),
 	hotkeyPressed: makeEvent<HotkeyPressed>("hotkey-pressed"),
 	hudStateChanged: makeEvent<HudStateChanged>("hud-state-changed"),
 	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
@@ -538,6 +572,152 @@ export type DayForecast = {
 	precipitationPercent: number | null,
 };
 
+/**  What the tile the items landed on asks for (docs/modules/drop-actions.md "Tiles"). */
+export type DropAction = 
+/**  The Windows share sheet (Nearby sharing, apps) with every item. */
+{ kind: "share" } | 
+/**  Copy or move into a configured folder. */
+{ kind: "folder"; id: string } | 
+/**  Pick a folder, then copy there. `title` is the picker's caption. */
+{ kind: "copyTo"; title: string } | 
+/**  Pick a folder, then move there. */
+{ kind: "moveTo"; title: string } | 
+/**  The system *Open with* dialog for the first item. */
+{ kind: "openWith" } | 
+/**  One archive beside the first item. */
+{ kind: "zip" } | 
+/**  Every dropped archive into a folder beside it. */
+{ kind: "unzip" } | 
+/**  Explorer with the items selected. */
+{ kind: "reveal" } | 
+/**  The Recycle Bin — no confirmation: Explorer's Undo brings the items back. */
+{ kind: "trash" } | 
+/**  Safely remove the drive the first item is on. */
+{ kind: "eject" };
+
+/**
+ *  What a drop action does with the items, as a fact for the UI to phrase and tint
+ *  (docs/modules/drop-actions.md "Tiles"). Closed on purpose, like [`Glyph`].
+ */
+export type DropActionKind = "share" | "copy" | "move" | "open" | "openWith" | "zip" | "unzip" | "reveal" | "trash" | "eject";
+
+/**  The drop-actions row or a job changed (docs/modules/drop-actions.md). */
+export type DropActionsChanged = {
+	snapshot: DropActionsSnapshot,
+};
+
+export type DropActionsSettings = {
+	/**  The row, in order. A folder tile refers to an entry in `folders`. */
+	tiles?: DropTile[],
+	folders?: DropFolder[],
+	/**  Lets a row hold [`TILES_PER_ROW_EXPANDED`] tiles instead of [`TILES_PER_ROW`]. */
+	expandNotch?: boolean,
+};
+
+/**  Everything the UI needs: the row and the recent jobs. */
+export type DropActionsSnapshot = {
+	settings: DropActionsSettings,
+	jobs: DropJob[],
+};
+
+/**
+ *  Files entered the notch window `label` in an OLE drag: the UI morphs into the tile row.
+ *  `session` names the drag until [`Dropped`] or [`DropLeft`].
+ */
+export type DropEntered = {
+	label: string,
+	session: number,
+	items: DropItem[],
+	position: DropPoint,
+};
+
+/**  Why a job did not finish; the UI phrases each (docs/07 UX copy: say what to do). */
+export type DropFailure = 
+/**  The user closed a system dialog; no notice is shown. */
+"cancelled" | 
+/**  An item, the folder or the removable drive is gone. */
+"notFound" | 
+/**  The platform cannot do this (no share sheet, no removable volume). */
+"unsupported" | 
+/**  *Unzip* found no zip archive among the items. */
+"noArchive" | 
+/**  Anything else; the reason is in the log. */
+"failed";
+
+/**  A folder tile: copy or move the dropped items into `path` (a cloud folder, a project…). */
+export type DropFolder = {
+	/**  Stable id the tile order refers to. */
+	id: string,
+	/**  The tile's title; defaults to the folder's name when empty. */
+	name: string,
+	path: string,
+	mode: TransferMode,
+};
+
+/**
+ *  One dragged item as the UI may know it (docs/modules/drop-actions.md): its name and kind,
+ *  never its path.
+ */
+export type DropItem = {
+	name: string,
+	/**  Lower-case extension without the dot, when there is one. */
+	extension: string | null,
+	isDirectory: boolean,
+};
+
+/**  One action on one drop, as the UI sees it. */
+export type DropJob = {
+	id: number,
+	action: DropActionKind,
+	/**  How many items the action works on. */
+	count: number,
+	state: DropJobState,
+};
+
+export type DropJobState = 
+/**  `percent` is known for zip and unzip only; the shell's own dialogs cover the rest. */
+{ kind: "running"; percent: number | null } | { kind: "done" } | { kind: "failed"; reason: DropFailure };
+
+/**  The drag left the window without dropping; the session is gone. */
+export type DropLeft = {
+	label: string,
+	session: number,
+};
+
+/**  The drag moved over the window; at most one per frame. */
+export type DropMoved = {
+	label: string,
+	session: number,
+	position: DropPoint,
+};
+
+/**
+ *  A point in whole CSS pixels relative to the notch window's client area (the units the UI
+ *  lays its tiles out in).
+ */
+export type DropPoint = {
+	x: number,
+	y: number,
+};
+
+/**
+ *  One tile in the row, in display order (docs/modules/drop-actions.md "Tiles"). *Shelf*,
+ *  *Convert* and *Music* arrive with their modules.
+ */
+export type DropTile = { kind: "nearbyShare" } | { kind: "folder"; id: string } | { kind: "copyTo" } | { kind: "moveTo" } | { kind: "openWith" } | { kind: "zip" } | { kind: "unzip" } | { kind: "reveal" } | { kind: "trash" } | { kind: "eject" } | 
+/**  A layout helper: a hairline gap between two groups of tiles. */
+{ kind: "divider" };
+
+/**
+ *  The items were released over the window at `position`. The UI resolves the tile under it
+ *  and calls `drop_run`, or `drop_cancel` when nothing was hit.
+ */
+export type Dropped = {
+	label: string,
+	session: number,
+	position: DropPoint,
+};
+
 /**
  *  Why a refresh did not produce a feed. Never carries what the server said: the UI has one
  *  sentence per case.
@@ -613,7 +793,17 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 /**  An hourglass (docs/modules/day-progress.md): the working day's progress bar. */
 "hourglass" | 
 /**  A calendar page (docs/modules/calendar.md): the next event, tinted like its source. */
-"calendar";
+"calendar" | 
+/**  A folder (docs/modules/drop-actions.md): copying or moving dropped files. */
+"folder" | 
+/**  A zip archive (docs/modules/drop-actions.md): zipping or unzipping. */
+"archive" | 
+/**  A share arrow (docs/modules/drop-actions.md): the Nearby Share sheet. */
+"share" | 
+/**  A bin (docs/modules/drop-actions.md): sent to the Recycle Bin. */
+"trash" | 
+/**  A drive (docs/modules/drop-actions.md): a removable volume ejected. */
+"drive";
 
 /**  One action's binding as the pane and the palette see it. */
 export type HotkeyBinding = {
@@ -1235,7 +1425,16 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
  *  notifications.md); both fields are content and never logged. The UI lays them out as
  *  sender and title.
  */
-{ kind: "notification"; app: string; title: string };
+{ kind: "notification"; app: string; title: string } | 
+/**
+ *  A drop action working on `count` items (docs/modules/drop-actions.md); the trailing
+ *  slot carries its progress. The UI phrases it per action ("Zipping 3 items").
+ */
+{ kind: "dropRunning"; action: DropActionKind; count: number } | 
+/**  A drop action finished; `count` is how many items it handled. */
+{ kind: "dropFinished"; action: DropActionKind; count: number } | 
+/**  A drop action failed or was cancelled by the user; the reason stays in the log. */
+{ kind: "dropFailed"; action: DropActionKind };
 
 export type SystemMonitorBattery = {
 	percent: number,
@@ -1408,6 +1607,12 @@ export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
 { kind: "time"; atMs: number } | 
 /**  A small whole number the UI formats for the locale (unread notifications). */
 { kind: "count"; value: number };
+
+/**
+ *  How [`crate::FileOps::transfer`] writes its destination (docs/modules/drop-actions.md,
+ *  the *Copy to* / *Move to* and folder tiles).
+ */
+export type TransferMode = "copy" | "move";
 
 /**  How temperatures and wind speeds read; the forecast itself is always metric. */
 export type Units = 

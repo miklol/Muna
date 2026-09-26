@@ -1,3 +1,4 @@
+import type { DropItem, DropPoint } from '@muna/contracts';
 import type { MessageKey } from '@muna/i18n';
 import type { ComponentType } from 'react';
 
@@ -5,6 +6,7 @@ import { bluetoothModule } from './bluetooth';
 import { calendarModule } from './calendar';
 import { dashboardModule } from './dashboard';
 import { dayProgressModule } from './day-progress';
+import { dropActionsModule } from './drop-actions';
 import { hudModule } from './hud';
 import { keyboardShortcutsModule } from './keyboard-shortcuts';
 import { mediaModule } from './media';
@@ -52,6 +54,25 @@ export interface ModuleAction {
 }
 
 /**
+ * What the shell hands the drop row while files are dragged over the notch
+ * (docs/modules/drop-actions.md). The row lays out at its natural size inside the morphing
+ * surface — the shell measures it and animates to match — hit-tests `position` against its own
+ * tiles, and runs or cancels the drop itself; `onDone` hands the notch back to the strip.
+ */
+export interface DropSurfaceProps {
+  readonly session: number;
+  readonly items: readonly DropItem[];
+  /** The drag's pointer in this window's CSS px, live; the tile under it highlights. */
+  readonly position: DropPoint;
+  /** `true` once the items were released at `position`. */
+  readonly dropped: boolean;
+  /** The widest the row may lay out (the panel's width for this monitor). */
+  readonly maxWidth: number;
+  /** The row has run or cancelled the drop (or was told the drag left): collapse. */
+  readonly onDone: () => void;
+}
+
+/**
  * Frontend half of the module contract (ADR-0004). A module registers here and in
  * `src-tauri/src/modules/mod.rs`; modules never import each other.
  */
@@ -86,11 +107,22 @@ export interface ModuleDefinition {
    * default; the user picks the chords.
    */
   readonly actions?: readonly ModuleAction[];
+  /**
+   * What the notch shows while files are dragged over it (docs/modules/drop-actions.md); at
+   * most one enabled module provides it. Mounted for the drag only, so it subscribes on mount
+   * like a panel. Disabling the module in Settings › Modules turns drops off with it.
+   */
+  readonly drop?: ComponentType<DropSurfaceProps>;
 }
 
 /** Every action the registered modules declare, in module order. */
 export const moduleActions = (definitions: readonly ModuleDefinition[]): readonly ModuleAction[] =>
   definitions.flatMap((module) => module.actions ?? []);
+
+/** The first module (in order) that provides a drop row, if any is enabled. */
+export const dropModuleOf = (
+  definitions: readonly ModuleDefinition[],
+): ModuleDefinition | undefined => definitions.find((module) => module.drop !== undefined);
 
 /**
  * Every module, in default order; Settings → Modules reorders and disables from here. The
@@ -110,6 +142,7 @@ export const modules: readonly ModuleDefinition[] = [
   dayProgressModule,
   hudModule,
   keyboardShortcutsModule,
+  dropActionsModule,
 ];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>

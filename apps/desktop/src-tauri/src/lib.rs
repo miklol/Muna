@@ -141,6 +141,11 @@ pub fn run() {
                 // system monitor sampling for a panel that is gone.
                 exit_state.activities.forget_window(&label);
                 exit_state.modules.system_monitor.forget_window(&label);
+                exit_state
+                    .modules
+                    .drop_actions
+                    .sessions()
+                    .forget_window(&label);
             }
             _ => {}
         });
@@ -190,4 +195,10 @@ fn wire_module_sinks(
     modules
         .notifications
         .set_sink(Arc::new(ipc::NotificationsEventSink::new(app.clone())));
+    modules
+        .drop_actions
+        .set_sink(Arc::new(ipc::DropEventSink::new(app.clone())));
+    modules
+        .drop_actions
+        .set_window_thread(Arc::new(ipc::MainThreadWindows::new(app.clone())));
 }

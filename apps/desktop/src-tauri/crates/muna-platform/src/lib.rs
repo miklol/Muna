@@ -19,17 +19,17 @@ pub mod windows;
 
 pub use error::{PlatformError, PlatformResult};
 pub use events::PlatformEvent;
-pub use fake::{BluetoothCall, FakePlatform, NotificationCall, WindowingCall};
+pub use fake::{BluetoothCall, FakePlatform, FileOpsCall, NotificationCall, WindowingCall};
 pub use traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
-    Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, FileOps, Foreground, Location, Media,
+    Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 pub use types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothDeviceKind,
     BluetoothRadioState, BrightnessKind, BrightnessMonitor, DiskSpace, ForegroundWindow,
     GeoPosition, MediaCommand, MediaControls, MediaSession, MonitorInfo, Notification,
     NotificationAccess, NotificationDelivery, OsdState, PlaybackStatus, PowerSource, ProcessUsage,
-    Rect, RepeatMode, SystemSample, Thumbnail, UserNotificationState, WindowHandle,
+    Rect, RepeatMode, SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
 };
 
 /// Constructs the platform implementation for the current build.

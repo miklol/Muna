@@ -9,7 +9,8 @@
     tree <pid>                 the process and all its descendants
     sample <pid,pid,...>       cpuMs (user+kernel), workingSetMb and privateWorkingSetMb per pid
     windows                    every top-level window of class MunaNotch with its physical rect
-    cursor <x> <y>             SetCursorPos in physical pixels
+    cursor <x> <y>             SetCursorPos in physical pixels; without arguments GetCursorPos
+    foreground                 GetForegroundWindow: hwnd, class name and owning pid
     quit
   Nothing here is part of the shipped app.
 #>
@@ -18,6 +19,7 @@ $ErrorActionPreference = 'Stop'
 
 Add-Type -Namespace MunaPerf -Name Native -MemberDefinition @'
 [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+[StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
 public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
 [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
 [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassNameW(IntPtr hwnd, System.Text.StringBuilder s, int n);
@@ -25,8 +27,11 @@ public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
 [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
 [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc proc, IntPtr lParam);
 [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+[DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
 [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
 [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
 '@
 # Per-monitor-v2 so every coordinate is a physical pixel.
 [void][MunaPerf.Native]::SetProcessDpiAwarenessContext([IntPtr](-4))
@@ -101,6 +106,15 @@ function Get-HostInfo {
   }
 }
 
+function Get-Foreground {
+  $hwnd = [MunaPerf.Native]::GetForegroundWindow()
+  $name = New-Object System.Text.StringBuilder 256
+  [void][MunaPerf.Native]::GetClassNameW($hwnd, $name, 256)
+  $owner = [uint32]0
+  [void][MunaPerf.Native]::GetWindowThreadProcessId($hwnd, [ref]$owner)
+  [pscustomobject]@{ hwnd = $hwnd.ToInt64(); className = $name.ToString(); pid = [int]$owner }
+}
+
 function Write-Json($Value) {
   $json = if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
     ConvertTo-Json -InputObject @($Value) -Compress -Depth 6
@@ -125,10 +139,17 @@ while ($true) {
       'tree' { Write-Json @(Get-Tree ([int]$argument)) }
       'sample' { Write-Json @(Get-Sample @($argument -split ',' | Where-Object { $_ } | ForEach-Object { [int]$_ })) }
       'windows' { Write-Json @(Get-NotchWindows) }
+      'foreground' { Write-Json (Get-Foreground) }
       'cursor' {
-        $xy = $argument -split '\s+'
-        $ok = [MunaPerf.Native]::SetCursorPos([int]$xy[0], [int]$xy[1])
-        Write-Json ([pscustomobject]@{ ok = [bool]$ok })
+        if ($argument -eq '') {
+          $p = New-Object MunaPerf.Native+POINT
+          $ok = [MunaPerf.Native]::GetCursorPos([ref]$p)
+          Write-Json ([pscustomobject]@{ ok = [bool]$ok; x = $p.X; y = $p.Y })
+        } else {
+          $xy = $argument -split '\s+'
+          $ok = [MunaPerf.Native]::SetCursorPos([int]$xy[0], [int]$xy[1])
+          Write-Json ([pscustomobject]@{ ok = [bool]$ok })
+        }
       }
       'quit' { exit 0 }
       default { Write-Json ([pscustomobject]@{ error = "unknown command '$command'" }) }

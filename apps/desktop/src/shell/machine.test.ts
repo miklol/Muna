@@ -243,6 +243,77 @@ describe('transition (pure)', () => {
     expect(run([{ type: 'pressOutside' }]).snapshot).toBe(initialSnapshot);
     expect(run([timer('hoverOut')]).snapshot).toBe(initialSnapshot);
   });
+
+  describe('drop actions (docs/modules/drop-actions.md)', () => {
+    it('a drag entering the strip shows the row; leaving or handling the drop returns to the strip', () => {
+      const entered = run([{ type: 'dropEnter' }]);
+      expect(entered.snapshot.state).toBe('drop');
+      expect(entered.snapshot.previous).toBe('collapsed');
+      expect(entered.effects).toEqual([]);
+      expect(run([{ type: 'dropLeave' }], entered.snapshot).snapshot.state).toBe('collapsed');
+
+      // A drag arriving during a reveal drops its pending timers with it.
+      const revealed = run([hover(), timer('hoverIntent')]).snapshot;
+      const fromReveal = run([{ type: 'dropEnter' }], revealed);
+      expect(fromReveal.snapshot.state).toBe('drop');
+      expect(fromReveal.snapshot.timers).toEqual([]);
+      expect(fromReveal.effects).toEqual([{ type: 'cancelTimer', id: 'revealToExpand' }]);
+
+      // Under a yield rule asking for peek the row gives way to the sliver, not the strip.
+      const peeked = run([{ type: 'yield', state: 'peek' }, { type: 'dropEnter' }]).snapshot;
+      expect(peeked.state).toBe('drop');
+      expect(run([{ type: 'dropLeave' }], peeked).snapshot.state).toBe('peek');
+    });
+
+    it('replaces an open panel, releasing its pin and focus, and never returns to it', () => {
+      const pinnedWithField = run(
+        [
+          { type: 'pin', pinned: true },
+          { type: 'fieldFocus', focused: true },
+        ],
+        opened(),
+      ).snapshot;
+      expect(pinnedWithField.focusable).toBe(true);
+      const { snapshot, effects } = run([{ type: 'dropEnter' }], pinnedWithField);
+      expect(snapshot.state).toBe('drop');
+      expect(snapshot.previous).toBe('pinned');
+      expect(snapshot.pinnedByUser).toBe(false);
+      expect(snapshot.fieldFocused).toBe(false);
+      expect(snapshot.focusable).toBe(false);
+      expect(effects).toEqual([{ type: 'setFocusable', focusable: false }, { type: 'blurField' }]);
+      expect(run([{ type: 'dropLeave' }], snapshot).snapshot.state).toBe('collapsed');
+    });
+
+    it('ignores the panel controls while the row shows, but Esc and parking still close it', () => {
+      const dropping = run([{ type: 'dropEnter' }]).snapshot;
+      for (const event of [
+        { type: 'press' },
+        { type: 'pressOutside' },
+        { type: 'scrollDown' },
+        { type: 'toggle' },
+        { type: 'open' },
+        { type: 'collapse' },
+        { type: 'pin', pinned: true },
+        { type: 'fieldFocus', focused: true },
+        { type: 'dropEnter' },
+      ] as const satisfies readonly ShellEvent[]) {
+        expect(run([event], dropping).snapshot).toBe(dropping);
+      }
+      // Pointer samples keep the flags truthful without arming any hover timer.
+      const sampled = run([hover()], dropping);
+      expect(sampled.snapshot.state).toBe('drop');
+      expect(sampled.snapshot.pointerInside).toBe(true);
+      expect(sampled.effects).toEqual([]);
+
+      expect(run([{ type: 'escape' }], dropping).snapshot.state).toBe('collapsed');
+      const parked = run([{ type: 'yield', state: 'parked' }], dropping).snapshot;
+      expect(parked.state).toBe('parked');
+      expect(run([{ type: 'yield', state: 'none' }], parked).snapshot.state).toBe('collapsed');
+      // A stray leave with no drag in progress changes nothing.
+      expect(run([{ type: 'dropLeave' }]).snapshot).toBe(initialSnapshot);
+      expect(run([{ type: 'dropLeave' }], opened()).snapshot.state).toBe('expanded');
+    });
+  });
 });
 
 describe('ShellMachine (timers)', () => {

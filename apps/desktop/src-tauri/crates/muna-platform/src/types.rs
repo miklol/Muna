@@ -553,6 +553,15 @@ pub enum NotificationDelivery {
     Polling,
 }
 
+/// How [`crate::FileOps::transfer`] writes its destination (docs/modules/drop-actions.md,
+/// the *Copy to* / *Move to* and folder tiles).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum TransferMode {
+    Copy,
+    Move,
+}
+
 #[cfg(test)]
 mod tests {
     use super::UserNotificationState as S;

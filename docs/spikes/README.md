@@ -9,6 +9,7 @@ agent fills in the measurements in the same file; the numbers then flip the ADR 
 | ------- | ----------- | -------------- | -------- |
 | [m0-window](m0-window.md) | [ADR-0001](../adr/0001-tech-stack.md), [ADR-0002](../adr/0002-window-strategy.md) | M0-E2 · `muna-shell-engineer` | Recorded (Win11 25H2 pass with the WebView2 switch amendment; Win10 22H2 open) |
 | [m0-identity](m0-identity.md) | [ADR-0003](../adr/0003-packaging-identity.md) | M0-E3 · `muna-release-engineer` | Recorded (Win11 25H2: I1–I10 pass incl. the `release.yml` dry run, two amendments; I11 maintainer decision) |
+| [m4-drop](m4-drop.md) | [ADR-0002](../adr/0002-window-strategy.md) (click-through window as an OLE drop target), [drop-actions](../modules/drop-actions.md) | M4-E1 · `muna-shell-engineer` | Recorded (Win11 25H2: D1–D6 pass; Tauri's drag-drop path is enough, no native `IDropTarget`) |
 
 ## Rules
 
