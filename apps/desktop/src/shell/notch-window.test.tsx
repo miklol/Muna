@@ -90,6 +90,7 @@ const ipc = vi.hoisted(() => {
         }),
       ),
       getHotkeys: vi.fn(() => Promise.resolve([])),
+      getDragSpike: vi.fn(() => Promise.resolve(null)),
       dropRun: vi.fn((_session: number, _action: DropAction) => ok()),
       dropCancel: vi.fn((_session: number) => ok()),
     },

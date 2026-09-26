@@ -2,6 +2,9 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
 
 import type {
+  DragOutRequest,
+  DragOutcome,
+  DragSpike,
   DropActionsSnapshot,
   DropEntered,
   DropJob,
@@ -69,6 +72,9 @@ import {
   defaultSystemMonitorSettings,
   defaultTodoSettings,
   defaultWeatherSettings,
+  dragOutRequestSchema,
+  dragOutcomeSchema,
+  dragSpikeSchema,
   dropActionSchema,
   dropActionsChangedSchema,
   dropActionsSnapshotSchema,
@@ -1351,5 +1357,26 @@ describe('drop actions schemas', () => {
       },
     };
     expect(stripContentSchema.parse(failed)).toEqual(failed);
+  });
+});
+
+describe('drag-out schemas', () => {
+  it('round-trips both payload kinds and refuses an empty drag', () => {
+    const files: DragOutRequest = { kind: 'files', paths: ['C:\\Users\\me\\report.pdf'] };
+    const text: DragOutRequest = { kind: 'text', text: 'a snippet' };
+    expect(dragOutRequestSchema.parse(files)).toEqual(files);
+    expect(dragOutRequestSchema.parse(text)).toEqual(text);
+    expect(dragOutRequestSchema.safeParse({ kind: 'files', paths: [] }).success).toBe(false);
+    expect(dragOutRequestSchema.safeParse({ kind: 'text', text: '' }).success).toBe(false);
+  });
+
+  it('round-trips the outcome and the spike arming', () => {
+    const dropped: DragOutcome = { kind: 'dropped', effect: 'copy' };
+    const cancelled: DragOutcome = { kind: 'cancelled' };
+    expect(dragOutcomeSchema.parse(dropped)).toEqual(dropped);
+    expect(dragOutcomeSchema.parse(cancelled)).toEqual(cancelled);
+    expect(dragOutcomeSchema.safeParse({ kind: 'dropped', effect: 'burn' }).success).toBe(false);
+    const spike: DragSpike = { paths: ['C:\\tmp\\spike.png'] };
+    expect(dragSpikeSchema.parse(spike)).toEqual(spike);
   });
 });

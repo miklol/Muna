@@ -13,17 +13,25 @@ use tokio::sync::broadcast;
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, FileOps, Foreground, Location, Media,
-    Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground, Location,
+    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
-    BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
-    Notification, NotificationAccess, NotificationDelivery, OsdState, PowerSource, Rect,
-    SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
+    BrightnessMonitor, DragOutcome, DragPayload, DropEffect, ForegroundWindow, GeoPosition,
+    MediaCommand, MediaSession, MonitorInfo, Notification, NotificationAccess,
+    NotificationDelivery, OsdState, PowerSource, Rect, SystemSample, Thumbnail, TransferMode,
+    UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
+
+/// One recorded [`DragSource::start_drag`] request: the window and the payload.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DragCall {
+    pub window: WindowHandle,
+    pub payload: DragPayload,
+}
 
 /// One recorded [`FileOps`] request, in order, for assertions in the drop-actions tests.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,6 +171,10 @@ struct State {
     file_ops_error: Option<PlatformError>,
     /// Scripted answer to `pick_folder`; `None` scripts the user cancelling.
     picked_folder: Option<PathBuf>,
+    /// Every drag out the fake was asked to start, in order.
+    drag_calls: Vec<DragCall>,
+    /// Scripted answer to `start_drag`.
+    drag_outcome: Result<DragOutcome, PlatformError>,
 }
 
 impl Default for State {
@@ -227,6 +239,10 @@ impl Default for State {
             file_ops_calls: Vec::new(),
             file_ops_error: None,
             picked_folder: None,
+            drag_calls: Vec::new(),
+            drag_outcome: Ok(DragOutcome::Dropped {
+                effect: DropEffect::Copy,
+            }),
         }
     }
 }
@@ -460,6 +476,17 @@ impl FakePlatform {
             Some(error) => Err(error.clone()),
             None => Ok(()),
         }
+    }
+
+    /// Scripts how the next drags out end (the default is a drop with the copy effect).
+    pub fn set_drag_outcome(&self, outcome: Result<DragOutcome, PlatformError>) {
+        self.state.lock().drag_outcome = outcome;
+    }
+
+    /// Every [`DragSource::start_drag`] request so far, in order.
+    #[must_use]
+    pub fn drag_calls(&self) -> Vec<DragCall> {
+        self.state.lock().drag_calls.clone()
     }
 
     pub fn set_battery(&self, battery: BatteryState) {
@@ -1232,6 +1259,21 @@ impl FileOps for FakePlatform {
     }
 }
 
+impl DragSource for FakePlatform {
+    fn start_drag(
+        &self,
+        window: WindowHandle,
+        payload: &DragPayload,
+    ) -> PlatformResult<DragOutcome> {
+        let mut state = self.state.lock();
+        state.drag_calls.push(DragCall {
+            window,
+            payload: payload.clone(),
+        });
+        state.drag_outcome.clone()
+    }
+}
+
 impl Platform for FakePlatform {
     fn media(&self) -> &dyn Media {
         self
@@ -1297,6 +1339,10 @@ impl Platform for FakePlatform {
         self
     }
 
+    fn drag_source(&self) -> &dyn DragSource {
+        self
+    }
+
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent> {
         self.events.subscribe()
     }
@@ -1342,6 +1388,46 @@ mod tests {
                 FileOpsCall::PickFolder(7, "Copy to".into()),
                 FileOpsCall::PickFolder(7, "Copy to".into()),
                 FileOpsCall::Eject(PathBuf::from(r"C:\in\a.txt")),
+            ]
+        );
+    }
+
+    #[test]
+    fn drags_out_are_recorded_and_end_as_scripted() {
+        let fake = FakePlatform::new();
+        let files = DragPayload::Files(vec![PathBuf::from(r"C:\shelf\a.txt")]);
+        assert_eq!(
+            fake.drag_source().start_drag(9, &files).unwrap(),
+            DragOutcome::Dropped {
+                effect: DropEffect::Copy
+            }
+        );
+        fake.set_drag_outcome(Ok(DragOutcome::Cancelled));
+        let text = DragPayload::Text("hello".into());
+        assert_eq!(
+            fake.drag_source().start_drag(9, &text).unwrap(),
+            DragOutcome::Cancelled
+        );
+        fake.set_drag_outcome(Err(PlatformError::Unsupported("drag")));
+        assert_eq!(
+            fake.drag_source().start_drag(9, &text),
+            Err(PlatformError::Unsupported("drag"))
+        );
+        assert_eq!(
+            fake.drag_calls(),
+            vec![
+                DragCall {
+                    window: 9,
+                    payload: files
+                },
+                DragCall {
+                    window: 9,
+                    payload: text.clone()
+                },
+                DragCall {
+                    window: 9,
+                    payload: text
+                },
             ]
         );
     }

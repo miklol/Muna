@@ -295,7 +295,7 @@ impl ShareSheet {
 
 // --- helpers -----------------------------------------------------------------------------
 
-fn hwnd(window: WindowHandle) -> HWND {
+pub(super) fn hwnd(window: WindowHandle) -> HWND {
     HWND(window as *mut c_void)
 }
 
@@ -409,10 +409,10 @@ fn shell_execute(item: &Path, verb: Option<&HSTRING>) -> PlatformResult<()> {
 }
 
 /// An absolute shell item id list, freed on drop.
-struct ItemId(*mut ITEMIDLIST);
+pub(super) struct ItemId(pub(super) *mut ITEMIDLIST);
 
 impl ItemId {
-    fn parse(path: &Path) -> PlatformResult<Self> {
+    pub(super) fn parse(path: &Path) -> PlatformResult<Self> {
         let wide = HSTRING::from(path.as_os_str());
         let mut id = std::ptr::null_mut();
         // SAFETY: `wide` outlives the call and `id` receives an allocation we free in `Drop`.
