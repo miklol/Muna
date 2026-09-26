@@ -45,6 +45,7 @@ use crate::modules::todo::{TodoCommand, TodoError, TodoSink, TodoSnapshot};
 use crate::modules::weather::{
     FetchError, Place, SearchError, WeatherCommand, WeatherSink, WeatherSnapshot,
 };
+use crate::modules::window_snap::{SnapError, SnapZoneRef};
 use crate::shell::manager::ShellManager;
 use crate::shell::model::ShellLayout;
 use crate::shell::yield_rules::YieldState;
@@ -1835,6 +1836,78 @@ async fn shelf_thumbnail(state: State<'_, Shared>, id: String) -> Result<Option<
     Ok(url)
 }
 
+/// A tracked window drag (docs/modules/window-snap.md) is over the notch window `label` at
+/// `position`: the UI shows the zones once the cursor is in the hot zone and highlights the
+/// tile under it. Only on change, at most once per cursor sample.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapDragMoved {
+    pub label: String,
+    pub session: u32,
+    pub position: DropPoint,
+}
+
+/// The tracked drag left the notch window `label`; the zones collapse.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapDragLeft {
+    pub label: String,
+    pub session: u32,
+}
+
+/// The tracked drag ended (button released). `label` is the notch window the cursor was over
+/// at that moment, if any: the UI resolves the tile under its last position and calls
+/// `snap_apply`, or `snap_cancel` when nothing was hit.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapDragEnded {
+    pub session: u32,
+    pub label: Option<String>,
+}
+
+/// Places the dragged window of `session` into `zone` on the monitor of the notch window
+/// `label` (docs/modules/window-snap.md). Waits for the placement to settle, so it runs on a
+/// blocking thread. `snap.unknownSession` when the drag is gone, `snap.zoneNotOffered` for a
+/// zone the settings do not enable, `snap.unknownMonitor` for a label that is no longer a
+/// notch window.
+#[tauri::command]
+#[specta::specta]
+async fn snap_apply(
+    state: State<'_, Shared>,
+    session: u32,
+    label: String,
+    zone: SnapZoneRef,
+) -> Result<(), IpcError> {
+    let monitor = state
+        .shell
+        .as_ref()
+        .and_then(|shell| shell.monitor_id_of(&label))
+        .ok_or_else(|| IpcError::new("snap.unknownMonitor", SnapError::UnknownMonitor))?;
+    let service = Arc::clone(&state.modules.window_snap);
+    tauri::async_runtime::spawn_blocking(move || service.apply(session, &monitor, zone))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(())
+}
+
+/// The drag ended outside every zone: forgets the session. `false` when it was already gone.
+#[tauri::command]
+#[specta::specta]
+fn snap_cancel(state: State<'_, Shared>, session: u32) -> bool {
+    state.modules.window_snap.cancel(session)
+}
+
+impl From<SnapError> for IpcError {
+    fn from(error: SnapError) -> Self {
+        match error {
+            SnapError::Platform(error) => error.into(),
+            SnapError::UnknownSession => Self::new("snap.unknownSession", error),
+            SnapError::ZoneNotOffered => Self::new("snap.zoneNotOffered", error),
+            SnapError::UnknownMonitor => Self::new("snap.unknownMonitor", error),
+        }
+    }
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -1901,6 +1974,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_shelf_snapshot,
             shelf_command,
             shelf_thumbnail,
+            snap_apply,
+            snap_cancel,
             quit_app
         ])
         .events(collect_events![
@@ -1926,7 +2001,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             WeatherChanged,
             CalendarChanged,
             NotificationsChanged,
-            ShelfChanged
+            ShelfChanged,
+            SnapDragMoved,
+            SnapDragLeft,
+            SnapDragEnded
         ])
 }
 

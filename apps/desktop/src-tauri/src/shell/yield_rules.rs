@@ -3,8 +3,9 @@
 //! every rule is a plain `cargo test` against scripted inputs.
 //!
 //! Precedence, highest first: paused display / locked session / fullscreen → *Park*; a file
-//! drag over this window → *None* (the drop tiles need the strip in place); window drag or
-//! caption overlap → *Peek*; otherwise *None*. Parking is debounced by the caller
+//! drag over this window → *None* (the drop tiles need the strip in place); a window drag the
+//! Window snap module is tracking → *None* (the snap zones need it too); any other window drag
+//! or caption overlap → *Peek*; otherwise *None*. Parking is debounced by the caller
 //! ([`ParkDebounce`], 500 ms, "flapping fullscreen detection never flickers"); Peek is not
 //! (the acceptance criterion is "yields within 100 ms").
 
@@ -54,6 +55,9 @@ pub struct YieldInputs<'a> {
     pub quiet: UserNotificationState,
     /// A window is being dragged or resized somewhere (`EVENT_SYSTEM_MOVESIZESTART`).
     pub moving: bool,
+    /// That drag is a snap candidate the Window snap module wants the hot zone for
+    /// (docs/modules/notch-shell.md: "Peek unless the Window-snap module wants the hot zone").
+    pub snapping: bool,
     /// A file drag (OLE) is over this window: the drop tiles are showing, so nothing short of
     /// a park may move the strip (docs/build-plan/m4-power-tools.md "Risks").
     pub dragging: bool,
@@ -79,7 +83,11 @@ pub fn decide(inputs: &YieldInputs<'_>) -> YieldState {
         return YieldState::None;
     }
     if inputs.moving {
-        return YieldState::Peek;
+        return if inputs.snapping {
+            YieldState::None
+        } else {
+            YieldState::Peek
+        };
     }
     if inputs.mode == PlacementMode::Overlay
         && inputs
