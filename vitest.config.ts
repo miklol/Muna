@@ -29,6 +29,9 @@ export default defineConfig({
         'packages/contracts/src/bindings.ts',
         'apps/desktop/src/main.tsx',
         'apps/desktop/src/settings-main.tsx',
+        // Story harness (fake IPC, frames, shared preview): exercised by `storybook:ci`.
+        'packages/ui/src/storybook/**',
+        'apps/desktop/src/storybook/**',
       ],
       // Gate from docs/11-ci-cd.md#quality-gates: design system and modules ≥ 80 % lines.
       thresholds: {

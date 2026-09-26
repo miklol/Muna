@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r run typecheck",
     "test": "vitest",
     "storybook": "pnpm --filter @muna/ui storybook",
+    "storybook:desktop": "pnpm --filter @muna/desktop storybook",
     "storybook:ci": "node scripts/storybook-ci.mjs",
     "i18n:check": "node scripts/i18n-check.mjs",
     "contracts:generate": "node scripts/contracts-generate.mjs",

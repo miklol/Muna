@@ -117,6 +117,7 @@ pnpm -w lint                   # eslint (typed, --max-warnings 0) + stylelint + 
 pnpm -w typecheck              # tsc --noEmit in every package
 pnpm -w test                   # vitest (watch); `pnpm -w test --run --coverage` for CI parity
 pnpm -w storybook              # @muna/ui Storybook on http://localhost:6006
+pnpm -w storybook:desktop      # desktop module states on http://localhost:6007
 pnpm -w docs:check             # markdownlint + relative-link check
 pnpm -w format                 # prettier --write
 

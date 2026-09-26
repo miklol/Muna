@@ -50,7 +50,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | Hide from capture | `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` (Win10 2004+) | Setting toggle; per top-level window |
 | Session events | `WTSRegisterSessionNotification` (`WM_WTSSESSION_CHANGE` lock/unlock), `WM_POWERBROADCAST` | Lock live activity, suspend polling while locked |
 | Single instance / tray / autostart | `tauri-plugin-single-instance`, `tray-icon`, `platform::autostart` — 🪪 `StartupTask` (`MunaStartup`, `RequestEnableAsync` / `Disable`) with package identity, `HKCU\…\Run` value `Muna --autostart` otherwise (no `tauri-plugin-autostart`: it cannot use the `StartupTask`, and the two must never both be set) | `DisabledByUser` → the setting reverts and the UI points at Windows Settings |
-| Global hotkeys | `RegisterHotKey` (`MOD_NOREPEAT`) via `tauri-plugin-global-shortcut` | Conflicts reported in Settings |
+| Global hotkeys | `RegisterHotKey` (`MOD_NOREPEAT`) via `tauri-plugin-global-shortcut` | Conflicts reported in Settings. **Built** (M4-E6): registered before the binding is saved, refused chords kept as *in use* and retried on launch ([keyboard-shortcuts](modules/keyboard-shortcuts.md#implementation-notes-m4-e6)) |
 | Identity check | `GetCurrentPackageFullName` → `APPMODEL_ERROR_NO_PACKAGE` | Feature-flags 🪪 modules at runtime |
 
 ## Media
