@@ -112,6 +112,15 @@ What the run taught us:
 - **The handle is already there.** The pump's callback receives the dragged `HWND`; carrying
   it in `MoveSizeChanged` cost one field and lets the shell ask `WindowPlacement::is_snappable`
   before it commits to a snap session.
+- **Injected input needs the desktop to itself.** Run under `--all-features` next to the other
+  lab tests, the drag was never confirmed: `location::position_answers_or_says_why_not` had
+  raised the Windows location consent dialog (`Shell_SystemDialog`) for the not-yet-seen test
+  binary, which dims the whole desktop (`Shell_SystemDim`) and takes every click, and stays up
+  well after that test gives up. The kept test therefore holds a crate-wide desktop lock
+  (`windows::test_support::desktop()`) that the consent-raising test takes after a one-second
+  grace period so the input tests go first, and before every round it checks that
+  `WindowFromPoint` on the caption is the helper — failing by naming the cover rather than
+  clicking on whatever is there.
 
 ### Consequences for Window snap (E3)
 
