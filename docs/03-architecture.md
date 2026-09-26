@@ -81,6 +81,8 @@ apps/
       settings/               # Settings window app
       store/                  # Zustand stores
       lib/                    # typed IPC wrapper (bindings + zod), i18n, query client
+      storybook/              # story harness: fake IPC (parameters.ipc), panel and settings-pane frames
+    .storybook/               # the desktop Storybook (module states; extends @muna/ui/storybook)
   site/                       # Landing page (Vite + React), reuses packages/ui
 packages/
   ui/                         # design system: src/tokens (tokens.css, theme.css), primitives, motion, foundations stories

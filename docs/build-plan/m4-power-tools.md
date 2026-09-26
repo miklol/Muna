@@ -34,6 +34,21 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
 (platform → Rust module → contract → UI → docs and PR), each PR passing `pnpm -w ci`,
 `ci:rust`, `ci:deps` and `ci:app` locally while the Actions budget is out.
 
+### Progress
+
+- **M4-E6 Keyboard shortcuts — built** (branch `m4-e6-keyboard-shortcuts`, stacked on
+  `m3-close-out`). What changed against the plan below: the settings namespace is
+  `settings.modules["keyboard-shortcuts"]` (the module id, like every other module) and gains
+  `snoozeMinutes`; `set_hotkey` returns the full binding list (`Result<HotkeyBinding[],
+  IpcError>` with codes `hotkey.invalid | inUse | taken`) so the pane needs no second read;
+  `ModuleAction.run` receives a `ModuleActionContext` (`openModule`, `send`) instead of being
+  parameterless; `hotkeyDefault` was dropped — defaults live in the zod schema. The desktop
+  Storybook harness (`apps/desktop/.storybook`, [09 → Module stories](../09-testing-qa.md#module-stories-appsdesktopstorybook))
+  shipped here as planned, with stories for the pane, the palette and the key caps; the M3
+  modules' stories stay a carry-over. `ShellToggleRequested` is gone (pre-1.0 break; the shell
+  was its only consumer). Details in
+  [keyboard-shortcuts → Implementation notes](../modules/keyboard-shortcuts.md#implementation-notes-m4-e6).
+
 ### Order
 
 | # | Epic | Why here | Depends on |

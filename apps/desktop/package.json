@@ -11,7 +11,10 @@
     "tauri": "tauri",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "storybook": "storybook dev -p 6007 --no-open",
+    "build-storybook": "storybook build --quiet",
+    "test-storybook": "test-storybook"
   },
   "dependencies": {
     "@muna/contracts": "workspace:*",
@@ -31,6 +34,9 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@storybook/addon-a11y": "^10.6.0",
+    "@storybook/react-vite": "^10.6.0",
+    "@storybook/test-runner": "^0.24.5",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2.11.4",
     "@testing-library/jest-dom": "^7.0.1",
@@ -39,7 +45,10 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "axe-playwright": "^2.2.2",
     "jsdom": "^30.0.1",
+    "playwright": "^1.63.0",
+    "storybook": "^10.6.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.0",
     "vitest": "5.0.0"

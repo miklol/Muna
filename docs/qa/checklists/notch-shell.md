@@ -90,6 +90,13 @@ debounce starts from there.
 
 ## Still to run (maintainer)
 
+- Keyboard shortcuts (M4-E6, [spec](../../modules/keyboard-shortcuts.md)): with the
+  borderless stand-in of Y7 in the foreground, `Ctrl+Alt+Space` must still open the panel
+  (`RegisterHotKey` reaches a fullscreen borderless window); `Ctrl+Alt+N` must park the notch
+  under the cursor for the configured 15/30/60 min and the *only while hovering* option must
+  drop presses while the cursor is away from the strip. Bind a chord another app holds (for
+  example PowerToys' `Win+Shift+T`) and confirm the red *In use by another app* state with the
+  old binding kept, then re-launch Muna and confirm the row still shows it.
 - Win10 22H2 column of the same ten scenarios (the fullscreen heuristic and `SHAppBarMessage`
   behave the same on paper; not measured).
 - A single-monitor laptop at 100 % and 125 %, and a portrait secondary monitor.
