@@ -48,6 +48,21 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
   modules' stories stay a carry-over. `ShellToggleRequested` is gone (pre-1.0 break; the shell
   was its only consumer). Details in
   [keyboard-shortcuts → Implementation notes](../modules/keyboard-shortcuts.md#implementation-notes-m4-e6).
+- **M4-E1 Drop actions — built** (branch `m4-e1-drop-actions`, stacked on
+  `m4-e6-keyboard-shortcuts`). Spike S1 passed on the first try
+  ([spikes/m4-drop](../spikes/m4-drop.md): *enter* 65–80 ms, *leave* 32 ms, no activation), so
+  the `DropTarget` row below collapsed into the shell manager's `WindowEvent::DragDrop` handler
+  and no native `IDropTarget` or feature flag was written. Against the plan: the drag events are
+  `DropEntered { session, label, items, position }`, `DropMoved`, `Dropped` and `DropLeft` with
+  the paths kept in Rust (`muna_core::drops::DropSessions`) and the UI seeing names and kinds
+  only; `drop_run(session, action)` works on a session rather than on items; `DropProgress`
+  became the `DropActionsChanged` snapshot plus a strip activity per long job. "Confirm
+  destructive actions" was not built: recycle goes through `IFileOperation` with
+  `FOF_ALLOWUNDO`, so Explorer's Undo is the safety net and a confirmation would only add a
+  click. The row is a new module surface (`ModuleDefinition.drop`) and a new shell state
+  (`drop`); the *Shelf*, *Convert* and *Music* tiles wait for their modules. Details in
+  [drop-actions → Implementation notes](../modules/drop-actions.md#implementation-notes-m4-e1);
+  hardware and application rows in [qa/checklists/drop-actions](../qa/checklists/drop-actions.md).
 
 ### Order
 
