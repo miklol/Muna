@@ -2,6 +2,7 @@ import { lazy } from 'react';
 
 import type { ModuleDefinition } from '../registry';
 import { WeatherPanel } from './panel';
+import { WeatherWidget } from './widget';
 import { WeatherIcon } from './weather-icon';
 
 /** Settings → Weather loads on first visit so the notch bundle stays small. */
@@ -18,5 +19,6 @@ export const weatherModule: ModuleDefinition = {
   titleKey: 'weather.title',
   icon: WeatherIcon,
   panel: WeatherPanel,
+  widget: WeatherWidget,
   settings: WeatherSettings,
 };

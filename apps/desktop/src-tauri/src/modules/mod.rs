@@ -9,6 +9,7 @@
 //! dyn-compatible for the registry, which `async fn` in traits is not yet.
 
 pub mod bluetooth;
+pub mod dashboard;
 pub mod day_progress;
 pub mod hud;
 pub mod live_activities;
@@ -142,6 +143,7 @@ impl ModuleServices {
 pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
     vec![
         Box::new(live_activities::LiveActivities),
+        Box::new(dashboard::DashboardModule),
         Box::new(media::MediaModule(Arc::clone(&services.media))),
         Box::new(hud::HudModule(Arc::clone(&services.hud))),
         Box::new(pomodoro::PomodoroModule(Arc::clone(&services.pomodoro))),

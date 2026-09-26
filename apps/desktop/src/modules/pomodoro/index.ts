@@ -2,6 +2,7 @@ import { lazy } from 'react';
 
 import type { ModuleDefinition } from '../registry';
 import { PomodoroPanel } from './panel';
+import { PomodoroWidget } from './widget';
 import { PomodoroIcon } from './pomodoro-icon';
 
 /** Settings → Pomodoro loads on first visit so the notch bundle stays small. */
@@ -18,5 +19,6 @@ export const pomodoroModule: ModuleDefinition = {
   titleKey: 'pomodoro.title',
   icon: PomodoroIcon,
   panel: PomodoroPanel,
+  widget: PomodoroWidget,
   settings: PomodoroSettings,
 };

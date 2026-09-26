@@ -147,6 +147,10 @@
   },
   "pomodoro": {
     "title": "Pomodoro",
+    "widget": {
+      "running": "Running",
+      "paused": "Paused"
+    },
     "phase": {
       "work": "Focus",
       "shortBreak": "Short break",
@@ -185,6 +189,11 @@
   },
   "todo": {
     "title": "Tasks",
+    "widget": {
+      "empty": "Nothing open",
+      "more_one": "{{count}} more",
+      "more_other": "{{count}} more"
+    },
     "inbox": "Tasks",
     "lists": "List",
     "add": "Add a task",
@@ -266,6 +275,11 @@
   },
   "bluetooth": {
     "title": "Bluetooth",
+    "widget": {
+      "none": "No devices connected",
+      "more_one": "{{count}} more",
+      "more_other": "{{count}} more"
+    },
     "radio": "Bluetooth",
     "radioOn": "On",
     "radioOff": "Off",
@@ -460,6 +474,40 @@
       "showTasksBody": "Tasks with a due time today, from the to-do module.",
       "showFocusSessions": "Focus sessions",
       "showFocusSessionsBody": "The running pomodoro phase and today's count."
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "grid": "Widgets",
+    "widget": "{{name}} widget",
+    "summary_one": "{{count}} widget",
+    "summary_other": "{{count}} widgets",
+    "edit": "Edit layout",
+    "done": "Done editing",
+    "hint": "Drag a widget onto another to swap places, or use its arrows",
+    "open": "Open {{name}}",
+    "arrange": "Arrange {{name}}",
+    "moveLeft": "Move {{name}} left",
+    "moveRight": "Move {{name}} right",
+    "wider": "Make {{name}} wider",
+    "narrower": "Make {{name}} narrower",
+    "remove": "Remove {{name}}",
+    "addTitle": "Add a widget",
+    "add": "Add {{name}}",
+    "empty": {
+      "title": "No widgets on the grid",
+      "body": "Choose Edit layout to add the cards you want to see."
+    },
+    "settings": {
+      "layout": "Layout",
+      "layoutBody": "Arrange the grid from the dashboard itself: choose Edit layout in the panel.",
+      "widgets": "Widgets on the grid",
+      "cells": "{{used}} of {{total}} cells used",
+      "count_one": "{{count}} widget",
+      "count_other": "{{count}} widgets",
+      "reset": "Reset layout",
+      "resetBody": "Puts every widget back in its default place and size.",
+      "resetAction": "Reset"
     }
   },
   "settings": {

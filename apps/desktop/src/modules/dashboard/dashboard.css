@@ -1,0 +1,114 @@
+/*
+ * Dashboard panel (docs/modules/dashboard.md): a toolbar line and a 2 × 4 grid of cards, each
+ * one or two columns wide. Composes tokens only; the cards and controls bring their own styles.
+ *
+ * Budget: the panel body has 284 px at most. The toolbar is one 28 px icon button; the two
+ * rows share what is left at an 8 px gap, so every card is 120 px tall — a 20 px header, an
+ * 8 px gap and a 68 px body inside the card's 12 px padding. Widgets are sized to that body.
+ */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.dashboard[data-empty] {
+  justify-content: center;
+}
+
+.dashboard__toolbar {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  min-inline-size: 0;
+  padding-inline-start: var(--space-1);
+}
+
+.dashboard__hint {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.dashboard__grid {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  min-block-size: 0;
+  list-style: none;
+}
+
+.dashboard__slot {
+  position: relative;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.dashboard__slot[data-span='2'] {
+  grid-column: span 2;
+}
+
+.dashboard[data-editing] .dashboard__slot {
+  cursor: grab;
+}
+
+.dashboard[data-editing] .dashboard__slot:active {
+  cursor: grabbing;
+}
+
+/* The card fills its cell; the body takes the rest of the height so widgets can centre. */
+.dashboard__card {
+  block-size: 100%;
+  box-sizing: border-box;
+}
+
+.dashboard__card > .muna-card__body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.dashboard__widget {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+/* Edit mode: the controls sit where the widget was, spaced like the panel's rail. */
+.dashboard__controls {
+  display: flex;
+  flex: 1 1 0;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard__slot--add .dashboard__card {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.dashboard__add {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-content: flex-start;
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.dashboard__empty {
+  margin: auto;
+}
