@@ -12,6 +12,7 @@ pub mod bluetooth;
 pub mod calendar;
 pub mod dashboard;
 pub mod day_progress;
+pub mod drop_actions;
 pub mod hud;
 pub mod keyboard_shortcuts;
 pub mod live_activities;
@@ -89,6 +90,7 @@ pub struct ModuleServices {
     pub notifications: Arc<notifications::NotificationsService>,
     pub day_progress: Arc<day_progress::DayProgressService>,
     pub keyboard_shortcuts: Arc<keyboard_shortcuts::HotkeyService>,
+    pub drop_actions: Arc<drop_actions::DropActionsService>,
 }
 
 impl ModuleServices {
@@ -151,6 +153,10 @@ impl ModuleServices {
                 Arc::new(day_progress::LocalZone),
             )),
             keyboard_shortcuts: Arc::new(keyboard_shortcuts::HotkeyService::new()),
+            drop_actions: Arc::new(drop_actions::DropActionsService::new(
+                Arc::clone(platform),
+                Arc::clone(hub),
+            )),
         }
     }
 }
@@ -182,6 +188,9 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         ))),
         Box::new(keyboard_shortcuts::KeyboardShortcutsModule(Arc::clone(
             &services.keyboard_shortcuts,
+        ))),
+        Box::new(drop_actions::DropActionsModule(Arc::clone(
+            &services.drop_actions,
         ))),
     ]
 }

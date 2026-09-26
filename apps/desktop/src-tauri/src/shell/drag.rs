@@ -1,15 +1,27 @@
 //! Bookkeeping for OLE drags over the notch windows (docs/spikes/m4-drop.md). wry reports one
 //! *over* per mouse move; keeping a summary per window lets the manager log a single line when
-//! the drag leaves or drops instead of sixty a second. Paths are never stored here.
+//! the drag leaves or drops instead of sixty a second, and coalesces the moves it forwards to
+//! the UI to one per frame ([`MOVE_INTERVAL`]). Paths are never stored here.
 
 use std::collections::HashMap;
 use std::fmt;
+use std::time::{Duration, Instant};
+
+/// Least time between two `DropMoved` events for one window: one 60 Hz frame.
+pub const MOVE_INTERVAL: Duration = Duration::from_millis(16);
 
 /// A position in physical pixels relative to the window's client area.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DragPoint {
     pub x: f64,
     pub y: f64,
+}
+
+impl DragPoint {
+    #[must_use]
+    pub const fn new(x: f64, y: f64) -> Self {
+        Self { x, y }
+    }
 }
 
 impl fmt::Display for DragPoint {
@@ -25,6 +37,8 @@ pub struct DragSummary {
     pub overs: u32,
     entered_at: Option<DragPoint>,
     last_at: Option<DragPoint>,
+    /// When the last move was forwarded to the UI; `None` until the first one.
+    forwarded_at: Option<Instant>,
 }
 
 /// Shown as `(x,y)` or `-` when the drag never reported the position.
@@ -76,6 +90,7 @@ impl DragLog {
                 overs: 0,
                 entered_at: Some(point),
                 last_at: Some(point),
+                forwarded_at: None,
             },
         );
     }
@@ -91,6 +106,22 @@ impl DragLog {
     /// The drag over `label` ended (left or dropped); returns and forgets its summary.
     pub fn finish(&mut self, label: &str) -> DragSummary {
         self.drags.remove(label).unwrap_or_default()
+    }
+
+    /// The latest position over `label` when at least [`MOVE_INTERVAL`] passed since the last
+    /// one handed out (or none was yet); `None` while the frame is still fresh, so a stream of
+    /// *over* events becomes at most one `DropMoved` per frame.
+    pub fn take_move_if_due(&mut self, label: &str, now: Instant) -> Option<DragPoint> {
+        let summary = self.drags.get_mut(label)?;
+        let point = summary.last_at?;
+        if summary
+            .forwarded_at
+            .is_some_and(|at| now.duration_since(at) < MOVE_INTERVAL)
+        {
+            return None;
+        }
+        summary.forwarded_at = Some(now);
+        Some(point)
     }
 
     /// Whether a drag is currently over `label`.

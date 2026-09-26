@@ -14,6 +14,7 @@ mod autostart;
 mod bluetooth;
 mod brightness;
 mod credentials;
+mod file_ops;
 mod foreground;
 pub mod identity;
 mod location;
@@ -38,14 +39,14 @@ pub use autostart::{AUTOSTART_ARG, STARTUP_TASK_ID};
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
-    Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, FileOps, Foreground, Location, Media,
+    Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
     BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
     Notification, NotificationAccess, NotificationDelivery, OsdState, Rect, SystemSample,
-    Thumbnail, UserNotificationState, WindowHandle,
+    Thumbnail, TransferMode, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -88,6 +89,8 @@ pub struct WindowsPlatform {
     system_stats: system_stats::Sampler,
     /// Lazy: subscribes on the module's first `watch`.
     notifications: notifications::Listener,
+    /// The share sheet behind the Drop actions *Nearby Share* tile; holds the live session.
+    share_sheet: file_ops::ShareSheet,
 }
 
 impl Default for WindowsPlatform {
@@ -154,6 +157,7 @@ impl WindowsPlatform {
             osd,
             app_bars: app_bar::AppBars::default(),
             system_stats: system_stats::Sampler::default(),
+            share_sheet: file_ops::ShareSheet::default(),
         }
     }
 }
@@ -458,6 +462,49 @@ impl Autostart for WindowsPlatform {
     }
 }
 
+impl FileOps for WindowsPlatform {
+    fn transfer(
+        &self,
+        items: &[std::path::PathBuf],
+        destination: &std::path::Path,
+        mode: TransferMode,
+    ) -> PlatformResult<()> {
+        file_ops::transfer(items, destination, mode)
+    }
+
+    fn recycle(&self, items: &[std::path::PathBuf]) -> PlatformResult<()> {
+        file_ops::recycle(items)
+    }
+
+    fn open(&self, item: &std::path::Path) -> PlatformResult<()> {
+        file_ops::open(item)
+    }
+
+    fn open_with(&self, item: &std::path::Path) -> PlatformResult<()> {
+        file_ops::open_with(item)
+    }
+
+    fn reveal(&self, items: &[std::path::PathBuf]) -> PlatformResult<()> {
+        file_ops::reveal(items)
+    }
+
+    fn share(&self, window: WindowHandle, items: &[std::path::PathBuf]) -> PlatformResult<()> {
+        self.share_sheet.show(window, items)
+    }
+
+    fn eject(&self, item: &std::path::Path) -> PlatformResult<()> {
+        file_ops::eject(item)
+    }
+
+    fn pick_folder(
+        &self,
+        window: WindowHandle,
+        title: &str,
+    ) -> PlatformResult<Option<std::path::PathBuf>> {
+        file_ops::pick_folder(window, title)
+    }
+}
+
 impl Platform for WindowsPlatform {
     fn media(&self) -> &dyn Media {
         self
@@ -516,6 +563,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn autostart(&self) -> &dyn Autostart {
+        self
+    }
+
+    fn file_ops(&self) -> &dyn FileOps {
         self
     }
 
