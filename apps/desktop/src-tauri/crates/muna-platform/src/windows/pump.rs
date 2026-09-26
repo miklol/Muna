@@ -337,7 +337,8 @@ mod tests {
     /// process must reach the pump's subscribers as `MoveSizeChanged { started: true }`
     /// within one frame, and dropping the pump must join its thread. The other process is this
     /// test binary re-run as [`s3_helper_window`]; the drag is injected with `SendInput`, so
-    /// the cursor moves for a moment and is put back afterwards.
+    /// the cursor moves for a moment and is put back afterwards. Holds the desktop lock: a
+    /// system consent dialog raised by another test would dim the desktop and take the click.
     #[test]
     #[cfg_attr(
         not(feature = "platform-tests"),
@@ -346,6 +347,7 @@ mod tests {
     fn s3_a_foreign_window_drag_is_reported_within_a_frame() {
         use std::time::Duration;
 
+        let _desktop = super::super::test_support::desktop();
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_time()
             .build()
@@ -419,10 +421,11 @@ mod tests {
             MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEINPUT, SendInput,
         };
         use windows::Win32::UI::WindowsAndMessaging::{
-            CreateWindowExW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW,
-            GetWindowRect, HWND_TOPMOST, MSG, PostQuitMessage, RegisterClassW, SWP_NOACTIVATE,
-            SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SetCursorPos, SetWindowPos, TranslateMessage,
-            WM_DESTROY, WNDCLASSW, WS_EX_TOPMOST, WS_OVERLAPPEDWINDOW, WS_VISIBLE,
+            CreateWindowExW, DefWindowProcW, DispatchMessageW, GetClassNameW, GetCursorPos,
+            GetForegroundWindow, GetMessageW, GetWindowRect, HWND_TOPMOST, MSG, PostQuitMessage,
+            RegisterClassW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SetCursorPos,
+            SetWindowPos, TranslateMessage, WM_DESTROY, WNDCLASSW, WS_EX_TOPMOST,
+            WS_OVERLAPPEDWINDOW, WS_VISIBLE, WindowFromPoint,
         };
         use windows::core::{PCWSTR, w};
 
@@ -545,7 +548,63 @@ mod tests {
                     })
                     .await
                 })
-                .unwrap_or_else(|_| panic!("MoveSizeChanged {{ started: {wanted} }} never arrived"))
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "MoveSizeChanged {{ started: {wanted} }} never arrived; {}",
+                        describe_pointer_state()
+                    )
+                })
+        }
+
+        /// The window under the cursor and the foreground window, by class, for the failure
+        /// messages: a covered helper is a desktop problem, not a pump problem.
+        fn describe_pointer_state() -> String {
+            let cursor = cursor_position();
+            // SAFETY: plain queries with no preconditions.
+            #[allow(unsafe_code)]
+            let (under, foreground) = unsafe { (WindowFromPoint(cursor), GetForegroundWindow()) };
+            format!(
+                "cursor ({}, {}); under cursor {:?} '{}'; foreground {:?} '{}'",
+                cursor.x,
+                cursor.y,
+                under.0,
+                class_name(under),
+                foreground.0,
+                class_name(foreground)
+            )
+        }
+
+        fn class_name(hwnd: HWND) -> String {
+            let mut buffer = [0_u16; 128];
+            // SAFETY: a valid, writable buffer; the length returned is checked.
+            #[allow(unsafe_code)]
+            let len = unsafe { GetClassNameW(hwnd, &mut buffer) };
+            String::from_utf16_lossy(&buffer[..usize::try_from(len).unwrap_or(0)])
+        }
+
+        /// Waits until the helper's caption is what a click at `target` would hit. Something
+        /// else there — a system dialog, an OSD, a window the person at the machine moved — means
+        /// the injected drag would land on it, so the test waits a little and otherwise fails
+        /// naming the cover rather than clicking it.
+        fn wait_until_uncovered(helper: &HelperWindow, target: POINT) {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                // SAFETY: a plain query with no preconditions.
+                #[allow(unsafe_code)]
+                let under = unsafe { WindowFromPoint(target) };
+                if under.0 as isize == helper.hwnd {
+                    return;
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "the helper window is covered at ({}, {}) by {:?} '{}'",
+                    target.x,
+                    target.y,
+                    under.0,
+                    class_name(under)
+                );
+                std::thread::sleep(Duration::from_millis(250));
+            }
         }
 
         /// One full round: start a pump, spawn the helper, drag its caption 40 px, release,
@@ -556,10 +615,12 @@ mod tests {
             let mut helper = spawn_helper();
             std::thread::sleep(Duration::from_millis(300));
 
-            set_cursor_position(POINT {
+            let target = POINT {
                 x: helper.x + helper.width / 2,
                 y: helper.y + 12,
-            });
+            };
+            wait_until_uncovered(&helper, target);
+            set_cursor_position(target);
             std::thread::sleep(Duration::from_millis(50));
             inject(MOUSEEVENTF_LEFTDOWN, 0, 0);
             std::thread::sleep(Duration::from_millis(10));

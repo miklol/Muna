@@ -627,6 +627,22 @@ impl Platform for WindowsPlatform {
     }
 }
 
+/// Shared plumbing for the `platform-tests` that need the interactive desktop to themselves.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::sync::{Mutex, MutexGuard, PoisonError};
+
+    static DESKTOP: Mutex<()> = Mutex::new(());
+
+    /// Serialises the tests that inject input with the tests that can raise a system consent
+    /// dialog: `Shell_SystemDialog` dims the whole desktop (`Shell_SystemDim`) and takes every
+    /// click for as long as it is up, so a drag injected meanwhile never reaches its window.
+    /// A poisoned lock only means an earlier holder panicked; the desktop is still usable.
+    pub(crate) fn desktop() -> MutexGuard<'static, ()> {
+        DESKTOP.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
