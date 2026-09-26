@@ -1,3 +1,4 @@
+import { commands } from '@muna/contracts';
 import { lazy } from 'react';
 
 import type { ModuleDefinition } from '../registry';
@@ -12,7 +13,8 @@ const MediaSettings = lazy(() =>
 
 /**
  * The media module's frontend half (docs/modules/media.md; ADR-0004). Its Rust half is
- * `src-tauri/src/modules/media`; the id is the settings namespace both sides read.
+ * `src-tauri/src/modules/media`; the id is the settings namespace both sides read. Its one
+ * action, "Play or pause", drives the active session without opening the notch.
  */
 export const mediaModule: ModuleDefinition = {
   id: 'media',
@@ -21,4 +23,15 @@ export const mediaModule: ModuleDefinition = {
   panel: MediaPanel,
   widget: MediaWidget,
   settings: MediaSettings,
+  actions: [
+    {
+      id: 'media.playPause',
+      labelKey: 'media.actions.playPause',
+      run: () => {
+        void commands.mediaCommand(null, { kind: 'togglePlayPause' }).catch(() => {
+          // Not running inside Tauri: nothing to drive.
+        });
+      },
+    },
+  ],
 };

@@ -52,6 +52,11 @@ export type ShellEvent =
   | { type: 'scrollDown' }
   /** The global toggle hotkey. */
   | { type: 'toggle' }
+  /**
+   * Open without the pointer (a hotkey or palette action that needs the panel): like `toggle`
+   * it does not arm auto-collapse; a panel already open stays as it is.
+   */
+  | { type: 'open' }
   /** The ⤡ button. */
   | { type: 'collapse' }
   | { type: 'escape' }
@@ -335,6 +340,8 @@ export function transition(snapshot: ShellSnapshot, event: ShellEvent): Transiti
         : b.build();
     case 'toggle':
       return isOpen(snapshot.state) ? b.close().build() : b.open(false).build();
+    case 'open':
+      return isOpen(snapshot.state) ? b.build() : b.open(false).build();
     case 'collapse':
       return b.close().build();
     case 'escape':

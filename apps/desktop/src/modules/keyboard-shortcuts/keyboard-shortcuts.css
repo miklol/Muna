@@ -1,0 +1,70 @@
+/*
+ * Settings › Keyboard shortcuts (docs/modules/keyboard-shortcuts.md): one row per action, the
+ * chord as caps on the right; the recorder button turns into a prompt while it listens; a
+ * refusal ("In use", "Invalid") sits beside the caps in `--accent-red`. Composes tokens only.
+ */
+
+.shortcuts-binding {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.shortcuts-recorder {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-inline-size: 120px;
+  min-block-size: var(--size-hit-min);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-size: var(--text-footnote);
+  line-height: var(--text-footnote--line-height);
+  cursor: default;
+  outline: none;
+  transition: background-color var(--muna-motion-press);
+}
+
+.shortcuts-recorder[data-hovered] {
+  background: var(--surface-2);
+}
+
+.shortcuts-recorder[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.shortcuts-recorder[data-recording] {
+  border-color: var(--accent);
+  color: var(--text-2);
+}
+
+.shortcuts-recorder__unset {
+  color: var(--text-2);
+}
+
+.shortcuts-state {
+  color: var(--text-2);
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
+  white-space: nowrap;
+}
+
+.shortcuts-state[data-tone='error'] {
+  color: var(--accent-red);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shortcuts-recorder {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .shortcuts-recorder {
+  transition: none;
+}

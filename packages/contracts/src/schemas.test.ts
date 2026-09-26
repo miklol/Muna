@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
 
-import type { Settings, ShellLayout, SourceSetting, StripContent } from './bindings';
+import type { HotkeyBinding, Settings, ShellLayout, SourceSetting, StripContent } from './bindings';
 import {
   CALENDAR_MAX_NAME_CHARS,
   CALENDAR_REFRESH_CHOICES_MINUTES,
@@ -18,6 +18,7 @@ import {
   HUD_NOTICE_IDS,
   HUD_SETTINGS_KEY,
   HUD_VOLUME_STEP,
+  KEYBOARD_SHORTCUTS_SETTINGS_KEY,
   MEDIA_SETTINGS_KEY,
   NOTIFICATIONS_POLL_MS,
   NOTIFICATIONS_SETTINGS_KEY,
@@ -25,6 +26,10 @@ import {
   POMODORO_BOUNDS,
   POMODORO_SETTINGS_KEY,
   POMODORO_STRIP_IDS,
+  SETTINGS_VERSION,
+  SHELL_ACTION_IDS,
+  SHELL_OPEN_MODULE_SLOTS,
+  SNOOZE_MINUTES_CHOICES,
   STRIP_HEIGHT_PX,
   SYSTEM_MONITOR_BOUNDS,
   SYSTEM_MONITOR_PERIODS,
@@ -41,6 +46,7 @@ import {
   defaultDashboardSettings,
   defaultDayProgressSettings,
   defaultHudSettings,
+  defaultKeyboardShortcutsSettings,
   defaultMediaSettings,
   defaultNotificationsSettings,
   defaultPomodoroSettings,
@@ -48,11 +54,15 @@ import {
   defaultSystemMonitorSettings,
   defaultTodoSettings,
   defaultWeatherSettings,
+  hotkeyBindingSchema,
+  isSnoozeMinutes,
   monitorLayoutSchema,
+  normaliseChord,
   readCalendarSettings,
   readDashboardSettings,
   readDayProgressSettings,
   readHudSettings,
+  readKeyboardShortcutsSettings,
   readMediaSettings,
   readNotificationsSettings,
   readPomodoroSettings,
@@ -61,12 +71,14 @@ import {
   readWeatherSettings,
   settingsSchema,
   shellLayoutSchema,
+  shellOpenModuleActionId,
   shellSettingsSchema,
   stripContentSchema,
   writeCalendarSettings,
   writeDashboardSettings,
   writeDayProgressSettings,
   writeHudSettings,
+  writeKeyboardShortcutsSettings,
   writeMediaSettings,
   writeNotificationsSettings,
   writePomodoroSettings,
@@ -108,9 +120,11 @@ describe('settings schema', () => {
     expect(
       monitorLayoutSchema.safeParse({ ...settings.shell.defaults, stripHeight: 'huge' }).success,
     ).toBe(false);
-    expect(shellSettingsSchema.safeParse({ ...settings.shell, toggleHotkey: '' }).success).toBe(
-      false,
-    );
+    // The toggle hotkey moved to the keyboard-shortcuts namespace in version 5.
+    expect(SETTINGS_VERSION).toBe(5);
+    expect(
+      shellSettingsSchema.safeParse({ ...settings.shell, toggleHotkey: 'ctrl+alt+space' }).data,
+    ).not.toHaveProperty('toggleHotkey');
   });
 
   it('matches the specta-generated type exactly', () => {
@@ -1029,5 +1043,93 @@ describe('dashboard settings namespace', () => {
     expect(written.modules[DASHBOARD_SETTINGS_KEY]).toEqual({
       slots: [{ moduleId: 'weather', span: 1 }],
     });
+  });
+});
+
+describe('keyboard shortcuts settings namespace', () => {
+  it('binds only the three shell shortcuts by default, matching the Rust defaults', () => {
+    const shortcuts = readKeyboardShortcutsSettings(defaultSettings());
+    expect(shortcuts).toEqual({
+      bindings: {
+        [SHELL_ACTION_IDS.togglePanel]: 'ctrl+alt+space',
+        [SHELL_ACTION_IDS.palette]: 'ctrl+shift+space',
+        [SHELL_ACTION_IDS.snooze]: 'ctrl+alt+n',
+      },
+      onlyWhileHovering: false,
+      snoozeMinutes: 15,
+    });
+    expect(defaultKeyboardShortcutsSettings()).toEqual(shortcuts);
+    expect(SNOOZE_MINUTES_CHOICES).toEqual([15, 30, 60]);
+    expect(isSnoozeMinutes(30)).toBe(true);
+    expect(isSnoozeMinutes(20)).toBe(false);
+    expect(SHELL_OPEN_MODULE_SLOTS).toBe(9);
+    expect(shellOpenModuleActionId(1)).toBe('shell.openModule1');
+  });
+
+  it('repairs a hand-edited namespace the way Rust does', () => {
+    const edited: Settings = {
+      ...defaultSettings(),
+      modules: {
+        [KEYBOARD_SHORTCUTS_SETTINGS_KEY]: {
+          bindings: {
+            [SHELL_ACTION_IDS.togglePanel]: ' Ctrl + Alt + Space ',
+            'todo.quickAdd': 'ctrl+shift+t',
+            [SHELL_ACTION_IDS.palette]: '',
+            '  ': 'ctrl+x',
+          },
+          onlyWhileHovering: true,
+          snoozeMinutes: 20,
+          extra: 'ignored',
+        },
+      },
+    };
+    expect(readKeyboardShortcutsSettings(edited)).toEqual({
+      bindings: {
+        [SHELL_ACTION_IDS.togglePanel]: 'ctrl+alt+space',
+        'todo.quickAdd': 'ctrl+shift+t',
+      },
+      onlyWhileHovering: true,
+      snoozeMinutes: 15,
+    });
+    expect(normaliseChord('Ctrl + Alt + Space')).toBe('ctrl+alt+space');
+    expect(normaliseChord('++')).toBe('');
+  });
+
+  it('falls back to the defaults for a malformed entry and round-trips through write', () => {
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [KEYBOARD_SHORTCUTS_SETTINGS_KEY]: { bindings: ['ctrl+alt+space'] } },
+    };
+    expect(readKeyboardShortcutsSettings(broken)).toEqual(defaultKeyboardShortcutsSettings());
+    const written = writeKeyboardShortcutsSettings(defaultSettings(), {
+      bindings: {},
+      onlyWhileHovering: true,
+      snoozeMinutes: 60,
+    });
+    expect(readKeyboardShortcutsSettings(written)).toEqual({
+      bindings: {},
+      onlyWhileHovering: true,
+      snoozeMinutes: 60,
+    });
+    expect(settingsSchema.parse(written)).toEqual(written);
+  });
+
+  it('parses what get_hotkeys returns and matches the generated type', () => {
+    const bindings: HotkeyBinding[] = [
+      { action: SHELL_ACTION_IDS.togglePanel, chord: 'ctrl+alt+space', state: 'registered' },
+      { action: 'todo.quickAdd', chord: 'ctrl+shift+t', state: 'inUse' },
+      { action: 'pomodoro.toggle', chord: 'bogus', state: 'invalid' },
+      { action: 'media.playPause', chord: null, state: 'unbound' },
+    ];
+    for (const binding of bindings) {
+      expect(hotkeyBindingSchema.parse(binding)).toEqual(binding);
+    }
+    expect(
+      hotkeyBindingSchema.safeParse({ action: '', chord: null, state: 'registered' }).success,
+    ).toBe(false);
+    expect(
+      hotkeyBindingSchema.safeParse({ action: 'x', chord: null, state: 'taken' }).success,
+    ).toBe(false);
+    expectTypeOf<z.infer<typeof hotkeyBindingSchema>>().toEqualTypeOf<HotkeyBinding>();
   });
 });

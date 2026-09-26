@@ -1,13 +1,15 @@
 //! Tauri glue around [`ShellModel`]: creates and destroys the notch windows, bridges platform
-//! events, runs the cursor and quiet-state polls, owns the tray icon and the toggle hotkey, and
-//! turns model [`Effect`]s into specta events. Everything here is safe Rust; window affinities
-//! go through `muna_platform::Windowing`.
+//! events, runs the cursor and quiet-state polls, owns the tray icon, and turns model
+//! [`Effect`]s into specta events. Global hotkeys belong to the keyboard-shortcuts module;
+//! the shell only answers its questions (which notch is under the cursor, is one hovered) and
+//! parks a display for a snooze. Everything here is safe Rust; window affinities go through
+//! `muna_platform::Windowing`.
 //!
 //! Threading rules inherited from the M0 spike (docs/spikes/m0-window.md): the model lock is
 //! never held across webview creation/destruction or `SetWindowLongPtr`; reconciles run on the
 //! main thread and re-entrant requests coalesce into one more pass.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -18,15 +20,12 @@ use parking_lot::Mutex;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, WindowEvent};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_specta::Event;
 
 use super::hit_test::PollRate;
 use super::memory_target::{Hold, MemoryTarget, MemoryTargetPolicy};
 use super::model::{Effect, PRIMARY_LABEL, ReconcilePlan, ShellLayout, ShellModel};
-use crate::ipc::{
-    ShapeRect, ShellLayoutChanged, ShellPointerDownOutside, ShellToggleRequested, ShellYieldChanged,
-};
+use crate::ipc::{ShapeRect, ShellLayoutChanged, ShellPointerDownOutside, ShellYieldChanged};
 
 /// Label of the settings window in `tauri.conf.json`.
 pub const SETTINGS_LABEL: &str = "settings";
@@ -49,7 +48,8 @@ pub struct ShellManager {
     reconciling: AtomicBool,
     reconcile_requested: AtomicBool,
     tray: Mutex<Option<TrayIcon>>,
-    hotkey: Mutex<Option<String>>,
+    /// Snooze generation per monitor id; a resume only applies if no newer snooze replaced it.
+    snoozes: Mutex<HashMap<String, u64>>,
     /// Earliest pending re-evaluation, so debouncing parks never piles up timers.
     recheck_at: Mutex<Option<Instant>>,
     /// Process start; the `shell ready` log line reports the cold-start time against it
@@ -78,7 +78,7 @@ impl ShellManager {
             reconciling: AtomicBool::new(false),
             reconcile_requested: AtomicBool::new(false),
             tray: Mutex::new(None),
-            hotkey: Mutex::new(None),
+            snoozes: Mutex::new(HashMap::new()),
             recheck_at: Mutex::new(None),
             started_at,
             ready_reported: Mutex::new(HashSet::new()),
@@ -118,7 +118,6 @@ impl ShellManager {
         }
         self.reconcile(app);
         self.install_tray(app);
-        self.register_hotkey(app);
         spawn_cursor_poll(app, Arc::clone(self));
         spawn_quiet_poll(app, Arc::clone(self));
         spawn_event_bridge(app, Arc::clone(self));
@@ -342,7 +341,6 @@ impl ShellManager {
             Instant::now(),
         );
         self.apply(app, effects);
-        self.register_hotkey(app);
     }
 
     /// Shows and focuses the settings window.
@@ -360,19 +358,63 @@ impl ShellManager {
         }
     }
 
-    /// The toggle hotkey was pressed: tell the notch under the cursor.
-    pub fn toggle_requested(&self, app: &AppHandle) {
+    /// The notch a global hotkey addresses: the one on the monitor under the cursor (else the
+    /// primary). `None` before any window exists.
+    #[must_use]
+    pub fn hotkey_label(&self) -> Option<String> {
         let cursor = self
             .platform
             .windowing()
             .cursor_position()
             .unwrap_or((0, 0));
-        let Some(label) = self.model.lock().label_at(cursor) else {
+        self.model.lock().label_at(cursor)
+    }
+
+    /// `true` while the cursor is over a painted shape of some notch (strip or panel) — the
+    /// *only while hovering* scope of the keyboard-shortcuts module.
+    #[must_use]
+    pub fn hovering(&self) -> bool {
+        self.model.lock().hovered_label().is_some()
+    }
+
+    /// Parks the notch on the monitor under the cursor for `duration`, then brings it back
+    /// unless a newer snooze or the tray changed the display's state meanwhile.
+    pub fn snooze_under_cursor(self: &Arc<Self>, app: &AppHandle, duration: Duration) {
+        let cursor = self
+            .platform
+            .windowing()
+            .cursor_position()
+            .unwrap_or((0, 0));
+        let monitor_id = {
+            let model = self.model.lock();
+            model
+                .label_at(cursor)
+                .and_then(|label| model.window(&label).map(|w| w.monitor.id.clone()))
+        };
+        let Some(monitor_id) = monitor_id else {
             return;
         };
-        if let Err(error) = (ShellToggleRequested { label }).emit(app) {
-            tracing::warn!(%error, "emit ShellToggleRequested failed");
-        }
+        let generation = {
+            let mut snoozes = self.snoozes.lock();
+            let generation = snoozes.get(&monitor_id).copied().unwrap_or(0) + 1;
+            snoozes.insert(monitor_id.clone(), generation);
+            generation
+        };
+        tracing::info!(monitor = %monitor_id, secs = duration.as_secs(), "notch snoozed");
+        self.set_display_paused(app, &monitor_id, true);
+        let manager = Arc::clone(self);
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(duration).await;
+            let current = manager.snoozes.lock().get(&monitor_id).copied();
+            if current != Some(generation) {
+                return;
+            }
+            manager.snoozes.lock().remove(&monitor_id);
+            if manager.model.lock().paused_monitors().contains(&monitor_id) {
+                manager.set_display_paused(&app, &monitor_id, false);
+            }
+        });
     }
 
     // --- tray -----------------------------------------------------------------------------
@@ -464,36 +506,6 @@ impl ShellManager {
                 }
             }
             Err(error) => tracing::warn!(%error, "tray menu rebuild failed"),
-        }
-    }
-
-    // --- hotkey ---------------------------------------------------------------------------
-
-    fn register_hotkey(self: &Arc<Self>, app: &AppHandle) {
-        let wanted = self.model.lock().settings().toggle_hotkey.clone();
-        let mut current = self.hotkey.lock();
-        if current.as_deref() == Some(wanted.as_str()) {
-            return;
-        }
-        if let Some(previous) = current.take()
-            && let Err(error) = app.global_shortcut().unregister(previous.as_str())
-        {
-            tracing::warn!(%error, keys = previous, "hotkey unregister failed");
-        }
-        if wanted.trim().is_empty() {
-            return;
-        }
-        let manager = Arc::clone(self);
-        let result =
-            app.global_shortcut()
-                .on_shortcut(wanted.as_str(), move |app, _shortcut, event| {
-                    if event.state == ShortcutState::Pressed {
-                        manager.toggle_requested(app);
-                    }
-                });
-        match result {
-            Ok(()) => *current = Some(wanted),
-            Err(error) => tracing::warn!(%error, keys = wanted, "hotkey registration failed"),
         }
     }
 

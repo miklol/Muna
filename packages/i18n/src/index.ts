@@ -1,9 +1,18 @@
-import i18next, { type i18n } from 'i18next';
+import i18next, { type i18n, type TFunction } from 'i18next';
 
 import en from './locales/en.json';
 
 export const defaultNS = 'translation';
 export const fallbackLng = 'en';
+
+/**
+ * The `t` of `useTranslation()`, for helpers that take it as a parameter. Never derive it with
+ * `ReturnType<typeof useTranslation>['t']`: that erases the hook's `KPrefix` type parameter to
+ * its constraint — every key in the catalog — and each call through the alias then costs
+ * i18next's key parser O(keys²) instantiations, which trips TS2589 past a few hundred messages.
+ * `TFunction`'s defaults are the default namespace and no key prefix, which is the hook's `t`.
+ */
+export type Translate = TFunction;
 
 type Messages = typeof en;
 

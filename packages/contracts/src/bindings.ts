@@ -281,6 +281,21 @@ export const commands = {
 	 *  the webview cannot ask for an arbitrary URI.
 	 */
 	notificationsOpenSettings: (page: NotificationsSettingsPage) => typedError<null, IpcError>(__TAURI_INVOKE("notifications_open_settings", { page })),
+	/**
+	 *  Every bound action with its chord and whether the OS took it (docs/modules/
+	 *  keyboard-shortcuts.md). Actions without a chord are not listed; the UI knows the full set.
+	 */
+	getHotkeys: () => __TAURI_INVOKE<HotkeyBinding[]>("get_hotkeys"),
+	/**
+	 *  Binds `action` to `chord` (`tauri-plugin-global-shortcut` syntax, e.g. `ctrl+alt+space`):
+	 *  the OS is asked first, so a chord another app holds fails with `hotkey.inUse` and nothing
+	 *  is saved; `hotkey.taken` names the Muna action that already has the chord; `hotkey.invalid`
+	 *  is a chord the plugin cannot parse. On success the namespace is persisted and
+	 *  `SettingsChanged` broadcast.
+	 */
+	setHotkey: (action: string, chord: string) => typedError<HotkeyBinding[], IpcError>(__TAURI_INVOKE("set_hotkey", { action, chord })),
+	/**  Removes the binding of `action`, releases the chord and persists the namespace. */
+	clearHotkey: (action: string) => typedError<HotkeyBinding[], IpcError>(__TAURI_INVOKE("clear_hotkey", { action })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -289,6 +304,7 @@ export const commands = {
 export const events = {
 	bluetoothChanged: makeEvent<BluetoothChanged>("bluetooth-changed"),
 	calendarChanged: makeEvent<CalendarChanged>("calendar-changed"),
+	hotkeyPressed: makeEvent<HotkeyPressed>("hotkey-pressed"),
 	hudStateChanged: makeEvent<HudStateChanged>("hud-state-changed"),
 	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
 	mediaStateChanged: makeEvent<MediaStateChanged>("media-state-changed"),
@@ -298,7 +314,6 @@ export const events = {
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
 	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
 	shellPointerDownOutside: makeEvent<ShellPointerDownOutside>("shell-pointer-down-outside"),
-	shellToggleRequested: makeEvent<ShellToggleRequested>("shell-toggle-requested"),
 	shellYieldChanged: makeEvent<ShellYieldChanged>("shell-yield-changed"),
 	stripContentChanged: makeEvent<StripContentChanged>("strip-content-changed"),
 	systemMonitorChanged: makeEvent<SystemMonitorChanged>("system-monitor-changed"),
@@ -599,6 +614,35 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 "hourglass" | 
 /**  A calendar page (docs/modules/calendar.md): the next event, tinted like its source. */
 "calendar";
+
+/**  One action's binding as the pane and the palette see it. */
+export type HotkeyBinding = {
+	action: string,
+	chord: string | null,
+	state: HotkeyState,
+};
+
+/**
+ *  A global hotkey was pressed. `action` is the id the chord is bound to (`shell.togglePanel`,
+ *  `todo.quickAdd`, …; the UI resolves it against the shell's actions and the module registry)
+ *  and `label` the notch on the monitor under the cursor, which is the one to act. Replaces
+ *  `ShellToggleRequested` (M1), whose only action is now `shell.togglePanel`.
+ */
+export type HotkeyPressed = {
+	action: string,
+	label: string,
+};
+
+/**  What the pane shows beside each binding. */
+export type HotkeyState = 
+/**  Bound and registered with the OS. */
+"registered" | 
+/**  Bound in the settings, refused by the OS — another app holds the chord. */
+"inUse" | 
+/**  Bound in the settings to a chord the plugin cannot parse. */
+"invalid" | 
+/**  No chord. */
+"unbound";
 
 /**  One hour of the strip. */
 export type HourForecast = {
@@ -1081,11 +1125,6 @@ export type ShellPointerDownOutside = {
 export type ShellSettings = {
 	/**  `WDA_EXCLUDEFROMCAPTURE` on every notch window. */
 	hideFromCaptures: boolean,
-	/**
-	 *  Global shortcut that expands or collapses the notch under the cursor
-	 *  (`tauri-plugin-global-shortcut` syntax).
-	 */
-	toggleHotkey: string,
 	/**  Layout used for monitors without an entry in `monitors`. */
 	defaults: MonitorLayout,
 	/**  Per-monitor overrides keyed by the stable monitor id (`\\.\DISPLAY1`, …). */
@@ -1097,11 +1136,6 @@ export type ShellSettings = {
 	moduleOrder: string[],
 	/**  Modules the user switched off (v3): hidden from the bar, backend still registered. */
 	disabledModules: string[],
-};
-
-/**  The global toggle hotkey was pressed; `label` is the notch on the monitor under the cursor. */
-export type ShellToggleRequested = {
-	label: string,
 };
 
 /**  The yield rules changed their mind about one notch window (docs/modules/notch-shell.md). */

@@ -1,5 +1,6 @@
 import type { DayProgressSettings } from '@muna/contracts';
 import { defaultSettings, readDayProgressSettings } from '@muna/contracts';
+import type { Translate } from '@muna/i18n';
 import {
   Button,
   Chip,
@@ -34,8 +35,6 @@ const NODE_ICON = 14;
 
 /** The to-do module's id: "Add a task" switches the panel to it, so it is hidden when off. */
 const TODO_MODULE_ID = 'todo';
-
-type Translate = ReturnType<typeof useTranslation>['t'];
 
 export const formatTime = (ms: number, locale: string): string =>
   new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(new Date(ms));

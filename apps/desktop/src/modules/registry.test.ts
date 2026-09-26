@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { findModule, modules } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2) and the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3) and keyboard shortcuts (M4)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
@@ -16,6 +16,7 @@ describe('module registry', () => {
       'weather',
       'day-progress',
       'hud',
+      'keyboard-shortcuts',
     ]);
     expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
     expect(findModule('dashboard')?.settings).toBeDefined();
@@ -53,6 +54,24 @@ describe('module registry', () => {
     expect(findModule('hud')?.titleKey).toBe('hud.title');
     expect(findModule('hud')?.settings).toBeDefined();
     expect(findModule('hud')?.panel).toBeUndefined();
+  });
+
+  it('gives keyboard shortcuts a settings pane but no panel: the palette is a shell surface', () => {
+    expect(findModule('keyboard-shortcuts')?.titleKey).toBe('shortcuts.title');
+    expect(findModule('keyboard-shortcuts')?.settings).toBeDefined();
+    expect(findModule('keyboard-shortcuts')?.panel).toBeUndefined();
+    expect(findModule('keyboard-shortcuts')?.actions).toBeUndefined();
+  });
+
+  it('declares the M4-E6 module actions on the media, to-do and pomodoro modules only', () => {
+    const withActions = modules
+      .filter((module) => module.actions !== undefined)
+      .map((module) => [module.id, module.actions?.map((action) => action.id)]);
+    expect(withActions).toEqual([
+      ['media', ['media.playPause']],
+      ['todo', ['todo.quickAdd']],
+      ['pomodoro', ['pomodoro.toggle']],
+    ]);
   });
 
   it('gives every P1 module with a dashboard card a widget, and the dashboard, notifications and HUD none', () => {

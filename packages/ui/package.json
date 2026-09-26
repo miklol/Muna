@@ -15,7 +15,8 @@
     "./tokens": "./src/tokens/index.ts",
     "./primitives": "./src/primitives/index.ts",
     "./motion": "./src/motion/index.ts",
-    "./shape": "./src/shape/index.ts"
+    "./shape": "./src/shape/index.ts",
+    "./storybook": "./src/storybook/preview.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

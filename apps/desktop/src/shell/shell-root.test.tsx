@@ -29,7 +29,7 @@ vi.mock('@muna/contracts', async (importOriginal) => {
       stripContentChanged: silent,
       shellLayoutChanged: silent,
       shellYieldChanged: silent,
-      shellToggleRequested: silent,
+      hotkeyPressed: silent,
       shellPointerDownOutside: silent,
       morphRequested: silent,
       settingsChanged: silent,

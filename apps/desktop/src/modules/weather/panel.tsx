@@ -1,5 +1,5 @@
 import type { AutoLocationStatus, Forecast, LocationView, WeatherSnapshot } from '@muna/contracts';
-import type { MessageKey } from '@muna/i18n';
+import type { MessageKey, Translate } from '@muna/i18n';
 import {
   Button,
   Chip,
@@ -54,8 +54,6 @@ export const HOURS_SHOWN = 12;
 
 /** The daily strip shows a week. */
 export const DAYS_SHOWN = 7;
-
-type Translate = ReturnType<typeof useTranslation>['t'];
 
 /** The line under the place: the city, or what Windows is doing about the location. */
 export const placeLabel = (location: LocationView, t: Translate): string =>

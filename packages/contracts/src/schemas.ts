@@ -8,6 +8,8 @@ import { z } from 'zod';
 import type {
   Activity,
   Glyph,
+  HotkeyBinding,
+  HotkeyState,
   JsonValue,
   Leading,
   MonitorLayout,
@@ -29,10 +31,7 @@ import type {
   YieldState,
 } from './bindings';
 
-export const SETTINGS_VERSION = 4;
-
-/** Default toggle hotkey (`tauri-plugin-global-shortcut` syntax); mirrors `ShellSettings::default`. */
-export const DEFAULT_TOGGLE_HOTKEY = 'ctrl+alt+space';
+export const SETTINGS_VERSION = 5;
 
 /** Strip height presets in CSS px (docs/modules/notch-shell.md, "Settings"). */
 export const STRIP_HEIGHT_PX: Readonly<Record<StripHeight, number>> = {
@@ -97,7 +96,6 @@ export const monitorLayoutSchema = z.object({
 
 export const shellSettingsSchema = z.object({
   hideFromCaptures: z.boolean(),
-  toggleHotkey: z.string().min(1),
   defaults: monitorLayoutSchema,
   monitors: z.record(z.string(), monitorLayoutSchema),
   moduleOrder: z.array(z.string().min(1)),
@@ -267,7 +265,6 @@ export const defaultMonitorLayout = (): MonitorLayout => ({
 
 export const defaultShellSettings = (): ShellSettings => ({
   hideFromCaptures: false,
-  toggleHotkey: DEFAULT_TOGGLE_HOTKEY,
   defaults: defaultMonitorLayout(),
   monitors: {},
   moduleOrder: [],
@@ -923,3 +920,114 @@ export const writeDashboardSettings = (
   ...settings,
   modules: { ...settings.modules, [DASHBOARD_SETTINGS_KEY]: dashboard },
 });
+
+/** The key of the keyboard shortcuts module's namespace; also its module id. */
+export const KEYBOARD_SHORTCUTS_SETTINGS_KEY = 'keyboard-shortcuts';
+
+/**
+ * Actions the shell handles itself (docs/modules/keyboard-shortcuts.md "Scope"). Every other
+ * action id (`todo.quickAdd`, …) belongs to the module that declares it in its
+ * `ModuleDefinition.actions`. The first three carry the defaults and mirror
+ * `modules::keyboard_shortcuts::actions`; `shell.snooze` never reaches the UI — Rust parks the
+ * notch under the cursor itself. "Open module N" ids come from `shellOpenModuleActionId`.
+ */
+export const SHELL_ACTION_IDS = {
+  togglePanel: 'shell.togglePanel',
+  palette: 'shell.palette',
+  snooze: 'shell.snooze',
+  nextModule: 'shell.nextModule',
+  previousModule: 'shell.previousModule',
+} as const;
+export type ShellActionId = (typeof SHELL_ACTION_IDS)[keyof typeof SHELL_ACTION_IDS];
+
+/** How many "open module N" actions the shell offers (the first N modules in panel order). */
+export const SHELL_OPEN_MODULE_SLOTS = 9;
+
+/** `shell.openModule1` … `shell.openModule9`; `n` is 1-based. */
+export const shellOpenModuleActionId = (n: number): string => `shell.openModule${String(n)}`;
+
+/** Snooze lengths the pane offers, in minutes; mirrors `SNOOZE_MINUTES` in Rust. */
+export const SNOOZE_MINUTES_CHOICES = [15, 30, 60] as const;
+export type SnoozeMinutes = (typeof SNOOZE_MINUTES_CHOICES)[number];
+
+export const isSnoozeMinutes = (minutes: number): minutes is SnoozeMinutes =>
+  (SNOOZE_MINUTES_CHOICES as readonly number[]).includes(minutes);
+
+/**
+ * Chords compare case-insensitively and without stray spaces: `Ctrl + Alt + Space` and
+ * `ctrl+alt+space` are the same binding. Mirrors `normalise_chord` in Rust.
+ */
+export const normaliseChord = (chord: string): string =>
+  chord
+    .split('+')
+    .map((token) => token.trim().toLowerCase())
+    .filter((token) => token.length > 0)
+    .join('+');
+
+/**
+ * Mirrors `modules::keyboard_shortcuts::KeyboardShortcutsSettings`: action id → chord in
+ * `tauri-plugin-global-shortcut` syntax. The same repair Rust applies — empty ids and chords
+ * are dropped, chords are normalised and the snooze length snaps to an offered one — so a
+ * hand-edited document reads the same on both sides. Only the three shell shortcuts are bound
+ * by default; module actions start unbound.
+ */
+export const keyboardShortcutsSettingsSchema = z
+  .object({
+    bindings: z.record(z.string(), z.string()).default({
+      [SHELL_ACTION_IDS.togglePanel]: 'ctrl+alt+space',
+      [SHELL_ACTION_IDS.palette]: 'ctrl+shift+space',
+      [SHELL_ACTION_IDS.snooze]: 'ctrl+alt+n',
+    }),
+    onlyWhileHovering: z.boolean().default(false),
+    snoozeMinutes: z.number().int().default(SNOOZE_MINUTES_CHOICES[0]),
+  })
+  .transform((value) => ({
+    bindings: Object.fromEntries(
+      Object.entries(value.bindings)
+        .map(([action, chord]) => [action.trim(), normaliseChord(chord)] as const)
+        .filter(([action, chord]) => action.length > 0 && chord.length > 0),
+    ),
+    onlyWhileHovering: value.onlyWhileHovering,
+    snoozeMinutes: isSnoozeMinutes(value.snoozeMinutes)
+      ? value.snoozeMinutes
+      : SNOOZE_MINUTES_CHOICES[0],
+  }));
+export type KeyboardShortcutsSettings = z.infer<typeof keyboardShortcutsSettingsSchema>;
+
+export const defaultKeyboardShortcutsSettings = (): KeyboardShortcutsSettings =>
+  keyboardShortcutsSettingsSchema.parse({});
+
+/** Reads the keyboard shortcuts namespace; a missing or malformed entry yields the defaults. */
+export const readKeyboardShortcutsSettings = (settings: Settings): KeyboardShortcutsSettings => {
+  const parsed = keyboardShortcutsSettingsSchema.safeParse(
+    settings.modules[KEYBOARD_SHORTCUTS_SETTINGS_KEY] ?? {},
+  );
+  return parsed.success ? parsed.data : defaultKeyboardShortcutsSettings();
+};
+
+/**
+ * Returns a new document with the keyboard shortcuts namespace replaced. Bindings are the
+ * OS-registered state and go through `commands.setHotkey` / `clearHotkey`, which persist
+ * themselves; this is for the two preferences beside them.
+ */
+export const writeKeyboardShortcutsSettings = (
+  settings: Settings,
+  shortcuts: KeyboardShortcutsSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [KEYBOARD_SHORTCUTS_SETTINGS_KEY]: shortcuts },
+});
+
+export const hotkeyStateSchema = z.enum([
+  'registered',
+  'inUse',
+  'invalid',
+  'unbound',
+]) satisfies z.ZodType<HotkeyState>;
+
+/** What `commands.getHotkeys` returns for each bound action (docs/modules/keyboard-shortcuts.md). */
+export const hotkeyBindingSchema = z.object({
+  action: z.string().min(1),
+  chord: z.string().nullable(),
+  state: hotkeyStateSchema,
+}) satisfies z.ZodType<HotkeyBinding>;
