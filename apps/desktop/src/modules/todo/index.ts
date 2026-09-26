@@ -2,6 +2,7 @@ import { lazy } from 'react';
 
 import type { ModuleDefinition } from '../registry';
 import { TodoPanel } from './panel';
+import { TodoWidget } from './widget';
 import { TodoIcon } from './todo-icon';
 
 /** Settings → Tasks loads on first visit so the notch bundle stays small. */
@@ -18,5 +19,6 @@ export const todoModule: ModuleDefinition = {
   titleKey: 'todo.title',
   icon: TodoIcon,
   panel: TodoPanel,
+  widget: TodoWidget,
   settings: TodoSettings,
 };

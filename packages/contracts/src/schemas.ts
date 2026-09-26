@@ -700,3 +700,85 @@ export const DAY_PROGRESS_STRIP_IDS = {
  * (docs/modules/day-progress.md "Data": gap detection ≥ 90 min).
  */
 export const DAY_PROGRESS_GAP_MINUTES = 90;
+
+/** The key of the dashboard module's namespace; also its module id. */
+export const DASHBOARD_SETTINGS_KEY = 'dashboard';
+
+/**
+ * The widget grid (docs/modules/dashboard.md "Reference": 2 rows × 4 slots; a widget spans 1
+ * or 2 slots). Mirrors `modules::dashboard::settings`.
+ */
+export const DASHBOARD_GRID = {
+  columns: 4,
+  rows: 2,
+  /** Every slot the layout may fill: the sum of the spans never exceeds it. */
+  cells: 8,
+} as const;
+
+export const dashboardSpanSchema = z.union([z.literal(1), z.literal(2)]);
+export type DashboardSpan = z.infer<typeof dashboardSpanSchema>;
+
+export const dashboardSlotSchema = z.object({
+  /** The module whose widget fills the slot; also its settings namespace. */
+  moduleId: z.string().min(1),
+  /** How many grid slots the widget takes. */
+  span: dashboardSpanSchema,
+});
+export type DashboardSlot = z.infer<typeof dashboardSlotSchema>;
+
+/** The layout a fresh profile starts with: every P1 module with a widget, media wide. */
+export const DEFAULT_DASHBOARD_SLOTS: readonly DashboardSlot[] = [
+  { moduleId: 'media', span: 2 },
+  { moduleId: 'pomodoro', span: 1 },
+  { moduleId: 'todo', span: 1 },
+  { moduleId: 'weather', span: 1 },
+  { moduleId: 'day-progress', span: 1 },
+  { moduleId: 'system-monitor', span: 1 },
+  { moduleId: 'bluetooth', span: 1 },
+];
+
+/**
+ * Keeps the first slot of each module and drops the rest once the grid is full — the same
+ * repair Rust applies, so a hand-edited document reads the same on both sides.
+ */
+export const clampDashboardSlots = (slots: readonly DashboardSlot[]): DashboardSlot[] => {
+  const seen = new Set<string>();
+  const kept: DashboardSlot[] = [];
+  let used = 0;
+  for (const slot of slots) {
+    if (seen.has(slot.moduleId) || used + slot.span > DASHBOARD_GRID.cells) continue;
+    seen.add(slot.moduleId);
+    used += slot.span;
+    kept.push(slot);
+  }
+  return kept;
+};
+
+/**
+ * Mirrors `modules::dashboard::DashboardSettings`: the slots in grid order, deduplicated and
+ * cut to the grid; a missing entry yields the default layout and a wrong type fails the whole
+ * entry.
+ */
+export const dashboardSettingsSchema = z
+  .object({
+    slots: z.array(dashboardSlotSchema).default([...DEFAULT_DASHBOARD_SLOTS]),
+  })
+  .transform((value) => ({ ...value, slots: clampDashboardSlots(value.slots) }));
+export type DashboardSettings = z.infer<typeof dashboardSettingsSchema>;
+
+export const defaultDashboardSettings = (): DashboardSettings => dashboardSettingsSchema.parse({});
+
+/** Reads the dashboard namespace; a missing or malformed entry yields the defaults. */
+export const readDashboardSettings = (settings: Settings): DashboardSettings => {
+  const parsed = dashboardSettingsSchema.safeParse(settings.modules[DASHBOARD_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultDashboardSettings();
+};
+
+/** Returns a new document with the dashboard namespace replaced. */
+export const writeDashboardSettings = (
+  settings: Settings,
+  dashboard: DashboardSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [DASHBOARD_SETTINGS_KEY]: dashboard },
+});

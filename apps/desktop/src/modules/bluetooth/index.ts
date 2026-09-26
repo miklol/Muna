@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import type { ModuleDefinition } from '../registry';
 import { BluetoothIcon } from './bluetooth-icon';
 import { BluetoothPanel } from './panel';
+import { BluetoothWidget } from './widget';
 
 /** Settings → Bluetooth loads on first visit so the notch bundle stays small. */
 const BluetoothSettings = lazy(() =>
@@ -18,5 +19,6 @@ export const bluetoothModule: ModuleDefinition = {
   titleKey: 'bluetooth.title',
   icon: BluetoothIcon,
   panel: BluetoothPanel,
+  widget: BluetoothWidget,
   settings: BluetoothSettings,
 };

@@ -151,3 +151,60 @@
   justify-content: center;
   min-block-size: 120px;
 }
+
+/*
+ * Dashboard card body (docs/modules/dashboard.md "Widgets": Reminders/Tasks): three rows at
+ * most, the due date on the right, a last line for the rest.
+ */
+.todo-widget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.todo-widget[data-empty] {
+  flex-direction: row;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--text-2);
+}
+
+.todo-widget__empty,
+.todo-widget__more {
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.todo-widget__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todo-widget__row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-inline-size: 0;
+  color: var(--text-2);
+}
+
+.todo-widget__title {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  color: var(--text-1);
+}
+
+.todo-widget__due {
+  flex: none;
+  white-space: nowrap;
+}
+
+.todo-widget__row[data-overdue] .todo-widget__due {
+  color: var(--accent-red);
+}

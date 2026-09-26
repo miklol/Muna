@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { findModule, modules } from './registry';
 
 describe('module registry', () => {
-  it('registers the media and HUD modules (M2) and the to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2) and the to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3)', () => {
     expect(modules.map((module) => module.id)).toEqual([
+      'dashboard',
       'media',
       'todo',
       'pomodoro',
@@ -14,6 +15,9 @@ describe('module registry', () => {
       'day-progress',
       'hud',
     ]);
+    expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
+    expect(findModule('dashboard')?.settings).toBeDefined();
+    expect(findModule('dashboard')?.panel).toBeDefined();
     expect(findModule('media')?.titleKey).toBe('media.title');
     expect(findModule('media')?.settings).toBeDefined();
     expect(findModule('media')?.panel).toBeDefined();
@@ -41,6 +45,19 @@ describe('module registry', () => {
     expect(findModule('hud')?.titleKey).toBe('hud.title');
     expect(findModule('hud')?.settings).toBeDefined();
     expect(findModule('hud')?.panel).toBeUndefined();
+  });
+
+  it('gives every P1 module a widget for the dashboard, and the dashboard and HUD none', () => {
+    const withWidget = modules.filter((module) => module.widget !== undefined).map((m) => m.id);
+    expect(withWidget).toEqual([
+      'media',
+      'todo',
+      'pomodoro',
+      'system-monitor',
+      'bluetooth',
+      'weather',
+      'day-progress',
+    ]);
   });
 
   it('returns undefined for unknown ids', () => {

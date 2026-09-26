@@ -69,3 +69,56 @@
   justify-content: center;
   min-block-size: 120px;
 }
+
+/*
+ * Dashboard card body (docs/modules/dashboard.md "Widgets": Bluetooth devices): the connected
+ * devices as rows, battery on the right, a last line for the rest.
+ */
+.bt-widget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.bt-widget[data-empty] {
+  flex-direction: row;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--text-2);
+}
+
+.bt-widget__note,
+.bt-widget__more {
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.bt-widget__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bt-widget__row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-inline-size: 0;
+  color: var(--text-2);
+}
+
+.bt-widget__name {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  color: var(--text-1);
+}
+
+.bt-widget__battery {
+  flex: none;
+  white-space: nowrap;
+}
