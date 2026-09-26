@@ -2500,6 +2500,7 @@ name = "muna"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "log",
  "muna-core",
  "muna-platform",

@@ -1,0 +1,165 @@
+/*
+ * Day-progress panel (docs/modules/day-progress.md): today's stats on the left, the timeline
+ * on the right. Composes tokens only; the primitives bring their own styles.
+ *
+ * Budget: the panel body has 284 px at most. The stats column is a 20 px heading, three 16 px
+ * label rows with two 4 px tracks, a 24 px chip row and four 8 px gaps — about 150 px. The
+ * timeline scrolls inside the column, so a busy day never asks the shell for more height.
+ */
+
+.day-panel {
+  display: flex;
+  gap: var(--space-6);
+  align-items: stretch;
+  block-size: 100%;
+  min-block-size: 0;
+  padding-inline: var(--space-2);
+}
+
+.day-stats {
+  display: flex;
+  flex: 0 0 220px;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.day-stats__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.day-stats__date {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.day-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.day-stat__row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  justify-content: space-between;
+  min-inline-size: 0;
+}
+
+.day-stat__value {
+  flex: none;
+  white-space: nowrap;
+}
+
+.day-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day-timeline {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.day-timeline__list {
+  --day-node: 20px;
+  --day-time: 56px;
+
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+/* One row: time label, node, body. The dotted connector runs behind the node column. */
+.day-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--day-time) var(--day-node) minmax(0, 1fr);
+  gap: 0 var(--space-2);
+  align-items: start;
+  padding-block: var(--space-1);
+}
+
+.day-row:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  inset-block: calc(var(--space-1) + var(--day-node)) calc(-1 * var(--space-1));
+  inset-inline-start: calc(var(--day-time) + var(--space-2) + var(--day-node) / 2);
+  border-inline-start: 1px dotted var(--hairline-strong);
+}
+
+.day-row__time {
+  padding-block-start: 3px;
+  text-align: end;
+}
+
+/* A pill node: the item's glyph on a raised surface, tinted by kind. */
+.day-row__node {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--day-node);
+  block-size: var(--day-node);
+  border-radius: var(--radius-thumb);
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+
+.day-row[data-kind='item'][data-done] .day-row__node {
+  background: color-mix(in oklab, var(--accent-green) 24%, transparent);
+  color: var(--accent-green);
+}
+
+.day-row[data-kind='item'][data-done] .day-row__title {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.day-row__node--now {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 28%, transparent);
+  transform: scale(0.6);
+}
+
+.day-row__node--gap {
+  background: transparent;
+}
+
+.day-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+  padding-block-start: 2px;
+}
+
+.day-gap {
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--radius-card);
+}
+
+.day-gap__action {
+  align-self: flex-start;
+  margin-block-start: var(--space-1);
+}
+
+.day-empty {
+  margin: auto;
+}

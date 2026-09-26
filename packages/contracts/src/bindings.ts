@@ -475,7 +475,9 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 /**  A task (docs/modules/todo.md): a circle with a check. */
 "checkCircle" | 
 /**  A processor (docs/modules/system-monitor.md): the CPU strip gauge. */
-"cpu";
+"cpu" | 
+/**  An hourglass (docs/modules/day-progress.md): the working day's progress bar. */
+"hourglass";
 
 /**  One hour of the strip. */
 export type HourForecast = {

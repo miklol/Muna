@@ -65,6 +65,9 @@ tauri-build = { version = "2.6", features = [] }
 
 [dependencies]
 anyhow.workspace = true
+# Local wall-clock minutes for the day-progress module (docs/modules/day-progress.md). Already
+# in the graph through `serde_with` with these same features, so this adds an edge, not a crate.
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 log = "0.4"
 muna-core.workspace = true
 muna-platform.workspace = true

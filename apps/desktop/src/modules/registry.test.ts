@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { findModule, modules } from './registry';
 
 describe('module registry', () => {
-  it('registers the media and HUD modules (M2) and the to-do, pomodoro, system monitor, Bluetooth and weather modules (M3)', () => {
+  it('registers the media and HUD modules (M2) and the to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'media',
       'todo',
@@ -11,6 +11,7 @@ describe('module registry', () => {
       'system-monitor',
       'bluetooth',
       'weather',
+      'day-progress',
       'hud',
     ]);
     expect(findModule('media')?.titleKey).toBe('media.title');
@@ -31,6 +32,9 @@ describe('module registry', () => {
     expect(findModule('weather')?.titleKey).toBe('weather.title');
     expect(findModule('weather')?.settings).toBeDefined();
     expect(findModule('weather')?.panel).toBeDefined();
+    expect(findModule('day-progress')?.titleKey).toBe('dayProgress.title');
+    expect(findModule('day-progress')?.settings).toBeDefined();
+    expect(findModule('day-progress')?.panel).toBeDefined();
   });
 
   it('gives the HUD a settings pane but no panel: it lives in the strip', () => {
