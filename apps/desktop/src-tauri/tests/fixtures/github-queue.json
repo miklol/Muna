@@ -1,0 +1,95 @@
+{
+  "data": {
+    "viewer": { "login": "octocat", "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4" },
+    "toReview": {
+      "issueCount": 3,
+      "nodes": [
+        {
+          "id": "PR_kwDOA1",
+          "number": 41,
+          "title": "feat(window-snap): snap zones for dragged windows",
+          "url": "https://github.com/miklol/Muna/pull/41",
+          "isDraft": false,
+          "updatedAt": "2026-09-27T09:12:00Z",
+          "additions": 5041,
+          "deletions": 69,
+          "changedFiles": 65,
+          "reviewDecision": "REVIEW_REQUIRED",
+          "repository": { "nameWithOwner": "miklol/Muna" },
+          "author": { "login": "copilot-app", "avatarUrl": "https://avatars.githubusercontent.com/in/1143301?v=4" },
+          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "FAILURE" } } } ] }
+        },
+        {
+          "id": "PR_kwDOB2",
+          "number": 7,
+          "title": "Rotate the signing certificate",
+          "url": "https://github.com/octo-org/infra/pull/7",
+          "isDraft": true,
+          "updatedAt": "2026-09-26T18:40:12Z",
+          "additions": 12,
+          "deletions": 3,
+          "changedFiles": 2,
+          "reviewDecision": null,
+          "repository": { "nameWithOwner": "octo-org/infra" },
+          "author": { "login": "hubot", "avatarUrl": null },
+          "commits": { "nodes": [ { "commit": { "statusCheckRollup": null } } ] }
+        },
+        {
+          "id": "PR_kwDOC3",
+          "number": 99,
+          "title": "Shared: also requested and mine",
+          "url": "https://github.com/octo-org/shared/pull/99",
+          "isDraft": false,
+          "updatedAt": "2026-09-27T08:00:00Z",
+          "additions": 1,
+          "deletions": 1,
+          "changedFiles": 1,
+          "reviewDecision": "APPROVED",
+          "repository": { "nameWithOwner": "octo-org/shared" },
+          "author": { "login": "octocat", "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4" },
+          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "SUCCESS" } } } ] }
+        },
+        null
+      ]
+    },
+    "mine": {
+      "issueCount": 3,
+      "nodes": [
+        {
+          "id": "PR_kwDOD4",
+          "number": 42,
+          "title": "feat(code-hosting): github review queue behind a token",
+          "url": "https://github.com/miklol/Muna/pull/42",
+          "isDraft": false,
+          "updatedAt": "2026-09-27T10:05:30Z",
+          "additions": 2210,
+          "deletions": 14,
+          "changedFiles": 38,
+          "reviewDecision": "CHANGES_REQUESTED",
+          "repository": { "nameWithOwner": "miklol/Muna" },
+          "author": { "login": "octocat", "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4" },
+          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "PENDING" } } } ] }
+        },
+        {
+          "id": "PR_kwDOC3",
+          "number": 99,
+          "title": "Shared: also requested and mine",
+          "url": "https://github.com/octo-org/shared/pull/99",
+          "isDraft": false,
+          "updatedAt": "2026-09-27T08:00:00Z",
+          "additions": 1,
+          "deletions": 1,
+          "changedFiles": 1,
+          "reviewDecision": "APPROVED",
+          "repository": { "nameWithOwner": "octo-org/shared" },
+          "author": { "login": "octocat", "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4" },
+          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "SUCCESS" } } } ] }
+        },
+        { "__typename": "Issue" }
+      ]
+    }
+  },
+  "errors": [
+    { "type": "FORBIDDEN", "path": ["toReview", "nodes", 4], "message": "Resource not accessible by personal access token" }
+  ]
+}

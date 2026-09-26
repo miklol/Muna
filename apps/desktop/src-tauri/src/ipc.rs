@@ -26,6 +26,10 @@ use crate::modules::calendar::{
     AddSourceError, CalendarCommand, CalendarSettings, CalendarSink, CalendarSnapshot,
     SourceSetting, UrlError,
 };
+use crate::modules::code_hosting::{
+    CodeHostingCommand, CodeHostingSink, CodeHostingSnapshot, ConnectError,
+    FetchError as CodeHostFetchError, NEW_TOKEN_URL, TokenError,
+};
 use crate::modules::drop_actions::{
     DropAction, DropActionsSnapshot, DropError, DropJob, DropSink, WindowThread,
 };
@@ -128,6 +132,22 @@ impl From<AddSourceError> for IpcError {
             AddSourceError::Url(UrlError::Scheme) => "calendar.url.scheme",
             AddSourceError::Url(UrlError::Credentials) => "calendar.url.credentials",
             AddSourceError::Vault => "calendar.vault",
+        };
+        Self::new(code, error)
+    }
+}
+
+impl From<ConnectError> for IpcError {
+    fn from(error: ConnectError) -> Self {
+        let code = match &error {
+            ConnectError::Disabled => "codeHosting.disabled",
+            ConnectError::Token(TokenError::Empty) => "codeHosting.token.empty",
+            ConnectError::Token(TokenError::Malformed) => "codeHosting.token.malformed",
+            ConnectError::Fetch(CodeHostFetchError::Offline) => "codeHosting.offline",
+            ConnectError::Fetch(CodeHostFetchError::Unauthorized) => "codeHosting.unauthorized",
+            ConnectError::Fetch(CodeHostFetchError::RateLimited) => "codeHosting.rateLimited",
+            ConnectError::Fetch(CodeHostFetchError::Provider) => "codeHosting.provider",
+            ConnectError::Vault => "codeHosting.vault",
         };
         Self::new(code, error)
     }
@@ -871,6 +891,45 @@ impl CalendarSink for CalendarEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit CalendarChanged");
+        }
+    }
+}
+
+/// The connected account, its review queue and the poll state as the module now sees them
+/// (docs/modules/code-hosting.md): after a poll, a command, a connect or a settings change.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeHostingChanged {
+    pub snapshot: CodeHostingSnapshot,
+}
+
+/// Bridges the code hosting service to [`CodeHostingChanged`].
+pub struct CodeHostingEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for CodeHostingEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CodeHostingEventSink")
+            .finish_non_exhaustive()
+    }
+}
+
+impl CodeHostingEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl CodeHostingSink for CodeHostingEventSink {
+    fn changed(&self, snapshot: &CodeHostingSnapshot) {
+        if let Err(error) = (CodeHostingChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit CodeHostingChanged");
         }
     }
 }
@@ -1622,6 +1681,74 @@ fn calendar_open(
         .map_err(|error| IpcError::new("platform.os", error))
 }
 
+/// The connected account, its review queue and the poll state as the module now sees them (a
+/// panel that just opened; afterwards it follows `CodeHostingChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_code_hosting_snapshot(state: State<'_, Shared>) -> CodeHostingSnapshot {
+    state.modules.code_hosting.snapshot()
+}
+
+/// Refreshes now; returns the snapshot as it stands afterwards (the work itself runs in the
+/// module's loop and arrives as `CodeHostingChanged`).
+#[tauri::command]
+#[specta::specta]
+fn code_hosting_command(
+    state: State<'_, Shared>,
+    command: CodeHostingCommand,
+) -> CodeHostingSnapshot {
+    state.modules.code_hosting.command(command)
+}
+
+/// Connects a GitHub account with a personal access token: the token is checked against the
+/// host once, goes to the credential vault and is never echoed back; the queue it returned is
+/// the snapshot. `codeHosting.disabled` while the module is off, `codeHosting.token.*` for a
+/// blank or malformed token, `codeHosting.unauthorized` when the host refused it,
+/// `codeHosting.offline` / `rateLimited` / `provider` when the check did not get an answer,
+/// `codeHosting.vault` when the vault would not keep it.
+#[tauri::command]
+#[specta::specta]
+async fn code_hosting_connect(
+    state: State<'_, Shared>,
+    token: String,
+) -> Result<CodeHostingSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.code_hosting);
+    Ok(service.connect(&token).await?)
+}
+
+/// Forgets the token, the account and the cached queue.
+#[tauri::command]
+#[specta::specta]
+fn code_hosting_disconnect(state: State<'_, Shared>) -> CodeHostingSnapshot {
+    state.modules.code_hosting.disconnect()
+}
+
+/// Opens a listed pull request in the default browser. Only pages the module itself fetched
+/// are opened; `codeHosting.unknown` when `id` is not in the queue.
+#[tauri::command]
+#[specta::specta]
+fn code_hosting_open(app: AppHandle, state: State<'_, Shared>, id: String) -> Result<(), IpcError> {
+    let Some(url) = state.modules.code_hosting.url_for(&id) else {
+        return Err(IpcError::new(
+            "codeHosting.unknown",
+            "the pull request is not listed",
+        ));
+    };
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
+/// Opens GitHub's *New personal access token* page, pre-filled for Muna, in the default
+/// browser. A fixed address the webview cannot vary.
+#[tauri::command]
+#[specta::specta]
+fn code_hosting_open_token_page(app: AppHandle) -> Result<(), IpcError> {
+    app.opener()
+        .open_url(NEW_TOKEN_URL, None::<&str>)
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
 /// Every bound action with its chord and whether the OS took it (docs/modules/
 /// keyboard-shortcuts.md). Actions without a chord are not listed; the UI knows the full set.
 #[tauri::command]
@@ -1910,6 +2037,9 @@ impl From<SnapError> for IpcError {
 
 /// The single source of truth for the command/event surface.
 #[must_use]
+// A flat registry, one line per command and event: its length is the size of the surface,
+// not a sign the function does too much.
+#[allow(clippy::too_many_lines)]
 pub fn builder() -> Builder<tauri::Wry> {
     Builder::<tauri::Wry>::new()
         .commands(collect_commands![
@@ -1960,6 +2090,12 @@ pub fn builder() -> Builder<tauri::Wry> {
             calendar_add_source,
             calendar_remove_source,
             calendar_open,
+            get_code_hosting_snapshot,
+            code_hosting_command,
+            code_hosting_connect,
+            code_hosting_disconnect,
+            code_hosting_open,
+            code_hosting_open_token_page,
             get_notifications_snapshot,
             notifications_command,
             notifications_open_settings,
@@ -2000,6 +2136,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             BluetoothChanged,
             WeatherChanged,
             CalendarChanged,
+            CodeHostingChanged,
             NotificationsChanged,
             ShelfChanged,
             SnapDragMoved,
