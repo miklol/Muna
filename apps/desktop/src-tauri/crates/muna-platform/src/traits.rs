@@ -1,8 +1,9 @@
 //! Service traits. Methods are synchronous and cheap: implementations either answer from a
 //! cache maintained by their own background threads or issue a non-blocking OS call. Anything
-//! that must wait for the OS reports back through [`PlatformEvent`]. The one exception is
-//! [`FileOps`], whose calls block for as long as the shell's own operation takes; the module
-//! runs them on a blocking thread.
+//! that must wait for the OS reports back through [`PlatformEvent`]. The exceptions are
+//! [`FileOps`], whose calls block for as long as the shell's own operation takes (the module
+//! runs them on a blocking thread), and [`DragSource`], which blocks the window's thread for
+//! the length of a drag.
 
 use std::path::{Path, PathBuf};
 
@@ -12,9 +13,9 @@ use crate::error::PlatformResult;
 use crate::events::PlatformEvent;
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
-    BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
-    Notification, NotificationAccess, NotificationDelivery, OsdState, Rect, SystemSample,
-    Thumbnail, TransferMode, UserNotificationState, WindowHandle,
+    BrightnessMonitor, DragOutcome, DragPayload, ForegroundWindow, GeoPosition, MediaCommand,
+    MediaSession, MonitorInfo, Notification, NotificationAccess, NotificationDelivery, OsdState,
+    Rect, SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md). Snapshots come from a cache the
@@ -274,6 +275,21 @@ pub trait FileOps: Send + Sync {
     fn pick_folder(&self, window: WindowHandle, title: &str) -> PlatformResult<Option<PathBuf>>;
 }
 
+/// Drags out of Muna (docs/modules/shelf.md "Drag out", docs/spikes/m4-drag.md): the UI
+/// detects the gesture, Rust hands it to OLE. The call blocks for the whole drag and **must run
+/// on the thread that owns `window` while a mouse button is down** — the main thread for a
+/// notch window — because OLE captures the mouse for that thread; the shell's default drop
+/// source and drag image are used, so targets see what they see from Explorer.
+pub trait DragSource: Send + Sync {
+    /// Runs the drag to its end. [`crate::PlatformError::Unsupported`] when the payload has
+    /// no format this platform can offer.
+    fn start_drag(
+        &self,
+        window: WindowHandle,
+        payload: &DragPayload,
+    ) -> PlatformResult<DragOutcome>;
+}
+
 /// The whole platform: every service plus the event stream.
 pub trait Platform: Send + Sync {
     fn media(&self) -> &dyn Media;
@@ -292,6 +308,7 @@ pub trait Platform: Send + Sync {
     fn app_bar(&self) -> &dyn AppBar;
     fn autostart(&self) -> &dyn Autostart;
     fn file_ops(&self) -> &dyn FileOps;
+    fn drag_source(&self) -> &dyn DragSource;
 
     /// New receiver for platform events. Events published before the call are not replayed.
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent>;

@@ -14,6 +14,7 @@ mod autostart;
 mod bluetooth;
 mod brightness;
 mod credentials;
+mod drag_source;
 mod file_ops;
 mod foreground;
 pub mod identity;
@@ -39,14 +40,14 @@ pub use autostart::{AUTOSTART_ARG, STARTUP_TASK_ID};
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, FileOps, Foreground, Location, Media,
-    Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground, Location,
+    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
-    BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
-    Notification, NotificationAccess, NotificationDelivery, OsdState, Rect, SystemSample,
-    Thumbnail, TransferMode, UserNotificationState, WindowHandle,
+    BrightnessMonitor, DragOutcome, DragPayload, ForegroundWindow, GeoPosition, MediaCommand,
+    MediaSession, MonitorInfo, Notification, NotificationAccess, NotificationDelivery, OsdState,
+    Rect, SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -505,6 +506,16 @@ impl FileOps for WindowsPlatform {
     }
 }
 
+impl DragSource for WindowsPlatform {
+    fn start_drag(
+        &self,
+        window: WindowHandle,
+        payload: &DragPayload,
+    ) -> PlatformResult<DragOutcome> {
+        drag_source::start_drag(window, payload)
+    }
+}
+
 impl Platform for WindowsPlatform {
     fn media(&self) -> &dyn Media {
         self
@@ -567,6 +578,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn file_ops(&self) -> &dyn FileOps {
+        self
+    }
+
+    fn drag_source(&self) -> &dyn DragSource {
         self
     }
 

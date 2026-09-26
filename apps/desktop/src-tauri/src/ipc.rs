@@ -9,7 +9,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use muna_core::{ActivityState, Artwork, Settings, SettingsError, StoreError, StripContent, Tint};
-use muna_platform::{MediaCommand, MonitorInfo, PlatformError};
+use muna_platform::{
+    DragOutcome, DragPayload, DropEffect, MediaCommand, MonitorInfo, PlatformError,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use specta_typescript::Typescript;
@@ -203,6 +205,35 @@ pub struct MorphReport {
 #[serde(rename_all = "camelCase")]
 pub struct MorphRequested {
     pub expanded: bool,
+}
+
+/// S2 spike only (`MUNA_SPIKE=drag`, docs/spikes/m4-drag.md): the files the UI arms a drag-out
+/// of from the strip. The product shell answers `null`.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DragSpike {
+    pub paths: Vec<String>,
+}
+
+/// What a drag out of the notch carries (docs/modules/shelf.md "Drag out").
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum DragOutRequest {
+    /// Files or folders by path.
+    Files { paths: Vec<String> },
+    /// A text snippet.
+    Text { text: String },
+}
+
+impl From<DragOutRequest> for DragPayload {
+    fn from(request: DragOutRequest) -> Self {
+        match request {
+            DragOutRequest::Files { paths } => {
+                Self::Files(paths.into_iter().map(PathBuf::from).collect())
+            }
+            DragOutRequest::Text { text } => Self::Text(text),
+        }
+    }
 }
 
 /// A notch window's layout changed (attached, monitor or settings changed). Emitted to every
@@ -1035,6 +1066,101 @@ fn shell_ready(
     Ok(())
 }
 
+/// See [`DragSpike`]; queried by the notch window once it is up.
+#[tauri::command]
+#[specta::specta]
+fn get_drag_spike(window: WebviewWindow) -> Option<DragSpike> {
+    let paths = crate::shell::spike::drag_files()?;
+    tracing::info!(
+        label = window.label(),
+        files = paths.len(),
+        "drag spike armed"
+    );
+    Some(DragSpike { paths })
+}
+
+/// Starts an OLE drag of `request` out of the notch window and returns once the user has
+/// dropped or cancelled (docs/modules/shelf.md "Drag out"). Call it while the primary button
+/// is down and the pointer has moved past the drag threshold; the drag itself runs on the main
+/// thread, which owns the window, so other commands wait until it ends. Paths never reach the
+/// log.
+#[tauri::command]
+#[specta::specta]
+async fn drag_out(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, Shared>,
+    request: DragOutRequest,
+) -> Result<DragOutcome, IpcError> {
+    let payload = DragPayload::from(request);
+    let items = match &payload {
+        DragPayload::Files(paths) => paths.len(),
+        DragPayload::Text(_) => 1,
+    };
+    let label = window.label().to_owned();
+    let requested = std::time::Instant::now();
+    tracing::info!(label, items, "drag out requested");
+
+    let platform = Arc::clone(&state.platform);
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    MainThreadWindows::new(app).run(
+        &label,
+        Box::new(move |handle| {
+            tracing::info!(
+                wait_ms = requested.elapsed().as_millis(),
+                "drag out started"
+            );
+            let started = std::time::Instant::now();
+            let outcome = platform.drag_source().start_drag(handle, &payload);
+            match &outcome {
+                Ok(outcome) => {
+                    let (dropped, effect) = drag_outcome_fields(*outcome);
+                    tracing::info!(
+                        dropped,
+                        effect,
+                        ms = started.elapsed().as_millis(),
+                        "drag out finished"
+                    );
+                }
+                Err(error) => tracing::warn!(
+                    %error,
+                    ms = started.elapsed().as_millis(),
+                    "drag out failed"
+                ),
+            }
+            // The command may have been cancelled meanwhile; nothing to do then.
+            let _ = sender.send(outcome);
+        }),
+    );
+    let outcome = receiver
+        .await
+        .map_err(|_| IpcError::new("platform.os", "the drag never ran"))??;
+    Ok(outcome)
+}
+
+/// `(dropped, effect)` for the log line the spike driver and QA read.
+fn drag_outcome_fields(outcome: DragOutcome) -> (bool, &'static str) {
+    match outcome {
+        DragOutcome::Dropped { effect } => (
+            true,
+            match effect {
+                DropEffect::Copy => "copy",
+                DropEffect::Move => "move",
+                DropEffect::Link => "link",
+            },
+        ),
+        DragOutcome::Cancelled => (false, "none"),
+    }
+}
+
+/// A warning raised by the UI (an error boundary, a suppressed native drag) that belongs in
+/// the app log next to the shell's own lines. The UI sends fixed messages, never content.
+#[tauri::command]
+#[specta::specta]
+fn ui_warn(window: WebviewWindow, message: String) {
+    tracing::warn!(label = window.label(), %message, "ui");
+}
+
 /// Publishes the painted shapes so pointer events outside them pass through. The first rect
 /// is the strip (the yield rules measure caption overlap against it).
 #[tauri::command]
@@ -1627,6 +1753,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             shell_ready,
             publish_shape_rects,
             report_morph,
+            drag_out,
+            get_drag_spike,
+            ui_warn,
             get_shell_layout,
             set_notch_focusable,
             set_display_paused,

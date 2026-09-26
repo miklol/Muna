@@ -60,6 +60,23 @@ export const commands = {
 	 */
 	reportMorph: (report: MorphReport) => __TAURI_INVOKE<void>("report_morph", { report }),
 	/**
+	 *  Starts an OLE drag of `request` out of the notch window and returns once the user has
+	 *  dropped or cancelled (docs/modules/shelf.md "Drag out"). Call it while the primary button
+	 *  is down and the pointer has moved past the drag threshold; the drag itself runs on the main
+	 *  thread, which owns the window, so other commands wait until it ends. Paths never reach the
+	 *  log.
+	 */
+	dragOut: (request: DragOutRequest) => typedError<DragOutcome, IpcError>(__TAURI_INVOKE("drag_out", { request })),
+	/**  See [`DragSpike`]; queried by the notch window once it is up. */
+	getDragSpike: () => __TAURI_INVOKE<{
+	paths: string[],
+} | null>("get_drag_spike"),
+	/**
+	 *  A warning raised by the UI (an error boundary, a suppressed native drag) that belongs in
+	 *  the app log next to the shell's own lines. The UI sends fixed messages, never content.
+	 */
+	uiWarn: (message: string) => __TAURI_INVOKE<void>("ui_warn", { message }),
+	/**
 	 *  Layout of the calling notch window; `None` until the shell has attached it (the UI then
 	 *  waits for `ShellLayoutChanged`).
 	 */
@@ -572,6 +589,28 @@ export type DayForecast = {
 	precipitationPercent: number | null,
 };
 
+/**  What a drag out of the notch carries (docs/modules/shelf.md "Drag out"). */
+export type DragOutRequest = 
+/**  Files or folders by path. */
+{ kind: "files"; paths: string[] } | 
+/**  A text snippet. */
+{ kind: "text"; text: string };
+
+/**  How a drag out of Muna ended ([`crate::DragSource::start_drag`]). */
+export type DragOutcome = 
+/**  The button was released over a target that accepted the payload. */
+{ kind: "dropped"; effect: DropEffect } | 
+/**  Esc, a release over nothing, or a target that refused. */
+{ kind: "cancelled" };
+
+/**
+ *  S2 spike only (`MUNA_SPIKE=drag`, docs/spikes/m4-drag.md): the files the UI arms a drag-out
+ *  of from the strip. The product shell answers `null`.
+ */
+export type DragSpike = {
+	paths: string[],
+};
+
 /**  What the tile the items landed on asks for (docs/modules/drop-actions.md "Tiles"). */
 export type DropAction = 
 /**  The Windows share sheet (Nearby sharing, apps) with every item. */
@@ -619,6 +658,9 @@ export type DropActionsSnapshot = {
 	settings: DropActionsSettings,
 	jobs: DropJob[],
 };
+
+/**  What the drop target did with a drag out of Muna. */
+export type DropEffect = "copy" | "move" | "link";
 
 /**
  *  Files entered the notch window `label` in an OLE drag: the UI morphs into the tile row.

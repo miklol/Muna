@@ -7,10 +7,14 @@ import { z } from 'zod';
 
 import type {
   Activity,
+  DragOutRequest,
+  DragOutcome,
+  DragSpike,
   DropAction,
   DropActionKind,
   DropActionsChanged,
   DropActionsSnapshot,
+  DropEffect,
   DropEntered,
   DropFailure,
   DropFolder,
@@ -1296,3 +1300,22 @@ export const droppedSchema = z.object({
   session: z.number().int().min(1),
   position: dropPointSchema,
 }) satisfies z.ZodType<Dropped>;
+
+/** What a drag out of the notch carries (docs/modules/shelf.md "Drag out"). */
+export const dragOutRequestSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('files'), paths: z.array(z.string().min(1)).min(1) }),
+  z.object({ kind: z.literal('text'), text: z.string().min(1) }),
+]) satisfies z.ZodType<DragOutRequest>;
+
+/** The effect the drop target applied to a drag out of Muna. */
+export const dropEffectSchema = z.enum(['copy', 'move', 'link']) satisfies z.ZodType<DropEffect>;
+
+export const dragOutcomeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('dropped'), effect: dropEffectSchema }),
+  z.object({ kind: z.literal('cancelled') }),
+]) satisfies z.ZodType<DragOutcome>;
+
+/** S2 spike only (docs/spikes/m4-drag.md): the files the UI arms a drag-out of from the strip. */
+export const dragSpikeSchema = z.object({
+  paths: z.array(z.string().min(1)),
+}) satisfies z.ZodType<DragSpike>;
