@@ -39,6 +39,7 @@ use crate::modules::notifications::{
     NotificationsCommand, NotificationsSink, NotificationsSnapshot,
 };
 use crate::modules::pomodoro::{PomodoroCommand, PomodoroSink, PomodoroState};
+use crate::modules::shelf::{ShelfCommand, ShelfError, ShelfSink, ShelfSnapshot};
 use crate::modules::system_monitor::{SystemMonitorSink, SystemMonitorSnapshot};
 use crate::modules::todo::{TodoCommand, TodoError, TodoSink, TodoSnapshot};
 use crate::modules::weather::{
@@ -219,19 +220,23 @@ pub struct DragSpike {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum DragOutRequest {
-    /// Files or folders by path.
+    /// Files or folders by path (the S2 spike; the product UI never holds paths).
     Files { paths: Vec<String> },
     /// A text snippet.
     Text { text: String },
+    /// Shelf items by id; Rust resolves them to their files or text.
+    Shelf { ids: Vec<String> },
 }
 
-impl From<DragOutRequest> for DragPayload {
-    fn from(request: DragOutRequest) -> Self {
-        match request {
-            DragOutRequest::Files { paths } => {
-                Self::Files(paths.into_iter().map(PathBuf::from).collect())
-            }
-            DragOutRequest::Text { text } => Self::Text(text),
+impl DragOutRequest {
+    /// The OLE payload; Shelf ids are resolved through the module.
+    fn into_payload(self, state: &AppState) -> Result<DragPayload, IpcError> {
+        match self {
+            Self::Files { paths } => Ok(DragPayload::Files(
+                paths.into_iter().map(PathBuf::from).collect(),
+            )),
+            Self::Text { text } => Ok(DragPayload::Text(text)),
+            Self::Shelf { ids } => Ok(state.modules.shelf.payload(&ids)?),
         }
     }
 }
@@ -1082,7 +1087,8 @@ fn get_drag_spike(window: WebviewWindow) -> Option<DragSpike> {
 /// Starts an OLE drag of `request` out of the notch window and returns once the user has
 /// dropped or cancelled (docs/modules/shelf.md "Drag out"). Call it while the primary button
 /// is down and the pointer has moved past the drag threshold; the drag itself runs on the main
-/// thread, which owns the window, so other commands wait until it ends. Paths never reach the
+/// thread, which owns the window, so other commands wait until it ends. The shell ignores the
+/// inbound drag events the same drag raises over the notch meanwhile. Paths never reach the
 /// log.
 #[tauri::command]
 #[specta::specta]
@@ -1092,7 +1098,7 @@ async fn drag_out(
     state: State<'_, Shared>,
     request: DragOutRequest,
 ) -> Result<DragOutcome, IpcError> {
-    let payload = DragPayload::from(request);
+    let payload = request.into_payload(&state)?;
     let items = match &payload {
         DragPayload::Files(paths) => paths.len(),
         DragPayload::Text(_) => 1,
@@ -1102,6 +1108,7 @@ async fn drag_out(
     tracing::info!(label, items, "drag out requested");
 
     let platform = Arc::clone(&state.platform);
+    let sessions = state.modules.drop_actions.sessions();
     let (sender, receiver) = tokio::sync::oneshot::channel();
     MainThreadWindows::new(app).run(
         &label,
@@ -1111,7 +1118,9 @@ async fn drag_out(
                 "drag out started"
             );
             let started = std::time::Instant::now();
+            let own_drag = sessions.self_drag();
             let outcome = platform.drag_source().start_drag(handle, &payload);
+            drop(own_drag);
             match &outcome {
                 Ok(outcome) => {
                     let (dropped, effect) = drag_outcome_fields(*outcome);
@@ -1734,6 +1743,98 @@ impl From<DropError> for IpcError {
     }
 }
 
+/// The Shelf's items or settings changed (docs/modules/shelf.md).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ShelfChanged {
+    pub snapshot: ShelfSnapshot,
+}
+
+/// Bridges the Shelf service to [`ShelfChanged`].
+pub struct ShelfEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for ShelfEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ShelfEventSink").finish_non_exhaustive()
+    }
+}
+
+impl ShelfEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl ShelfSink for ShelfEventSink {
+    fn changed(&self, snapshot: &ShelfSnapshot) {
+        if let Err(error) = (ShelfChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit ShelfChanged");
+        }
+    }
+}
+
+impl From<ShelfError> for IpcError {
+    fn from(error: ShelfError) -> Self {
+        match error {
+            ShelfError::Store(error) => error.into(),
+            ShelfError::Platform(error) => error.into(),
+            ShelfError::UnknownItem => Self::new("shelf.unknownItem", error),
+            ShelfError::EmptyText => Self::new("shelf.emptyText", error),
+            ShelfError::NothingToCarry => Self::new("shelf.nothingToCarry", error),
+            ShelfError::NoStorage => Self::new("shelf.noStorage", error),
+        }
+    }
+}
+
+/// The Shelf's items and settings (docs/modules/shelf.md). Stats every file for the missing
+/// state, so it runs on a blocking thread.
+#[tauri::command]
+#[specta::specta]
+async fn get_shelf_snapshot(state: State<'_, Shared>) -> Result<ShelfSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.shelf);
+    let snapshot = tauri::async_runtime::spawn_blocking(move || service.snapshot())
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(snapshot)
+}
+
+/// Applies a Shelf command and returns the snapshot after it. *Open*, *Reveal* and *Copy*
+/// reach the shell, so it runs on a blocking thread. `shelf.emptyText` for a blank snippet,
+/// `shelf.unknownItem` for ids that are gone, `shelf.nothingToCarry` when none of the items
+/// has a file to open, reveal or copy.
+#[tauri::command]
+#[specta::specta]
+async fn shelf_command(
+    state: State<'_, Shared>,
+    command: ShelfCommand,
+) -> Result<ShelfSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.shelf);
+    let snapshot = tauri::async_runtime::spawn_blocking(move || service.command(command))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(snapshot)
+}
+
+/// Explorer's thumbnail for one Shelf item as a PNG data URL, or `null` when the item is a
+/// snippet or has no picture (the UI shows its extension). Cached per item after the first
+/// call; the first call renders, so it runs on a blocking thread.
+#[tauri::command]
+#[specta::specta]
+async fn shelf_thumbnail(state: State<'_, Shared>, id: String) -> Result<Option<String>, IpcError> {
+    let service = Arc::clone(&state.modules.shelf);
+    let url = tauri::async_runtime::spawn_blocking(move || service.thumbnail(&id))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(url)
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -1797,6 +1898,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             drop_cancel,
             drop_cancel_job,
             drop_pick_folder,
+            get_shelf_snapshot,
+            shelf_command,
+            shelf_thumbnail,
             quit_app
         ])
         .events(collect_events![
@@ -1821,7 +1925,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             BluetoothChanged,
             WeatherChanged,
             CalendarChanged,
-            NotificationsChanged
+            NotificationsChanged,
+            ShelfChanged
         ])
 }
 

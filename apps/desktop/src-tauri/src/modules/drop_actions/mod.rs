@@ -21,7 +21,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use muna_core::activities::priority;
 use muna_core::{
     Activity, DropActionKind, DropSessionId, DropSessions, Hub, Leading, Notice, Settings,
-    StripMessage, Trailing,
+    ShelfIntake, ShelfIntakeError, StripMessage, Trailing,
 };
 use muna_platform::{Platform, PlatformError, TransferMode, WindowHandle};
 use parking_lot::Mutex;
@@ -69,6 +69,8 @@ pub enum DropAction {
     Trash,
     /// Safely remove the drive the first item is on.
     Eject,
+    /// Park every item on the Shelf (docs/modules/shelf.md).
+    Shelf,
 }
 
 /// Why a job did not finish; the UI phrases each (docs/07 UX copy: say what to do).
@@ -163,6 +165,8 @@ pub struct DropActionsService {
     sessions: Arc<DropSessions>,
     sink: Mutex<Option<Arc<dyn DropSink>>>,
     window_thread: Mutex<Option<Arc<dyn WindowThread>>>,
+    /// Where the *Shelf* tile sends its items; `None` until the Shelf module is wired.
+    shelf: Mutex<Option<Arc<dyn ShelfIntake>>>,
     inner: Mutex<Inner>,
 }
 
@@ -186,6 +190,7 @@ impl DropActionsService {
             sessions: Arc::new(DropSessions::new()),
             sink: Mutex::new(None),
             window_thread: Mutex::new(None),
+            shelf: Mutex::new(None),
             inner: Mutex::new(Inner {
                 settings: DropActionsSettings::default(),
                 jobs: Vec::new(),
@@ -206,6 +211,11 @@ impl DropActionsService {
 
     pub fn set_window_thread(&self, window_thread: Arc<dyn WindowThread>) {
         *self.window_thread.lock() = Some(window_thread);
+    }
+
+    /// Wires the Shelf the *Shelf* tile parks items on.
+    pub fn set_shelf(&self, intake: Arc<dyn ShelfIntake>) {
+        *self.shelf.lock() = Some(intake);
     }
 
     /// Reads the namespace from a settings document and tells the sink.
@@ -448,6 +458,20 @@ impl DropActionsService {
             DropAction::Reveal => file_ops.reveal(paths).map_err(|error| failure_of(&error)),
             DropAction::Trash => file_ops.recycle(paths).map_err(|error| failure_of(&error)),
             DropAction::Eject => file_ops.eject(first).map_err(|error| failure_of(&error)),
+            DropAction::Shelf => {
+                let intake = self.shelf.lock().clone();
+                let intake = intake.ok_or(DropFailure::Unsupported)?;
+                intake
+                    .add_files(paths)
+                    .map(drop)
+                    .map_err(|error| match error {
+                        ShelfIntakeError::Disabled => DropFailure::Unsupported,
+                        ShelfIntakeError::Store(reason) => {
+                            tracing::warn!(reason, "shelf refused the items");
+                            DropFailure::Failed
+                        }
+                    })
+            }
         }
     }
 
@@ -540,6 +564,7 @@ fn kind_of(action: &DropAction, folder: Option<&DropFolder>) -> DropActionKind {
         DropAction::Reveal => DropActionKind::Reveal,
         DropAction::Trash => DropActionKind::Trash,
         DropAction::Eject => DropActionKind::Eject,
+        DropAction::Shelf => DropActionKind::Shelf,
     }
 }
 

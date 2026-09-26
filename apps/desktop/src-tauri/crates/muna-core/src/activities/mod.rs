@@ -120,6 +120,8 @@ pub enum Glyph {
     Trash,
     /// A drive (docs/modules/drop-actions.md): a removable volume ejected.
     Drive,
+    /// A tray (docs/modules/shelf.md): items parked on the Shelf.
+    Shelf,
 }
 
 /// The leading (left) slot of the strip.
@@ -307,6 +309,8 @@ pub enum DropActionKind {
     Reveal,
     Trash,
     Eject,
+    /// Parked on the Shelf (docs/modules/shelf.md).
+    Shelf,
 }
 
 impl DropActionKind {
@@ -319,6 +323,7 @@ impl DropActionKind {
             Self::Zip | Self::Unzip => Glyph::Archive,
             Self::Trash => Glyph::Trash,
             Self::Eject => Glyph::Drive,
+            Self::Shelf => Glyph::Shelf,
         }
     }
 }

@@ -6,8 +6,16 @@
 //! One live session per window label: a new *enter* on the same window replaces whatever the
 //! previous drag left behind (a missed *leave*, a drop the UI never resolved), so the registry
 //! is bounded by the number of notch windows.
+//!
+//! The registry also knows when a drag *out* of the notch is in flight ([`DropSessions::
+//! self_drag`]): the same OLE drag raises inbound events when it passes back over the notch,
+//! and the shell ignores those instead of re-adding a Shelf item to itself
+//! (docs/modules/shelf.md). A flag is enough because one drag runs at a time; the inbound
+//! events cannot tell a drag apart by its data since wry exposes paths only.
 
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use parking_lot::Mutex;
 
@@ -35,12 +43,41 @@ struct Inner {
 #[derive(Debug, Default)]
 pub struct DropSessions {
     inner: Mutex<Inner>,
+    self_drags: AtomicUsize,
+}
+
+/// Marks a drag out of the notch as in flight until dropped (see [`DropSessions::self_drag`]).
+#[derive(Debug)]
+pub struct SelfDrag {
+    registry: Arc<DropSessions>,
+}
+
+impl Drop for SelfDrag {
+    fn drop(&mut self) {
+        self.registry.self_drags.fetch_sub(1, Ordering::AcqRel);
+    }
 }
 
 impl DropSessions {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// A drag out of a notch window is starting; hold the guard for as long as it runs. Inbound
+    /// drag events are to be ignored meanwhile ([`Self::self_drag_active`]).
+    #[must_use]
+    pub fn self_drag(self: &Arc<Self>) -> SelfDrag {
+        self.self_drags.fetch_add(1, Ordering::AcqRel);
+        SelfDrag {
+            registry: Arc::clone(self),
+        }
+    }
+
+    /// `true` while a drag out of the notch is in flight.
+    #[must_use]
+    pub fn self_drag_active(&self) -> bool {
+        self.self_drags.load(Ordering::Acquire) > 0
     }
 
     /// A drag entered `label` carrying `paths`; forgets any earlier session for that window.
@@ -188,5 +225,18 @@ mod tests {
     fn ids_are_never_zero() {
         let sessions = DropSessions::new();
         assert!(sessions.begin("notch", Vec::new()) >= 1);
+    }
+
+    #[test]
+    fn a_self_drag_is_active_while_its_guard_lives() {
+        let sessions = Arc::new(DropSessions::new());
+        assert!(!sessions.self_drag_active());
+        let first = sessions.self_drag();
+        let second = sessions.self_drag();
+        assert!(sessions.self_drag_active());
+        drop(first);
+        assert!(sessions.self_drag_active());
+        drop(second);
+        assert!(!sessions.self_drag_active());
     }
 }

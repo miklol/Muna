@@ -201,4 +201,7 @@ fn wire_module_sinks(
     modules
         .drop_actions
         .set_window_thread(Arc::new(ipc::MainThreadWindows::new(app.clone())));
+    modules
+        .shelf
+        .set_sink(Arc::new(ipc::ShelfEventSink::new(app.clone())));
 }

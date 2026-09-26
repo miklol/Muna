@@ -1,7 +1,7 @@
 # Drop Actions
 
 **Tier P1 · Owner: `muna-shell-engineer` + `muna-ui-engineer` · Status: implemented (M4-E1;
-the Shelf, Convert and Music tiles wait for their modules — see
+the Shelf tile is live since M4-E2, Convert and Music wait for their modules — see
 [Implementation notes](#implementation-notes-m4-e1))**
 
 ## Reference
@@ -13,7 +13,7 @@ subtitle; disabled tiles dimmed; *Expand* tile reveals a second row on hover.
 
 | Tile | Action |
 | ------ | -------- |
-| Shelf | stash in Shelf module (M4-E2) |
+| Shelf | park on the [Shelf](shelf.md) (M4-E2; `muna_core::ShelfIntake`, dimmed while the Shelf module is off) |
 | Nearby Share | `DataTransferManager.ShowShareUI` with `StorageItems` (Windows Nearby sharing) |
 | Cloud | copy/move to a configured folder (OneDrive, Google Drive, Dropbox, custom) |
 | Open with | pick from configured apps (`ShellExecuteEx` with verb) |
@@ -69,15 +69,16 @@ a drop flows:
   Esc closes the row under a drag that already dropped, the shell cancels the session once
   (`forgetDrop`) so Rust forgets the paths.
 - **Tiles** (`modules/drop-actions/tiles.ts`, `drop-surface.tsx`): the row is
-  `settings.modules["drop-actions"].tiles` in order — the nine built-ins (Nearby Share, Copy to,
-  Move to, Open with, Zip, Unzip, Show in Explorer, Recycle Bin, Eject), one tile per configured
-  folder (*Copy here* / *Move here*), dividers as gaps — four per row, eight with *Expand
-  notch*; a *More* tile stands in for the overflow and reveals the second row on hover. Tiles
-  enter with the 30 ms stagger (`staggerDelayS`, `tileStaggerRecipe` in `@muna/ui/motion`),
-  the hovered tile grows 1.04 on `toggle` and tints `--surface-3`, the landing tile pulses on
-  `notice`. The WebView gets no pointer events during an OLE drag, so `:hover` never fires:
-  the tile under each `DropMoved` position is found by measuring the tiles' boxes on every move;
-  *Unzip* is dimmed (`aria-disabled`) when nothing dragged is an archive.
+  `settings.modules["drop-actions"].tiles` in order — the ten built-ins (Nearby Share, Shelf,
+  Copy to, Move to, Open with, Zip, Unzip, Show in Explorer, Recycle Bin, Eject), one tile per
+  configured folder (*Copy here* / *Move here*), dividers as gaps — four per row, eight with
+  *Expand notch*; a *More* tile stands in for the overflow and reveals the second row on hover.
+  Tiles enter with the 30 ms stagger (`staggerDelayS`, `tileStaggerRecipe` in
+  `@muna/ui/motion`), the hovered tile grows 1.04 on `toggle` and tints `--surface-3`, the
+  landing tile pulses on `notice`. The WebView gets no pointer events during an OLE drag, so
+  `:hover` never fires: the tile under each `DropMoved` position is found by measuring the
+  tiles' boxes on every move; *Unzip* is dimmed (`aria-disabled`) when nothing dragged is an
+  archive, *Shelf* while its module is in `shell.disabledModules`.
 - **Actions** (`src-tauri/src/modules/drop_actions`, Tauri-free `DropActionsService`):
   `drop_run(session, action)` takes the session's paths and blocks on a blocking thread for as
   long as the shell's own dialogs are up. `muna_platform::FileOps` does the work — copy / move
@@ -108,11 +109,12 @@ a drop flows:
   { tiles, folders: [{ id, name, path, mode }], expandNotch }`; folder paths are content and
   never reach a log line.
 - **Deviations from the spec above**: no `IDropTarget` of our own (the spike made it
-  unnecessary); *Shelf*, *Convert* and *Music* tiles wait for their modules; *Open with* opens
-  the system dialog rather than a configured app list; the pickers are unowned dialogs (the
-  notch window cannot own a modal without activating); the row has no keyboard equivalent —
-  a drag is pointer-only by nature, Esc cancels; the share sheet's anchoring to the notch
-  window is unverified on hardware ([checklist](../qa/checklists/drop-actions.md)).
+  unnecessary); *Convert* and *Music* tiles wait for their modules (*Shelf* arrived with
+  M4-E2); *Open with* opens the system dialog rather than a configured app list; the pickers
+  are unowned dialogs (the notch window cannot own a modal without activating); the row has no
+  keyboard equivalent — a drag is pointer-only by nature, Esc cancels; the share sheet's
+  anchoring to the notch window is unverified on hardware
+  ([checklist](../qa/checklists/drop-actions.md)).
 - **Tests**: `tests/drop_actions.rs` (fake `FileOps` scripted per call: every action, folder
   tiles, the picker's title and dismissal, unzip with no archive, cancellation mid-way, a
   missing item, the snapshot's job list, settings repair and the folder cap; zip and unzip on a

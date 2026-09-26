@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { dropModuleOf, findModule, modules } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts and drop actions (M4)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions and the shelf (M4)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
@@ -18,6 +18,7 @@ describe('module registry', () => {
       'hud',
       'keyboard-shortcuts',
       'drop-actions',
+      'shelf',
     ]);
     expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
     expect(findModule('dashboard')?.settings).toBeDefined();
@@ -49,6 +50,9 @@ describe('module registry', () => {
     expect(findModule('day-progress')?.titleKey).toBe('dayProgress.title');
     expect(findModule('day-progress')?.settings).toBeDefined();
     expect(findModule('day-progress')?.panel).toBeDefined();
+    expect(findModule('shelf')?.titleKey).toBe('shelf.title');
+    expect(findModule('shelf')?.settings).toBeDefined();
+    expect(findModule('shelf')?.panel).toBeDefined();
   });
 
   it('gives the HUD a settings pane but no panel: it lives in the strip', () => {

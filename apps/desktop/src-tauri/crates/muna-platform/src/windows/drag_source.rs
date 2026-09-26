@@ -16,7 +16,8 @@ use windows::Win32::System::Com::{
 };
 use windows::Win32::System::Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalUnlock};
 use windows::Win32::System::Ole::{
-    CF_UNICODETEXT, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE, OleInitialize,
+    CF_UNICODETEXT, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE,
+    OleFlushClipboard, OleInitialize, OleSetClipboard, OleUninitialize,
 };
 use windows::Win32::UI::Shell::Common::ITEMIDLIST;
 use windows::Win32::UI::Shell::{
@@ -60,6 +61,40 @@ fn ensure_ole() -> PlatformResult<()> {
     // SAFETY: no preconditions; the reserved pointer is null.
     #[allow(unsafe_code)]
     unsafe { OleInitialize(None) }.map_err(|e| os_error("OleInitialize", &e))
+}
+
+/// The same data object a drag would carry, placed on the clipboard (the Shelf's *Copy*).
+/// Runs on its own STA thread and flushes, so the clipboard keeps the data after the thread —
+/// and the object — are gone: a paste in Explorer copies the files, in an editor the text.
+pub(super) fn place_on_clipboard(payload: &DragPayload) -> PlatformResult<()> {
+    let payload = payload.clone();
+    super::file_ops::on_sta_thread("muna-clipboard", move || {
+        ensure_ole()?;
+        let _scope = OleScope;
+        let data = match &payload {
+            DragPayload::Files(paths) => files_data_object(paths)?,
+            DragPayload::Text(text) => text_data_object(text)?,
+        };
+        // SAFETY: `data` is a live data object; OLE takes its own reference.
+        #[allow(unsafe_code)]
+        unsafe { OleSetClipboard(&data) }.map_err(|e| os_error("OleSetClipboard", &e))?;
+        // SAFETY: renders every format into the clipboard so the object can go away.
+        #[allow(unsafe_code)]
+        unsafe { OleFlushClipboard() }.map_err(|e| os_error("OleFlushClipboard", &e))
+    })
+}
+
+/// Balances the `OleInitialize` of a short-lived thread (the main thread keeps its own).
+struct OleScope;
+
+impl Drop for OleScope {
+    fn drop(&mut self) {
+        // SAFETY: pairs with the successful `OleInitialize` on this thread.
+        #[allow(unsafe_code)]
+        unsafe {
+            OleUninitialize();
+        }
+    }
 }
 
 fn effect_of(effect: DROPEFFECT) -> Option<DropEffect> {

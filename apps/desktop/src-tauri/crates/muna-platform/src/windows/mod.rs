@@ -26,6 +26,7 @@ mod power;
 mod pump;
 mod radio;
 mod system_stats;
+mod thumbnails;
 pub mod undocumented;
 pub mod webview;
 mod window;
@@ -504,6 +505,10 @@ impl FileOps for WindowsPlatform {
     ) -> PlatformResult<Option<std::path::PathBuf>> {
         file_ops::pick_folder(window, title)
     }
+
+    fn thumbnail(&self, item: &std::path::Path, size: u32) -> PlatformResult<Vec<u8>> {
+        thumbnails::thumbnail(item, size)
+    }
 }
 
 impl DragSource for WindowsPlatform {
@@ -513,6 +518,10 @@ impl DragSource for WindowsPlatform {
         payload: &DragPayload,
     ) -> PlatformResult<DragOutcome> {
         drag_source::start_drag(window, payload)
+    }
+
+    fn place_on_clipboard(&self, payload: &DragPayload) -> PlatformResult<()> {
+        drag_source::place_on_clipboard(payload)
     }
 }
 

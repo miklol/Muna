@@ -273,6 +273,10 @@ pub trait FileOps: Send + Sync {
     /// Shows the folder picker with `title`, modal to `window` (`0` for none); `None` when the
     /// user cancels.
     fn pick_folder(&self, window: WindowHandle, title: &str) -> PlatformResult<Option<PathBuf>>;
+    /// Explorer's own thumbnail (or icon) for `item` as PNG bytes, `size` pixels on its longer
+    /// side (docs/modules/shelf.md). [`crate::PlatformError::NotFound`] when the item is gone.
+    /// Reads the shell's thumbnail cache and may render, so callers use a blocking thread.
+    fn thumbnail(&self, item: &Path, size: u32) -> PlatformResult<Vec<u8>>;
 }
 
 /// Drags out of Muna (docs/modules/shelf.md "Drag out", docs/spikes/m4-drag.md): the UI
@@ -288,6 +292,9 @@ pub trait DragSource: Send + Sync {
         window: WindowHandle,
         payload: &DragPayload,
     ) -> PlatformResult<DragOutcome>;
+    /// Puts the same data object on the clipboard (the Shelf's *Copy*), so a paste in Explorer
+    /// copies the files and a paste in an editor inserts the text. Any thread.
+    fn place_on_clipboard(&self, payload: &DragPayload) -> PlatformResult<()>;
 }
 
 /// The whole platform: every service plus the event stream.
