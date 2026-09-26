@@ -1582,6 +1582,22 @@ fn drop_cancel_job(state: State<'_, Shared>, job: u32) -> bool {
     state.modules.drop_actions.cancel_job(job)
 }
 
+/// Opens the folder picker for Settings › Drop actions ("Add folder") and returns the chosen
+/// path, or `null` when the user dismissed it. Blocks while the dialog is up, so it runs on a
+/// blocking thread.
+#[tauri::command]
+#[specta::specta]
+async fn drop_pick_folder(
+    state: State<'_, Shared>,
+    title: String,
+) -> Result<Option<String>, IpcError> {
+    let service = Arc::clone(&state.modules.drop_actions);
+    let folder = tauri::async_runtime::spawn_blocking(move || service.choose_folder(&title))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(folder.map(|path| path.to_string_lossy().into_owned()))
+}
+
 impl From<DropError> for IpcError {
     fn from(error: DropError) -> Self {
         let code = match error {
@@ -1651,6 +1667,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             drop_run,
             drop_cancel,
             drop_cancel_job,
+            drop_pick_folder,
             quit_app
         ])
         .events(collect_events![

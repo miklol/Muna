@@ -4,8 +4,8 @@ import { timings } from '@muna/ui/motion';
 /**
  * The notch state machine (docs/modules/notch-shell.md, "States"): a pure reducer whose only
  * side effects are timers and the focus toggle, so every rule is unit-tested with fake
- * timers and the component merely forwards DOM events. Drop, Snap and Notice states arrive
- * with the modules that own them.
+ * timers and the component merely forwards DOM events. Snap and Notice states arrive with the
+ * modules that own them.
  */
 export type ShellState =
   /** The strip, idle. */
@@ -18,6 +18,12 @@ export type ShellState =
   | 'expanded'
   /** The panel is open and stays: the user pinned it or a text field has focus. */
   | 'pinned'
+  /**
+   * Files are being dragged over the window: the drop tiles show in place of whatever was
+   * there (docs/modules/drop-actions.md). Pointer rules are off — the pointer is the drag —
+   * and the row leaves when the drag does or once the drop has been handled.
+   */
+  | 'drop'
   /** The window is off-screen; nothing animates or ticks. */
   | 'parked';
 
@@ -64,7 +70,14 @@ export type ShellEvent =
   /** A text field inside the panel gained or lost focus. */
   | { type: 'fieldFocus'; focused: boolean }
   | { type: 'yield'; state: YieldState }
-  | { type: 'timer'; id: TimerId };
+  | { type: 'timer'; id: TimerId }
+  /** A drag carrying files entered the window (`DropEntered`). */
+  | { type: 'dropEnter' }
+  /**
+   * The drag left without dropping, or the drop has been handled (run or cancelled): the row
+   * gives way to the strip.
+   */
+  | { type: 'dropLeave' };
 
 export type ShellEffect =
   | { type: 'startTimer'; id: TimerId; ms: number }
@@ -100,6 +113,20 @@ export const timerDurations: Readonly<Record<TimerId, number>> = {
 
 const OPEN_STATES: readonly ShellState[] = ['expanded', 'pinned'];
 const STRIP_STATES: readonly ShellState[] = ['collapsed', 'peek', 'hoverReveal'];
+/**
+ * What the row still listens to while files are dragged over it: the pointer samples keep the
+ * flags truthful, yield and Esc close it, and the drag's own events end it. Everything else —
+ * presses, the wheel, the hotkeys, pins — belongs to a panel that is not showing.
+ */
+const DROP_EVENTS: readonly ShellEvent['type'][] = [
+  'dropEnter',
+  'dropLeave',
+  'escape',
+  'yield',
+  'timer',
+  'pointer',
+  'pointerLeave',
+];
 
 export const isOpen = (state: ShellState): boolean => OPEN_STATES.includes(state);
 
@@ -162,15 +189,19 @@ class Builder {
 
   /** Closes the panel: timers off, pins released, focus handed back. */
   close(): this {
+    return this.leave(this.snapshot.yieldState === 'peek' ? 'peek' : 'collapsed');
+  }
+
+  /**
+   * Leaves whatever is showing for `state` — the strip, or the drop row when a drag arrives
+   * over an open panel — with timers off, pins released and focus handed back.
+   */
+  leave(state: ShellState): this {
     this.cancelAllTimers().setFocusable(false);
     if (this.snapshot.fieldFocused) {
       this.effects.push({ type: 'blurField' });
     }
-    return this.set({
-      state: this.snapshot.yieldState === 'peek' ? 'peek' : 'collapsed',
-      pinnedByUser: false,
-      fieldFocused: false,
-    });
+    return this.set({ state, pinnedByUser: false, fieldFocused: false });
   }
 
   /**
@@ -280,7 +311,7 @@ const onEscape = (b: Builder): Transition => {
     b.effects.push({ type: 'blurField' });
     return b.build();
   }
-  if (isOpen(state) || state === 'hoverReveal') {
+  if (isOpen(state) || state === 'hoverReveal' || state === 'drop') {
     return b.close().build();
   }
   return b.build();
@@ -326,6 +357,9 @@ export function transition(snapshot: ShellSnapshot, event: ShellEvent): Transiti
   if (snapshot.state === 'parked' && event.type !== 'yield') {
     return b.build();
   }
+  if (snapshot.state === 'drop' && !DROP_EVENTS.includes(event.type)) {
+    return b.build();
+  }
   switch (event.type) {
     case 'pointer':
       return onPointer(b, event.inside, event.near, event.speedPxPerS);
@@ -354,6 +388,12 @@ export function transition(snapshot: ShellSnapshot, event: ShellEvent): Transiti
       return onYield(b, event.state);
     case 'timer':
       return onTimer(b, event.id);
+    case 'dropEnter':
+      // Whatever was showing gives way; `previous` keeps where from, so a drag arriving over
+      // an open panel morphs with `switch` rather than re-expanding.
+      return snapshot.state === 'drop' ? b.build() : b.leave('drop').build();
+    case 'dropLeave':
+      return snapshot.state === 'drop' ? b.close().build() : b.build();
   }
 }
 

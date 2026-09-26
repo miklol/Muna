@@ -65,7 +65,7 @@ pub enum DropAction {
     Unzip,
     /// Explorer with the items selected.
     Reveal,
-    /// The Recycle Bin (the UI confirms first).
+    /// The Recycle Bin — no confirmation: Explorer's Undo brings the items back.
     Trash,
     /// Safely remove the drive the first item is on.
     Eject,
@@ -477,6 +477,12 @@ impl DropActionsService {
                 code: 0,
             }))
             .map_err(|error| failure_of(&error))
+    }
+
+    /// Opens the folder picker for Settings ("Add folder"), unowned like the Copy to / Move to
+    /// pickers; `None` when the user dismissed it. Blocks while the dialog is up.
+    pub fn choose_folder(&self, title: &str) -> Result<Option<PathBuf>, PlatformError> {
+        self.platform.file_ops().pick_folder(0, title)
     }
 
     fn pick_folder(&self, title: &str, fallback: &str) -> Result<PathBuf, DropFailure> {

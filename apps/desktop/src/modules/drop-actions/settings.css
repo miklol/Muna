@@ -1,0 +1,15 @@
+/*
+ * Settings › Drop actions (docs/modules/drop-actions.md): tile rows carry ▲▼ and a show
+ * switch or a remove button; folder rows a copy/move control and remove. Hidden tiles keep
+ * their row, dimmed, so they can come back. Composes tokens only.
+ */
+
+.drop-settings__controls {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.drop-settings__hidden .muna-list-row__icon {
+  opacity: 0.4;
+}

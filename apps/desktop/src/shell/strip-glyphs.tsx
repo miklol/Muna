@@ -1,6 +1,7 @@
 import type { Glyph } from '@muna/contracts';
 import type { MessageKey } from '@muna/i18n';
 import {
+  Archive,
   Battery,
   BatteryCharging,
   Bell,
@@ -8,6 +9,8 @@ import {
   Calendar,
   CircleCheck,
   Cpu,
+  Folder,
+  HardDrive,
   Headphones,
   Hourglass,
   Lock,
@@ -17,8 +20,10 @@ import {
   Moon,
   Music,
   Play,
+  Share2,
   Sun,
   Timer,
+  Trash2,
   Volume,
   Volume1,
   Volume2,
@@ -65,6 +70,11 @@ export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   cpu: 'strip.glyph.cpu',
   hourglass: 'strip.glyph.hourglass',
   calendar: 'strip.glyph.calendar',
+  folder: 'strip.glyph.folder',
+  archive: 'strip.glyph.archive',
+  share: 'strip.glyph.share',
+  trash: 'strip.glyph.trash',
+  drive: 'strip.glyph.drive',
 };
 
 /**
@@ -119,5 +129,15 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <Hourglass {...glyphProps} />;
     case 'calendar':
       return <Calendar {...glyphProps} />;
+    case 'folder':
+      return <Folder {...glyphProps} />;
+    case 'archive':
+      return <Archive {...glyphProps} />;
+    case 'share':
+      return <Share2 {...glyphProps} />;
+    case 'trash':
+      return <Trash2 {...glyphProps} />;
+    case 'drive':
+      return <HardDrive {...glyphProps} />;
   }
 };
