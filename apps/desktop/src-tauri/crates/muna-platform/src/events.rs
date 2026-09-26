@@ -1,5 +1,6 @@
 use crate::types::{
-    BatteryState, BluetoothDevice, BluetoothRadioState, ForegroundWindow, MediaSession, MonitorInfo,
+    BatteryState, BluetoothDevice, BluetoothRadioState, ForegroundWindow, MediaSession,
+    MonitorInfo, WindowHandle,
 };
 
 /// Push notifications from the platform layer. Consumers subscribe through
@@ -25,8 +26,13 @@ pub enum PlatformEvent {
     /// The foreground window changed (`EVENT_SYSTEM_FOREGROUND`).
     ForegroundChanged(ForegroundWindow),
     /// A window started (`EVENT_SYSTEM_MOVESIZESTART`) or finished (`EVENT_SYSTEM_MOVESIZEEND`)
-    /// being moved or resized by the user; the notch peeks meanwhile.
-    MoveSizeChanged { started: bool },
+    /// being moved or resized by the user; the notch peeks meanwhile, or shows the snap zones
+    /// for `window` when the Window snap module wants the drag (docs/modules/window-snap.md).
+    MoveSizeChanged {
+        started: bool,
+        /// The window being moved; `0` when the OS reported none.
+        window: WindowHandle,
+    },
     /// Monitor topology or DPI changed (`WM_DISPLAYCHANGE`, `WM_DPICHANGED`).
     MonitorsChanged(Vec<MonitorInfo>),
     /// The session was locked or unlocked (`WTS_SESSION_LOCK` / `WTS_SESSION_UNLOCK`).

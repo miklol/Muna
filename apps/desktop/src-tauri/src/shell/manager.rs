@@ -944,7 +944,7 @@ fn spawn_event_bridge(app: &AppHandle, manager: Arc<ShellManager>) {
                         manager.assert_all_topmost();
                     });
                 }
-                Ok(PlatformEvent::MoveSizeChanged { started }) => {
+                Ok(PlatformEvent::MoveSizeChanged { started, .. }) => {
                     let effects = manager.model.lock().set_moving(
                         manager.platform.as_ref(),
                         started,

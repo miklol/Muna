@@ -297,6 +297,26 @@ pub trait DragSource: Send + Sync {
     fn place_on_clipboard(&self, payload: &DragPayload) -> PlatformResult<()>;
 }
 
+/// Placing other applications' windows (docs/modules/window-snap.md). The shell asks whether a
+/// dragged window is one Muna may move, and moves it onto a zone once the drag ends. Every
+/// call is cheap and may come from any thread: the window is told asynchronously
+/// (`ShowWindowAsync`, `SWP_ASYNCWINDOWPOS`), so a hung application never blocks the caller.
+pub trait WindowPlacement: Send + Sync {
+    /// A visible top-level window with a caption or a sizing frame that is not a tool window
+    /// and not one of Muna's own: the kind a user drags by its title bar and expects to snap.
+    fn is_snappable(&self, window: WindowHandle) -> PlatformResult<bool>;
+    /// The visible frame (`DWMWA_EXTENDED_FRAME_BOUNDS`) in physical screen pixels; falls back
+    /// to the window rectangle when DWM is unavailable.
+    fn frame_bounds(&self, window: WindowHandle) -> PlatformResult<Rect>;
+    /// Moves `window` so its *visible* frame fills `target` exactly, compensating the
+    /// invisible sizing borders (the difference between `GetWindowRect` and the frame bounds)
+    /// and restoring it first when maximised. Physical pixels; never activates.
+    fn place(&self, window: WindowHandle, target: Rect) -> PlatformResult<()>;
+    /// Maximises `window` on the monitor whose work area is `work_area`, moving it there
+    /// first when it sits elsewhere.
+    fn maximize(&self, window: WindowHandle, work_area: Rect) -> PlatformResult<()>;
+}
+
 /// The whole platform: every service plus the event stream.
 pub trait Platform: Send + Sync {
     fn media(&self) -> &dyn Media;
@@ -316,6 +336,7 @@ pub trait Platform: Send + Sync {
     fn autostart(&self) -> &dyn Autostart;
     fn file_ops(&self) -> &dyn FileOps;
     fn drag_source(&self) -> &dyn DragSource;
+    fn window_placement(&self) -> &dyn WindowPlacement;
 
     /// New receiver for platform events. Events published before the call are not replayed.
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent>;
