@@ -1,0 +1,62 @@
+/*
+ * Command palette (docs/modules/keyboard-shortcuts.md): a search field on top, then the
+ * actions grouped by owner, scrolling inside the panel's height. Rows reuse the list-row
+ * styles; the highlighted row (virtual focus from the field) reads like a hovered one.
+ */
+
+.muna-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.muna-palette__list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  max-block-size: 248px;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  outline: none;
+  scrollbar-width: thin;
+}
+
+.muna-palette__section + .muna-palette__section {
+  margin-block-start: var(--space-2);
+}
+
+.muna-palette__heading {
+  display: block;
+  padding: var(--space-1) var(--space-3);
+  color: var(--text-2);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  line-height: var(--text-caption--line-height);
+  letter-spacing: var(--text-caption--letter-spacing);
+}
+
+.muna-palette__item {
+  min-block-size: var(--size-hit-min);
+  cursor: default;
+}
+
+.muna-palette__item[data-focused] {
+  background: var(--surface-2);
+}
+
+.muna-palette__item[data-focus-visible] {
+  outline: none;
+}
+
+.muna-palette__empty {
+  display: block;
+  padding: var(--space-3);
+  color: var(--text-2);
+  font-size: var(--text-footnote);
+  line-height: var(--text-footnote--line-height);
+  text-align: center;
+}

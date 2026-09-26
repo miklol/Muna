@@ -96,6 +96,9 @@
   },
   "media": {
     "title": "Media",
+    "actions": {
+      "playPause": "Play or pause"
+    },
     "empty": {
       "title": "Nothing playing",
       "body": "Play something in Spotify, a browser or another app and it appears here."
@@ -160,6 +163,9 @@
   },
   "pomodoro": {
     "title": "Pomodoro",
+    "actions": {
+      "toggle": "Start or pause the timer"
+    },
     "widget": {
       "running": "Running",
       "paused": "Paused"
@@ -202,6 +208,9 @@
   },
   "todo": {
     "title": "Tasks",
+    "actions": {
+      "quickAdd": "Add a task"
+    },
     "widget": {
       "empty": "Nothing open",
       "more_one": "{{count}} more",
@@ -683,6 +692,51 @@
       "resetAction": "Reset"
     }
   },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "group": {
+      "shell": "Notch"
+    },
+    "actions": {
+      "togglePanel": "Show or hide the notch",
+      "palette": "Open the command palette",
+      "snooze": "Snooze the notch",
+      "nextModule": "Next module",
+      "previousModule": "Previous module",
+      "openModule": "Open module {{n}}"
+    },
+    "palette": {
+      "title": "Commands",
+      "search": "Search commands",
+      "placeholder": "Type a command",
+      "clear": "Clear search",
+      "empty": "No matching commands"
+    },
+    "recorder": {
+      "label": "Shortcut for {{action}}",
+      "unset": "Not set",
+      "prompt": "Press a shortcut",
+      "clear": "Clear the shortcut for {{action}}"
+    },
+    "state": {
+      "inUse": "In use by another app",
+      "invalid": "Not a valid shortcut",
+      "needsModifier": "Add Ctrl, Alt or Win",
+      "unsupported": "That key cannot be bound",
+      "taken": "Already used by {{action}}"
+    },
+    "snoozeMinutes": "{{minutes}} min",
+    "settings": {
+      "shellBody": "Global shortcuts work in any app. Press a row's shortcut to change it; Backspace clears it and Esc keeps it.",
+      "openModule": "Open a module by number",
+      "openModuleBody": "Numbers follow the order of the bar, left to right.",
+      "options": "Options",
+      "onlyWhileHovering": "Only while hovering",
+      "onlyWhileHoveringBody": "Shortcuts act only while the pointer is over the notch.",
+      "snooze": "Snooze for",
+      "snoozeBody": "How long the notch stays out of the way after {{chord}}."
+    }
+  },
   "settings": {
     "title": "Muna settings",
     "version": "Version {{version}}",
@@ -714,9 +768,6 @@
       "privacy": "Privacy",
       "hideFromCaptures": "Hide from screen captures",
       "hideFromCapturesBody": "Screenshots, recordings and screen sharing leave the notch out.",
-      "keyboard": "Keyboard",
-      "toggleHotkey": "Show or hide the notch",
-      "toggleHotkeyBody": "Works on the screen under the pointer. Custom shortcuts arrive with Keyboard shortcuts.",
       "help": "Help",
       "tour": "Welcome tour",
       "tourBody": "The first-run steps again: screens, placement, shape and start-up.",

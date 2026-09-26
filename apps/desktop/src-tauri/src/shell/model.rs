@@ -269,6 +269,16 @@ impl ShellModel {
             .map(|w| w.label.clone())
     }
 
+    /// The label of the notch whose painted shape the cursor is over, per the last cursor
+    /// sample; `None` while every window passes the pointer through.
+    #[must_use]
+    pub fn hovered_label(&self) -> Option<String> {
+        self.windows
+            .iter()
+            .find(|w| w.ready && !w.hit_tester.is_ignoring())
+            .map(|w| w.label.clone())
+    }
+
     // --- reconcile ------------------------------------------------------------------------
 
     /// Phase 1 of a reconcile: records the monitor list, refreshes known windows (moving ready

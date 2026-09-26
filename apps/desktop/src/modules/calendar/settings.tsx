@@ -9,7 +9,7 @@ import {
   type Tint,
   writeCalendarSettings,
 } from '@muna/contracts';
-import type { MessageKey } from '@muna/i18n';
+import type { MessageKey, Translate } from '@muna/i18n';
 import {
   Button,
   Chip,
@@ -69,8 +69,6 @@ const failureKey: Record<AddFailure, MessageKey> = {
 
 const dotStyle = (tint: Tint): CSSProperties =>
   ({ '--calendar-tint': tintVar(tint) }) as CSSProperties;
-
-type Translate = ReturnType<typeof useTranslation>['t'];
 
 const formatUpdated = (ms: number, locale: string): string =>
   new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(ms);

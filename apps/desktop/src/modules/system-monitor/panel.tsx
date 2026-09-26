@@ -1,4 +1,5 @@
 import type { SystemMonitorSnapshot } from '@muna/contracts';
+import type { Translate } from '@muna/i18n';
 import { Ring, Text, type Tint } from '@muna/ui';
 import {
   ArrowUpDown,
@@ -42,7 +43,7 @@ interface Gauge {
 }
 
 interface Formatters {
-  t: ReturnType<typeof useTranslation>['t'];
+  t: Translate;
   locale: string;
 }
 

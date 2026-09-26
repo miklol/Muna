@@ -6,14 +6,12 @@ import {
   type StripMessage,
   type Trailing,
 } from '@muna/contracts';
-import type { MessageKey } from '@muna/i18n';
+import type { MessageKey, Translate } from '@muna/i18n';
 import { formatCountdown, type StripSlotContent } from '@muna/ui/primitives';
-import type { useTranslation } from 'react-i18next';
 
 import { glyphLabelKey, stripGlyph } from './strip-glyphs';
 
-/** The typed `t` from `useTranslation()`; keys are checked against the English catalog. */
-export type Translate = ReturnType<typeof useTranslation>['t'];
+export type { Translate };
 
 type PomodoroMessageKey = Extract<MessageKey, `strip.message.pomodoro${string}`>;
 

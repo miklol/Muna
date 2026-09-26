@@ -142,6 +142,18 @@ impl AppState {
         self.modules.calendar.apply_settings(settings);
         self.modules.notifications.apply_settings(settings);
         self.modules.day_progress.apply_settings(settings);
+        let bindings = self.modules.keyboard_shortcuts.apply_settings(settings);
+        for binding in bindings
+            .iter()
+            .filter(|b| b.state != crate::modules::keyboard_shortcuts::HotkeyState::Registered)
+        {
+            tracing::warn!(
+                action = binding.action,
+                chord = binding.chord.as_deref().unwrap_or(""),
+                state = ?binding.state,
+                "hotkey not registered"
+            );
+        }
     }
 
     /// Releases what the modules hold on the OS (the hidden system flyout) on a clean exit.

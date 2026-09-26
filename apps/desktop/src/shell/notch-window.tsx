@@ -5,6 +5,7 @@ import {
   HUD_VOLUME_STEP,
   readHudSettings,
   type ScrollOnStrip,
+  SHELL_ACTION_IDS,
   STRIP_HEIGHT_PX,
 } from '@muna/contracts';
 import {
@@ -42,6 +43,7 @@ import { useTranslation } from 'react-i18next';
 import { persistSettings, useSettings } from '../lib/settings';
 import { type ModuleDefinition, modules as registeredModules } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
+import { listActions, runAction, type ShellActionContext } from './actions';
 import { HitTestOverlay, hitTestOverlayEnabled } from './hit-test-overlay';
 import {
   anchoredBox,
@@ -56,6 +58,7 @@ import { type ShellEffect, ShellMachine, type ShellSnapshot, type ShellState } f
 import { orderModules, resolveActive, stepModule } from './module-order';
 import { MorphSampler } from './morph-sampler';
 import { morphTransition } from './morph-transition';
+import { CommandPalette } from './palette';
 import { Panel, PanelEmptyState } from './panel';
 import {
   type GeometryInput,
@@ -72,10 +75,10 @@ import {
   reportMorph,
   setNotchFocusable,
   setStripSuspended,
+  useHotkeySubscription,
   useShellLayoutSubscription,
   useShellPointerDownOutsideSubscription,
   useShellReady,
-  useShellToggleSubscription,
 } from './use-shell';
 import { useStripContentSubscription } from './use-strip-content';
 
@@ -296,16 +299,80 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     }
   }, []);
 
-  // --- yield, hotkey and click-through clicks come from Rust ------------------------------
+  // --- yield, hotkeys and click-through clicks come from Rust -----------------------------
 
   useEffect(() => {
     machine.send({ type: 'yield', state: yieldState });
   }, [machine, yieldState]);
 
-  useShellToggleSubscription(
-    useCallback(() => {
-      machine.send({ type: 'toggle' });
-    }, [machine]),
+  // The command palette replaces the module body while open; it closes with the panel.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteBindings, setPaletteBindings] = useState<ReadonlyMap<string, string>>(
+    () => new Map(),
+  );
+  const openPalette = useCallback(() => {
+    setPaletteOpen(true);
+    commands
+      .getHotkeys()
+      .then((bindings) => {
+        setPaletteBindings(
+          new Map(
+            bindings.flatMap((binding) =>
+              binding.chord === null ? [] : [[binding.action, binding.chord] as const],
+            ),
+          ),
+        );
+      })
+      .catch(() => {
+        // Not running inside Tauri: the rows show without caps.
+      });
+  }, []);
+  const paletteActions = useMemo(
+    () => listActions(modules).filter((action) => action.runnable),
+    [modules],
+  );
+
+  // Hotkeys and palette rows resolve to shell actions or module actions (`shell/actions.ts`);
+  // the latest module order and active module are read through a ref so the subscription
+  // stays put while they change.
+  const shellActionContext = useRef<ShellActionContext>({
+    send: (event) => machine.send(event),
+    orderedModules,
+    activeModuleId,
+    setActiveModule,
+    openPalette,
+  });
+  const paletteOpenRef = useRef(paletteOpen);
+  useLayoutEffect(() => {
+    paletteOpenRef.current = paletteOpen;
+    shellActionContext.current = {
+      send: (event) => machine.send(event),
+      orderedModules,
+      activeModuleId,
+      setActiveModule,
+      openPalette,
+    };
+  });
+  const dispatchAction = useCallback(
+    (action: string) => {
+      // The palette's own chord toggles it; any other action leaves the palette behind.
+      if (action === SHELL_ACTION_IDS.palette && paletteOpenRef.current) {
+        setPaletteOpen(false);
+        return;
+      }
+      setPaletteOpen(false);
+      runAction(action, { shell: shellActionContext.current, modules });
+    },
+    [modules],
+  );
+  useHotkeySubscription(dispatchAction);
+  const runFromPalette = dispatchAction;
+  const activateModule = useCallback(
+    (id: string) => {
+      setPaletteOpen(false);
+      setActiveModule(id);
+    },
+    [setActiveModule],
   );
   useShellPointerDownOutsideSubscription(
     useCallback(() => {
@@ -346,6 +413,10 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   // Ctrl+Tab / Ctrl+Shift+Tab step through the modules while the panel is open
   // (docs/modules/notch-shell.md, "Rules").
   const panelShown = showsPanel(state);
+  if (paletteOpen && !panelShown) {
+    // The palette lives inside the panel; adjusting during render avoids a cascading effect.
+    setPaletteOpen(false);
+  }
   useEffect(() => {
     if (!panelShown || orderedModules.length < 2) {
       return;
@@ -637,8 +708,13 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     transition: contentExitTransition,
   };
   const moduleBarShown = panelShown && hasModuleBar;
-  const panelTitle = activeModule === null ? t('app.name') : t(activeModule.titleKey);
+  const panelTitle = paletteOpen
+    ? t('shortcuts.palette.title')
+    : activeModule === null
+      ? t('app.name')
+      : t(activeModule.titleKey);
   const ActivePanel = activeModule?.panel;
+  const bodyKey = paletteOpen ? 'palette' : (activeModule?.id ?? 'empty');
 
   return (
     <main
@@ -704,7 +780,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                   >
                     <AnimatePresence mode="popLayout" initial={false}>
                       <motion.div
-                        key={activeModule?.id ?? 'empty'}
+                        key={bodyKey}
                         className="size-full origin-top"
                         initial={
                           reduceMotion ? contentRecipe.reducedEnterFrom : contentRecipe.enterFrom
@@ -715,8 +791,16 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                         exit={contentExit}
                         transition={moduleBodyTransition}
                       >
-                        {panelBody ??
-                          (ActivePanel === undefined ? <PanelEmptyState /> : <ActivePanel />)}
+                        {paletteOpen ? (
+                          <CommandPalette
+                            actions={paletteActions}
+                            bindings={paletteBindings}
+                            onRun={runFromPalette}
+                          />
+                        ) : (
+                          (panelBody ??
+                          (ActivePanel === undefined ? <PanelEmptyState /> : <ActivePanel />))
+                        )}
                       </motion.div>
                     </AnimatePresence>
                   </Panel>
@@ -763,7 +847,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                   overflowLabel={t('notch.moreModules')}
                   items={moduleBarItems}
                   activeId={activeModule?.id ?? null}
-                  onActivate={setActiveModule}
+                  onActivate={activateModule}
                   onReorder={setModuleOrder}
                 />
               </motion.div>

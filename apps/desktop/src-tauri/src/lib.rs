@@ -109,7 +109,7 @@ pub fn run() {
             // Strip content flows hub → event; the module backends publish into the hub, and
             // the modules with a panel additionally report their state through typed events.
             activities::start(app.handle(), &state.activities);
-            wire_module_sinks(app.handle(), &state.modules);
+            wire_module_sinks(app.handle(), &state.modules, state.shell.clone());
             let started = modules::start_all(&state.module_ctx(), &state.modules);
             tracing::info!(modules = ?started, "modules running");
             let settings = state.settings.lock().clone();
@@ -146,8 +146,23 @@ pub fn run() {
         });
 }
 
-/// Hands each module with a panel a typed-event sink so its state reaches the webviews.
-fn wire_module_sinks(app: &tauri::AppHandle, modules: &modules::ModuleServices) {
+/// Hands each module with a panel a typed-event sink so its state reaches the webviews, and
+/// the keyboard-shortcuts service its OS registrar and press sink (both need the app handle,
+/// so they cannot exist before `setup`).
+fn wire_module_sinks(
+    app: &tauri::AppHandle,
+    modules: &modules::ModuleServices,
+    shell: Option<Arc<shell::manager::ShellManager>>,
+) {
+    modules
+        .keyboard_shortcuts
+        .set_registrar(Arc::new(ipc::PluginRegistrar::new(
+            app.clone(),
+            &modules.keyboard_shortcuts,
+        )));
+    modules
+        .keyboard_shortcuts
+        .set_sink(Arc::new(ipc::HotkeyEventSink::new(app.clone(), shell)));
     modules
         .media
         .set_sink(Arc::new(ipc::MediaEventSink::new(app.clone())));

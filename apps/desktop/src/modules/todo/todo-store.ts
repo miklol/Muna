@@ -6,7 +6,14 @@ export interface TodoStore {
   snapshot: TodoSnapshot | null;
   /** `Date.now()` when `snapshot` arrived; due labels and the overdue tint read time from here. */
   receivedAt: number;
+  /**
+   * Set by the `todo.quickAdd` action (a global shortcut or the palette) before the panel opens;
+   * the panel focuses its add field and clears it once the snapshot has arrived.
+   */
+  quickAddPending: boolean;
   setSnapshot: (snapshot: TodoSnapshot, at?: number) => void;
+  requestQuickAdd: () => void;
+  consumeQuickAdd: () => void;
 }
 
 /**
@@ -17,8 +24,15 @@ export interface TodoStore {
 export const useTodoStore = create<TodoStore>()((set) => ({
   snapshot: null,
   receivedAt: 0,
+  quickAddPending: false,
   setSnapshot: (snapshot, at = Date.now()) => {
     set({ snapshot, receivedAt: at });
+  },
+  requestQuickAdd: () => {
+    set({ quickAddPending: true });
+  },
+  consumeQuickAdd: () => {
+    set({ quickAddPending: false });
   },
 }));
 
