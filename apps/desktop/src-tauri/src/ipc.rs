@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use muna_core::{ActivityState, Artwork, Settings, SettingsError, StoreError, StripContent};
+use muna_core::{ActivityState, Artwork, Settings, SettingsError, StoreError, StripContent, Tint};
 use muna_platform::{MediaCommand, MonitorInfo, PlatformError};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -19,6 +19,10 @@ use tauri_plugin_opener::OpenerExt;
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
 use crate::modules::bluetooth::{BluetoothCommand, BluetoothSink, BluetoothSnapshot};
+use crate::modules::calendar::{
+    AddSourceError, CalendarCommand, CalendarSettings, CalendarSink, CalendarSnapshot,
+    SourceSetting, UrlError,
+};
 use crate::modules::hud::{HudSink, HudState};
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
 use crate::modules::pomodoro::{PomodoroCommand, PomodoroSink, PomodoroState};
@@ -96,6 +100,18 @@ impl From<SearchError> for IpcError {
             SearchError::Disabled => "weather.disabled",
             SearchError::Fetch(FetchError::Offline) => "weather.offline",
             SearchError::Fetch(FetchError::Provider) => "weather.provider",
+        };
+        Self::new(code, error)
+    }
+}
+
+impl From<AddSourceError> for IpcError {
+    fn from(error: AddSourceError) -> Self {
+        let code = match &error {
+            AddSourceError::Url(UrlError::Malformed) => "calendar.url.malformed",
+            AddSourceError::Url(UrlError::Scheme) => "calendar.url.scheme",
+            AddSourceError::Url(UrlError::Credentials) => "calendar.url.credentials",
+            AddSourceError::Vault => "calendar.vault",
         };
         Self::new(code, error)
     }
@@ -476,6 +492,44 @@ impl WeatherSink for WeatherEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit WeatherChanged");
+        }
+    }
+}
+
+/// The subscribed calendars, their events and their refresh state as the module now sees
+/// them (docs/modules/calendar.md): after a fetch, a command or a settings change.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarChanged {
+    pub snapshot: CalendarSnapshot,
+}
+
+/// Bridges the calendar service to [`CalendarChanged`].
+pub struct CalendarEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for CalendarEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CalendarEventSink").finish_non_exhaustive()
+    }
+}
+
+impl CalendarEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl CalendarSink for CalendarEventSink {
+    fn changed(&self, snapshot: &CalendarSnapshot) {
+        if let Err(error) = (CalendarChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit CalendarChanged");
         }
     }
 }
@@ -992,6 +1046,91 @@ async fn weather_search(state: State<'_, Shared>, query: String) -> Result<Vec<P
     Ok(service.search(query).await?)
 }
 
+/// The subscribed calendars and their events as the module now sees them (a panel that just
+/// opened; afterwards it follows `CalendarChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_calendar_snapshot(state: State<'_, Shared>) -> CalendarSnapshot {
+    state.modules.calendar.snapshot()
+}
+
+/// Refreshes every enabled source now; returns the snapshot as it stands afterwards (the
+/// work itself runs in the module's loop and arrives as `CalendarChanged`).
+#[tauri::command]
+#[specta::specta]
+fn calendar_command(state: State<'_, Shared>, command: CalendarCommand) -> CalendarSnapshot {
+    state.modules.calendar.command(command)
+}
+
+/// Subscribes to an ICS feed: the address goes to the credential vault, the source (name,
+/// colour, host — never the address) into `settings.modules.calendar.sources`, and the
+/// settings are saved and broadcast. `calendar.url.*` when the address is not a web link,
+/// `calendar.vault` when the vault refused it.
+#[tauri::command]
+#[specta::specta]
+fn calendar_add_source(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    name: String,
+    url: String,
+    color: Tint,
+) -> Result<SourceSetting, IpcError> {
+    let service = Arc::clone(&state.modules.calendar);
+    let source = service.add_source(&name, &url, color)?;
+    let mut settings = state.settings.lock().clone();
+    let mut calendar = CalendarSettings::from_document(&settings);
+    calendar.sources.push(source.clone());
+    calendar
+        .write(&mut settings)
+        .map_err(|error| IpcError::new("settings.invalid", error))?;
+    if let Err(error) = commit_settings(&app, &state, settings) {
+        if let Err(vault) = service.remove_source_secret(&source.id) {
+            tracing::warn!(%vault, "calendar source address could not be removed after a failed save");
+        }
+        return Err(error);
+    }
+    Ok(source)
+}
+
+/// Unsubscribes: the source leaves the settings (saved and broadcast), then its address
+/// leaves the vault and its cache the store.
+#[tauri::command]
+#[specta::specta]
+fn calendar_remove_source(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    id: String,
+) -> Result<Settings, IpcError> {
+    let mut settings = state.settings.lock().clone();
+    let mut calendar = CalendarSettings::from_document(&settings);
+    calendar.sources.retain(|source| source.id != id);
+    calendar
+        .write(&mut settings)
+        .map_err(|error| IpcError::new("settings.invalid", error))?;
+    let saved = commit_settings(&app, &state, settings)?;
+    if let Err(error) = state.modules.calendar.remove_source_secret(&id) {
+        tracing::warn!(%error, "calendar source address could not be removed from the vault");
+    }
+    Ok(saved)
+}
+
+/// Opens an event's meeting link or URL in the default browser. Only `http(s)` links the
+/// module itself read from the feed are opened; `calendar.noLink` when the event has none.
+#[tauri::command]
+#[specta::specta]
+fn calendar_open(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    event_id: String,
+) -> Result<(), IpcError> {
+    let Some(url) = state.modules.calendar.link_for(&event_id) else {
+        return Err(IpcError::new("calendar.noLink", "the event has no link"));
+    };
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -1036,6 +1175,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_weather_snapshot,
             weather_command,
             weather_search,
+            get_calendar_snapshot,
+            calendar_command,
+            calendar_add_source,
+            calendar_remove_source,
+            calendar_open,
             quit_app
         ])
         .events(collect_events![
@@ -1053,7 +1197,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             TodoChanged,
             SystemMonitorChanged,
             BluetoothChanged,
-            WeatherChanged
+            WeatherChanged,
+            CalendarChanged
         ])
 }
 

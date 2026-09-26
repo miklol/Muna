@@ -111,6 +111,20 @@ pub trait Location: Send + Sync {
     fn position(&self) -> PlatformResult<GeoPosition>;
 }
 
+/// Small secrets — a calendar's private feed address, later an OAuth refresh token — in the
+/// user's Windows Credential Manager (`.github/copilot-instructions.md`: "secrets only in
+/// Windows Credential Manager"). Keys are the module's own (`calendar:ics:<id>`); the
+/// implementation namespaces them under the app so nothing else's entries are read or
+/// touched. Values are short UTF-8 strings (the store caps a blob at 2.5 KB).
+pub trait Secrets: Send + Sync {
+    /// The value under `key`, or `None` when there is none.
+    fn get(&self, key: &str) -> PlatformResult<Option<String>>;
+    /// Writes or replaces the value under `key`.
+    fn set(&self, key: &str, value: &str) -> PlatformResult<()>;
+    /// Removes the value under `key`; removing a missing key is not an error.
+    fn remove(&self, key: &str) -> PlatformResult<()>;
+}
+
 /// Display topology, needed for one notch window per monitor (ADR-0002).
 pub trait Monitors: Send + Sync {
     fn all(&self) -> PlatformResult<Vec<MonitorInfo>>;
@@ -195,6 +209,7 @@ pub trait Platform: Send + Sync {
     fn power(&self) -> &dyn Power;
     fn system_stats(&self) -> &dyn SystemStats;
     fn location(&self) -> &dyn Location;
+    fn secrets(&self) -> &dyn Secrets;
     fn monitors(&self) -> &dyn Monitors;
     fn foreground(&self) -> &dyn Foreground;
     fn windowing(&self) -> &dyn Windowing;

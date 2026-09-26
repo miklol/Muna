@@ -3,10 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { findModule, modules } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2) and the to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2) and the calendar, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
+      'calendar',
       'todo',
       'pomodoro',
       'system-monitor',
@@ -21,6 +22,9 @@ describe('module registry', () => {
     expect(findModule('media')?.titleKey).toBe('media.title');
     expect(findModule('media')?.settings).toBeDefined();
     expect(findModule('media')?.panel).toBeDefined();
+    expect(findModule('calendar')?.titleKey).toBe('calendar.title');
+    expect(findModule('calendar')?.settings).toBeDefined();
+    expect(findModule('calendar')?.panel).toBeDefined();
     expect(findModule('todo')?.titleKey).toBe('todo.title');
     expect(findModule('todo')?.settings).toBeDefined();
     expect(findModule('todo')?.panel).toBeDefined();
@@ -51,6 +55,7 @@ describe('module registry', () => {
     const withWidget = modules.filter((module) => module.widget !== undefined).map((m) => m.id);
     expect(withWidget).toEqual([
       'media',
+      'calendar',
       'todo',
       'pomodoro',
       'system-monitor',

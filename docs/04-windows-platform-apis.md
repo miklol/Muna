@@ -91,9 +91,10 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | ------ | ----- | ------- |
 | Microsoft 365 / Outlook.com | Microsoft Graph `GET /me/calendarView?startDateTime&endDateTime` (+ `Prefer: outlook.timezone`), `/me/events` for create; MSAL **PKCE loopback** or device-code flow | Delegated `Calendars.ReadWrite`, `offline_access`. Tokens in Credential Manager |
 | Google | Calendar API v3 `events.list(singleEvents, orderBy=startTime)`, `events.insert`; OAuth loopback PKCE | Needs Google Cloud project + verification for public release |
-| ICS subscriptions | HTTPS fetch + `ical` crate parse, RRULE expansion (`rrule` crate) | Zero-auth path; refresh 15 min |
+| ICS subscriptions | HTTPS fetch + own permissive parser (`ics.rs`), RRULE expansion (`rrule` crate) | Zero-auth path; refresh 5 / 15 / 30 / 60 min (default 5). **Implemented (M3-E1)**; the `ical` crate plan was dropped for a parser tolerant of Outlook / Google / Apple feeds |
 | Windows Calendar store 🪪 | `AppointmentManager.RequestStoreAsync(AllCalendarsReadOnly)` — capability `appointmentsSystem`; sees only Mail/Calendar-synced accounts | Opportunistic bonus when packaged |
 | Meeting links | Regex on location/body for Teams/Zoom/Meet/Webex URLs | `ShellExecuteW` open |
+| Secrets (feed links, later tokens) | `CredWriteW` / `CredReadW` / `CredDeleteW`, `CRED_TYPE_GENERIC`, `CRED_PERSIST_LOCAL_MACHINE`, target `Muna/<key>` (`muna_platform::Secrets`, implemented M3-E1) | Blob ≤ 2560 bytes (the API's limit); the `keyring` crate was not needed |
 | Tasks | Local SQLite; optional Microsoft To Do (Graph `/me/todo/lists`) and Google Tasks | Local first |
 
 ## Devices & power
@@ -171,10 +172,14 @@ system), `tauri-plugin-drag`, `windows` ≥ 0.62 (features: `Media_Control`, `St
 `Devices_Enumeration`, `Devices_Geolocation`, `Devices_Radios`, `System_Power`, `ApplicationModel_DataTransfer`,
 `Win32_Media_Audio_Endpoints`, `Win32_Devices_Bluetooth`, `Win32_System_IO`,
 `Win32_UI_WindowsAndMessaging`, `Win32_UI_Shell`, `Win32_Graphics_Gdi`,
-`Win32_Graphics_Dwm`, `Win32_UI_Accessibility`, `Win32_System_RemoteDesktop`), `sysinfo`,
+`Win32_Graphics_Dwm`, `Win32_UI_Accessibility`, `Win32_System_RemoteDesktop`,
+`Win32_Security_Credentials`), `sysinfo`,
 `nvml-wrapper`, `wmi`, `windows-capture`, `cpal` + `realfft`, `rusqlite`, `tokio`, `serde`,
-`specta`/`tauri-specta`, `keyring` (Credential Manager), `reqwest` (rustls, HTTP/2, system proxy —
-only for user-enabled integrations such as weather), `ical`, `rrule`, `zip`, `color-thief`.
+`specta`/`tauri-specta`, `reqwest` (rustls, HTTP/2, system proxy —
+only for user-enabled integrations such as weather and calendar feeds), `rrule`, `chrono-tz`,
+`zip`, `color-thief`. Credential Manager is called directly through the `windows` crate
+(`muna_platform::Secrets`), so `keyring` is not used; the ICS reader is Muna's own, so `ical`
+is not either.
 
 ## Repositories to study (not copy)
 

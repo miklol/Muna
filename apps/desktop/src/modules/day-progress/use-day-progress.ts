@@ -2,8 +2,6 @@ import type { PomodoroState, Task } from '@muna/contracts';
 import { commands, events } from '@muna/contracts';
 import { useEffect, useState } from 'react';
 
-import { MINUTE_MS, nextMinuteMs } from './timeline';
-
 export interface DaySources {
   /** Every task Rust holds, or `null` before the first snapshot (and outside Tauri). */
   readonly tasks: readonly Task[] | null;
@@ -62,31 +60,4 @@ export function useDaySources(): DaySources {
   }, []);
 
   return { tasks, pomodoro };
-}
-
-/**
- * The current minute, re-read at every whole minute while mounted. One timeout at a time,
- * aligned to the minute boundary and cleared on unmount, so the now marker moves at the same
- * instant the clock changes and nothing ticks once the panel closes (PRD performance budget).
- */
-export function useMinuteNow(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const arm = () => {
-      const current = Date.now();
-      timer = setTimeout(
-        () => {
-          setNow(new Date());
-          arm();
-        },
-        Math.max(1, Math.min(MINUTE_MS, nextMinuteMs(current) - current)),
-      );
-    };
-    arm();
-    return () => {
-      clearTimeout(timer);
-    };
-  }, []);
-  return now;
 }

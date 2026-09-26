@@ -28,6 +28,24 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
   loopback), ICS subscriptions (`ical` + `rrule`). Tokens via `keyring` (Credential Manager).
   Live activity "Meeting in 10 min · Join" with meeting-link detection. Windows
   `AppointmentStore` only when packaged, read-only.
+
+  **Progress.** Landed as one PR stacked on M3-E9 (#34) with the **ICS / webcal slice** only —
+  the one provider that needs no OAuth client registration, so the panel, strip form and
+  notice exist and can be judged before the account providers arrive. `muna-platform` grew a
+  `Secrets` trait (fake in-memory vault; Windows `CredWriteW` / `CredReadW` / `CredDeleteW`
+  through the `windows` crate, so `keyring` was not needed); feed addresses live there and the
+  settings document holds only name, colour, host and the switch. The `ical` crate was dropped
+  for a small permissive reader of Muna's own (Outlook, Google and Apple feeds bend RFC 5545
+  differently), with `rrule` for recurrence, IANA and Windows zone names, overrides and
+  cancellations, over a ±60-day window. The `CalendarService` is a reducer like the weather
+  one (fake clock, scripted feeds), the strip publishes `calendar:next` at *Event upcoming*
+  rising to *Event starting* at ten minutes with one notice, and the UI is a new `MonthGrid`
+  primitive in `@muna/ui` (React Aria `Calendar`) beside the day's agenda, an *Events*
+  dashboard widget and Settings → Calendar with the add form. Graph, Google, CalDAV, the
+  Windows `AppointmentStore`, search and meeting awareness are deferred and listed in
+  ([calendar → Implementation notes](../modules/calendar.md#implementation-notes-m3-e1)). A
+  `webcal://` → `https://` bug in the address normaliser surfaced in the service tests and was
+  fixed; the fetch error enum was renamed `FeedError` because specta exports it.
 - **M3-E2 To-do** — local SQLite first; optional Microsoft To Do via Graph. Quick-add from strip
   when Pinned.
 

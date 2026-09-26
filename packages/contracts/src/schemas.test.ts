@@ -1,8 +1,13 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
 
-import type { Settings, ShellLayout, StripContent } from './bindings';
+import type { Settings, ShellLayout, SourceSetting, StripContent } from './bindings';
 import {
+  CALENDAR_MAX_NAME_CHARS,
+  CALENDAR_REFRESH_CHOICES_MINUTES,
+  CALENDAR_SETTINGS_KEY,
+  CALENDAR_STRIP_IDS,
+  CALENDAR_STRIP_MS,
   DASHBOARD_GRID,
   DASHBOARD_SETTINGS_KEY,
   DAY_PROGRESS_BOUNDS,
@@ -29,6 +34,7 @@ import {
   WEATHER_REFRESH_MS,
   WEATHER_SETTINGS_KEY,
   clampDashboardSlots,
+  defaultCalendarSettings,
   defaultDashboardSettings,
   defaultDayProgressSettings,
   defaultHudSettings,
@@ -39,6 +45,7 @@ import {
   defaultTodoSettings,
   defaultWeatherSettings,
   monitorLayoutSchema,
+  readCalendarSettings,
   readDashboardSettings,
   readDayProgressSettings,
   readHudSettings,
@@ -51,6 +58,7 @@ import {
   shellLayoutSchema,
   shellSettingsSchema,
   stripContentSchema,
+  writeCalendarSettings,
   writeDashboardSettings,
   writeDayProgressSettings,
   writeHudSettings,
@@ -174,6 +182,18 @@ describe('strip content schema', () => {
           leading: { kind: 'icon', glyph: 'checkCircle', tint: 'blue' },
           trailing: { kind: 'time', atMs: 1_790_000_000_000 },
           wide: { kind: 'taskDue', title: 'Call Sam' },
+        },
+      },
+      {
+        kind: 'notice',
+        notice: {
+          id: 'calendar:starting:src:uid:1790000000000',
+          module: 'calendar',
+          priority: 65,
+          leading: { kind: 'icon', glyph: 'calendar', tint: 'purple' },
+          trailing: { kind: 'time', atMs: 1_790_000_000_000 },
+          wide: { kind: 'eventStarting', title: 'Design sync' },
+          holdMs: 0,
         },
       },
       {
@@ -672,6 +692,95 @@ describe('weather settings namespace', () => {
 
   it('names the refresh period the Rust module uses', () => {
     expect(WEATHER_REFRESH_MS).toBe(900_000);
+  });
+});
+
+describe('calendar settings namespace', () => {
+  const work: SourceSetting = {
+    id: 'a1b2',
+    name: 'Work',
+    color: 'purple',
+    enabled: true,
+    host: 'cal.example.test',
+  };
+
+  it('has no sources and the documented options when the namespace is missing', () => {
+    expect(readCalendarSettings(defaultSettings())).toEqual({
+      sources: [],
+      refreshMinutes: 5,
+      showNextInStrip: true,
+      notices: true,
+    });
+    expect(defaultCalendarSettings()).toEqual(readCalendarSettings(defaultSettings()));
+  });
+
+  it('fills in missing keys and ignores unknown ones', () => {
+    const partial: Settings = {
+      ...defaultSettings(),
+      modules: { [CALENDAR_SETTINGS_KEY]: { sources: [work], refreshMinutes: 30, sync: true } },
+    };
+    expect(readCalendarSettings(partial)).toEqual({
+      ...defaultCalendarSettings(),
+      sources: [work],
+      refreshMinutes: 30,
+    });
+  });
+
+  it('reads a refresh period that is not offered as the default, like the Rust side', () => {
+    const odd: Settings = {
+      ...defaultSettings(),
+      modules: { [CALENDAR_SETTINGS_KEY]: { refreshMinutes: 7 } },
+    };
+    expect(readCalendarSettings(odd).refreshMinutes).toBe(5);
+    expect([...CALENDAR_REFRESH_CHOICES_MINUTES]).toEqual([5, 15, 30, 60]);
+  });
+
+  it('falls back to the defaults for a malformed namespace', () => {
+    const badSource: Settings = {
+      ...defaultSettings(),
+      modules: { [CALENDAR_SETTINGS_KEY]: { sources: [{ ...work, color: 'mauve' }] } },
+    };
+    expect(readCalendarSettings(badSource)).toEqual(defaultCalendarSettings());
+    const blankId: Settings = {
+      ...defaultSettings(),
+      modules: { [CALENDAR_SETTINGS_KEY]: { sources: [{ ...work, id: '' }] } },
+    };
+    expect(readCalendarSettings(blankId)).toEqual(defaultCalendarSettings());
+    const notAnObject: Settings = {
+      ...defaultSettings(),
+      modules: { [CALENDAR_SETTINGS_KEY]: ['work'] },
+    };
+    expect(readCalendarSettings(notAnObject)).toEqual(defaultCalendarSettings());
+  });
+
+  it('writes the namespace without touching the rest of the document', () => {
+    const before: Settings = { ...defaultSettings(), modules: { hud: { showLevelText: true } } };
+    const after = writeCalendarSettings(before, {
+      sources: [work],
+      refreshMinutes: 15,
+      showNextInStrip: false,
+      notices: true,
+    });
+    expect(after.modules).toEqual({
+      hud: { showLevelText: true },
+      calendar: {
+        sources: [work],
+        refreshMinutes: 15,
+        showNextInStrip: false,
+        notices: true,
+      },
+    });
+    expect(before.modules).toEqual({ hud: { showLevelText: true } });
+    expect(settingsSchema.parse(after)).toEqual(after);
+  });
+
+  it('names the strip timings, ids and limits the Rust module uses', () => {
+    expect(CALENDAR_STRIP_MS).toEqual({ lead: 3_600_000, startingLead: 600_000, grace: 900_000 });
+    expect(CALENDAR_STRIP_IDS).toEqual({
+      next: 'calendar:next',
+      startingPrefix: 'calendar:starting:',
+    });
+    expect(CALENDAR_MAX_NAME_CHARS).toBe(60);
   });
 });
 
