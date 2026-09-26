@@ -13,6 +13,19 @@ export interface DropSession {
   readonly dropped: boolean;
 }
 
+/**
+ * A tracked window drag (docs/modules/window-snap.md) as this window sees it: it exists from
+ * the first `SnapDragMoved` over this window and ends with `SnapDragEnded`, which every window
+ * receives — `endedOver` names the one whose zones (if any) get to place the window.
+ */
+export interface SnapSession {
+  readonly session: number;
+  /** `true` once `SnapDragEnded` arrived. */
+  readonly ended: boolean;
+  /** The notch window the cursor was over when the drag ended; `null` for none. */
+  readonly endedOver: string | null;
+}
+
 export interface AppStore {
   /** What the closed strip renders; mirrors the Rust scheduler via `StripContentChanged`. */
   stripContent: StripContent;
@@ -40,6 +53,18 @@ export interface AppStore {
   markDropped: (session: number, position: DropPoint) => void;
   /** `DropLeft`, or the row has handled the drop: forgets the session. */
   endDrop: (session: number) => void;
+  /** The window drag this window knows about, if any (`SnapDragMoved` … `SnapDragEnded`). */
+  snapSession: SnapSession | null;
+  /** Where the drag's cursor is over this window, in CSS px; `null` while it is elsewhere. */
+  snapPosition: DropPoint | null;
+  /** `SnapDragMoved`: the cursor is over this window; a new session replaces the old one. */
+  moveSnap: (session: number, position: DropPoint) => void;
+  /** `SnapDragLeft`: the cursor left this window; the session stays until the drag ends. */
+  leaveSnap: (session: number) => void;
+  /** `SnapDragEnded`: the button went up over `endedOver` (`null` for no notch window). */
+  markSnapEnded: (session: number, endedOver: string | null) => void;
+  /** The zones have applied or cancelled, or the drag was somebody else's: forgets the session. */
+  endSnap: (session: number) => void;
 }
 
 /** `ShellLayout` is flat and primitive-valued, so a key-by-key comparison is exact. */
@@ -97,6 +122,39 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     const current = get().dropSession;
     if (current !== null && current.session === session) {
       set({ dropSession: null, dropPosition: null });
+    }
+  },
+  snapSession: null,
+  snapPosition: null,
+  moveSnap: (session, position) => {
+    const current = get().snapSession;
+    if (current?.session !== session) {
+      set({ snapSession: { session, ended: false, endedOver: null }, snapPosition: position });
+    } else if (!current.ended) {
+      set({ snapPosition: position });
+    }
+  },
+  leaveSnap: (session) => {
+    const current = get().snapSession;
+    if (current !== null && current.session === session && !current.ended) {
+      set({ snapPosition: null });
+    }
+  },
+  markSnapEnded: (session, endedOver) => {
+    const current = get().snapSession;
+    if (current?.session !== session) {
+      // A drag that never came over this window still ends here: the zones were never shown,
+      // so there is nothing to collapse and nothing to forget.
+      return;
+    }
+    if (!current.ended) {
+      set({ snapSession: { ...current, ended: true, endedOver } });
+    }
+  },
+  endSnap: (session) => {
+    const current = get().snapSession;
+    if (current !== null && current.session === session) {
+      set({ snapSession: null, snapPosition: null });
     }
   },
 }));

@@ -936,7 +936,6 @@
   },
   "windowSnap": {
     "title": "Window snap",
-    "hint": "Release over a zone to place the window",
     "zones": "Snap zones",
     "zone": {
       "topLeft": "Top left",
@@ -949,23 +948,20 @@
       "leftThird": "Left third",
       "centerThird": "Centre third",
       "rightThird": "Right third",
-      "cell": "Grid cell {{row}}, {{col}}"
+      "cell": "Cell {{row}}, {{col}}"
     },
-    "failed": "The window could not be placed",
     "settings": {
       "zones": "Zones",
       "zonesBody": "Drag any window to the notch and release over a zone. Up to {{max}} zones in all, grid cells included.",
-      "count": "{{count}} of {{max}} zones",
-      "show": "Show {{name}}",
-      "empty": "No zones chosen. Turn on a zone or a grid to place windows from the notch.",
+      "chosen": "Zones in use",
+      "count": "{{count}} of {{max}}",
       "grid": "Grid",
       "gridBody": "Equal cells with a gap between them. Cells count towards the zone limit and appear after the zones.",
       "gridEnabled": "Show a grid",
       "rows": "Rows",
       "cols": "Columns",
       "gap": "Gap",
-      "px": "{{value}} px",
-      "gridFull": "Fewer zones fit alongside this grid; the last ones are hidden."
+      "px": "{{value}} px"
     }
   },
   "settings": {

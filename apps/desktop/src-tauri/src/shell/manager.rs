@@ -380,8 +380,14 @@ impl ShellManager {
         }
         let session = self.snaps.current().filter(|s| !s.ended);
         if let Some(session) = &session {
-            self.snaps.mark_ended(session.id);
             let over = self.snap_over.lock().take();
+            if over.is_some() {
+                // The window under the cursor resolves the tile and applies or cancels.
+                self.snaps.mark_ended(session.id);
+            } else {
+                // Released over no notch window: nobody would cancel it, so forget it now.
+                self.snaps.remove(session.id);
+            }
             tracing::info!(
                 session = session.id,
                 over = over.as_ref().map_or("", |(label, _)| label.as_str()),

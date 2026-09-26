@@ -8,6 +8,10 @@ import type {
   Settings,
   ShapeRect,
   ShellLayout,
+  SnapDragEnded,
+  SnapDragLeft,
+  SnapDragMoved,
+  SnapZoneRef,
   StripContent,
   YieldState,
 } from '@muna/contracts';
@@ -27,7 +31,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '../app-providers';
 import { queryClient } from '../lib/query-client';
 import { cacheSettings } from '../lib/settings';
-import type { DropSurfaceProps, ModuleDefinition } from '../modules/registry';
+import type { DropSurfaceProps, ModuleDefinition, SnapSurfaceProps } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
 import { NotchWindow } from './notch-window';
 import { shellSizes } from './shell-geometry';
@@ -93,6 +97,8 @@ const ipc = vi.hoisted(() => {
       getDragSpike: vi.fn(() => Promise.resolve(null)),
       dropRun: vi.fn((_session: number, _action: DropAction) => ok()),
       dropCancel: vi.fn((_session: number) => ok()),
+      snapApply: vi.fn((_session: number, _label: string, _zone: SnapZoneRef) => ok()),
+      snapCancel: vi.fn((_session: number) => Promise.resolve(true)),
     },
     content: channel<{ content: StripContent }>(),
     layout: channel<{ layout: ShellLayout }>(),
@@ -104,6 +110,9 @@ const ipc = vi.hoisted(() => {
     dropMoved: channel<DropMoved>(),
     dropped: channel<Dropped>(),
     dropLeft: channel<DropLeft>(),
+    snapMoved: channel<SnapDragMoved>(),
+    snapLeft: channel<SnapDragLeft>(),
+    snapEnded: channel<SnapDragEnded>(),
   };
 });
 
@@ -121,6 +130,9 @@ vi.mock('@muna/contracts', async (importOriginal) => ({
     dropMoved: { listen: ipc.dropMoved.listen },
     dropped: { listen: ipc.dropped.listen },
     dropLeft: { listen: ipc.dropLeft.listen },
+    snapDragMoved: { listen: ipc.snapMoved.listen },
+    snapDragLeft: { listen: ipc.snapLeft.listen },
+    snapDragEnded: { listen: ipc.snapEnded.listen },
   },
 }));
 
@@ -313,6 +325,8 @@ describe('NotchWindow scenario suite', () => {
       activeModuleId: null,
       dropSession: null,
       dropPosition: null,
+      snapSession: null,
+      snapPosition: null,
     });
     // The settings document is read once per window; seed it so the bar order is known at mount.
     queryClient.clear();
@@ -1048,6 +1062,178 @@ describe('NotchWindow scenario suite', () => {
       expect(stateOf(main)).toBe('parked');
       expect(ipc.commands.dropCancel).toHaveBeenCalledTimes(2);
       expect(ipc.commands.dropCancel).toHaveBeenLastCalledWith(6);
+    });
+  });
+
+  describe('window snap (M4-E3)', () => {
+    /** Stands in for the module's zones: applies the first zone on release, ends the session. */
+    const FakeZones = ({ session, position, ended, maxWidth, onDone }: SnapSurfaceProps) => {
+      useEffect(() => {
+        if (ended) {
+          void ipc.commands.snapApply(session, 'notch', { builtIn: 'leftHalf' });
+          onDone();
+        }
+      }, [ended, onDone, session]);
+      return (
+        <div
+          data-testid="fake-zones"
+          data-session={session}
+          data-x={position.x}
+          data-max={maxWidth}
+        />
+      );
+    };
+    const snapModule: ModuleDefinition = {
+      id: 'window-snap',
+      titleKey: 'windowSnap.title',
+      icon: () => <svg data-testid="icon-snap" />,
+      snap: FakeZones,
+    };
+    /** Inside the strip's hot zone (the strip at rest plus 24 px). */
+    const NEAR = { x: CENTRE_X, y: STRIP.height + 12 };
+    /** Over this window, but well below the strip. */
+    const FAR = { x: CENTRE_X, y: STRIP.height + 200 };
+    /** jsdom lays nothing out: the zones row measures as 320 × 96 once it shows. */
+    const ZONES = { width: 320, height: 96 };
+    beforeEach(() => {
+      const isRow = (node: HTMLElement) => node.dataset.testid === 'snap-row';
+      vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return isRow(this) ? ZONES.width : 0;
+      });
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return isRow(this) ? ZONES.height : 0;
+      });
+    });
+    const move = (session: number, position: { x: number; y: number }, label = 'notch') => {
+      act(() => {
+        ipc.snapMoved.emit({ label, session, position });
+      });
+    };
+    const end = (session: number, label: string | null) => {
+      act(() => {
+        ipc.snapEnded.emit({ session, label });
+      });
+    };
+
+    it('a window dragged into the hot zone shows the zones after 120 ms; dragging away hides them', async () => {
+      const { main } = renderNotch(undefined, [snapModule]);
+      move(1, FAR);
+      await advance(500);
+      expect(stateOf(main)).toBe('collapsed');
+      expect(screen.queryByTestId('fake-zones')).toBeNull();
+
+      move(1, NEAR);
+      await advance(119);
+      expect(stateOf(main)).toBe('collapsed');
+      await advance(1);
+      expect(stateOf(main)).toBe('snap');
+      expect(surfaceOf(main)).toEqual({ material: 'panel', morphing: true });
+      const zones = screen.getByTestId('fake-zones');
+      expect(zones).toHaveAttribute('data-session', '1');
+      expect(zones).toHaveAttribute('data-max', '1000');
+      expect(ipc.commands.setStripSuspended).toHaveBeenLastCalledWith(true);
+
+      // The zones follow the drag while it stays over them (the shown box, padded).
+      move(1, { x: CENTRE_X, y: 60 });
+      expect(screen.getByTestId('fake-zones')).toHaveAttribute('data-x', String(CENTRE_X));
+      expect(stateOf(main)).toBe('snap');
+
+      // A drag that leaves the zones far behind closes them and forgets nothing in Rust.
+      move(1, FAR);
+      expect(stateOf(main)).toBe('collapsed');
+      await settle();
+      expect(screen.queryByTestId('fake-zones')).toBeNull();
+      expect(surfaceOf(main)).toEqual({ material: 'strip', morphing: false });
+      expect(ipc.commands.snapCancel).not.toHaveBeenCalled();
+      expect(lastRects()).toEqual([STRIP_REST]);
+    });
+
+    it('a drag that leaves before the delay never shows the zones', async () => {
+      const { main } = renderNotch(undefined, [snapModule]);
+      move(2, NEAR);
+      await advance(60);
+      act(() => {
+        ipc.snapLeft.emit({ label: 'notch', session: 2 });
+      });
+      await advance(500);
+      expect(stateOf(main)).toBe('collapsed');
+      expect(useAppStore.getState().snapPosition).toBeNull();
+      end(2, null);
+      expect(useAppStore.getState().snapSession).toBeNull();
+      expect(ipc.commands.snapCancel).not.toHaveBeenCalled();
+    });
+
+    it('a release over the zones hands the session to them; the shell follows them out', async () => {
+      const { main } = renderNotch(undefined, [snapModule]);
+      move(3, NEAR);
+      await advance(120);
+      expect(stateOf(main)).toBe('snap');
+      end(3, 'notch');
+      expect(ipc.commands.snapApply).toHaveBeenCalledTimes(1);
+      expect(ipc.commands.snapApply).toHaveBeenLastCalledWith(3, 'notch', { builtIn: 'leftHalf' });
+      expect(useAppStore.getState().snapSession).toBeNull();
+      expect(stateOf(main)).toBe('collapsed');
+      await settle();
+      expect(screen.queryByTestId('fake-zones')).toBeNull();
+      expect(ipc.commands.snapCancel).not.toHaveBeenCalled();
+    });
+
+    it('a release elsewhere, or with the zones closed, is forgotten; Esc closes them until the drag ends', async () => {
+      const { main } = renderNotch(undefined, [snapModule]);
+      move(4, NEAR);
+      await advance(120);
+      expect(stateOf(main)).toBe('snap');
+      // Esc: the zones go, the drag goes on — the window may still be released elsewhere.
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(stateOf(main)).toBe('collapsed');
+      expect(useAppStore.getState().snapSession?.session).toBe(4);
+      expect(ipc.commands.snapCancel).not.toHaveBeenCalled();
+      // Released over this window with the zones closed: nothing can place it, so Rust is told.
+      end(4, 'notch');
+      expect(ipc.commands.snapCancel).toHaveBeenCalledTimes(1);
+      expect(ipc.commands.snapCancel).toHaveBeenLastCalledWith(4);
+      expect(ipc.commands.snapApply).not.toHaveBeenCalled();
+      expect(useAppStore.getState().snapSession).toBeNull();
+
+      // A later drag released over another window: that window's zones own it.
+      move(5, NEAR);
+      await advance(120);
+      expect(stateOf(main)).toBe('snap');
+      end(5, 'notch-2');
+      expect(stateOf(main)).toBe('collapsed');
+      expect(useAppStore.getState().snapSession).toBeNull();
+      expect(ipc.commands.snapCancel).toHaveBeenCalledTimes(1);
+      await settle();
+      expect(screen.queryByTestId('fake-zones')).toBeNull();
+    });
+
+    it('the zones never interrupt an open panel, and a disabled module shows none', async () => {
+      const { main } = renderNotch(undefined, [snapModule, ...fakeModules]);
+      openWithHotkey(main);
+      await settle();
+      move(6, NEAR);
+      await advance(500);
+      expect(stateOf(main)).toBe('expanded');
+      expect(screen.queryByTestId('fake-zones')).toBeNull();
+      end(6, null);
+      cleanup();
+
+      const base = defaultSettings();
+      cacheSettings(queryClient, {
+        ...base,
+        shell: { ...base.shell, disabledModules: ['window-snap'] },
+      });
+      const second = renderNotch(undefined, [snapModule]);
+      move(7, NEAR);
+      await advance(500);
+      expect(stateOf(second.main)).toBe('collapsed');
+      end(7, 'notch');
+      expect(useAppStore.getState().snapSession).toBeNull();
+      expect(ipc.commands.snapApply).not.toHaveBeenCalled();
     });
   });
 });
