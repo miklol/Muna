@@ -1,4 +1,5 @@
 import {
+  type DropActionKind,
   HUD_NOTICE_IDS,
   type Leading,
   type PomodoroPhase,
@@ -28,6 +29,18 @@ export const pomodoroFinishedKey: Readonly<Record<PomodoroPhase, PomodoroMessage
   shortBreak: 'strip.message.pomodoroShortBreakFinished',
   longBreak: 'strip.message.pomodoroLongBreakFinished',
 };
+
+/**
+ * The drop-actions texts are one message per action, pluralised on the item count
+ * (`strip.message.dropRunning.copy_one` / `_other` in the catalog; i18next resolves the plural
+ * from the base key). The catalog nests them under the message kind.
+ */
+export const dropRunningKey = (action: DropActionKind) =>
+  `strip.message.dropRunning.${action}` as const;
+export const dropFinishedKey = (action: DropActionKind) =>
+  `strip.message.dropFinished.${action}` as const;
+export const dropFailedKey = (action: DropActionKind) =>
+  `strip.message.dropFailed.${action}` as const;
 
 /** What `StripView` needs, derived from one `StripContent` (docs/modules/live-activities.md). */
 export interface StripPresentation {
@@ -109,6 +122,12 @@ export const messageText = (message: StripMessage, t: Translate): string => {
       return message.title === ''
         ? message.app
         : t('strip.message.notification', { app: message.app, title: message.title });
+    case 'dropRunning':
+      return t(dropRunningKey(message.action), { count: message.count });
+    case 'dropFinished':
+      return t(dropFinishedKey(message.action), { count: message.count });
+    case 'dropFailed':
+      return t(dropFailedKey(message.action));
   }
 };
 
@@ -291,6 +310,15 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
           ? t('strip.describe.notificationUnread', { count: item.trailing.value, app, title })
           : t('strip.describe.notificationLatest', { app, title });
       }
+      case 'dropRunning': {
+        // A zip or unzip carries its progress on the right ("Zipping 3 items, 40% done").
+        const fact =
+          item.trailing?.kind === 'progress' ? describeSlot(item.trailing, t, locale) : null;
+        return fact === null ? message : `${message}, ${fact}`;
+      }
+      case 'dropFinished':
+      case 'dropFailed':
+        return message;
     }
   }
   // A battery glyph beside its own percentage is one fact, not two.

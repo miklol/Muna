@@ -9,6 +9,8 @@ import {
   springNames,
   springResponse,
   springs,
+  staggerDelayS,
+  tileStaggerRecipe,
   timings,
   toAppleSpring,
   toLinearEasing,
@@ -118,5 +120,15 @@ describe('reduced motion and timings', () => {
     expect(glyphCrossfadeTransition.duration * 1000).toBe(timings.hudGlyphCrossfadeMs);
     expect(timings.staggerMs).toBe(30);
     expect(timings.reducedMotionHoldMultiplier).toBe(1.5);
+  });
+
+  it('staggers 30 ms per item and caps the tail at the concurrency limit', () => {
+    expect(staggerDelayS(0)).toBe(0);
+    expect(staggerDelayS(1)).toBeCloseTo(0.03);
+    expect(staggerDelayS(7)).toBeCloseTo(0.21);
+    expect(staggerDelayS(8)).toBeCloseTo(0.21);
+    expect(staggerDelayS(40)).toBeCloseTo(0.21);
+    expect(staggerDelayS(-3)).toBe(0);
+    expect(tileStaggerRecipe.enterFrom).toEqual({ opacity: 0, y: 8, scale: 0.94 });
   });
 });

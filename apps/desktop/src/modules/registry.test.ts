@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { findModule, modules } from './registry';
+import { dropModuleOf, findModule, modules } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3) and keyboard shortcuts (M4)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts and drop actions (M4)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
@@ -17,6 +17,7 @@ describe('module registry', () => {
       'day-progress',
       'hud',
       'keyboard-shortcuts',
+      'drop-actions',
     ]);
     expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
     expect(findModule('dashboard')?.settings).toBeDefined();
@@ -61,6 +62,15 @@ describe('module registry', () => {
     expect(findModule('keyboard-shortcuts')?.settings).toBeDefined();
     expect(findModule('keyboard-shortcuts')?.panel).toBeUndefined();
     expect(findModule('keyboard-shortcuts')?.actions).toBeUndefined();
+  });
+
+  it("gives drop actions a settings pane and the drop row but no panel: the row is the shell's drop state", () => {
+    expect(findModule('drop-actions')?.titleKey).toBe('dropActions.title');
+    expect(findModule('drop-actions')?.settings).toBeDefined();
+    expect(findModule('drop-actions')?.panel).toBeUndefined();
+    expect(findModule('drop-actions')?.drop).toBeDefined();
+    expect(dropModuleOf(modules)?.id).toBe('drop-actions');
+    expect(dropModuleOf(modules.filter((module) => module.id !== 'drop-actions'))).toBeUndefined();
   });
 
   it('declares the M4-E6 module actions on the media, to-do and pomodoro modules only', () => {

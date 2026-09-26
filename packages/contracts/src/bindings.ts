@@ -319,6 +319,12 @@ export const commands = {
 	 *  running.
 	 */
 	dropCancelJob: (job: number) => __TAURI_INVOKE<boolean>("drop_cancel_job", { job }),
+	/**
+	 *  Opens the folder picker for Settings › Drop actions ("Add folder") and returns the chosen
+	 *  path, or `null` when the user dismissed it. Blocks while the dialog is up, so it runs on a
+	 *  blocking thread.
+	 */
+	dropPickFolder: (title: string) => typedError<string | null, IpcError>(__TAURI_INVOKE("drop_pick_folder", { title })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -584,7 +590,7 @@ export type DropAction =
 { kind: "unzip" } | 
 /**  Explorer with the items selected. */
 { kind: "reveal" } | 
-/**  The Recycle Bin (the UI confirms first). */
+/**  The Recycle Bin — no confirmation: Explorer's Undo brings the items back. */
 { kind: "trash" } | 
 /**  Safely remove the drive the first item is on. */
 { kind: "eject" };

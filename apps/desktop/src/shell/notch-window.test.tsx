@@ -1,4 +1,9 @@
 import type {
+  DropAction,
+  DropEntered,
+  DropLeft,
+  DropMoved,
+  Dropped,
   MorphReport,
   Settings,
   ShapeRect,
@@ -16,13 +21,13 @@ import {
 } from '@muna/contracts';
 import type { MessageKey } from '@muna/i18n';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppProviders } from '../app-providers';
 import { queryClient } from '../lib/query-client';
 import { cacheSettings } from '../lib/settings';
-import type { ModuleDefinition } from '../modules/registry';
+import type { DropSurfaceProps, ModuleDefinition } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
 import { NotchWindow } from './notch-window';
 import { shellSizes } from './shell-geometry';
@@ -85,6 +90,8 @@ const ipc = vi.hoisted(() => {
         }),
       ),
       getHotkeys: vi.fn(() => Promise.resolve([])),
+      dropRun: vi.fn((_session: number, _action: DropAction) => ok()),
+      dropCancel: vi.fn((_session: number) => ok()),
     },
     content: channel<{ content: StripContent }>(),
     layout: channel<{ layout: ShellLayout }>(),
@@ -92,6 +99,10 @@ const ipc = vi.hoisted(() => {
     hotkey: channel<{ action: string; label: string }>(),
     pressOutside: channel<{ label: string }>(),
     settings: channel<{ settings: Settings }>(),
+    dropEntered: channel<DropEntered>(),
+    dropMoved: channel<DropMoved>(),
+    dropped: channel<Dropped>(),
+    dropLeft: channel<DropLeft>(),
   };
 });
 
@@ -105,6 +116,10 @@ vi.mock('@muna/contracts', async (importOriginal) => ({
     hotkeyPressed: { listen: ipc.hotkey.listen },
     shellPointerDownOutside: { listen: ipc.pressOutside.listen },
     settingsChanged: { listen: ipc.settings.listen },
+    dropEntered: { listen: ipc.dropEntered.listen },
+    dropMoved: { listen: ipc.dropMoved.listen },
+    dropped: { listen: ipc.dropped.listen },
+    dropLeft: { listen: ipc.dropLeft.listen },
   },
 }));
 
@@ -295,6 +310,8 @@ describe('NotchWindow scenario suite', () => {
       shellLayout: null,
       yieldState: 'none',
       activeModuleId: null,
+      dropSession: null,
+      dropPosition: null,
     });
     // The settings document is read once per window; seed it so the bar order is known at mount.
     queryClient.clear();
@@ -883,6 +900,153 @@ describe('NotchWindow scenario suite', () => {
       await settle();
       expect(screen.queryByRole('tablist')).toBeNull();
       expect(lastRects()).toEqual([STRIP_REST]);
+    });
+  });
+
+  describe('drop actions (M4-E1)', () => {
+    /** Stands in for the module's tile row: shows what it was handed, ends on release. */
+    const FakeDropRow = ({
+      session,
+      items,
+      position,
+      dropped,
+      maxWidth,
+      onDone,
+    }: DropSurfaceProps) => {
+      useEffect(() => {
+        if (dropped) onDone();
+      }, [dropped, onDone]);
+      return (
+        <div
+          data-testid="fake-drop"
+          data-session={session}
+          data-count={items.length}
+          data-x={position.x}
+          data-max={maxWidth}
+        />
+      );
+    };
+    const dropModule: ModuleDefinition = {
+      id: 'drop-actions',
+      titleKey: 'dropActions.title',
+      icon: () => <svg data-testid="icon-drop" />,
+      drop: FakeDropRow,
+    };
+    const file = { name: 'report.pdf', extension: 'pdf', isDirectory: false };
+    const enter = (session: number) => {
+      act(() => {
+        ipc.dropEntered.emit({
+          label: 'notch',
+          session,
+          items: [file, { ...file, name: 'notes.txt', extension: 'txt' }],
+          position: { x: CENTRE_X, y: 12 },
+        });
+      });
+    };
+
+    it('a drag with files morphs the strip into the row with the panel material; leaving collapses it', async () => {
+      const { main } = renderNotch(undefined, [dropModule]);
+      enter(1);
+      expect(stateOf(main)).toBe('drop');
+      expect(surfaceOf(main)).toEqual({ material: 'panel', morphing: true });
+      const row = screen.getByTestId('fake-drop');
+      expect(row).toHaveAttribute('data-session', '1');
+      expect(row).toHaveAttribute('data-count', '2');
+      expect(row).toHaveAttribute('data-max', '1000');
+      // The strip pauses under the row like it does under the panel.
+      expect(ipc.commands.setStripSuspended).toHaveBeenLastCalledWith(true);
+
+      act(() => {
+        ipc.dropMoved.emit({ label: 'notch', session: 1, position: { x: 600, y: 40 } });
+      });
+      expect(screen.getByTestId('fake-drop')).toHaveAttribute('data-x', '600');
+      // Another window's drag is not this one's.
+      act(() => {
+        ipc.dropMoved.emit({ label: 'notch-2', session: 1, position: { x: 10, y: 10 } });
+      });
+      expect(screen.getByTestId('fake-drop')).toHaveAttribute('data-x', '600');
+
+      act(() => {
+        ipc.dropLeft.emit({ label: 'notch', session: 1 });
+      });
+      expect(stateOf(main)).toBe('collapsed');
+      expect(useAppStore.getState().dropSession).toBeNull();
+      await settle();
+      expect(screen.queryByTestId('fake-drop')).toBeNull();
+      expect(surfaceOf(main)).toEqual({ material: 'strip', morphing: false });
+      expect(ipc.commands.dropCancel).not.toHaveBeenCalled();
+      expect(lastRects()).toEqual([STRIP_REST]);
+    });
+
+    it('a release hands the drop to the row, which ends the session; the shell follows it out', async () => {
+      const { main } = renderNotch(undefined, [dropModule]);
+      enter(2);
+      act(() => {
+        ipc.dropped.emit({ label: 'notch', session: 2, position: { x: 600, y: 40 } });
+      });
+      expect(useAppStore.getState().dropSession).toBeNull();
+      expect(stateOf(main)).toBe('collapsed');
+      await settle();
+      expect(ipc.commands.dropCancel).not.toHaveBeenCalled();
+    });
+
+    it('Esc during a drag closes the row and tells Rust to forget the items', () => {
+      const { main } = renderNotch(undefined, [dropModule]);
+      enter(3);
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(stateOf(main)).toBe('collapsed');
+      expect(ipc.commands.dropCancel).toHaveBeenCalledTimes(1);
+      expect(ipc.commands.dropCancel).toHaveBeenLastCalledWith(3);
+      expect(useAppStore.getState().dropSession).toBeNull();
+      // Whatever Rust still sends for the cancelled session is ignored.
+      act(() => {
+        ipc.dropped.emit({ label: 'notch', session: 3, position: { x: 600, y: 40 } });
+      });
+      expect(stateOf(main)).toBe('collapsed');
+      expect(ipc.commands.dropCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('the row replaces an open panel and does not bring it back', async () => {
+      const { main } = renderNotch(undefined, [dropModule, ...fakeModules]);
+      openWithHotkey(main);
+      await settle();
+      enter(4);
+      expect(stateOf(main)).toBe('drop');
+      await settle();
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('tablist')).toBeNull();
+      expect(screen.getByTestId('fake-drop')).toHaveAttribute('data-session', '4');
+      act(() => {
+        ipc.dropLeft.emit({ label: 'notch', session: 4 });
+      });
+      expect(stateOf(main)).toBe('collapsed');
+      await settle();
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('with the module disabled, or while parked, the items are forgotten at once', () => {
+      const base = defaultSettings();
+      cacheSettings(queryClient, {
+        ...base,
+        shell: { ...base.shell, disabledModules: ['drop-actions'] },
+      });
+      const { main } = renderNotch(undefined, [dropModule]);
+      enter(5);
+      expect(stateOf(main)).toBe('collapsed');
+      expect(screen.queryByTestId('fake-drop')).toBeNull();
+      expect(ipc.commands.dropCancel).toHaveBeenCalledTimes(1);
+      expect(ipc.commands.dropCancel).toHaveBeenLastCalledWith(5);
+      expect(useAppStore.getState().dropSession).toBeNull();
+
+      cacheSettings(queryClient, base);
+      act(() => {
+        ipc.yield.emit({ label: 'notch', state: 'parked' });
+      });
+      expect(stateOf(main)).toBe('parked');
+      enter(6);
+      expect(stateOf(main)).toBe('parked');
+      expect(ipc.commands.dropCancel).toHaveBeenCalledTimes(2);
+      expect(ipc.commands.dropCancel).toHaveBeenLastCalledWith(6);
     });
   });
 });

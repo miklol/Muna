@@ -24,6 +24,8 @@ export {
   springNames,
   springResponse,
   springs,
+  staggerDelayS,
+  tileStaggerRecipe,
   type TimingName,
   timings,
   toAppleSpring,

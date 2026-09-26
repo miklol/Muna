@@ -260,3 +260,20 @@ export const timings = {
 } as const;
 
 export type TimingName = keyof typeof timings;
+
+/**
+ * Enter delay, in seconds, of the `index`-th item of a staggered group (tiles, list rows,
+ * widgets): `staggerMs` per item, with everything past `staggerMaxConcurrent` arriving with
+ * the last of those rather than trailing on — a long list still settles within a quarter of a
+ * second (docs/06-motion-spec.md#timings-non-spring).
+ */
+export const staggerDelayS = (index: number): number =>
+  (Math.min(Math.max(index, 0), timings.staggerMaxConcurrent - 1) * timings.staggerMs) / 1000;
+
+/** The stagger's enter recipe for tiles (docs/06-motion-spec.md "Drop actions"). */
+export const tileStaggerRecipe = {
+  enterFrom: { opacity: 0, y: 8, scale: 0.94 },
+  visible: { opacity: 1, y: 0, scale: 1 },
+  reducedEnterFrom: { opacity: 0 },
+  reducedVisible: { opacity: 1 },
+} as const;
