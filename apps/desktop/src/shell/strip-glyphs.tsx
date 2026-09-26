@@ -5,6 +5,7 @@ import {
   BatteryCharging,
   Bell,
   Bluetooth,
+  Calendar,
   CircleCheck,
   Cpu,
   Headphones,
@@ -63,6 +64,7 @@ export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   checkCircle: 'strip.glyph.checkCircle',
   cpu: 'strip.glyph.cpu',
   hourglass: 'strip.glyph.hourglass',
+  calendar: 'strip.glyph.calendar',
 };
 
 /**
@@ -115,5 +117,7 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <Cpu {...glyphProps} />;
     case 'hourglass':
       return <Hourglass {...glyphProps} />;
+    case 'calendar':
+      return <Calendar {...glyphProps} />;
   }
 };

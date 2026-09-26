@@ -15,6 +15,7 @@ import { LayoutGroup, motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useMinuteNow } from '../../lib/minute-now';
 import { useSettings } from '../../lib/settings';
 import { useAppStore } from '../../store/app-store';
 import './day-progress.css';
@@ -25,7 +26,7 @@ import {
   type Timeline,
   type TimelineItem,
 } from './timeline';
-import { useDaySources, useMinuteNow } from './use-day-progress';
+import { useDaySources } from './use-day-progress';
 
 /** Lucide icons in the panel body use stroke 1.75 (docs/05-design-system.md). */
 const ICON_STROKE = 1.75;

@@ -4,6 +4,8 @@
 //! traits return **and** publishes the matching [`PlatformEvent`], exactly as the real
 //! implementation would. Commands sent to the fake are recorded so tests can assert on them.
 
+use std::collections::BTreeMap;
+
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
 
@@ -11,7 +13,7 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
-    Platform, Power, SystemOsd, SystemStats, Windowing,
+    Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
@@ -104,6 +106,10 @@ struct State {
     location_denied: bool,
     /// How many times `position()` was asked, to assert "no repeated prompts".
     location_requests: usize,
+    /// The scripted Credential Manager: key → value.
+    secrets: BTreeMap<String, String>,
+    /// Scripted: every secrets call fails with `Os` (a locked-down or corrupt vault).
+    secrets_unavailable: bool,
 }
 
 impl Default for State {
@@ -156,6 +162,8 @@ impl Default for State {
             location: None,
             location_denied: false,
             location_requests: 0,
+            secrets: BTreeMap::new(),
+            secrets_unavailable: false,
         }
     }
 }
@@ -458,6 +466,59 @@ impl FakePlatform {
     #[must_use]
     pub fn location_requests(&self) -> usize {
         self.state.lock().location_requests
+    }
+
+    /// The scripted vault's value under `key`, for assertions.
+    #[must_use]
+    pub fn secret(&self, key: &str) -> Option<String> {
+        self.state.lock().secrets.get(key).cloned()
+    }
+
+    /// Every key in the scripted vault, sorted, for assertions that nothing leaked or lingered.
+    #[must_use]
+    pub fn secret_keys(&self) -> Vec<String> {
+        self.state.lock().secrets.keys().cloned().collect()
+    }
+
+    /// Scripts a vault that refuses every call with `Os`.
+    pub fn set_secrets_unavailable(&self, unavailable: bool) {
+        self.state.lock().secrets_unavailable = unavailable;
+    }
+}
+
+impl Secrets for FakePlatform {
+    fn get(&self, key: &str) -> PlatformResult<Option<String>> {
+        let state = self.state.lock();
+        if state.secrets_unavailable {
+            return Err(secrets_error());
+        }
+        Ok(state.secrets.get(key).cloned())
+    }
+
+    fn set(&self, key: &str, value: &str) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        if state.secrets_unavailable {
+            return Err(secrets_error());
+        }
+        state.secrets.insert(key.to_owned(), value.to_owned());
+        Ok(())
+    }
+
+    fn remove(&self, key: &str) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        if state.secrets_unavailable {
+            return Err(secrets_error());
+        }
+        state.secrets.remove(key);
+        Ok(())
+    }
+}
+
+/// `ERROR_NOT_FOUND`-shaped failure: the code Windows gives for a vault it cannot open.
+fn secrets_error() -> PlatformError {
+    PlatformError::Os {
+        api: "CredReadW",
+        code: 0x8007_0490,
     }
 }
 
@@ -888,6 +949,10 @@ impl Platform for FakePlatform {
     }
 
     fn location(&self) -> &dyn Location {
+        self
+    }
+
+    fn secrets(&self) -> &dyn Secrets {
         self
     }
 

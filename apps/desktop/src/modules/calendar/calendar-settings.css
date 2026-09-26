@@ -1,0 +1,75 @@
+/*
+ * Settings → Calendar (docs/modules/calendar.md): the subscribed calendars as list rows with
+ * a colour dot, then the form that adds one. Composes tokens only.
+ */
+
+.calendar-dot {
+  display: inline-block;
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: 999px;
+  background: var(--calendar-tint, var(--text-2));
+}
+
+.calendar-dot--large {
+  inline-size: 12px;
+  block-size: 12px;
+}
+
+.calendar-source__controls {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.calendar-add__frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.calendar-add__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.calendar-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.calendar-add__fields {
+  display: flex;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.calendar-add__name {
+  flex: 0 0 160px;
+}
+
+.calendar-add__url {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.calendar-add__row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calendar-add__colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.calendar-add__note {
+  margin: 0;
+}

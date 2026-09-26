@@ -88,15 +88,18 @@ the launcher, actions, quick toggles and the remaining widgets are deferred (bel
 
 ### Widgets
 
-Media (art, title, artist; transport on a wide card) · Pomodoro (small ring with the countdown
-and start / pause / resume) · Tasks (three soonest open tasks, overdue in red, "N more") ·
-Weather (glyph, temperature, condition, high / low; place on a wide card) · Day progress (share
-of the working day and completion) · System (CPU and memory rings; storage and network on a
-wide card; watches at 1 Hz only while mounted) · Bluetooth (connected devices with battery).
-Every widget re-uses its module's hooks, store and formatting; none imports another module.
+Media (art, title, artist; transport on a wide card) · Events (the next three events that have
+not ended, time or day and title in the calendar's colour; place on a wide card; added from
+*Add a widget*, since the default layout was full before the calendar module existed) ·
+Pomodoro (small ring with the countdown and start / pause / resume) · Tasks (three soonest
+open tasks, overdue in red, "N more") · Weather (glyph, temperature, condition, high / low;
+place on a wide card) · Day progress (share of the working day and completion) · System (CPU
+and memory rings; storage and network on a wide card; watches at 1 Hz only while mounted) ·
+Bluetooth (connected devices with battery). Every widget re-uses its module's hooks, store and
+formatting; none imports another module.
 
 ### Deferred
 
 Profiles and scheduled switching, the launcher (Start Menu index, `ShellExecuteEx`), action
-shortcuts, quick toggles, screenshot and info buttons, Events / Screen Time / Quotes / Mirror /
-Notes widgets (their modules do not exist yet), a module story harness for data-bound panels.
+shortcuts, quick toggles, screenshot and info buttons, Screen Time / Quotes / Mirror / Notes
+widgets (their modules do not exist yet), a module story harness for data-bound panels.

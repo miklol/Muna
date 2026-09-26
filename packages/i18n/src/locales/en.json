@@ -29,7 +29,8 @@
       "pomodoroLongBreak": "Long break",
       "pomodoroWorkFinished": "Focus finished",
       "pomodoroShortBreakFinished": "Short break finished",
-      "pomodoroLongBreakFinished": "Long break finished"
+      "pomodoroLongBreakFinished": "Long break finished",
+      "eventUntitled": "Untitled event"
     },
     "describe": {
       "battery": "Battery {{percent}}",
@@ -48,7 +49,10 @@
       "waveformPaused": "Paused",
       "time": "at {{time}}",
       "taskDue": "{{title}} is due",
-      "taskDueAt": "{{title}} is due {{fact}}"
+      "taskDueAt": "{{title}} is due {{fact}}",
+      "event": "Next, {{title}}",
+      "eventAt": "Next, {{title}} {{fact}}",
+      "eventStartingSoon": "{{title}} starts in ten minutes"
     },
     "glyph": {
       "battery": "Battery",
@@ -72,7 +76,8 @@
       "micMuted": "Microphone muted",
       "checkCircle": "Task",
       "cpu": "Processor",
-      "hourglass": "Working day"
+      "hourglass": "Working day",
+      "calendar": "Calendar"
     }
   },
   "spike": {
@@ -417,6 +422,93 @@
       "units": "Units",
       "metric": "°C, km/h",
       "imperial": "°F, mph"
+    }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "month": "Month",
+    "agenda": "Agenda",
+    "today": "Today",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing",
+    "offline": "Offline",
+    "attention": "Some calendars need attention",
+    "allDay": "All day",
+    "untitled": "Untitled event",
+    "join": "Join",
+    "joinNamed": "Join {{title}}",
+    "open": "Open",
+    "openNamed": "Open {{title}}",
+    "noEvents": "Nothing on this day.",
+    "outsideWindow": "Only the sixty days around today are loaded.",
+    "eventCount_one": "{{count}} event",
+    "eventCount_other": "{{count}} events",
+    "empty": {
+      "title": "No calendars yet",
+      "body": "Add a calendar link in Settings and your events show here, and in the strip before they start.",
+      "action": "Open settings"
+    },
+    "widget": {
+      "label": "Next events",
+      "nothingAhead": "Nothing ahead"
+    },
+    "settings": {
+      "section": "Calendars",
+      "privacy": "Muna fetches each calendar link from this PC on the period below. Links stay in Windows Credential Manager and never appear in the settings file or an export.",
+      "add": "Add a calendar",
+      "addBody": "Paste the ICS or webcal link your calendar app offers under share, publish or subscribe.",
+      "name": "Name",
+      "namePlaceholder": "Work",
+      "address": "Link",
+      "addressPlaceholder": "webcal://…",
+      "color": "Colour",
+      "colors": {
+        "blue": "Blue",
+        "cyan": "Cyan",
+        "green": "Green",
+        "orange": "Orange",
+        "red": "Red",
+        "purple": "Purple",
+        "yellow": "Yellow",
+        "pink": "Pink"
+      },
+      "addAction": "Add",
+      "adding": "Adding…",
+      "added": "Added {{name}}. Its events arrive in a moment.",
+      "nameMissing": "Give the calendar a name.",
+      "addFailed": {
+        "malformed": "That is not a web link.",
+        "scheme": "Only https and webcal links work.",
+        "credentials": "Remove the user name and password from the link.",
+        "vault": "Windows could not store the link. Try again.",
+        "failed": "That did not work. Try again."
+      },
+      "show": "Show {{name}}",
+      "remove": "Remove {{name}}",
+      "events_one": "{{count}} event",
+      "events_other": "{{count}} events",
+      "status": {
+        "off": "Off",
+        "idle": "Not fetched yet",
+        "fetching": "Refreshing",
+        "ok": "Updated {{time}}",
+        "offline": "Offline",
+        "offlineCached": "Offline, showing events from {{time}}",
+        "refused": "The link was refused. It may have expired; add the calendar again.",
+        "invalid": "The link did not return a calendar.",
+        "missingLink": "The link is missing on this PC. Remove the calendar and add it again."
+      },
+      "refresh": "Refresh",
+      "refreshEvery": "Refresh every",
+      "refreshBody": "How often each calendar link is fetched while Muna runs.",
+      "minutes": "{{count}} min",
+      "strip": "Strip",
+      "showNextInStrip": "Show the next event in the strip",
+      "showNextInStripBody": "An event within the hour takes the strip with a countdown and outranks music ten minutes before it starts.",
+      "notices": "Announce events ten minutes before",
+      "noticesBody": "A short notice in the strip with the event's title."
     }
   },
   "dayProgress": {
