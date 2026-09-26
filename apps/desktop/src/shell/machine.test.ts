@@ -135,6 +135,15 @@ describe('transition (pure)', () => {
     expect(run([timer('hoverOut')], visited.snapshot).snapshot.state).toBe('collapsed');
   });
 
+  it('open (an action that needs the panel) expands like the hotkey and leaves an open panel alone', () => {
+    const { snapshot, effects } = run([{ type: 'open' }]);
+    expect(snapshot.state).toBe('expanded');
+    expect(effects).toEqual([]);
+    const pinned = run([{ type: 'pin', pinned: true }], opened()).snapshot;
+    expect(run([{ type: 'open' }], pinned).snapshot).toBe(pinned);
+    expect(run([{ type: 'open' }], opened()).snapshot.state).toBe('expanded');
+  });
+
   it('pin keeps the panel open; unpin resumes auto-collapse', () => {
     const pinned = run([{ type: 'pin', pinned: true }, away, timer('hoverOut')], opened());
     expect(pinned.snapshot.state).toBe('pinned');

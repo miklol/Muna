@@ -52,12 +52,6 @@ export const settingsIndex: readonly SettingEntry[] = [
   },
   {
     pane: 'general',
-    id: 'general.toggleHotkey',
-    labelKey: 'settings.general.toggleHotkey',
-    synonyms: ['shortcut', 'hotkey', 'keyboard', 'toggle', 'expand', 'collapse'],
-  },
-  {
-    pane: 'general',
     id: 'general.tour',
     labelKey: 'settings.general.tour',
     synonyms: ['onboarding', 'first run', 'setup', 'set up', 'welcome', 'tour', 'help'],

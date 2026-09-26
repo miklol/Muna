@@ -10,7 +10,7 @@ import {
   readNotificationsSettings,
   writeNotificationsSettings,
 } from '@muna/contracts';
-import type { MessageKey } from '@muna/i18n';
+import type { MessageKey, Translate } from '@muna/i18n';
 import {
   Button,
   Chip,
@@ -41,8 +41,6 @@ import {
 
 /** Lucide icons in the panel body use stroke 1.75 (docs/05-design-system.md). */
 const ICON_STROKE = 1.75;
-
-type Translate = ReturnType<typeof useTranslation>['t'];
 
 /** The i18n key for a refused command, by the IPC error code the platform layer maps to. */
 export const errorKey = (error: IpcError): MessageKey => {

@@ -1,7 +1,7 @@
 import { Button } from '@muna/ui';
 import { useTranslation } from 'react-i18next';
 
-import { ActionRow, Keys, type RowFilter, Section, ToggleRow, ValueRow } from '../rows';
+import { ActionRow, type RowFilter, Section, ToggleRow } from '../rows';
 import { useSettingsEditor } from '../settings-editor';
 
 interface PaneProps {
@@ -10,7 +10,7 @@ interface PaneProps {
   onShowTour: () => void;
 }
 
-/** General: launch at login, capture privacy, the toggle shortcut (read-only for now), the tour. */
+/** General: launch at login, capture privacy, the tour. Shortcuts live in their own pane. */
 export function GeneralPane({ visible, onShowTour }: PaneProps) {
   const { t } = useTranslation();
   const { settings, update } = useSettingsEditor();
@@ -56,22 +56,6 @@ export function GeneralPane({ visible, onShowTour }: PaneProps) {
                     shell: { ...current.shell, hideFromCaptures },
                   }));
                 }}
-              />
-            ),
-          },
-        ]}
-      />
-      <Section
-        title={t('settings.general.keyboard')}
-        visible={visible}
-        rows={[
-          {
-            id: 'general.toggleHotkey',
-            node: (
-              <ValueRow
-                label={t('settings.general.toggleHotkey')}
-                description={t('settings.general.toggleHotkeyBody')}
-                value={<Keys shortcut={settings.shell.toggleHotkey} />}
               />
             ),
           },

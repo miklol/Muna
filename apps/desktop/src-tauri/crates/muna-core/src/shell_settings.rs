@@ -80,14 +80,11 @@ impl Default for MonitorLayout {
 }
 
 /// Global shell settings plus the per-monitor table.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ShellSettings {
     /// `WDA_EXCLUDEFROMCAPTURE` on every notch window.
     pub hide_from_captures: bool,
-    /// Global shortcut that expands or collapses the notch under the cursor
-    /// (`tauri-plugin-global-shortcut` syntax).
-    pub toggle_hotkey: String,
     /// Layout used for monitors without an entry in `monitors`.
     pub defaults: MonitorLayout,
     /// Per-monitor overrides keyed by the stable monitor id (`\\.\DISPLAY1`, …).
@@ -97,19 +94,6 @@ pub struct ShellSettings {
     pub module_order: Vec<String>,
     /// Modules the user switched off (v3): hidden from the bar, backend still registered.
     pub disabled_modules: Vec<String>,
-}
-
-impl Default for ShellSettings {
-    fn default() -> Self {
-        Self {
-            hide_from_captures: false,
-            toggle_hotkey: "ctrl+alt+space".into(),
-            defaults: MonitorLayout::default(),
-            monitors: BTreeMap::new(),
-            module_order: Vec::new(),
-            disabled_modules: Vec::new(),
-        }
-    }
 }
 
 impl ShellSettings {
@@ -196,7 +180,10 @@ mod tests {
     #[test]
     fn serialises_with_camel_case_and_lower_case_enums() {
         let json = serde_json::to_value(ShellSettings::default()).unwrap();
-        assert_eq!(json["toggleHotkey"], "ctrl+alt+space");
+        assert!(
+            json.get("toggleHotkey").is_none(),
+            "the toggle chord lives in the keyboard-shortcuts namespace since v5"
+        );
         assert_eq!(json["defaults"]["mode"], "overlay");
         assert_eq!(json["defaults"]["stripHeight"], "default");
         assert_eq!(json["hideFromCaptures"], false);

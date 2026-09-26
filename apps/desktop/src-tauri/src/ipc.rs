@@ -15,6 +15,7 @@ use specta::Type;
 use specta_typescript::Typescript;
 use tauri::{AppHandle, State, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
@@ -24,6 +25,10 @@ use crate::modules::calendar::{
     SourceSetting, UrlError,
 };
 use crate::modules::hud::{HudSink, HudState};
+use crate::modules::keyboard_shortcuts::{
+    HotkeyBinding, HotkeyError, HotkeyRegistrar, HotkeyService, HotkeySink,
+    KeyboardShortcutsSettings, RegisterError, actions as hotkey_actions,
+};
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
 use crate::modules::notifications::{
     NotificationsCommand, NotificationsSink, NotificationsSnapshot,
@@ -120,6 +125,17 @@ impl From<AddSourceError> for IpcError {
     }
 }
 
+impl From<HotkeyError> for IpcError {
+    fn from(error: HotkeyError) -> Self {
+        let code = match &error {
+            HotkeyError::Invalid => "hotkey.invalid",
+            HotkeyError::InUse => "hotkey.inUse",
+            HotkeyError::Taken { .. } => "hotkey.taken",
+        };
+        Self::new(code, error)
+    }
+}
+
 /// Static facts about the running build, for the settings "About" section and diagnostics.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -201,11 +217,122 @@ pub struct ShellYieldChanged {
     pub state: YieldState,
 }
 
-/// The global toggle hotkey was pressed; `label` is the notch on the monitor under the cursor.
+/// A global hotkey was pressed. `action` is the id the chord is bound to (`shell.togglePanel`,
+/// `todo.quickAdd`, …; the UI resolves it against the shell's actions and the module registry)
+/// and `label` the notch on the monitor under the cursor, which is the one to act. Replaces
+/// `ShellToggleRequested` (M1), whose only action is now `shell.togglePanel`.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 #[serde(rename_all = "camelCase")]
-pub struct ShellToggleRequested {
+pub struct HotkeyPressed {
+    pub action: String,
     pub label: String,
+}
+
+/// Bridges the keyboard-shortcuts service to the shell: presses become [`HotkeyPressed`] for
+/// the notch under the cursor, `shell.snooze` parks that display right here, and the *only
+/// while hovering* scope is checked against the shell's last cursor sample.
+pub struct HotkeyEventSink {
+    app: AppHandle,
+    shell: Option<Arc<ShellManager>>,
+}
+
+impl std::fmt::Debug for HotkeyEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HotkeyEventSink").finish_non_exhaustive()
+    }
+}
+
+impl HotkeyEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle, shell: Option<Arc<ShellManager>>) -> Self {
+        Self { app, shell }
+    }
+}
+
+impl HotkeySink for HotkeyEventSink {
+    fn pressed(&self, action: &str, settings: &KeyboardShortcutsSettings) {
+        if settings.only_while_hovering && !self.shell.as_ref().is_some_and(|s| s.hovering()) {
+            return;
+        }
+        if action == hotkey_actions::SNOOZE {
+            if let Some(shell) = &self.shell {
+                let minutes = u64::from(settings.snooze_minutes);
+                shell.snooze_under_cursor(&self.app, std::time::Duration::from_secs(minutes * 60));
+            }
+            return;
+        }
+        let label = self
+            .shell
+            .as_ref()
+            .and_then(|shell| shell.hotkey_label())
+            .unwrap_or_else(|| crate::shell::model::PRIMARY_LABEL.to_owned());
+        if let Some(shell) = &self.shell {
+            shell.wake_webviews(&self.app);
+        }
+        let event = HotkeyPressed {
+            action: action.to_owned(),
+            label,
+        };
+        if let Err(error) = event.emit(&self.app) {
+            tracing::warn!(%error, "emit HotkeyPressed failed");
+        }
+    }
+}
+
+/// `tauri-plugin-global-shortcut` behind the service's registrar trait. The plugin flattens
+/// its errors to strings, so the chord is parsed here first (syntax → *invalid*) and any
+/// registration failure after that means the OS refused it (→ *in use*).
+pub struct PluginRegistrar {
+    app: AppHandle,
+    service: std::sync::Weak<HotkeyService>,
+}
+
+impl std::fmt::Debug for PluginRegistrar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PluginRegistrar").finish_non_exhaustive()
+    }
+}
+
+impl PluginRegistrar {
+    #[must_use]
+    pub fn new(app: AppHandle, service: &Arc<HotkeyService>) -> Self {
+        Self {
+            app,
+            service: Arc::downgrade(service),
+        }
+    }
+}
+
+impl HotkeyRegistrar for PluginRegistrar {
+    fn register(&self, chord: &str) -> Result<(), RegisterError> {
+        let shortcut: Shortcut = chord.parse().map_err(|_| RegisterError::Invalid)?;
+        let service = self.service.clone();
+        let chord_owned = chord.to_owned();
+        self.app
+            .global_shortcut()
+            .on_shortcut(shortcut, move |_app, _shortcut, event| {
+                if event.state != ShortcutState::Pressed {
+                    return;
+                }
+                if let Some(service) = service.upgrade() {
+                    let action = service.pressed(&chord_owned);
+                    tracing::debug!(chord = chord_owned, action = ?action, "hotkey pressed");
+                }
+            })
+            .map_err(|error| {
+                tracing::warn!(%error, chord, "hotkey registration refused");
+                RegisterError::InUse
+            })
+    }
+
+    fn unregister(&self, chord: &str) {
+        let Ok(shortcut) = chord.parse::<Shortcut>() else {
+            return;
+        };
+        if let Err(error) = self.app.global_shortcut().unregister(shortcut) {
+            tracing::warn!(%error, chord, "hotkey unregister failed");
+        }
+    }
 }
 
 /// A mouse button went down while the cursor was outside every shape the notch `label`
@@ -1225,6 +1352,59 @@ fn calendar_open(
         .map_err(|error| IpcError::new("platform.os", error))
 }
 
+/// Every bound action with its chord and whether the OS took it (docs/modules/
+/// keyboard-shortcuts.md). Actions without a chord are not listed; the UI knows the full set.
+#[tauri::command]
+#[specta::specta]
+fn get_hotkeys(state: State<'_, Shared>) -> Vec<HotkeyBinding> {
+    state.modules.keyboard_shortcuts.bindings()
+}
+
+/// Binds `action` to `chord` (`tauri-plugin-global-shortcut` syntax, e.g. `ctrl+alt+space`):
+/// the OS is asked first, so a chord another app holds fails with `hotkey.inUse` and nothing
+/// is saved; `hotkey.taken` names the Muna action that already has the chord; `hotkey.invalid`
+/// is a chord the plugin cannot parse. On success the namespace is persisted and
+/// `SettingsChanged` broadcast.
+#[tauri::command]
+#[specta::specta]
+fn set_hotkey(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    action: String,
+    chord: String,
+) -> Result<Vec<HotkeyBinding>, IpcError> {
+    let bindings = state.modules.keyboard_shortcuts.try_bind(&action, &chord)?;
+    persist_hotkeys(&app, &state)?;
+    Ok(bindings)
+}
+
+/// Removes the binding of `action`, releases the chord and persists the namespace.
+#[tauri::command]
+#[specta::specta]
+fn clear_hotkey(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    action: String,
+) -> Result<Vec<HotkeyBinding>, IpcError> {
+    let bindings = state.modules.keyboard_shortcuts.unbind(&action);
+    persist_hotkeys(&app, &state)?;
+    Ok(bindings)
+}
+
+/// Writes the service's in-memory namespace over the document's and commits it; the
+/// `apply_settings` that follows finds every registration already in place.
+fn persist_hotkeys(app: &AppHandle, state: &Shared) -> Result<(), IpcError> {
+    let mut settings = state.settings.lock().clone();
+    state
+        .modules
+        .keyboard_shortcuts
+        .settings()
+        .write(&mut settings)
+        .map_err(|error| IpcError::new("settings.invalid", error))?;
+    commit_settings(app, state, settings)?;
+    Ok(())
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -1277,6 +1457,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_notifications_snapshot,
             notifications_command,
             notifications_open_settings,
+            get_hotkeys,
+            set_hotkey,
+            clear_hotkey,
             quit_app
         ])
         .events(collect_events![
@@ -1285,7 +1468,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             MorphRequested,
             ShellLayoutChanged,
             ShellYieldChanged,
-            ShellToggleRequested,
+            HotkeyPressed,
             ShellPointerDownOutside,
             MediaStateChanged,
             MediaArtChanged,

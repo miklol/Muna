@@ -13,6 +13,7 @@ pub mod calendar;
 pub mod dashboard;
 pub mod day_progress;
 pub mod hud;
+pub mod keyboard_shortcuts;
 pub mod live_activities;
 pub mod media;
 pub mod notifications;
@@ -87,6 +88,7 @@ pub struct ModuleServices {
     pub calendar: Arc<calendar::CalendarService>,
     pub notifications: Arc<notifications::NotificationsService>,
     pub day_progress: Arc<day_progress::DayProgressService>,
+    pub keyboard_shortcuts: Arc<keyboard_shortcuts::HotkeyService>,
 }
 
 impl ModuleServices {
@@ -148,6 +150,7 @@ impl ModuleServices {
                 Arc::clone(clock),
                 Arc::new(day_progress::LocalZone),
             )),
+            keyboard_shortcuts: Arc::new(keyboard_shortcuts::HotkeyService::new()),
         }
     }
 }
@@ -176,6 +179,9 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         ))),
         Box::new(day_progress::DayProgressModule(Arc::clone(
             &services.day_progress,
+        ))),
+        Box::new(keyboard_shortcuts::KeyboardShortcutsModule(Arc::clone(
+            &services.keyboard_shortcuts,
         ))),
     ]
 }

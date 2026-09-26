@@ -10,6 +10,7 @@ import type * as Contracts from '@muna/contracts';
 import {
   defaultSettings,
   HUD_NOTICE_IDS,
+  SHELL_ACTION_IDS,
   STRIP_HEIGHT_PX,
   writeHudSettings,
 } from '@muna/contracts';
@@ -83,11 +84,12 @@ const ipc = vi.hoisted(() => {
           osd: 'suppressed',
         }),
       ),
+      getHotkeys: vi.fn(() => Promise.resolve([])),
     },
     content: channel<{ content: StripContent }>(),
     layout: channel<{ layout: ShellLayout }>(),
     yield: channel<{ label: string; state: YieldState }>(),
-    toggle: channel<{ label: string }>(),
+    hotkey: channel<{ action: string; label: string }>(),
     pressOutside: channel<{ label: string }>(),
     settings: channel<{ settings: Settings }>(),
   };
@@ -100,7 +102,7 @@ vi.mock('@muna/contracts', async (importOriginal) => ({
     stripContentChanged: { listen: ipc.content.listen },
     shellLayoutChanged: { listen: ipc.layout.listen },
     shellYieldChanged: { listen: ipc.yield.listen },
-    shellToggleRequested: { listen: ipc.toggle.listen },
+    hotkeyPressed: { listen: ipc.hotkey.listen },
     shellPointerDownOutside: { listen: ipc.pressOutside.listen },
     settingsChanged: { listen: ipc.settings.listen },
   },
@@ -278,7 +280,7 @@ const fakeModules: readonly ModuleDefinition[] = [
 
 const openWithHotkey = (main: HTMLElement) => {
   act(() => {
-    ipc.toggle.emit({ label: 'notch' });
+    ipc.hotkey.emit({ action: SHELL_ACTION_IDS.togglePanel, label: 'notch' });
   });
   expect(stateOf(main)).toBe('expanded');
 };
@@ -450,7 +452,7 @@ describe('NotchWindow scenario suite', () => {
     expect(stateOf(main)).toBe('expanded');
 
     act(() => {
-      ipc.toggle.emit({ label: 'notch' });
+      ipc.hotkey.emit({ action: SHELL_ACTION_IDS.togglePanel, label: 'notch' });
     });
     expect(stateOf(main)).toBe('collapsed');
     await settle();
@@ -556,7 +558,7 @@ describe('NotchWindow scenario suite', () => {
   it('the hotkey toggles this window only, and a panel it opened waits for the pointer', async () => {
     const { main } = renderNotch();
     act(() => {
-      ipc.toggle.emit({ label: 'notch-1' });
+      ipc.hotkey.emit({ action: SHELL_ACTION_IDS.togglePanel, label: 'notch-1' });
     });
     expect(stateOf(main)).toBe('collapsed');
 
@@ -574,7 +576,7 @@ describe('NotchWindow scenario suite', () => {
 
     openWithHotkey(main);
     act(() => {
-      ipc.toggle.emit({ label: 'notch' });
+      ipc.hotkey.emit({ action: SHELL_ACTION_IDS.togglePanel, label: 'notch' });
     });
     expect(stateOf(main)).toBe('collapsed');
   });
@@ -741,7 +743,7 @@ describe('NotchWindow scenario suite', () => {
     expect(ipc.commands.setStripSuspended).toHaveBeenCalledTimes(1);
 
     act(() => {
-      ipc.toggle.emit({ label: 'notch' });
+      ipc.hotkey.emit({ action: SHELL_ACTION_IDS.togglePanel, label: 'notch' });
     });
     expect(stateOf(main)).toBe('collapsed');
     // Still paused while the shape is collapsing, and for a beat after it settles.
