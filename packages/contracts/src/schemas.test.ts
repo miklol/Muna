@@ -14,6 +14,11 @@ import type {
   ShelfItem,
   ShelfSnapshot,
   ShellLayout,
+  SnapDragEnded,
+  SnapDragLeft,
+  SnapDragMoved,
+  SnapZone,
+  SnapZoneRef,
   SourceSetting,
   StripContent,
 } from './bindings';
@@ -53,6 +58,7 @@ import {
   SHELF_SETTINGS_KEY,
   SHELL_ACTION_IDS,
   SHELL_OPEN_MODULE_SLOTS,
+  SNAP_ZONES,
   SNOOZE_MINUTES_CHOICES,
   STRIP_HEIGHT_PX,
   SYSTEM_MONITOR_BOUNDS,
@@ -65,6 +71,8 @@ import {
   TODO_STRIP_IDS,
   WEATHER_REFRESH_MS,
   WEATHER_SETTINGS_KEY,
+  WINDOW_SNAP_BOUNDS,
+  WINDOW_SNAP_SETTINGS_KEY,
   clampDashboardSlots,
   defaultCalendarSettings,
   defaultDashboardSettings,
@@ -80,6 +88,7 @@ import {
   defaultSystemMonitorSettings,
   defaultTodoSettings,
   defaultWeatherSettings,
+  defaultWindowSnapSettings,
   dragOutRequestSchema,
   dragOutcomeSchema,
   dragSpikeSchema,
@@ -97,6 +106,7 @@ import {
   isSnoozeMinutes,
   monitorLayoutSchema,
   normaliseChord,
+  normaliseSnapGrid,
   readCalendarSettings,
   readDashboardSettings,
   readDayProgressSettings,
@@ -110,6 +120,7 @@ import {
   readSystemMonitorSettings,
   readTodoSettings,
   readWeatherSettings,
+  readWindowSnapSettings,
   settingsSchema,
   shelfChangedSchema,
   shelfCommandSchema,
@@ -118,7 +129,15 @@ import {
   shellLayoutSchema,
   shellOpenModuleActionId,
   shellSettingsSchema,
+  snapDragEndedSchema,
+  snapDragLeftSchema,
+  snapDragMovedSchema,
+  snapGridSchema,
+  snapTileCount,
+  snapZoneRefSchema,
+  snapZoneSchema,
   stripContentSchema,
+  windowSnapSettingsSchema,
   writeCalendarSettings,
   writeDashboardSettings,
   writeDayProgressSettings,
@@ -132,6 +151,7 @@ import {
   writeSystemMonitorSettings,
   writeTodoSettings,
   writeWeatherSettings,
+  writeWindowSnapSettings,
 } from './schemas';
 
 describe('settings schema', () => {
@@ -1481,5 +1501,85 @@ describe('shelf schemas', () => {
     expect(shelfCommandSchema.safeParse({ kind: 'addText', text: '' }).success).toBe(false);
     expect(shelfCommandSchema.safeParse({ kind: 'remove', ids: [] }).success).toBe(false);
     expect(shelfCommandSchema.safeParse({ kind: 'open', id: '' }).success).toBe(false);
+  });
+});
+
+describe('window snap schemas', () => {
+  it('defaults to every built-in zone and no grid', () => {
+    expect(defaultWindowSnapSettings()).toEqual({ zones: [...SNAP_ZONES], grid: null });
+    expect(readWindowSnapSettings(defaultSettings())).toEqual(defaultWindowSnapSettings());
+    expect(WINDOW_SNAP_SETTINGS_KEY).toBe('window-snap');
+    expect(SNAP_ZONES).toHaveLength(WINDOW_SNAP_BOUNDS.zones.max);
+    expect(snapTileCount(defaultWindowSnapSettings())).toBe(10);
+  });
+
+  it('normalises like the Rust side: repeats drop, a grid trims the built-ins, empty reads as defaults', () => {
+    expect(windowSnapSettingsSchema.parse({ zones: ['leftHalf', 'leftHalf', 'maximize'] })).toEqual(
+      { zones: ['leftHalf', 'maximize'], grid: null },
+    );
+    expect(windowSnapSettingsSchema.parse({ zones: [] })).toEqual(defaultWindowSnapSettings());
+    const withGrid = windowSnapSettingsSchema.parse({ grid: { rows: 2, cols: 3, gap: 8 } });
+    expect(withGrid.zones).toEqual(SNAP_ZONES.slice(0, 4));
+    expect(withGrid.grid).toEqual({ rows: 2, cols: 3, gap: 8 });
+    expect(snapTileCount(withGrid)).toBe(10);
+    // A grid alone is a valid configuration: no built-ins is not "empty".
+    expect(
+      windowSnapSettingsSchema.parse({ zones: [], grid: { rows: 1, cols: 2, gap: 0 } }).zones,
+    ).toEqual([]);
+  });
+
+  it('clamps the grid and loses columns before rows past ten cells', () => {
+    expect(normaliseSnapGrid({ rows: 4, cols: 4, gap: 99 })).toEqual({ rows: 3, cols: 3, gap: 32 });
+    expect(normaliseSnapGrid({ rows: 0, cols: 9, gap: -4 })).toEqual({ rows: 1, cols: 4, gap: 0 });
+    expect(normaliseSnapGrid({ rows: 3, cols: 4, gap: 10 })).toEqual({ rows: 3, cols: 3, gap: 10 });
+    expect(normaliseSnapGrid({ rows: 4, cols: 3, gap: 10 })).toEqual({ rows: 3, cols: 3, gap: 10 });
+    expect(snapGridSchema.safeParse({ rows: 2.5, cols: 2, gap: 0 }).success).toBe(false);
+  });
+
+  it('round-trips through the settings document and falls back on a malformed entry', () => {
+    const doc = writeWindowSnapSettings(defaultSettings(), {
+      zones: ['rightHalf'],
+      grid: { rows: 2, cols: 2, gap: 4 },
+    });
+    expect(readWindowSnapSettings(doc)).toEqual({
+      zones: ['rightHalf'],
+      grid: { rows: 2, cols: 2, gap: 4 },
+    });
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [WINDOW_SNAP_SETTINGS_KEY]: { zones: 'leftHalf' } },
+    };
+    expect(readWindowSnapSettings(broken)).toEqual(defaultWindowSnapSettings());
+    const unknownZone: Settings = {
+      ...defaultSettings(),
+      modules: { [WINDOW_SNAP_SETTINGS_KEY]: { zones: ['leftHalf', 'diagonal'] } },
+    };
+    expect(readWindowSnapSettings(unknownZone)).toEqual(defaultWindowSnapSettings());
+  });
+
+  it('accepts zone refs in the shape the command takes and refuses cells past the grid bounds', () => {
+    const refs: SnapZoneRef[] = [{ builtIn: 'leftHalf' }, { cell: { row: 1, col: 3 } }];
+    for (const ref of refs) {
+      expect(snapZoneRefSchema.parse(ref)).toEqual(ref);
+    }
+    expect(snapZoneRefSchema.safeParse({ builtIn: 'diagonal' }).success).toBe(false);
+    expect(snapZoneRefSchema.safeParse({ cell: { row: 4, col: 0 } }).success).toBe(false);
+    expect(snapZoneRefSchema.safeParse({ cell: { row: -1, col: 0 } }).success).toBe(false);
+    expect(snapZoneSchema.safeParse('diagonal').success).toBe(false);
+    expectTypeOf<z.infer<typeof snapZoneSchema>>().toEqualTypeOf<SnapZone>();
+  });
+
+  it('round-trips the drag events', () => {
+    const moved: SnapDragMoved = { label: 'notch-0', session: 3, position: { x: 12, y: 4 } };
+    const left: SnapDragLeft = { label: 'notch-0', session: 3 };
+    const ended: SnapDragEnded = { session: 3, label: null };
+    expect(snapDragMovedSchema.parse(moved)).toEqual(moved);
+    expect(snapDragLeftSchema.parse(left)).toEqual(left);
+    expect(snapDragEndedSchema.parse(ended)).toEqual(ended);
+    expect(snapDragEndedSchema.parse({ ...ended, label: 'notch-1' }).label).toBe('notch-1');
+    expect(snapDragMovedSchema.safeParse({ ...moved, label: '' }).success).toBe(false);
+    expect(snapDragLeftSchema.safeParse({ ...left, session: -1 }).success).toBe(false);
+    expectTypeOf<z.infer<typeof snapDragMovedSchema>>().toEqualTypeOf<SnapDragMoved>();
+    expectTypeOf<z.infer<typeof snapDragEndedSchema>>().toEqualTypeOf<SnapDragEnded>();
   });
 });
