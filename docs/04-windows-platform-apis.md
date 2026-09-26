@@ -140,9 +140,9 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 
 | Need | API | Notes |
 | ------ | ----- | ------- |
-| Move/resize | `SetWindowPos` with `DWMWA_EXTENDED_FRAME_BOUNDS` offset compensation; `ShowWindow(SW_RESTORE)` first if maximized | Account for invisible resize borders |
-| Drag tracking | `EVENT_SYSTEM_MOVESIZESTART/END` + `GetCursorPos` | Snap zones appear only while dragging |
-| Eligible windows | `IsWindowVisible`, no `WS_EX_TOOLWINDOW`, not cloaked (`DWMWA_CLOAKED`), has caption or `WS_THICKFRAME` | Skip UWP frame hosts unless `ApplicationFrameWindow` with content |
+| Move/resize | `SetWindowPos` with `DWMWA_EXTENDED_FRAME_BOUNDS` offset compensation; `ShowWindow(SW_RESTORE)` first if maximized | Account for invisible resize borders. **Implemented (M4-E3)** as `WindowPlacement` in `windows/placement.rs`: frame bounds measured, the invisible border (`GetWindowRect` minus the frame) added back, `ShowWindowAsync(SW_RESTORE)` when `IsZoomed` / `IsIconic`, then `SetWindowPos` with `SWP_ASYNCWINDOWPOS`, `SWP_NOACTIVATE` and `SWP_NOZORDER`; *Maximize* moves onto the target monitor then `ShowWindowAsync(SW_MAXIMIZE)`. Posted, never awaited, so a hung target cannot hold a Muna thread; the module re-reads the frame 120 ms later and places once more if Aero Snap or a per-monitor-DPI resize moved it |
+| Drag tracking | `EVENT_SYSTEM_MOVESIZESTART/END` + `GetCursorPos` | Snap zones appear only while dragging. **Implemented (M4-E3)**: the M1 pump's hook carries the dragged `HWND` (`MoveSizeChanged { started, window }`); timings in [spikes/m4-snap](spikes/m4-snap.md) |
+| Eligible windows | `IsWindowVisible`, no `WS_EX_TOOLWINDOW`, not cloaked (`DWMWA_CLOAKED`), has caption or `WS_THICKFRAME` | Skip UWP frame hosts unless `ApplicationFrameWindow` with content. **Implemented (M4-E3)** as `WindowPlacement::is_snappable`: visible, top-level, caption or `WS_THICKFRAME`, neither `WS_EX_TOOLWINDOW` nor `WS_EX_NOACTIVATE`; the cloaked and frame-host checks are not in yet |
 | Virtual desktops | Undocumented `IVirtualDesktopManager` beyond `IsWindowOnCurrentVirtualDesktop` ⚠️ | Only the public `IsWindowOnCurrentVirtualDesktop` |
 
 ## Code hosting & AI coding
