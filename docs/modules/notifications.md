@@ -1,7 +1,9 @@
 # Notifications
 
-**Tier P1 · Owner: `muna-module-developer` + `muna-shell-engineer` · Status: in progress
-(M3-E5)**
+**Tier P1 · Owner: `muna-module-developer` + `muna-shell-engineer` · Status: implemented
+(M3-E5; reply, the Win10 Focus Assist read and a filter chip deferred — see
+[Implementation notes](#implementation-notes-m3-e5); hardware and installer rows in
+[qa/checklists/notifications](../qa/checklists/notifications.md))**
 
 ## Reference
 
