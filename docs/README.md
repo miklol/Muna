@@ -39,8 +39,9 @@ numbers: plan and exit criteria by `muna-architect`, measurements by the impleme
 `qa/checklists/` — the manual and scripted scenarios a milestone must pass on real Windows,
 with results per run: [notch-shell](qa/checklists/notch-shell.md) (ten yield scenarios, driven
 by `scripts/qa/notch-yield.ps1`), [media](qa/checklists/media.md) (media-key latency, driven by
-`scripts/qa/media-latency.ps1`) and [hud](qa/checklists/hud.md) (volume and brightness in the
-strip, the Windows flyout after a hard kill).
+`scripts/qa/media-latency.ps1`), [hud](qa/checklists/hud.md) (volume and brightness in the
+strip, the Windows flyout after a hard kill) and [notifications](qa/checklists/notifications.md)
+(the consent states, both installers, focus and busy holds, capture hiding).
 
 ## Module specs
 

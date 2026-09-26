@@ -193,3 +193,33 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
   Deviation: the pencil lives in the panel body rather than the shell header rail. Deferred:
   profiles, launcher, actions, quick toggles, screenshot / info, the widgets of modules that do
   not exist yet, the module story harness.
+
+## Stack and merge order
+
+Every M3 epic landed as one PR stacked on the previous one so each could be reviewed against
+its own diff; the whole run sits on the M2 stack because nothing has merged since M1:
+
+| PR | Epic | Base |
+| --- | ------ | ------ |
+| [#28](https://github.com/miklol/Muna/pull/28) | M3-E3 Pomodoro | `m2-e4-perf-harness` (#27) |
+| [#29](https://github.com/miklol/Muna/pull/29) | M3-E2 To-do | #28 |
+| [#30](https://github.com/miklol/Muna/pull/30) | M3-E8 System monitor | #29 |
+| [#31](https://github.com/miklol/Muna/pull/31) | M3-E7 Bluetooth | #30 |
+| [#32](https://github.com/miklol/Muna/pull/32) | M3-E4 Weather | #31 |
+| [#33](https://github.com/miklol/Muna/pull/33) | M3-E6 Day progress | #32 |
+| [#34](https://github.com/miklol/Muna/pull/34) | M3-E9 Dashboard | #33 |
+| [#35](https://github.com/miklol/Muna/pull/35) | M3-E1 Calendar (ICS) | #34 |
+| [#36](https://github.com/miklol/Muna/pull/36) | M3-E5 Notifications | #35 |
+
+Merge from the bottom of the M2 stack upwards (#22 → #24 → #25 → #26 → #27 → #28 → … → #36;
+[#23](https://github.com/miklol/Muna/pull/23) is independent), retargeting each PR to `main`
+as its base merges — GitHub does this on its own when the base branch is deleted. Every PR
+passes the parity commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`, `ci:app`, the docs
+checks); the hosted checks have not run because the GitHub Actions budget is exhausted. When
+it is restored, `gh run rerun --failed <run id>` on each PR is enough.
+
+Carry-overs (listed against the M3 exit criteria in
+[07-roadmap → M3](../07-roadmap.md#m3--daily-modules-4-weeks)): the module story harness and
+Storybook states for the nine modules, the dashboard-while-media 60 fps measurement, the MSIX
+column of [qa/checklists/notifications](../qa/checklists/notifications.md), the Windows 10
+columns of every checklist, and the Graph / Google / CalDAV calendar sources.
