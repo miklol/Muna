@@ -182,7 +182,11 @@ NSIS polling, focus and busy holds, capture hiding);
 tiles and hardware by hand; [checklists/shelf.md](qa/checklists/shelf.md) pairs with the
 scripted drag-out spike (`scripts/spikes/drag/index.mjs` for the gesture-to-OLE latency and the
 Explorer and browser targets) and covers Outlook, Teams, copies, thumbnails and missing files
-by hand.
+by hand; [checklists/window-snap.md](qa/checklists/window-snap.md) pairs with the S3 hook test
+next to the pump (`cargo test -p muna-platform --features platform-tests -- s3_a` for the hook
+latency and the drag-start clock) and the fake-platform zone table (`tests/window_snap.rs`),
+and covers real drags, exact placement on mixed DPI, elevated and UWP windows and the grid by
+hand.
 
 ## Bug workflow
 

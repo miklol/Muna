@@ -2,7 +2,8 @@
 
 **Tier P0 · Owner: `muna-shell-engineer` + `muna-ui-engineer` · Status: in progress (M1-E1 —
 window manager, yield rules, tray, shell settings, state machine, strip and panel landed; the
-Drop, Snap and Notice states arrive with the modules that own them)**
+Drop state arrived with Drop actions (M4-E1) and the Snap state with Window snap (M4-E3); the
+Notice state arrives with the module that owns it)**
 
 ## Purpose
 
@@ -43,8 +44,8 @@ stateDiagram-v2
   Collapsed --> Drop: file drag enters hot zone
   Expanded --> Drop: file drag enters panel
   Drop --> Collapsed: drag leaves / drop handled
-  Collapsed --> Snap: window drag enters top hot zone
-  Snap --> Collapsed: drag ends
+  Collapsed --> Snap: window drag rests in top hot zone 120 ms
+  Snap --> Collapsed: drag leaves hot zone / drag ends / Esc
   Collapsed --> Notice: live-activity interrupt (charging, BT connect, HUD)
   Notice --> Collapsed: timeout (2–4 s) or pointer enters (→ HoverReveal)
 ```
@@ -229,8 +230,12 @@ decided during M1-E1 and is the behaviour to test against.
   `blurField`); `ShellMachine` runs it against real or fake timers and `NotchWindow` only
   forwards DOM events and applies the effects. Every duration is read from `timings` in
   `@muna/ui/motion` (intent 250 ms, open at 600 ms from the pointer arriving, hover-out grace
-  300 ms open / 150 ms revealed, velocity gate 800 px/s). `Drop`, `Snap` and `Notice` are added
-  by the modules that own them.
+  300 ms open / 150 ms revealed, velocity gate 800 px/s). `Drop` (M4-E1) and `Snap` (M4-E3)
+  are in; `Notice` is added by the module that owns it. Both drag states are entered only
+  from strip forms, ignore the pointer and panel controls while they hold, and close on Esc
+  or Park; `Snap` waits out a 120 ms `snapIntent` timer (`timings.snapZonesDelayMs`) first and
+  its hot zone is the rest box padded by `timings.snapHotZonePx`
+  ([window-snap](window-snap.md#implementation-notes-m4-e3)).
 - **Peek is a strip state.** Hover intent, press and scroll-down still apply while peeking, so
   resting on the 6 px sliver reveals and opens; closing returns to Peek or Collapsed according to
   the yield state.

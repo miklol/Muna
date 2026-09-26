@@ -43,8 +43,10 @@ by `scripts/qa/notch-yield.ps1`), [media](qa/checklists/media.md) (media-key lat
 strip, the Windows flyout after a hard kill), [notifications](qa/checklists/notifications.md)
 (the consent states, both installers, focus and busy holds, capture hiding),
 [drop-actions](qa/checklists/drop-actions.md) (drags from Explorer, browsers and Outlook, every
-tile against the real shell, eject with a USB stick) and [shelf](qa/checklists/shelf.md)
-(drag-out into Explorer, browsers, Outlook and Teams, copies, thumbnails, missing files).
+tile against the real shell, eject with a USB stick), [shelf](qa/checklists/shelf.md)
+(drag-out into Explorer, browsers, Outlook and Teams, copies, thumbnails, missing files) and
+[window-snap](qa/checklists/window-snap.md) (the zones against real drags, exact placement on
+mixed DPI, elevated and UWP windows, the grid).
 
 ## Module specs
 
