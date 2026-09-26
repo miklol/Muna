@@ -8,6 +8,7 @@ import {
   CircleCheck,
   Cpu,
   Headphones,
+  Hourglass,
   Lock,
   LockOpen,
   Mic,
@@ -61,6 +62,7 @@ export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   micMuted: 'strip.glyph.micMuted',
   checkCircle: 'strip.glyph.checkCircle',
   cpu: 'strip.glyph.cpu',
+  hourglass: 'strip.glyph.hourglass',
 };
 
 /**
@@ -111,5 +113,7 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <CircleCheck {...glyphProps} />;
     case 'cpu':
       return <Cpu {...glyphProps} />;
+    case 'hourglass':
+      return <Hourglass {...glyphProps} />;
   }
 };
