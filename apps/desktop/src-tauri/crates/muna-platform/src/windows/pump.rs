@@ -312,6 +312,7 @@ unsafe extern "system" fn move_size_proc(
     }
     publish(PlatformEvent::MoveSizeChanged {
         started: event == EVENT_SYSTEM_MOVESIZESTART,
+        window: hwnd.0 as isize,
     });
 }
 
@@ -330,5 +331,340 @@ mod tests {
         let pump = Pump::start(events).unwrap();
         assert_ne!(pump.window, 0);
         drop(pump);
+    }
+
+    /// Spike S3 (docs/spikes/m4-snap.md): a real title-bar drag of a window in *another*
+    /// process must reach the pump's subscribers as `MoveSizeChanged { started: true }`
+    /// within one frame, and dropping the pump must join its thread. The other process is this
+    /// test binary re-run as [`s3_helper_window`]; the drag is injected with `SendInput`, so
+    /// the cursor moves for a moment and is put back afterwards.
+    #[test]
+    #[cfg_attr(
+        not(feature = "platform-tests"),
+        ignore = "requires a real Windows session and moves the mouse"
+    )]
+    fn s3_a_foreign_window_drag_is_reported_within_a_frame() {
+        use std::time::Duration;
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .unwrap();
+        let resting = s3::cursor_position();
+        let mut rounds = Vec::new();
+        for round in 0..5 {
+            let timing = s3::drag_round(&runtime);
+            eprintln!(
+                "S3 round {round}: MOVESIZESTART after {:?}, MOVESIZEEND after {:?}, pump \
+                 stopped in {:?}",
+                timing.start, timing.end, timing.stop
+            );
+            assert!(
+                timing.stop < Duration::from_millis(500),
+                "the pump thread took {:?} to stop",
+                timing.stop
+            );
+            rounds.push(timing);
+        }
+        s3::set_cursor_position(resting);
+
+        let mut starts: Vec<Duration> = rounds.iter().map(|t| t.start).collect();
+        let mut ends: Vec<Duration> = rounds.iter().map(|t| t.end).collect();
+        starts.sort();
+        ends.sort();
+        eprintln!(
+            "S3 summary: MOVESIZESTART min {:?} median {:?} max {:?}; MOVESIZEEND min {:?} \
+             median {:?} max {:?}",
+            starts[0], starts[2], starts[4], ends[0], ends[2], ends[4]
+        );
+        // MOVESIZEEND is raised synchronously on button-up, so it measures the hook path alone:
+        // OS → hook thread → broadcast → subscriber must fit in a frame. MOVESIZESTART also
+        // waits for the OS to confirm the drag; it must still beat the 120 ms intent delay the
+        // motion spec adds before the zones appear.
+        assert!(
+            ends[2] <= Duration::from_millis(16),
+            "median MOVESIZEEND latency {:?} exceeds one frame",
+            ends[2]
+        );
+        assert!(
+            starts[4] <= Duration::from_millis(120),
+            "slowest MOVESIZESTART {:?} would arrive after the zones are due",
+            starts[4]
+        );
+    }
+
+    /// The other process for [`s3_a_foreign_window_drag_is_reported_within_a_frame`]: shows a
+    /// small top-most window, prints `READY <hwnd> <x> <y> <w> <h>` and pumps messages until
+    /// it is killed. Does nothing unless spawned by that test.
+    #[test]
+    #[ignore = "helper process for the S3 spike, spawned by the spike test"]
+    fn s3_helper_window() {
+        if std::env::var_os("MUNA_S3_HELPER").is_some() {
+            s3::run_helper_window();
+        }
+    }
+
+    /// Plumbing for the S3 spike test: input injection, the helper process and one timed drag.
+    mod s3 {
+        use std::io::{BufRead, BufReader, Write};
+        use std::process::{Child, Command, Stdio};
+        use std::time::{Duration, Instant};
+
+        use tokio::runtime::Runtime;
+        use tokio::sync::broadcast;
+        use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+        use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            INPUT, INPUT_0, INPUT_MOUSE, MOUSE_EVENT_FLAGS, MOUSEEVENTF_LEFTDOWN,
+            MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEINPUT, SendInput,
+        };
+        use windows::Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW,
+            GetWindowRect, HWND_TOPMOST, MSG, PostQuitMessage, RegisterClassW, SWP_NOACTIVATE,
+            SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SetCursorPos, SetWindowPos, TranslateMessage,
+            WM_DESTROY, WNDCLASSW, WS_EX_TOPMOST, WS_OVERLAPPEDWINDOW, WS_VISIBLE,
+        };
+        use windows::core::{PCWSTR, w};
+
+        use super::super::Pump;
+        use crate::events::PlatformEvent;
+        use crate::types::WindowHandle;
+
+        const HELPER_CLASS: PCWSTR = w!("MunaS3Helper");
+
+        /// What one injected drag measured.
+        pub(super) struct Timing {
+            /// First movement after button down → `MoveSizeChanged { started: true }` received.
+            pub(super) start: Duration,
+            /// Button up → `MoveSizeChanged { started: false }` received.
+            pub(super) end: Duration,
+            /// `drop(pump)` → thread joined.
+            pub(super) stop: Duration,
+        }
+
+        /// The helper window as its process reported it.
+        struct HelperWindow {
+            child: Child,
+            hwnd: WindowHandle,
+            x: i32,
+            y: i32,
+            width: i32,
+        }
+
+        pub(super) fn cursor_position() -> POINT {
+            let mut point = POINT::default();
+            // SAFETY: `point` is a valid, writable `POINT`.
+            #[allow(unsafe_code)]
+            unsafe {
+                GetCursorPos(&raw mut point).unwrap();
+            }
+            point
+        }
+
+        pub(super) fn set_cursor_position(point: POINT) {
+            // SAFETY: plain cursor placement; the result is checked.
+            #[allow(unsafe_code)]
+            unsafe {
+                SetCursorPos(point.x, point.y).unwrap();
+            }
+        }
+
+        fn inject(flags: MOUSE_EVENT_FLAGS, dx: i32, dy: i32) {
+            let input = INPUT {
+                r#type: INPUT_MOUSE,
+                Anonymous: INPUT_0 {
+                    mi: MOUSEINPUT {
+                        dx,
+                        dy,
+                        mouseData: 0,
+                        dwFlags: flags,
+                        time: 0,
+                        dwExtraInfo: 0,
+                    },
+                },
+            };
+            // SAFETY: one fully initialised `INPUT` and its size; the count returned is checked.
+            #[allow(unsafe_code)]
+            let sent = unsafe { SendInput(&[input], i32::try_from(size_of::<INPUT>()).unwrap()) };
+            assert_eq!(sent, 1, "SendInput refused the event");
+        }
+
+        /// Re-runs this test binary as the helper and waits for its `READY` line.
+        fn spawn_helper() -> HelperWindow {
+            let mut child = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "windows::pump::tests::s3_helper_window",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env("MUNA_S3_HELPER", "1")
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap();
+            let stdout = child.stdout.take().unwrap();
+            let mut lines = BufReader::new(stdout).lines();
+            let ready = loop {
+                let line = lines.next().unwrap().unwrap();
+                if let Some(rest) = line.strip_prefix("READY ") {
+                    break rest.to_owned();
+                }
+            };
+            let fields: Vec<i64> = ready.split(' ').map(|f| f.parse().unwrap()).collect();
+            HelperWindow {
+                child,
+                hwnd: isize::try_from(fields[0]).unwrap(),
+                x: i32::try_from(fields[1]).unwrap(),
+                y: i32::try_from(fields[2]).unwrap(),
+                width: i32::try_from(fields[3]).unwrap(),
+            }
+        }
+
+        /// Waits up to three seconds for a `MoveSizeChanged` with the wanted phase and returns
+        /// the window it named.
+        fn await_move_size(
+            runtime: &Runtime,
+            rx: &mut broadcast::Receiver<PlatformEvent>,
+            wanted: bool,
+        ) -> WindowHandle {
+            runtime
+                .block_on(async {
+                    tokio::time::timeout(Duration::from_secs(3), async {
+                        loop {
+                            match rx.recv().await {
+                                Ok(PlatformEvent::MoveSizeChanged { started, window })
+                                    if started == wanted =>
+                                {
+                                    break window;
+                                }
+                                Ok(_) => {}
+                                Err(error) => panic!("event channel closed: {error}"),
+                            }
+                        }
+                    })
+                    .await
+                })
+                .unwrap_or_else(|_| panic!("MoveSizeChanged {{ started: {wanted} }} never arrived"))
+        }
+
+        /// One full round: start a pump, spawn the helper, drag its caption 40 px, release,
+        /// stop the pump; every phase timed.
+        pub(super) fn drag_round(runtime: &Runtime) -> Timing {
+            let (events, mut rx) = broadcast::channel(16);
+            let pump = Pump::start(events).unwrap();
+            let mut helper = spawn_helper();
+            std::thread::sleep(Duration::from_millis(300));
+
+            set_cursor_position(POINT {
+                x: helper.x + helper.width / 2,
+                y: helper.y + 12,
+            });
+            std::thread::sleep(Duration::from_millis(50));
+            inject(MOUSEEVENTF_LEFTDOWN, 0, 0);
+            std::thread::sleep(Duration::from_millis(10));
+            // The OS confirms a drag only once the cursor leaves the drag rectangle
+            // (`SM_CXDRAG`), so the clock starts at the first movement, not the press.
+            let pressed_at = Instant::now();
+            for _ in 0..4 {
+                inject(MOUSEEVENTF_MOVE, 10, 0);
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            let dragged = await_move_size(runtime, &mut rx, true);
+            let start = pressed_at.elapsed();
+            assert_eq!(dragged, helper.hwnd, "the event names the dragged window");
+
+            std::thread::sleep(Duration::from_millis(60));
+            let released_at = Instant::now();
+            inject(MOUSEEVENTF_LEFTUP, 0, 0);
+            await_move_size(runtime, &mut rx, false);
+            let end = released_at.elapsed();
+
+            let stopping_at = Instant::now();
+            drop(pump);
+            let stop = stopping_at.elapsed();
+            let _ = helper.child.kill();
+            let _ = helper.child.wait();
+            Timing { start, end, stop }
+        }
+
+        #[allow(unsafe_code)]
+        unsafe extern "system" fn helper_proc(
+            hwnd: HWND,
+            message: u32,
+            wparam: WPARAM,
+            lparam: LPARAM,
+        ) -> LRESULT {
+            if message == WM_DESTROY {
+                // SAFETY: posting WM_QUIT to the current thread has no preconditions.
+                unsafe { PostQuitMessage(0) };
+                return LRESULT(0);
+            }
+            // SAFETY: forwarding the exact arguments the OS gave us.
+            unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }
+        }
+
+        /// The helper process body: a visible top-most overlapped window that reports its
+        /// handle and rectangle, then pumps messages until the parent kills the process.
+        pub(super) fn run_helper_window() {
+            // SAFETY: documented Win32 registration/creation calls with valid `'static` or
+            // stack data; the window dies with the process.
+            #[allow(unsafe_code)]
+            unsafe {
+                let module = GetModuleHandleW(None).unwrap();
+                let class = WNDCLASSW {
+                    lpfnWndProc: Some(helper_proc),
+                    hInstance: HINSTANCE(module.0),
+                    lpszClassName: HELPER_CLASS,
+                    ..Default::default()
+                };
+                RegisterClassW(&raw const class);
+                let hwnd = CreateWindowExW(
+                    WS_EX_TOPMOST,
+                    HELPER_CLASS,
+                    w!("Muna S3 helper"),
+                    WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                    240,
+                    240,
+                    320,
+                    160,
+                    None,
+                    None,
+                    Some(HINSTANCE(module.0)),
+                    None,
+                )
+                .unwrap();
+                SetWindowPos(
+                    hwnd,
+                    Some(HWND_TOPMOST),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE,
+                )
+                .unwrap();
+                let mut rect = RECT::default();
+                GetWindowRect(hwnd, &raw mut rect).unwrap();
+                let mut out = std::io::stdout().lock();
+                writeln!(
+                    out,
+                    "READY {} {} {} {} {}",
+                    hwnd.0 as isize,
+                    rect.left,
+                    rect.top,
+                    rect.right - rect.left,
+                    rect.bottom - rect.top
+                )
+                .unwrap();
+                out.flush().unwrap();
+                drop(out);
+                let mut message = MSG::default();
+                while GetMessageW(&raw mut message, None, 0, 0).as_bool() {
+                    let _ = TranslateMessage(&raw const message);
+                    DispatchMessageW(&raw const message);
+                }
+            }
+        }
     }
 }

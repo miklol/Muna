@@ -20,11 +20,13 @@ pub mod windows;
 pub use error::{PlatformError, PlatformResult};
 pub use events::PlatformEvent;
 pub use fake::{
-    BluetoothCall, DragCall, FakePlatform, FileOpsCall, NotificationCall, WindowingCall,
+    BluetoothCall, DragCall, FakePlatform, FileOpsCall, NotificationCall, PlacementCall,
+    WindowingCall,
 };
 pub use traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground, Location,
-    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
+    WindowPlacement, Windowing,
 };
 pub use types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothDeviceKind,
