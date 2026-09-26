@@ -15,6 +15,7 @@ pub mod day_progress;
 pub mod hud;
 pub mod live_activities;
 pub mod media;
+pub mod notifications;
 pub mod pomodoro;
 pub mod system_monitor;
 pub mod todo;
@@ -84,6 +85,7 @@ pub struct ModuleServices {
     pub bluetooth: Arc<bluetooth::BluetoothService>,
     pub weather: Arc<weather::WeatherService>,
     pub calendar: Arc<calendar::CalendarService>,
+    pub notifications: Arc<notifications::NotificationsService>,
     pub day_progress: Arc<day_progress::DayProgressService>,
 }
 
@@ -137,6 +139,10 @@ impl ModuleServices {
                 Arc::clone(hub),
                 Arc::clone(platform),
             )),
+            notifications: Arc::new(notifications::NotificationsService::new(
+                Arc::clone(platform),
+                Arc::clone(hub),
+            )),
             day_progress: Arc::new(day_progress::DayProgressService::new(
                 Arc::clone(hub),
                 Arc::clone(clock),
@@ -165,6 +171,9 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
             service: Arc::clone(&services.calendar),
             fetcher: Arc::new(calendar::HttpIcsFetcher::new()),
         }),
+        Box::new(notifications::NotificationsModule(Arc::clone(
+            &services.notifications,
+        ))),
         Box::new(day_progress::DayProgressModule(Arc::clone(
             &services.day_progress,
         ))),

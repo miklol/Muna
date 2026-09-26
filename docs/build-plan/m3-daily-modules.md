@@ -100,6 +100,28 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
 - **M3-E5 Notifications** — identity path with `NotificationChanged`, polling fallback
   (1 s) when identity absent; group by app; dismiss/clear; Focus Assist state read-only with
   deep link. Test both installers.
+
+  **Progress.** Landed as one PR stacked on M3-E1: `muna-platform::Notifications` over
+  `UserNotificationListener` (access, consent prompt, list with sender name and 48 px logo,
+  `NotificationChanged` where identity allows it — `Push` — and `Polling` otherwise, dismiss,
+  clear, *Open* through `shell:AppsFolder`) plus `FocusSessionManager` read-only, all
+  scripted in the fake; `NotificationsService` as a reducer over the listener's list, diffing
+  ids on every event or poll, raising one `notifications:arrived:<id>` notice per arrival
+  from an unmuted sender (held while a focus session is on or Windows says busy or quiet
+  hours) and standing the `notifications:unread` glance (logo, count, "sender · title") until
+  the panel marks everything read; contract (`get_notifications_snapshot`,
+  `notifications_command`, `notifications_open_settings`, `NotificationsChanged`, the
+  `count` trailing slot and the `notification` strip message); the panel grouped by sender
+  with logos or initials, two-line cards with relative times on the shared minute clock,
+  hover-reveal *Open* / *Dismiss*, per-sender mute and clear, *Clear all*, the unread chip
+  and *Focus on*, and one explanatory state each for not asked, denied and unavailable;
+  Notifications settings pane (access and delivery, the two strip switches, muted senders)
+  persisting `settings.modules.notifications`
+  ([notifications → Implementation notes](../modules/notifications.md#implementation-notes-m3-e5)).
+  The unpackaged build is not hidden as the spec had it: polling was measured in M0 and
+  works, and the pane says so. Deferred: reply and app protocols, the Win10 Focus Assist
+  read, a filter chip, a press-to-act strip. The MSIX (push) column of the exit criteria
+  waits for a signed package on the maintainer's machine.
 - **M3-E6 Day progress** — pure UI; working-hours settings; strip bar form.
 
   **Progress.** Landed as one PR stacked on M3-E4: the UI merges the to-do and pomodoro

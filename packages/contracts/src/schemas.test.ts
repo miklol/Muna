@@ -19,6 +19,9 @@ import {
   HUD_SETTINGS_KEY,
   HUD_VOLUME_STEP,
   MEDIA_SETTINGS_KEY,
+  NOTIFICATIONS_POLL_MS,
+  NOTIFICATIONS_SETTINGS_KEY,
+  NOTIFICATIONS_STRIP_IDS,
   POMODORO_BOUNDS,
   POMODORO_SETTINGS_KEY,
   POMODORO_STRIP_IDS,
@@ -39,6 +42,7 @@ import {
   defaultDayProgressSettings,
   defaultHudSettings,
   defaultMediaSettings,
+  defaultNotificationsSettings,
   defaultPomodoroSettings,
   defaultSettings,
   defaultSystemMonitorSettings,
@@ -50,6 +54,7 @@ import {
   readDayProgressSettings,
   readHudSettings,
   readMediaSettings,
+  readNotificationsSettings,
   readPomodoroSettings,
   readSystemMonitorSettings,
   readTodoSettings,
@@ -63,6 +68,7 @@ import {
   writeDayProgressSettings,
   writeHudSettings,
   writeMediaSettings,
+  writeNotificationsSettings,
   writePomodoroSettings,
   writeSystemMonitorSettings,
   writeTodoSettings,
@@ -266,6 +272,30 @@ describe('strip content schema', () => {
           trailing: { kind: 'level', percent: 80, muted: false },
           wide: null,
           holdMs: 1200,
+        },
+      },
+      {
+        kind: 'activity',
+        wide: true,
+        activity: {
+          id: 'notifications:unread',
+          module: 'notifications',
+          priority: 40,
+          leading: { kind: 'image', src: 'data:image/png;base64,AA==', glow: null },
+          trailing: { kind: 'count', value: 3 },
+          wide: { kind: 'notification', app: 'Teams', title: 'Standup moved' },
+        },
+      },
+      {
+        kind: 'notice',
+        notice: {
+          id: 'notifications:arrived:7',
+          module: 'notifications',
+          priority: 40,
+          leading: { kind: 'icon', glyph: 'bell', tint: null },
+          trailing: null,
+          wide: { kind: 'notification', app: 'Mail', title: 'Invoice' },
+          holdMs: 0,
         },
       },
     ];
@@ -781,6 +811,70 @@ describe('calendar settings namespace', () => {
       startingPrefix: 'calendar:starting:',
     });
     expect(CALENDAR_MAX_NAME_CHARS).toBe(60);
+  });
+});
+
+describe('notifications settings namespace', () => {
+  it('announces, glances and mutes nobody when the namespace is missing', () => {
+    expect(readNotificationsSettings(defaultSettings())).toEqual({
+      arrivalNotices: true,
+      showUnreadInStrip: true,
+      mutedApps: [],
+    });
+    expect(defaultNotificationsSettings()).toEqual(readNotificationsSettings(defaultSettings()));
+  });
+
+  it('fills in missing keys and ignores unknown ones', () => {
+    const partial: Settings = {
+      ...defaultSettings(),
+      modules: {
+        [NOTIFICATIONS_SETTINGS_KEY]: { mutedApps: ['Microsoft.Teams'], reply: true },
+      },
+    };
+    expect(readNotificationsSettings(partial)).toEqual({
+      ...defaultNotificationsSettings(),
+      mutedApps: ['Microsoft.Teams'],
+    });
+  });
+
+  it('falls back to the defaults for a malformed namespace', () => {
+    const wrongType: Settings = {
+      ...defaultSettings(),
+      modules: { [NOTIFICATIONS_SETTINGS_KEY]: { arrivalNotices: 'yes', mutedApps: [1] } },
+    };
+    expect(readNotificationsSettings(wrongType)).toEqual(defaultNotificationsSettings());
+    const notAnObject: Settings = {
+      ...defaultSettings(),
+      modules: { [NOTIFICATIONS_SETTINGS_KEY]: 'quiet' },
+    };
+    expect(readNotificationsSettings(notAnObject)).toEqual(defaultNotificationsSettings());
+  });
+
+  it('writes the namespace without touching the rest of the document', () => {
+    const before: Settings = { ...defaultSettings(), modules: { hud: { showLevelText: true } } };
+    const after = writeNotificationsSettings(before, {
+      arrivalNotices: false,
+      showUnreadInStrip: true,
+      mutedApps: ['Microsoft.Teams', 'microsoft.windowscommunicationsapps_8wekyb3d8bbwe!mail'],
+    });
+    expect(after.modules).toEqual({
+      hud: { showLevelText: true },
+      notifications: {
+        arrivalNotices: false,
+        showUnreadInStrip: true,
+        mutedApps: ['Microsoft.Teams', 'microsoft.windowscommunicationsapps_8wekyb3d8bbwe!mail'],
+      },
+    });
+    expect(before.modules).toEqual({ hud: { showLevelText: true } });
+    expect(settingsSchema.parse(after)).toEqual(after);
+  });
+
+  it('names the strip ids and the poll period the Rust module uses', () => {
+    expect(NOTIFICATIONS_STRIP_IDS).toEqual({
+      unread: 'notifications:unread',
+      arrivedPrefix: 'notifications:arrived:',
+    });
+    expect(NOTIFICATIONS_POLL_MS).toBe(1000);
   });
 });
 

@@ -1,0 +1,10 @@
+/*
+ * Settings → Notifications (docs/modules/notifications.md): the access row offers two buttons
+ * when Windows has refused (its Settings page, then a re-check). Composes tokens only.
+ */
+
+.ntf-settings__actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+}
