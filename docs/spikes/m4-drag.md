@@ -137,9 +137,9 @@ What the run taught us, in the order the harness hit it:
   two notch apps cannot share the top-centre, and diagnostics should say which window owns it.
 - **Self-drop is real.** Releasing back over the strip is a drop onto our own inbound drop
   target (M4-E1 drop-actions): OLE reports `dropped effect=copy`, and in two of three runs the
-  target logged a `drag enter` for it. The Shelf must tag its data object with a private
-  clipboard format and the inbound target must ignore drags that carry it (see
-  [shelf → Behaviour](../modules/shelf.md#behaviour)).
+  target logged a `drag enter` for it. The Shelf must mark its drags as its own and the inbound
+  target must ignore them meanwhile (see [shelf → Behaviour](../modules/shelf.md#behaviour);
+  how, under *Consequences* below).
 - **Pressing the webview activates the window once.** WebView2 calls `SetFocus` on any
   primary-button press, which logs `notch window focused` for the `WS_EX_NOACTIVATE` window —
   once per process, before any drag, and equally for a plain click (the control). The drag
@@ -163,7 +163,11 @@ What the run taught us, in the order the harness hit it:
 ### Consequences for the Shelf (E2)
 
 1. Keep `DragSource::start_drag` as designed; no drag-proxy window.
-2. Add a private clipboard format to the data object and ignore it in the inbound drop target.
+2. Ignore our own inbound drag events while a drag out is in flight. Built as an in-process
+   guard (`DropSessions::self_drag()`, held for the life of the `DoDragDrop` call and checked
+   first in the shell's drag-drop handler) rather than the private clipboard format this run
+   suggested: the shell's own data object carries the file list, so a format of ours would
+   have meant wrapping it, and the flag answers the same question without touching OLE.
 3. Rows are the drag handles; `draggable=false` + `user-select: none` + `dragstart` prevented
    stay (G5 held with them in place).
 4. Documentation: the "two notch apps cannot share the top-centre" note and the

@@ -35,6 +35,9 @@ wmi = { version = "0.18", default-features = false }
 # network counters and the process walk. Without `multithread` the walk runs on the caller's
 # thread instead of a rayon pool the tray-utility footprint has no room for.
 sysinfo = { version = "0.39", default-features = false, features = ["system", "disk", "network"] }
+# Shelf thumbnails (docs/modules/shelf.md): the shell hands back an `HBITMAP`; this encodes the
+# pixels as PNG for the webview. Same crate and version muna-core decodes artwork with.
+image = { version = "0.25", default-features = false, features = ["png"] }
 windows = { version = "0.62", features = [
   "ApplicationModel",
   "ApplicationModel_DataTransfer",

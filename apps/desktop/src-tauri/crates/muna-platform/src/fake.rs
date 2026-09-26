@@ -49,6 +49,8 @@ pub enum FileOpsCall {
     Eject(PathBuf),
     /// `pick_folder(window, title)`.
     PickFolder(WindowHandle, String),
+    /// `thumbnail(item, size)`.
+    Thumbnail(PathBuf, u32),
 }
 
 /// One recorded [`Bluetooth`] request, in order, for assertions in module tests.
@@ -175,6 +177,10 @@ struct State {
     drag_calls: Vec<DragCall>,
     /// Scripted answer to `start_drag`.
     drag_outcome: Result<DragOutcome, PlatformError>,
+    /// Every payload placed on the clipboard, in order.
+    clipboard_payloads: Vec<DragPayload>,
+    /// Scripted file thumbnails by path; a path without one answers `NotFound`.
+    file_thumbnails: BTreeMap<PathBuf, Vec<u8>>,
 }
 
 impl Default for State {
@@ -243,6 +249,8 @@ impl Default for State {
             drag_outcome: Ok(DragOutcome::Dropped {
                 effect: DropEffect::Copy,
             }),
+            clipboard_payloads: Vec::new(),
+            file_thumbnails: BTreeMap::new(),
         }
     }
 }
@@ -487,6 +495,17 @@ impl FakePlatform {
     #[must_use]
     pub fn drag_calls(&self) -> Vec<DragCall> {
         self.state.lock().drag_calls.clone()
+    }
+
+    /// Every payload [`DragSource::place_on_clipboard`] received so far, in order.
+    #[must_use]
+    pub fn clipboard_payloads(&self) -> Vec<DragPayload> {
+        self.state.lock().clipboard_payloads.clone()
+    }
+
+    /// Scripts the PNG bytes [`FileOps::thumbnail`] answers for `path`.
+    pub fn set_thumbnail(&self, path: PathBuf, png: Vec<u8>) {
+        self.state.lock().file_thumbnails.insert(path, png);
     }
 
     pub fn set_battery(&self, battery: BatteryState) {
@@ -1257,6 +1276,16 @@ impl FileOps for FakePlatform {
         self.file_op(FileOpsCall::PickFolder(window, title.to_owned()))?;
         Ok(self.state.lock().picked_folder.clone())
     }
+
+    fn thumbnail(&self, item: &Path, size: u32) -> PlatformResult<Vec<u8>> {
+        self.file_op(FileOpsCall::Thumbnail(item.to_path_buf(), size))?;
+        self.state
+            .lock()
+            .file_thumbnails
+            .get(item)
+            .cloned()
+            .ok_or_else(|| PlatformError::NotFound(item.display().to_string()))
+    }
 }
 
 impl DragSource for FakePlatform {
@@ -1271,6 +1300,15 @@ impl DragSource for FakePlatform {
             payload: payload.clone(),
         });
         state.drag_outcome.clone()
+    }
+
+    fn place_on_clipboard(&self, payload: &DragPayload) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        state.clipboard_payloads.push(payload.clone());
+        match &state.file_ops_error {
+            Some(error) => Err(error.clone()),
+            None => Ok(()),
+        }
     }
 }
 
@@ -1429,6 +1467,38 @@ mod tests {
                     payload: text
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn clipboard_and_thumbnails_are_scripted_like_the_other_file_ops() {
+        let fake = FakePlatform::new();
+        let files = DragPayload::Files(vec![PathBuf::from(r"C:\shelf\a.txt")]);
+        fake.drag_source().place_on_clipboard(&files).unwrap();
+        assert_eq!(fake.clipboard_payloads(), vec![files]);
+
+        let item = PathBuf::from(r"C:\shelf\a.png");
+        assert_eq!(
+            fake.file_ops().thumbnail(&item, 64),
+            Err(PlatformError::NotFound(item.display().to_string()))
+        );
+        fake.set_thumbnail(item.clone(), vec![0x89, b'P', b'N', b'G']);
+        assert_eq!(
+            fake.file_ops().thumbnail(&item, 64).unwrap(),
+            vec![0x89, b'P', b'N', b'G']
+        );
+        assert_eq!(
+            fake.file_ops_calls(),
+            vec![
+                FileOpsCall::Thumbnail(item.clone(), 64),
+                FileOpsCall::Thumbnail(item, 64),
+            ]
+        );
+        fake.set_file_ops_error(Some(PlatformError::Unsupported("clipboard")));
+        assert_eq!(
+            fake.drag_source()
+                .place_on_clipboard(&DragPayload::Text("x".into())),
+            Err(PlatformError::Unsupported("clipboard"))
         );
     }
 

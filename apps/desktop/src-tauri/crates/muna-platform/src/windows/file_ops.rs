@@ -300,7 +300,7 @@ pub(super) fn hwnd(window: WindowHandle) -> HWND {
 }
 
 /// Runs `job` to completion on a fresh apartment-threaded COM thread and returns its result.
-fn on_sta_thread<T: Send + 'static>(
+pub(super) fn on_sta_thread<T: Send + 'static>(
     name: &'static str,
     job: impl FnOnce() -> PlatformResult<T> + Send + 'static,
 ) -> PlatformResult<T> {
@@ -342,7 +342,7 @@ fn file_operation() -> PlatformResult<IFileOperation> {
         .map_err(|e| os_error("CoCreateInstance(FileOperation)", &e))
 }
 
-fn shell_item(path: &Path) -> PlatformResult<IShellItem> {
+pub(super) fn shell_item(path: &Path) -> PlatformResult<IShellItem> {
     let wide = HSTRING::from(path.as_os_str());
     // SAFETY: `wide` is a NUL-terminated string that outlives the call; no bind context.
     #[allow(unsafe_code)]

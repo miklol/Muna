@@ -13,6 +13,7 @@ import {
   HardDrive,
   Headphones,
   Hourglass,
+  Inbox,
   Lock,
   LockOpen,
   Mic,
@@ -75,6 +76,7 @@ export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   share: 'strip.glyph.share',
   trash: 'strip.glyph.trash',
   drive: 'strip.glyph.drive',
+  shelf: 'strip.glyph.shelf',
 };
 
 /**
@@ -139,5 +141,7 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <Trash2 {...glyphProps} />;
     case 'drive':
       return <HardDrive {...glyphProps} />;
+    case 'shelf':
+      return <Inbox {...glyphProps} />;
   }
 };

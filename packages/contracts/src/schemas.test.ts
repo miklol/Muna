@@ -10,6 +10,9 @@ import type {
   DropJob,
   HotkeyBinding,
   Settings,
+  ShelfCommand,
+  ShelfItem,
+  ShelfSnapshot,
   ShellLayout,
   SourceSetting,
   StripContent,
@@ -44,6 +47,10 @@ import {
   POMODORO_SETTINGS_KEY,
   POMODORO_STRIP_IDS,
   SETTINGS_VERSION,
+  SHELF_BOUNDS,
+  SHELF_EXPIRY_CHOICES,
+  SHELF_PREVIEW_CHARS,
+  SHELF_SETTINGS_KEY,
   SHELL_ACTION_IDS,
   SHELL_OPEN_MODULE_SLOTS,
   SNOOZE_MINUTES_CHOICES,
@@ -69,6 +76,7 @@ import {
   defaultNotificationsSettings,
   defaultPomodoroSettings,
   defaultSettings,
+  defaultShelfSettings,
   defaultSystemMonitorSettings,
   defaultTodoSettings,
   defaultWeatherSettings,
@@ -98,10 +106,15 @@ import {
   readMediaSettings,
   readNotificationsSettings,
   readPomodoroSettings,
+  readShelfSettings,
   readSystemMonitorSettings,
   readTodoSettings,
   readWeatherSettings,
   settingsSchema,
+  shelfChangedSchema,
+  shelfCommandSchema,
+  shelfItemSchema,
+  shelfSnapshotSchema,
   shellLayoutSchema,
   shellOpenModuleActionId,
   shellSettingsSchema,
@@ -115,6 +128,7 @@ import {
   writeMediaSettings,
   writeNotificationsSettings,
   writePomodoroSettings,
+  writeShelfSettings,
   writeSystemMonitorSettings,
   writeTodoSettings,
   writeWeatherSettings,
@@ -1322,6 +1336,7 @@ describe('drop actions schemas', () => {
       { kind: 'reveal' },
       { kind: 'trash' },
       { kind: 'eject' },
+      { kind: 'shelf' },
     ] as const;
     for (const action of actions) {
       expect(dropActionSchema.parse(action)).toEqual(action);
@@ -1361,13 +1376,16 @@ describe('drop actions schemas', () => {
 });
 
 describe('drag-out schemas', () => {
-  it('round-trips both payload kinds and refuses an empty drag', () => {
+  it('round-trips every payload kind and refuses an empty drag', () => {
     const files: DragOutRequest = { kind: 'files', paths: ['C:\\Users\\me\\report.pdf'] };
     const text: DragOutRequest = { kind: 'text', text: 'a snippet' };
+    const shelf: DragOutRequest = { kind: 'shelf', ids: ['a', 'b'] };
     expect(dragOutRequestSchema.parse(files)).toEqual(files);
     expect(dragOutRequestSchema.parse(text)).toEqual(text);
+    expect(dragOutRequestSchema.parse(shelf)).toEqual(shelf);
     expect(dragOutRequestSchema.safeParse({ kind: 'files', paths: [] }).success).toBe(false);
     expect(dragOutRequestSchema.safeParse({ kind: 'text', text: '' }).success).toBe(false);
+    expect(dragOutRequestSchema.safeParse({ kind: 'shelf', ids: [] }).success).toBe(false);
   });
 
   it('round-trips the outcome and the spike arming', () => {
@@ -1378,5 +1396,90 @@ describe('drag-out schemas', () => {
     expect(dragOutcomeSchema.safeParse({ kind: 'dropped', effect: 'burn' }).success).toBe(false);
     const spike: DragSpike = { paths: ['C:\\tmp\\spike.png'] };
     expect(dragSpikeSchema.parse(spike)).toEqual(spike);
+  });
+});
+
+describe('shelf schemas', () => {
+  it('defaults to referencing files that never expire', () => {
+    expect(defaultShelfSettings()).toEqual({ copyIntoStorage: false, expiryDays: 0 });
+    expect(readShelfSettings(defaultSettings())).toEqual(defaultShelfSettings());
+    expect(SHELF_SETTINGS_KEY).toBe('shelf');
+    expect(SHELF_EXPIRY_CHOICES).toContain(0);
+  });
+
+  it('clamps the expiry and falls back on a malformed entry', () => {
+    const doc = writeShelfSettings(defaultSettings(), {
+      copyIntoStorage: true,
+      expiryDays: 9_000,
+    });
+    expect(readShelfSettings(doc)).toEqual({
+      copyIntoStorage: true,
+      expiryDays: SHELF_BOUNDS.expiryDays.max,
+    });
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [SHELF_SETTINGS_KEY]: { copyIntoStorage: 'yes' } },
+    };
+    expect(readShelfSettings(broken)).toEqual(defaultShelfSettings());
+  });
+
+  it('round-trips the snapshot and its change event', () => {
+    const snapshot: ShelfSnapshot = {
+      items: [
+        {
+          id: 'one',
+          kind: 'file',
+          name: 'report.pdf',
+          extension: 'pdf',
+          size: 2_048,
+          isFolder: false,
+          copied: true,
+          missing: false,
+          preview: null,
+          addedAtMs: 1_700_000_000_000,
+        },
+        {
+          id: 'two',
+          kind: 'text',
+          name: 'https://example.com',
+          extension: null,
+          size: null,
+          isFolder: false,
+          copied: false,
+          missing: false,
+          preview: 'https://example.com',
+          addedAtMs: 1_700_000_000_001,
+        },
+      ],
+      settings: { copyIntoStorage: false, expiryDays: 7 },
+    };
+    expect(shelfSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+    expect(shelfChangedSchema.parse({ snapshot })).toEqual({ snapshot });
+    expect(
+      shelfItemSchema.safeParse({
+        ...snapshot.items[1],
+        preview: 'x'.repeat(SHELF_PREVIEW_CHARS + 1),
+      }).success,
+    ).toBe(false);
+    expect(shelfItemSchema.safeParse({ ...snapshot.items[0], id: '' }).success).toBe(false);
+    expectTypeOf<z.infer<typeof shelfItemSchema>>().toEqualTypeOf<ShelfItem>();
+  });
+
+  it('accepts every command and refuses empty ones', () => {
+    const commands: ShelfCommand[] = [
+      { kind: 'addText', text: 'a snippet' },
+      { kind: 'remove', ids: ['one'] },
+      { kind: 'removeMissing' },
+      { kind: 'clear' },
+      { kind: 'open', id: 'one' },
+      { kind: 'reveal', ids: ['one', 'two'] },
+      { kind: 'copy', ids: ['two'] },
+    ];
+    for (const command of commands) {
+      expect(shelfCommandSchema.parse(command)).toEqual(command);
+    }
+    expect(shelfCommandSchema.safeParse({ kind: 'addText', text: '' }).success).toBe(false);
+    expect(shelfCommandSchema.safeParse({ kind: 'remove', ids: [] }).success).toBe(false);
+    expect(shelfCommandSchema.safeParse({ kind: 'open', id: '' }).success).toBe(false);
   });
 });

@@ -10,6 +10,7 @@ import type { Translate } from '@muna/i18n';
 /** Which outline glyph a tile draws (`tile-icon.tsx` maps these to Lucide). */
 export type TileIcon =
   | 'share'
+  | 'shelf'
   | 'folderCopy'
   | 'folderMove'
   | 'copyTo'
@@ -65,6 +66,16 @@ export const builtInTile = (
         title: t('dropActions.tiles.nearbyShare'),
         subtitle: t('dropActions.tiles.nearbyShareBody'),
         action: { kind: 'share' },
+        enabled: true,
+      };
+    case 'shelf':
+      return {
+        kind: 'tile',
+        key: tile.kind,
+        icon: 'shelf',
+        title: t('dropActions.tiles.shelf'),
+        subtitle: t('dropActions.tiles.shelfBody'),
+        action: { kind: 'shelf' },
         enabled: true,
       };
     case 'copyTo':
@@ -153,12 +164,14 @@ export const builtInTile = (
 /**
  * The row's entries in the settings' order (docs/modules/drop-actions.md "Tiles"): built-in
  * tiles as words, folder tiles named by the user, dividers kept as gaps. Folder tiles whose
- * folder is gone are skipped (the contracts' normaliser drops them on save too).
+ * folder is gone are skipped (the contracts' normaliser drops them on save too). The *Shelf*
+ * tile is dimmed while its module is in `disabledModules`: Rust refuses the items then.
  */
 export const tileEntries = (
   settings: DropActionsSettings,
   items: readonly DropItem[],
   t: Translate,
+  disabledModules: readonly string[] = [],
 ): readonly TileEntry[] =>
   settings.tiles.flatMap((tile, index): TileEntry[] => {
     switch (tile.kind) {
@@ -182,6 +195,10 @@ export const tileEntries = (
             enabled: true,
           },
         ];
+      }
+      case 'shelf': {
+        const entry = builtInTile(tile, items, t);
+        return [disabledModules.includes('shelf') ? { ...entry, enabled: false } : entry];
       }
       default:
         return [builtInTile(tile, items, t)];

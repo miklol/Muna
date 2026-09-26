@@ -12,6 +12,7 @@ import { keyboardShortcutsModule } from './keyboard-shortcuts';
 import { mediaModule } from './media';
 import { notificationsModule } from './notifications';
 import { pomodoroModule } from './pomodoro';
+import { shelfModule } from './shelf';
 import { systemMonitorModule } from './system-monitor';
 import { todoModule } from './todo';
 import { weatherModule } from './weather';
@@ -143,6 +144,7 @@ export const modules: readonly ModuleDefinition[] = [
   hudModule,
   keyboardShortcutsModule,
   dropActionsModule,
+  shelfModule,
 ];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>

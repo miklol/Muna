@@ -190,11 +190,12 @@ fn the_module_is_registered_and_owns_the_drop_surface() {
 fn defaults_list_every_built_in_tile_share_first_and_destructive_last() {
     let settings = DropActionsSettings::default();
     assert_eq!(settings.tiles.first(), Some(&DropTile::NearbyShare));
+    assert_eq!(settings.tiles.get(1), Some(&DropTile::Shelf));
     assert_eq!(
         &settings.tiles[settings.tiles.len() - 2..],
         &[DropTile::Trash, DropTile::Eject]
     );
-    assert_eq!(settings.tiles.len(), 9);
+    assert_eq!(settings.tiles.len(), 10);
     assert!(settings.folders.is_empty());
     assert!(!settings.expand_notch);
     assert_eq!(settings.tiles_per_row(), TILES_PER_ROW);

@@ -124,6 +124,17 @@ describe('tileEntries', () => {
     });
     expect(entries[4]).toMatchObject({ key: 'unzip', enabled: false });
   });
+
+  it('dims the Shelf tile while the Shelf module is turned off', () => {
+    const on = tileEntries(defaultDropActionsSettings(), [pdf], t, ['weather']);
+    expect(on[1]).toMatchObject({ key: 'shelf', enabled: true });
+    const off = tileEntries(defaultDropActionsSettings(), [pdf], t, ['shelf']);
+    expect(off[1]).toMatchObject({ key: 'shelf', enabled: false, action: { kind: 'shelf' } });
+    expect(keysOf(off.filter((entry) => entry.kind === 'tile' && !entry.enabled))).toEqual([
+      'shelf',
+      'unzip',
+    ]);
+  });
 });
 
 describe('rowLayout', () => {
@@ -132,18 +143,18 @@ describe('rowLayout', () => {
   it('shows every tile in one row when they fit', () => {
     const layout = rowLayout(entries.slice(0, 4), 4, false, t);
     expect(layout.hidden).toBe(0);
-    expect(layout.rows.map(keysOf)).toEqual([['nearbyShare', 'copyTo', 'moveTo', 'openWith']]);
+    expect(layout.rows.map(keysOf)).toEqual([['nearbyShare', 'shelf', 'copyTo', 'moveTo']]);
   });
 
   it('replaces the last slot with a More tile that counts the hidden ones until revealed', () => {
     const layout = rowLayout(entries, 4, false, t);
-    expect(layout.hidden).toBe(6);
-    expect(layout.rows.map(keysOf)).toEqual([['nearbyShare', 'copyTo', 'moveTo', MORE_KEY]]);
+    expect(layout.hidden).toBe(7);
+    expect(layout.rows.map(keysOf)).toEqual([['nearbyShare', 'shelf', 'copyTo', MORE_KEY]]);
     expect(layout.rows[0]?.[3]).toMatchObject({
       kind: 'tile',
       icon: 'more',
       title: 'More',
-      subtitle: '6 more tiles',
+      subtitle: '7 more tiles',
       action: null,
       enabled: true,
     });
@@ -156,16 +167,16 @@ describe('rowLayout', () => {
     const revealed = rowLayout(entries, 4, true, t);
     expect(revealed.hidden).toBe(0);
     expect(revealed.rows.map(keysOf)).toEqual([
-      ['nearbyShare', 'copyTo', 'moveTo', 'openWith'],
-      ['zip', 'unzip', 'reveal', 'trash'],
-      ['eject'],
+      ['nearbyShare', 'shelf', 'copyTo', 'moveTo'],
+      ['openWith', 'zip', 'unzip', 'reveal'],
+      ['trash', 'eject'],
     ]);
     expect(rowLayout(entries, 8, false, t).rows.map(keysOf)).toEqual([
-      ['nearbyShare', 'copyTo', 'moveTo', 'openWith', 'zip', 'unzip', 'reveal', MORE_KEY],
+      ['nearbyShare', 'shelf', 'copyTo', 'moveTo', 'openWith', 'zip', 'unzip', MORE_KEY],
     ]);
     expect(rowLayout(entries, 8, true, t).rows.map(keysOf)).toEqual([
-      ['nearbyShare', 'copyTo', 'moveTo', 'openWith', 'zip', 'unzip', 'reveal', 'trash'],
-      ['eject'],
+      ['nearbyShare', 'shelf', 'copyTo', 'moveTo', 'openWith', 'zip', 'unzip', 'reveal'],
+      ['trash', 'eject'],
     ]);
   });
 
@@ -180,16 +191,16 @@ describe('rowLayout', () => {
       { kind: 'divider', key: 'd3' },
     ];
     expect(rowLayout(divided, 8, false, t).rows.map(keysOf)).toEqual([
-      ['nearbyShare', 'copyTo', 'd1', 'moveTo', 'openWith', 'd2', 'zip'],
+      ['nearbyShare', 'shelf', 'd1', 'copyTo', 'moveTo', 'd2', 'openWith'],
     ]);
     // Split at four: the divider that would open row two is trimmed.
     expect(rowLayout(divided, 4, true, t).rows.map(keysOf)).toEqual([
-      ['nearbyShare', 'copyTo', 'd1', 'moveTo', 'openWith'],
-      ['zip'],
+      ['nearbyShare', 'shelf', 'd1', 'copyTo', 'moveTo'],
+      ['openWith'],
     ]);
     // Collapsed, the divider before the More tile is trimmed too.
     expect(rowLayout(divided, 3, false, t).rows.map(keysOf)).toEqual([
-      ['nearbyShare', 'copyTo', MORE_KEY],
+      ['nearbyShare', 'shelf', MORE_KEY],
     ]);
   });
 
@@ -199,7 +210,7 @@ describe('rowLayout', () => {
     ]);
     expect(rowLayout(entries.slice(0, 2), 1, true, t).rows.map(keysOf)).toEqual([
       ['nearbyShare'],
-      ['copyTo'],
+      ['shelf'],
     ]);
   });
 });

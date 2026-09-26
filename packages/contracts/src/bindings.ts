@@ -63,7 +63,8 @@ export const commands = {
 	 *  Starts an OLE drag of `request` out of the notch window and returns once the user has
 	 *  dropped or cancelled (docs/modules/shelf.md "Drag out"). Call it while the primary button
 	 *  is down and the pointer has moved past the drag threshold; the drag itself runs on the main
-	 *  thread, which owns the window, so other commands wait until it ends. Paths never reach the
+	 *  thread, which owns the window, so other commands wait until it ends. The shell ignores the
+	 *  inbound drag events the same drag raises over the notch meanwhile. Paths never reach the
 	 *  log.
 	 */
 	dragOut: (request: DragOutRequest) => typedError<DragOutcome, IpcError>(__TAURI_INVOKE("drag_out", { request })),
@@ -342,6 +343,24 @@ export const commands = {
 	 *  blocking thread.
 	 */
 	dropPickFolder: (title: string) => typedError<string | null, IpcError>(__TAURI_INVOKE("drop_pick_folder", { title })),
+	/**
+	 *  The Shelf's items and settings (docs/modules/shelf.md). Stats every file for the missing
+	 *  state, so it runs on a blocking thread.
+	 */
+	getShelfSnapshot: () => typedError<ShelfSnapshot, IpcError>(__TAURI_INVOKE("get_shelf_snapshot")),
+	/**
+	 *  Applies a Shelf command and returns the snapshot after it. *Open*, *Reveal* and *Copy*
+	 *  reach the shell, so it runs on a blocking thread. `shelf.emptyText` for a blank snippet,
+	 *  `shelf.unknownItem` for ids that are gone, `shelf.nothingToCarry` when none of the items
+	 *  has a file to open, reveal or copy.
+	 */
+	shelfCommand: (command: ShelfCommand) => typedError<ShelfSnapshot, IpcError>(__TAURI_INVOKE("shelf_command", { command })),
+	/**
+	 *  Explorer's thumbnail for one Shelf item as a PNG data URL, or `null` when the item is a
+	 *  snippet or has no picture (the UI shows its extension). Cached per item after the first
+	 *  call; the first call renders, so it runs on a blocking thread.
+	 */
+	shelfThumbnail: (id: string) => typedError<string | null, IpcError>(__TAURI_INVOKE("shelf_thumbnail", { id })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -363,6 +382,7 @@ export const events = {
 	notificationsChanged: makeEvent<NotificationsChanged>("notifications-changed"),
 	pomodoroStateChanged: makeEvent<PomodoroStateChanged>("pomodoro-state-changed"),
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
+	shelfChanged: makeEvent<ShelfChanged>("shelf-changed"),
 	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
 	shellPointerDownOutside: makeEvent<ShellPointerDownOutside>("shell-pointer-down-outside"),
 	shellYieldChanged: makeEvent<ShellYieldChanged>("shell-yield-changed"),
@@ -591,10 +611,12 @@ export type DayForecast = {
 
 /**  What a drag out of the notch carries (docs/modules/shelf.md "Drag out"). */
 export type DragOutRequest = 
-/**  Files or folders by path. */
+/**  Files or folders by path (the S2 spike; the product UI never holds paths). */
 { kind: "files"; paths: string[] } | 
 /**  A text snippet. */
-{ kind: "text"; text: string };
+{ kind: "text"; text: string } | 
+/**  Shelf items by id; Rust resolves them to their files or text. */
+{ kind: "shelf"; ids: string[] };
 
 /**  How a drag out of Muna ended ([`crate::DragSource::start_drag`]). */
 export type DragOutcome = 
@@ -632,13 +654,17 @@ export type DropAction =
 /**  The Recycle Bin — no confirmation: Explorer's Undo brings the items back. */
 { kind: "trash" } | 
 /**  Safely remove the drive the first item is on. */
-{ kind: "eject" };
+{ kind: "eject" } | 
+/**  Park every item on the Shelf (docs/modules/shelf.md). */
+{ kind: "shelf" };
 
 /**
  *  What a drop action does with the items, as a fact for the UI to phrase and tint
  *  (docs/modules/drop-actions.md "Tiles"). Closed on purpose, like [`Glyph`].
  */
-export type DropActionKind = "share" | "copy" | "move" | "open" | "openWith" | "zip" | "unzip" | "reveal" | "trash" | "eject";
+export type DropActionKind = "share" | "copy" | "move" | "open" | "openWith" | "zip" | "unzip" | "reveal" | "trash" | "eject" | 
+/**  Parked on the Shelf (docs/modules/shelf.md). */
+"shelf";
 
 /**  The drop-actions row or a job changed (docs/modules/drop-actions.md). */
 export type DropActionsChanged = {
@@ -743,10 +769,12 @@ export type DropPoint = {
 };
 
 /**
- *  One tile in the row, in display order (docs/modules/drop-actions.md "Tiles"). *Shelf*,
- *  *Convert* and *Music* arrive with their modules.
+ *  One tile in the row, in display order (docs/modules/drop-actions.md "Tiles"). *Convert*
+ *  and *Music* arrive with their modules.
  */
-export type DropTile = { kind: "nearbyShare" } | { kind: "folder"; id: string } | { kind: "copyTo" } | { kind: "moveTo" } | { kind: "openWith" } | { kind: "zip" } | { kind: "unzip" } | { kind: "reveal" } | { kind: "trash" } | { kind: "eject" } | 
+export type DropTile = { kind: "nearbyShare" } | 
+/**  Park the items on the Shelf (docs/modules/shelf.md). */
+{ kind: "shelf" } | { kind: "folder"; id: string } | { kind: "copyTo" } | { kind: "moveTo" } | { kind: "openWith" } | { kind: "zip" } | { kind: "unzip" } | { kind: "reveal" } | { kind: "trash" } | { kind: "eject" } | 
 /**  A layout helper: a hairline gap between two groups of tiles. */
 { kind: "divider" };
 
@@ -845,7 +873,9 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 /**  A bin (docs/modules/drop-actions.md): sent to the Recycle Bin. */
 "trash" | 
 /**  A drive (docs/modules/drop-actions.md): a removable volume ejected. */
-"drive";
+"drive" | 
+/**  A tray (docs/modules/shelf.md): items parked on the Shelf. */
+"shelf";
 
 /**  One action's binding as the pane and the palette see it. */
 export type HotkeyBinding = {
@@ -1305,6 +1335,68 @@ export type ShapeRect = {
 	y: number,
 	width: number,
 	height: number,
+};
+
+/**  The Shelf's items or settings changed (docs/modules/shelf.md). */
+export type ShelfChanged = {
+	snapshot: ShelfSnapshot,
+};
+
+/**  What the panel asks for. */
+export type ShelfCommand = 
+/**  Park a text snippet (a paste into the panel). */
+{ kind: "addText"; text: string } | { kind: "remove"; ids: string[] } | 
+/**  Remove every item whose file is gone. */
+{ kind: "removeMissing" } | { kind: "clear" } | 
+/**  Open a file with its default handler. */
+{ kind: "open"; id: string } | 
+/**  Explorer with the files selected. */
+{ kind: "reveal"; ids: string[] } | 
+/**  The items on the clipboard: files as `CF_HDROP`, a lone snippet as text. */
+{ kind: "copy"; ids: string[] };
+
+/**  One item as the panel sees it. */
+export type ShelfItem = {
+	id: string,
+	kind: ShelfItemKind,
+	/**  The file name, or the first line of the snippet. */
+	name: string,
+	/**  Lower-case file extension without the dot, for the placeholder tile. */
+	extension: string | null,
+	/**  Bytes, when known. */
+	size: number | null,
+	/**  `true` for a folder. */
+	isFolder: boolean,
+	/**  The file is a copy in Shelf storage. */
+	copied: boolean,
+	/**  The referenced file is gone (docs/modules/shelf.md "broken-link state"). */
+	missing: boolean,
+	/**  Snippets only: the text, cut to [`PREVIEW_CHARS`]. */
+	preview: string | null,
+	addedAtMs: number,
+};
+
+/**  What an item is. */
+export type ShelfItemKind = 
+/**  A file or folder, by reference or as a copy in Shelf storage. */
+"file" | 
+/**  A text snippet (a URL, a paragraph). */
+"text";
+
+export type ShelfSettings = {
+	/**
+	 *  Copy dropped files into `%LOCALAPPDATA%\Muna\shelf` instead of referencing them, so
+	 *  the item survives the original being moved or deleted.
+	 */
+	copyIntoStorage?: boolean,
+	/**  Remove items this many days after they arrived; `0` keeps them until removed. */
+	expiryDays?: number,
+};
+
+/**  Everything the panel shows. */
+export type ShelfSnapshot = {
+	items: ShelfItem[],
+	settings: ShelfSettings,
 };
 
 /**
