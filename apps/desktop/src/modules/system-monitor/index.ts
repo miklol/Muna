@@ -2,6 +2,7 @@ import { lazy } from 'react';
 
 import type { ModuleDefinition } from '../registry';
 import { SystemMonitorPanel } from './panel';
+import { SystemMonitorWidget } from './widget';
 import { SystemMonitorIcon } from './system-monitor-icon';
 
 /** Settings → System loads on first visit so the notch bundle stays small. */
@@ -19,5 +20,6 @@ export const systemMonitorModule: ModuleDefinition = {
   titleKey: 'systemMonitor.title',
   icon: SystemMonitorIcon,
   panel: SystemMonitorPanel,
+  widget: SystemMonitorWidget,
   settings: SystemMonitorSettings,
 };

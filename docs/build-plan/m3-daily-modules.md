@@ -133,3 +133,23 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
   the classic reading.
 - **M3-E9 Dashboard** — `muna-ui-engineer`: widget grid composing all P1 modules' widgets,
   drag-reorder with pointer events, sizes S/M/L, edit mode, persisted layout.
+
+  **Progress.** Landed as one PR stacked on M3-E6: the registry grew
+  `ModuleDefinition.widget` (`WidgetProps = { span: 1 | 2 }`) and each of the seven P1
+  modules exports its card as `widget.tsx`, re-using its own hooks, store and formatting
+  (media with transport on a wide card, pomodoro ring with start / pause, three soonest tasks,
+  weather now with high / low, day-progress share and completion, CPU and memory rings that
+  watch only while mounted, connected Bluetooth devices with battery). The dashboard module
+  renders them in a 2 × 4 grid (spans 1–2, `layout` spring) with a toolbar pencil for edit
+  mode — controls replace the widget bodies (move, wider / narrower, remove), an *Add a widget*
+  card lists the modules not on the grid, pointer drag goes through Motion `drag` and the pure
+  `dropIndex`, off under reduced motion — and persists one layout in
+  `settings.modules.dashboard = { slots }` through the contract's
+  `readDashboardSettings` / `writeDashboardSettings`; the Rust half validates the namespace
+  and registers an idle `Panel` surface. Disabled modules keep their slot in the document
+  but are not drawn. The dashboard is registered first and is the default panel; Settings ›
+  Dashboard shows the counts and resets the layout
+  ([dashboard → Implementation notes](../modules/dashboard.md#implementation-notes-m3-e9)).
+  Deviation: the pencil lives in the panel body rather than the shell header rail. Deferred:
+  profiles, launcher, actions, quick toggles, screenshot / info, the widgets of modules that do
+  not exist yet, the module story harness.

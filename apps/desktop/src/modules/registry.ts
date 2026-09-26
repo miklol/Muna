@@ -2,6 +2,7 @@ import type { MessageKey } from '@muna/i18n';
 import type { ComponentType } from 'react';
 
 import { bluetoothModule } from './bluetooth';
+import { dashboardModule } from './dashboard';
 import { dayProgressModule } from './day-progress';
 import { hudModule } from './hud';
 import { mediaModule } from './media';
@@ -14,6 +15,15 @@ import { weatherModule } from './weather';
 export interface ModuleIconProps {
   readonly size?: number;
   readonly strokeWidth?: number;
+}
+
+/**
+ * What the dashboard passes to a module's widget: how many of the grid's four columns the
+ * card spans (docs/modules/dashboard.md "Reference": widgets span 1–2 slots). The card, its
+ * header and its size are the dashboard's; the widget renders the body only.
+ */
+export interface WidgetProps {
+  readonly span: 1 | 2;
 }
 
 /**
@@ -34,6 +44,12 @@ export interface ModuleDefinition {
    */
   readonly panel?: ComponentType;
   /**
+   * The module's dashboard card body (docs/modules/dashboard.md "Widgets"); mounted only
+   * while the dashboard shows it, so it subscribes on mount and unlistens on unmount like a
+   * panel. The dashboard supplies the card, header and size.
+   */
+  readonly widget?: ComponentType<WidgetProps>;
+  /**
    * Settings section, shown as the module's own pane in the settings window. Declare it as
    * `lazy(() => import('./settings'))` at module scope so the chunk loads on first visit and
    * the idle bundle stays small; the window wraps it in `Suspense`.
@@ -41,8 +57,13 @@ export interface ModuleDefinition {
   readonly settings?: ComponentType;
 }
 
-/** Every module, in default order; Settings → Modules reorders and disables from here. */
+/**
+ * Every module, in default order; Settings → Modules reorders and disables from here. The
+ * dashboard comes first: it is the panel most users open (docs/modules/dashboard.md "the
+ * default module for most users").
+ */
 export const modules: readonly ModuleDefinition[] = [
+  dashboardModule,
   mediaModule,
   todoModule,
   pomodoroModule,
