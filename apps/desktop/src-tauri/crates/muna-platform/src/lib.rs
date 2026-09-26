@@ -22,7 +22,7 @@ pub use events::PlatformEvent;
 pub use fake::{BluetoothCall, FakePlatform, WindowingCall};
 pub use traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
-    Platform, Power, SystemOsd, SystemStats, Windowing,
+    Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 pub use types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothDeviceKind,

@@ -1,0 +1,200 @@
+/*
+ * MonthGrid primitive — a month of 30 px day cells in six fixed rows: today is a filled accent
+ * circle, the selected day sits on `--surface-3`, up to three 4 px tinted dots mark days with
+ * events. Header: month heading between two icon buttons and an optional "Today" chip.
+ */
+
+.muna-month-grid {
+  --muna-month-cell: 30px;
+
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  color: var(--text-1);
+}
+
+.muna-month-grid__header {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+}
+
+.muna-month-grid__heading {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-callout);
+  font-weight: 600;
+  line-height: var(--text-callout--line-height);
+  letter-spacing: var(--text-callout--letter-spacing);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muna-month-grid__today {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  block-size: var(--size-chip-height);
+  margin-inline-start: var(--space-1);
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  line-height: 1;
+  cursor: default;
+  outline: none;
+  transition:
+    background var(--muna-motion-interactive),
+    transform var(--muna-motion-press);
+}
+
+.muna-month-grid__today[data-hovered] {
+  background: var(--surface-3);
+}
+
+.muna-month-grid__today[data-pressed] {
+  transform: scale(0.96);
+}
+
+.muna-month-grid__today[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-month-grid__grid {
+  border-spacing: 2px;
+  border-collapse: separate;
+  table-layout: fixed;
+  inline-size: calc(7 * var(--muna-month-cell) + 8 * 2px);
+}
+
+/* Secondary, not tertiary: at caption size only --text-2 clears WCAG AA on the glass. */
+.muna-month-grid__weekday {
+  padding: 0;
+  color: var(--text-2);
+  font-size: var(--text-caption2);
+  font-weight: 500;
+  line-height: var(--text-caption2--line-height);
+  text-align: center;
+  text-transform: none;
+}
+
+.muna-month-grid__grid td {
+  padding: 0;
+}
+
+/* The pressable inner div of each cell: number on top, dots below, one radius everywhere. */
+.muna-month-grid__cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  inline-size: var(--muna-month-cell);
+  block-size: var(--muna-month-cell);
+  margin: 0 auto;
+  border-radius: var(--radius-control);
+  color: var(--text-1);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background var(--muna-motion-interactive),
+    color var(--muna-motion-interactive),
+    transform var(--muna-motion-press);
+}
+
+.muna-month-grid__cell[data-outside-month] {
+  color: var(--text-3);
+}
+
+.muna-month-grid__cell[data-hovered] {
+  background: var(--surface-2);
+}
+
+.muna-month-grid__cell[data-pressed] {
+  transform: scale(0.96);
+}
+
+.muna-month-grid__cell[data-selected] {
+  background: var(--surface-3);
+}
+
+.muna-month-grid__cell[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-month-grid__cell[data-disabled],
+.muna-month-grid__cell[data-unavailable] {
+  color: var(--text-3);
+}
+
+.muna-month-grid__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 999px;
+}
+
+/* Today: the number sits in a filled accent circle; its dots stay under the circle. */
+.muna-month-grid__cell[data-today] .muna-month-grid__number {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.muna-month-grid__marks {
+  display: inline-flex;
+  gap: 2px;
+  block-size: 4px;
+}
+
+.muna-month-grid__cell[data-outside-month] .muna-month-grid__marks {
+  opacity: 0.5;
+}
+
+.muna-month-grid__mark {
+  inline-size: 4px;
+  block-size: 4px;
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-month-grid__cell,
+  .muna-month-grid__today {
+    transition: none;
+  }
+
+  .muna-month-grid__cell[data-pressed],
+  .muna-month-grid__today[data-pressed] {
+    transform: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-month-grid__cell,
+:root[data-reduce-motion] .muna-month-grid__today {
+  transition: none;
+}
+
+:root[data-reduce-motion] .muna-month-grid__cell[data-pressed],
+:root[data-reduce-motion] .muna-month-grid__today[data-pressed] {
+  transform: none;
+}

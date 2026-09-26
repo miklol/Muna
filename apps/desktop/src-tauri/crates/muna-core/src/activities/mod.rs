@@ -41,6 +41,10 @@ pub mod priority {
     /// A task due within the hour (docs/modules/todo.md); under playing media so an hour of
     /// lead time never hijacks the now-playing strip.
     pub const TASK_DUE: u8 = 55;
+    /// A calendar event within the hour (docs/modules/calendar.md); under a task due, since
+    /// the task named a moment the user chose, and rises to [`EVENT_STARTING`] at ten
+    /// minutes.
+    pub const EVENT_UPCOMING: u8 = 50;
     pub const UNREAD: u8 = 40;
     pub const SESSION: u8 = 30;
     pub const MEDIA_PAUSED: u8 = 20;
@@ -101,6 +105,8 @@ pub enum Glyph {
     Cpu,
     /// An hourglass (docs/modules/day-progress.md): the working day's progress bar.
     Hourglass,
+    /// A calendar page (docs/modules/calendar.md): the next event, tinted like its source.
+    Calendar,
 }
 
 /// The leading (left) slot of the strip.
@@ -237,6 +243,12 @@ pub enum StripMessage {
     /// never logged. As an activity the trailing slot carries the due time; as a notice it
     /// announces the moment.
     TaskDue {
+        title: String,
+    },
+    /// A calendar event within the hour or starting now (docs/modules/calendar.md); the title
+    /// is content and is never logged. As an activity the trailing slot carries the start
+    /// time; as a notice it announces the ten-minute mark.
+    EventStarting {
         title: String,
     },
 }

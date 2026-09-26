@@ -236,6 +236,33 @@ export const commands = {
 	 *  `weather.provider` when it answered with something other than places.
 	 */
 	weatherSearch: (query: string) => typedError<Place[], IpcError>(__TAURI_INVOKE("weather_search", { query })),
+	/**
+	 *  The subscribed calendars and their events as the module now sees them (a panel that just
+	 *  opened; afterwards it follows `CalendarChanged`).
+	 */
+	getCalendarSnapshot: () => __TAURI_INVOKE<CalendarSnapshot>("get_calendar_snapshot"),
+	/**
+	 *  Refreshes every enabled source now; returns the snapshot as it stands afterwards (the
+	 *  work itself runs in the module's loop and arrives as `CalendarChanged`).
+	 */
+	calendarCommand: (command: CalendarCommand) => __TAURI_INVOKE<CalendarSnapshot>("calendar_command", { command }),
+	/**
+	 *  Subscribes to an ICS feed: the address goes to the credential vault, the source (name,
+	 *  colour, host — never the address) into `settings.modules.calendar.sources`, and the
+	 *  settings are saved and broadcast. `calendar.url.*` when the address is not a web link,
+	 *  `calendar.vault` when the vault refused it.
+	 */
+	calendarAddSource: (name: string, url: string, color: Tint) => typedError<SourceSetting, IpcError>(__TAURI_INVOKE("calendar_add_source", { name, url, color })),
+	/**
+	 *  Unsubscribes: the source leaves the settings (saved and broadcast), then its address
+	 *  leaves the vault and its cache the store.
+	 */
+	calendarRemoveSource: (id: string) => typedError<Settings, IpcError>(__TAURI_INVOKE("calendar_remove_source", { id })),
+	/**
+	 *  Opens an event's meeting link or URL in the default browser. Only `http(s)` links the
+	 *  module itself read from the feed are opened; `calendar.noLink` when the event has none.
+	 */
+	calendarOpen: (eventId: string) => typedError<null, IpcError>(__TAURI_INVOKE("calendar_open", { eventId })),
 	/**  Quits the app, releasing OS reservations first. */
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
 };
@@ -243,6 +270,7 @@ export const commands = {
 /** Events */
 export const events = {
 	bluetoothChanged: makeEvent<BluetoothChanged>("bluetooth-changed"),
+	calendarChanged: makeEvent<CalendarChanged>("calendar-changed"),
 	hudStateChanged: makeEvent<HudStateChanged>("hud-state-changed"),
 	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
 	mediaStateChanged: makeEvent<MediaStateChanged>("media-state-changed"),
@@ -393,6 +421,49 @@ export type BrightnessMonitor = {
 };
 
 /**
+ *  The subscribed calendars, their events and their refresh state as the module now sees
+ *  them (docs/modules/calendar.md): after a fetch, a command or a settings change.
+ */
+export type CalendarChanged = {
+	snapshot: CalendarSnapshot,
+};
+
+/**  What the panel can ask for. Sources and options go through the settings document. */
+export type CalendarCommand = 
+/**  Fetches every enabled source now, whatever the schedule says. */
+{ kind: "refresh" };
+
+/**  One occurrence inside the window, as the panel, the widget and the strip see it. */
+export type CalendarEvent = {
+	/**  `<source id>:<uid>:<start>`; stable across refreshes for the same instance. */
+	id: string,
+	sourceId: string,
+	/**  Empty when the feed had no summary; the UI names it. */
+	title: string,
+	location: string | null,
+	startMs: number,
+	endMs: number,
+	allDay: boolean,
+	/**
+	 *  A meeting link or the event's URL; opened through `calendar_open`, never rendered as a
+	 *  navigable link inside the webview.
+	 */
+	link: string | null,
+	isMeeting: boolean,
+};
+
+/**  What the UI renders (docs/modules/calendar.md). */
+export type CalendarSnapshot = {
+	sources: SourceView[],
+	/**  Every occurrence from enabled sources, chronological. */
+	events: CalendarEvent[],
+	windowStartMs: number,
+	windowEndMs: number,
+	/**  Some enabled source could not be reached on its last fetch. */
+	offline: boolean,
+};
+
+/**
  *  The conditions at the place right now. Every number came out of JSON, which cannot spell
  *  `NaN`, so they export as plain `number`s ([`Finite`]).
  */
@@ -423,6 +494,26 @@ export type DayForecast = {
 	/**  The day's highest hourly chance, 0–100. */
 	precipitationPercent: number | null,
 };
+
+/**
+ *  Why a refresh did not produce a feed. Never carries what the server said: the UI has one
+ *  sentence per case.
+ */
+export type FeedError = 
+/**  No connection, a DNS failure or a timeout: the cached events stand with their time. */
+"offline" | 
+/**  The server refused (401, 403, 404, 410): the link expired or was revoked. */
+"refused" | 
+/**
+ *  The server answered with something that is not a calendar (a login page, an error
+ *  status, an oversized body).
+ */
+"invalid" | 
+/**
+ *  The address is not in this device's vault (the settings came from another machine, or
+ *  the vault entry was removed); the source must be added again.
+ */
+"missingLink";
 
 /**
  *  Why a refresh or a search did not produce a result. Never carries what the provider said:
@@ -477,7 +568,9 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 /**  A processor (docs/modules/system-monitor.md): the CPU strip gauge. */
 "cpu" | 
 /**  An hourglass (docs/modules/day-progress.md): the working day's progress bar. */
-"hourglass";
+"hourglass" | 
+/**  A calendar page (docs/modules/calendar.md): the next event, tinted like its source. */
+"calendar";
 
 /**  One hour of the strip. */
 export type HourForecast = {
@@ -906,6 +999,43 @@ export type ShellYieldChanged = {
 	state: YieldState,
 };
 
+/**  One subscribed calendar, as the settings document and the UI see it. */
+export type SourceSetting = {
+	/**  Stable, opaque; also names the secret and the cache entry. */
+	id: string,
+	name: string,
+	color: Tint,
+	/**  A disabled source keeps its address and cache but is neither fetched nor shown. */
+	enabled: boolean,
+	/**  The feed's host, so the settings pane can say where it comes from without the address. */
+	host: string,
+};
+
+/**  Where a source stands. */
+export type SourceStatus = 
+/**  Not fetched yet this launch (the cache, if any, is showing). */
+{ kind: "idle" } | 
+/**  A request is on the wire. */
+{ kind: "fetching" } | 
+/**  The last fetch worked. */
+{ kind: "ok" } | 
+/**  The last fetch failed; the cached events, if any, stay. `MissingLink` is not retried. */
+{ kind: "error"; error: FeedError };
+
+/**  A source as the UI shows it: the setting plus the fetch state. */
+export type SourceView = {
+	id: string,
+	name: string,
+	color: Tint,
+	enabled: boolean,
+	host: string,
+	status: SourceStatus,
+	/**  When the showing events were fetched, Unix milliseconds. */
+	fetchedAtMs: number | null,
+	/**  Occurrences inside the window. */
+	eventCount: number,
+};
+
 /**  What the closed strip renders right now. */
 export type StripContent = 
 /**  Nothing to show: the strip is the bare black shape. */
@@ -948,7 +1078,13 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
  *  never logged. As an activity the trailing slot carries the due time; as a notice it
  *  announces the moment.
  */
-{ kind: "taskDue"; title: string };
+{ kind: "taskDue"; title: string } | 
+/**
+ *  A calendar event within the hour or starting now (docs/modules/calendar.md); the title
+ *  is content and is never logged. As an activity the trailing slot carries the start
+ *  time; as a notice it announces the ten-minute mark.
+ */
+{ kind: "eventStarting"; title: string };
 
 export type SystemMonitorBattery = {
 	percent: number,

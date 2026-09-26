@@ -169,4 +169,7 @@ fn wire_module_sinks(app: &tauri::AppHandle, modules: &modules::ModuleServices) 
     modules
         .weather
         .set_sink(Arc::new(ipc::WeatherEventSink::new(app.clone())));
+    modules
+        .calendar
+        .set_sink(Arc::new(ipc::CalendarEventSink::new(app.clone())));
 }

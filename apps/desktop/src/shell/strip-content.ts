@@ -99,6 +99,9 @@ export const messageText = (message: StripMessage, t: Translate): string => {
     case 'taskDue':
       // The title is the user's words; the strip shows it as written.
       return message.title;
+    case 'eventStarting':
+      // The title is the feed's words; an untitled event gets a name.
+      return message.title === '' ? t('strip.message.eventUntitled') : message.title;
   }
 };
 
@@ -242,6 +245,16 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
         return fact === null
           ? t('strip.describe.taskDue', { title: message })
           : t('strip.describe.taskDueAt', { title: message, fact });
+      }
+      case 'eventStarting': {
+        // Both forms carry the start time on the right; a notice is the ten-minute mark.
+        const fact = item.trailing?.kind === 'time' ? describeSlot(item.trailing, t, locale) : null;
+        if (content.kind === 'notice') {
+          return t('strip.describe.eventStartingSoon', { title: message });
+        }
+        return fact === null
+          ? t('strip.describe.event', { title: message })
+          : t('strip.describe.eventAt', { title: message, fact });
       }
       case 'nowPlaying': {
         // A play glyph on the right means the session is paused (docs/modules/media.md).

@@ -13,6 +13,7 @@ mod audio;
 mod autostart;
 mod bluetooth;
 mod brightness;
+mod credentials;
 mod foreground;
 pub mod identity;
 mod location;
@@ -36,7 +37,7 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
-    Platform, Power, SystemOsd, SystemStats, Windowing,
+    Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
@@ -307,6 +308,20 @@ impl Location for WindowsPlatform {
     }
 }
 
+impl Secrets for WindowsPlatform {
+    fn get(&self, key: &str) -> PlatformResult<Option<String>> {
+        credentials::get(key)
+    }
+
+    fn set(&self, key: &str, value: &str) -> PlatformResult<()> {
+        credentials::set(key, value)
+    }
+
+    fn remove(&self, key: &str) -> PlatformResult<()> {
+        credentials::remove(key)
+    }
+}
+
 impl Monitors for WindowsPlatform {
     fn all(&self) -> PlatformResult<Vec<MonitorInfo>> {
         monitors::enumerate()
@@ -429,6 +444,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn location(&self) -> &dyn Location {
+        self
+    }
+
+    fn secrets(&self) -> &dyn Secrets {
         self
     }
 
