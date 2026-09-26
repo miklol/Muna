@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- Drop target for docs/spikes/m4-drag.md (S2), pass 2: Microsoft Edge opens this page with
+     --app; the whole body accepts a file drop over an <input type="file">, and the window title
+     reports what arrived (S2:ready, then S2:<names>) so probe.ps1 can read it back with
+     GetWindowTextW. Nothing here is part of the shipped app. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>S2:ready</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #f3f3f3;
+        font:
+          16px system-ui,
+          sans-serif;
+        color: #222;
+      }
+      main {
+        display: grid;
+        place-items: center;
+        height: 100%;
+      }
+      label {
+        display: grid;
+        gap: 12px;
+        justify-items: center;
+        padding: 48px;
+        border: 2px dashed #888;
+        border-radius: 16px;
+      }
+      body.over label {
+        border-color: #0067c0;
+        background: #e6f0fa;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <label>
+        <span>Drop a file here</span>
+        <input id="picker" type="file" multiple />
+        <output id="result">Nothing yet</output>
+      </label>
+    </main>
+    <script>
+      const report = (files) => {
+        const names = [...files].map((file) => file.name);
+        document.getElementById('result').textContent = names.join(', ') || 'Nothing yet';
+        document.title = `S2:${names.join(',')}`;
+      };
+      document.getElementById('picker').addEventListener('change', (event) => {
+        report(event.target.files);
+      });
+      document.body.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+        document.body.classList.add('over');
+      });
+      document.body.addEventListener('dragleave', () => {
+        document.body.classList.remove('over');
+      });
+      document.body.addEventListener('drop', (event) => {
+        event.preventDefault();
+        document.body.classList.remove('over');
+        report(event.dataTransfer.files);
+      });
+    </script>
+  </body>
+</html>

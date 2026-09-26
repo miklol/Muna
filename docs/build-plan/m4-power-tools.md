@@ -9,7 +9,7 @@ prompt from [m3-daily-modules.md](m3-daily-modules.md#generic-module-prompt) wit
   compress with progress, Nearby Share via `IDataTransferManagerInterop`, USB eject via
   `CM_Request_Device_EjectW`, "Open with", "Reveal". Confirm destructive actions.
 - **M4-E2 Shelf** — persisted items (files, text, images) in SQLite + `%LOCALAPPDATA%\Muna\
-  shelf`; drag-out with `tauri-plugin-drag` (`DoDragDrop`); clipboard history
+  shelf`; drag-out with `DoDragDrop` (validated by spike S2 below); clipboard history
   (`Clipboard.HistoryChanged`) as a source; expiry rules.
 - **M4-E3 Window snap** (`muna-shell-engineer`) — zones appear on `EVENT_SYSTEM_MOVESIZESTART`
   when the cursor nears the notch; `SetWindowPos` with `DWMWA_EXTENDED_FRAME_BOUNDS`
@@ -63,6 +63,21 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
   (`drop`); the *Shelf*, *Convert* and *Music* tiles wait for their modules. Details in
   [drop-actions → Implementation notes](../modules/drop-actions.md#implementation-notes-m4-e1);
   hardware and application rows in [qa/checklists/drop-actions](../qa/checklists/drop-actions.md).
+- **M4-E2 Shelf — built** (branch `m4-e2-shelf`, stacked on `m4-e1-drop-actions`). Spike S2
+  passed on its first complete run ([spikes/m4-drag](../spikes/m4-drag.md): `DoDragDrop` from
+  a Tauri command on the main thread enters OLE 37–43 ms after the gesture, lands in Explorer
+  and a browser file input, the strip never activates), so the `DragSource` row below stands as
+  designed and no drag-proxy window was written. Against the plan: `tauri-plugin-drag` is not
+  used (the shell has its own `DragSource` with `SHDoDragDrop` and the shell's data object);
+  the self-drop guard is an in-process flag (`DropSessions::self_drag`) instead of the private
+  clipboard format S2 suggested; the drop tile reaches the Shelf through
+  `muna_core::ShelfIntake` (the only seam between the two Rust modules) and is dimmed while the
+  Shelf is turned off; clipboard history as a source did **not** ship — it would park every
+  copy and needs an opt-in toggle the spec does not have; images are files, a pasted bitmap is
+  not an item. Thumbnails are Explorer's (`IShellItemImageFactory` → `GetDIBits` → PNG) at
+  128 device px, cached per item. Details in
+  [shelf → Implementation notes](../modules/shelf.md#implementation-notes-m4-e2); hardware and
+  application rows in [qa/checklists/shelf](../qa/checklists/shelf.md).
 
 ### Order
 

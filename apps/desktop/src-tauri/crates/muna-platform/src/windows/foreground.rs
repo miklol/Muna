@@ -10,8 +10,8 @@ use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_STYLE, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect, GetWindowTextW,
-    GetWindowThreadProcessId, WS_CAPTION, WS_POPUP,
+    GWL_STYLE, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect,
+    GetWindowTextW, GetWindowThreadProcessId, WS_CAPTION, WS_POPUP,
 };
 use windows::core::PWSTR;
 
@@ -107,6 +107,11 @@ fn frame_bounds(hwnd: HWND) -> Rect {
 }
 
 fn is_fullscreen(hwnd: HWND, bounds: Rect) -> bool {
+    // The desktop itself is a borderless, monitor-sized window: clicking it must not park the
+    // notch (docs/qa/checklists/notch-shell.md, Y3).
+    if is_desktop_class(&class_name(hwnd)) {
+        return false;
+    }
     let mut info = MONITORINFO {
         cbSize: u32::try_from(size_of::<MONITORINFO>()).unwrap_or(u32::MAX),
         ..Default::default()
@@ -150,6 +155,20 @@ fn borderless(style: isize) -> bool {
     style & WS_POPUP.0 != 0 || style & WS_CAPTION.0 != WS_CAPTION.0
 }
 
+fn class_name(hwnd: HWND) -> String {
+    let mut buffer = [0_u16; 256];
+    // SAFETY: `buffer` is a valid, writable UTF-16 buffer and its length is passed along.
+    #[allow(unsafe_code)]
+    let len = unsafe { GetClassNameW(hwnd, &mut buffer) };
+    String::from_utf16_lossy(&buffer[..usize::try_from(len).unwrap_or(0).min(buffer.len())])
+}
+
+/// The shell's desktop windows: `Progman` hosts the wallpaper and icons, `WorkerW` is the
+/// desktop's worker window that takes the foreground when the user clicks bare wallpaper.
+fn is_desktop_class(class: &str) -> bool {
+    matches!(class, "Progman" | "WorkerW")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,6 +191,14 @@ mod tests {
         assert!(!borderless(overlapped_with_caption));
         assert!(borderless(isize::try_from(WS_POPUP.0).unwrap()));
         assert!(borderless(0));
+    }
+
+    #[test]
+    fn the_desktop_is_never_fullscreen() {
+        assert!(is_desktop_class("Progman"));
+        assert!(is_desktop_class("WorkerW"));
+        assert!(!is_desktop_class("Chrome_WidgetWin_1"));
+        assert!(!is_desktop_class(""));
     }
 
     /// Talks to the real OS; only meaningful on the nightly lab machine.

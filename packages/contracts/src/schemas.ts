@@ -7,10 +7,14 @@ import { z } from 'zod';
 
 import type {
   Activity,
+  DragOutRequest,
+  DragOutcome,
+  DragSpike,
   DropAction,
   DropActionKind,
   DropActionsChanged,
   DropActionsSnapshot,
+  DropEffect,
   DropEntered,
   DropFailure,
   DropFolder,
@@ -35,6 +39,11 @@ import type {
   PomodoroPhase,
   ReducedMotion,
   Settings,
+  ShelfChanged,
+  ShelfCommand,
+  ShelfItem,
+  ShelfItemKind,
+  ShelfSnapshot,
   ShellLayout,
   ShellSettings,
   SourceSetting,
@@ -175,6 +184,7 @@ export const glyphSchema = z.enum([
   'share',
   'trash',
   'drive',
+  'shelf',
 ]) satisfies z.ZodType<Glyph>;
 
 /** What a drop action does with the items (docs/modules/drop-actions.md "Tiles"). */
@@ -189,6 +199,7 @@ export const dropActionKindSchema = z.enum([
   'reveal',
   'trash',
   'eject',
+  'shelf',
 ]) satisfies z.ZodType<DropActionKind>;
 
 export const tintSchema = z.enum([
@@ -1100,6 +1111,7 @@ export const dropFolderSchema = z.object({
 /** One tile in the row, in display order (docs/modules/drop-actions.md "Tiles"). */
 export const dropTileSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('nearbyShare') }),
+  z.object({ kind: z.literal('shelf') }),
   z.object({ kind: z.literal('folder'), id: z.string().min(1) }),
   z.object({ kind: z.literal('copyTo') }),
   z.object({ kind: z.literal('moveTo') }),
@@ -1112,9 +1124,10 @@ export const dropTileSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('divider') }),
 ]) satisfies z.ZodType<DropTile>;
 
-/** Every built-in tile, share first and the two destructive ones last; mirrors Rust. */
+/** Every built-in tile, share and Shelf first and the two destructive ones last; mirrors Rust. */
 export const DEFAULT_DROP_TILES: readonly DropTile[] = [
   { kind: 'nearbyShare' },
+  { kind: 'shelf' },
   { kind: 'copyTo' },
   { kind: 'moveTo' },
   { kind: 'openWith' },
@@ -1258,6 +1271,7 @@ export const dropActionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('reveal') }),
   z.object({ kind: z.literal('trash') }),
   z.object({ kind: z.literal('eject') }),
+  z.object({ kind: z.literal('shelf') }),
 ]) satisfies z.ZodType<DropAction>;
 
 /** A dragged item as the UI may know it: its name and kind, never its path. */
@@ -1296,3 +1310,100 @@ export const droppedSchema = z.object({
   session: z.number().int().min(1),
   position: dropPointSchema,
 }) satisfies z.ZodType<Dropped>;
+
+/** What a drag out of the notch carries (docs/modules/shelf.md "Drag out"). */
+export const dragOutRequestSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('files'), paths: z.array(z.string().min(1)).min(1) }),
+  z.object({ kind: z.literal('text'), text: z.string().min(1) }),
+  z.object({ kind: z.literal('shelf'), ids: z.array(z.string().min(1)).min(1) }),
+]) satisfies z.ZodType<DragOutRequest>;
+
+/** The effect the drop target applied to a drag out of Muna. */
+export const dropEffectSchema = z.enum(['copy', 'move', 'link']) satisfies z.ZodType<DropEffect>;
+
+export const dragOutcomeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('dropped'), effect: dropEffectSchema }),
+  z.object({ kind: z.literal('cancelled') }),
+]) satisfies z.ZodType<DragOutcome>;
+
+/** S2 spike only (docs/spikes/m4-drag.md): the files the UI arms a drag-out of from the strip. */
+export const dragSpikeSchema = z.object({
+  paths: z.array(z.string().min(1)),
+}) satisfies z.ZodType<DragSpike>;
+
+/** The key of the Shelf's namespace; also its module id. */
+export const SHELF_SETTINGS_KEY = 'shelf';
+
+/** Bounds the settings pane offers and the module clamps to (mirrors `modules::shelf::settings`). */
+export const SHELF_BOUNDS = {
+  expiryDays: { min: 0, max: 365 },
+} as const;
+
+/** The expiry choices the settings pane offers, in days; `0` keeps items until removed. */
+export const SHELF_EXPIRY_CHOICES: readonly number[] = [0, 1, 7, 30];
+
+/** Snippet previews are cut to this many characters before they reach the panel. */
+export const SHELF_PREVIEW_CHARS = 240;
+
+/**
+ * Mirrors `modules::shelf::ShelfSettings`: defaults for missing fields, a clamped expiry, and
+ * a wrong type fails the whole entry, like the Rust side.
+ */
+export const shelfSettingsSchema = z.object({
+  /** Copy dropped files into Shelf storage instead of referencing them. */
+  copyIntoStorage: z.boolean().default(false),
+  /** Remove items this many days after they arrived; `0` keeps them until removed. */
+  expiryDays: clampedInt(SHELF_BOUNDS.expiryDays, 0),
+});
+export type ShelfSettings = z.infer<typeof shelfSettingsSchema>;
+
+export const defaultShelfSettings = (): ShelfSettings => shelfSettingsSchema.parse({});
+
+/** Reads the Shelf namespace; a missing or malformed entry yields the defaults, like Rust. */
+export const readShelfSettings = (settings: Settings): ShelfSettings => {
+  const parsed = shelfSettingsSchema.safeParse(settings.modules[SHELF_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultShelfSettings();
+};
+
+/** Returns a new document with the Shelf namespace replaced. */
+export const writeShelfSettings = (settings: Settings, shelf: ShelfSettings): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [SHELF_SETTINGS_KEY]: shelf },
+});
+
+export const shelfItemKindSchema = z.enum(['file', 'text']) satisfies z.ZodType<ShelfItemKind>;
+
+/** One Shelf item as the panel sees it: a name and a preview, never a path or the full text. */
+export const shelfItemSchema = z.object({
+  id: z.string().min(1),
+  kind: shelfItemKindSchema,
+  name: z.string(),
+  extension: z.string().nullable(),
+  size: z.number().int().min(0).nullable(),
+  isFolder: z.boolean(),
+  copied: z.boolean(),
+  missing: z.boolean(),
+  preview: z.string().max(SHELF_PREVIEW_CHARS).nullable(),
+  addedAtMs: z.number().int().min(0),
+}) satisfies z.ZodType<ShelfItem>;
+
+/** What `commands.getShelfSnapshot` returns and `events.shelfChanged` carries. */
+export const shelfSnapshotSchema = z.object({
+  items: z.array(shelfItemSchema),
+  settings: shelfSettingsSchema,
+}) satisfies z.ZodType<ShelfSnapshot>;
+
+export const shelfChangedSchema = z.object({
+  snapshot: shelfSnapshotSchema,
+}) satisfies z.ZodType<ShelfChanged>;
+
+/** The argument of `commands.shelfCommand` (docs/modules/shelf.md "Contract"). */
+export const shelfCommandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('addText'), text: z.string().min(1) }),
+  z.object({ kind: z.literal('remove'), ids: z.array(z.string().min(1)).min(1) }),
+  z.object({ kind: z.literal('removeMissing') }),
+  z.object({ kind: z.literal('clear') }),
+  z.object({ kind: z.literal('open'), id: z.string().min(1) }),
+  z.object({ kind: z.literal('reveal'), ids: z.array(z.string().min(1)).min(1) }),
+  z.object({ kind: z.literal('copy'), ids: z.array(z.string().min(1)).min(1) }),
+]) satisfies z.ZodType<ShelfCommand>;

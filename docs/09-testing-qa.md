@@ -179,7 +179,10 @@ presses timed against the module's log); [checklists/hud.md](qa/checklists/hud.m
 NSIS polling, focus and busy holds, capture hiding);
 [checklists/drop-actions.md](qa/checklists/drop-actions.md) pairs with the scripted drop spike
 (`scripts/spikes/drop/index.mjs` for the enter / over / leave timing) and covers the sources,
-tiles and hardware by hand.
+tiles and hardware by hand; [checklists/shelf.md](qa/checklists/shelf.md) pairs with the
+scripted drag-out spike (`scripts/spikes/drag/index.mjs` for the gesture-to-OLE latency and the
+Explorer and browser targets) and covers Outlook, Teams, copies, thumbnails and missing files
+by hand.
 
 ## Bug workflow
 

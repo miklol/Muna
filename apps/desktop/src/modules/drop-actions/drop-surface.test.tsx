@@ -158,9 +158,9 @@ describe('DropSurface', () => {
     renderRow();
     const group = screen.getByRole('group', { name: 'Drop 2 items on an action' });
     expect(group).toHaveStyle({ maxWidth: '1000px' });
-    expect(tiles().map((rect) => rect.key)).toEqual(['nearbyShare', 'copyTo', 'moveTo', 'more']);
+    expect(tiles().map((rect) => rect.key)).toEqual(['nearbyShare', 'shelf', 'copyTo', 'more']);
     expect(within(group).getByText('Nearby Share')).toBeInTheDocument();
-    expect(within(group).getByText('6 more tiles')).toBeInTheDocument();
+    expect(within(group).getByText('7 more tiles')).toBeInTheDocument();
     expect(within(group).queryByRole('separator')).toBeNull();
   });
 
@@ -193,6 +193,7 @@ describe('DropSurface', () => {
     row.move(overTile(3));
     expect(tiles().map((rect) => rect.key)).toEqual([
       'nearbyShare',
+      'shelf',
       'copyTo',
       'moveTo',
       'openWith',
@@ -204,7 +205,7 @@ describe('DropSurface', () => {
     ]);
     expect(screen.getByRole('group').querySelectorAll('.drop-row')).toHaveLength(3);
     row.move(NOWHERE);
-    expect(tiles()).toHaveLength(9);
+    expect(tiles()).toHaveLength(10);
 
     cacheSettings(
       queryClient,
@@ -214,14 +215,14 @@ describe('DropSurface', () => {
       }),
     );
     row.move(AWAY);
-    expect(tiles()).toHaveLength(9);
+    expect(tiles()).toHaveLength(10);
     expect(screen.getByRole('group').querySelectorAll('.drop-row')).toHaveLength(2);
   });
 
   it('runs the tile under the release and hands the notch back after one pulse', async () => {
     const row = renderRow({ session: 7 });
-    row.move(overTile(1));
-    row.release(overTile(1));
+    row.move(overTile(2));
+    row.release(overTile(2));
     expect(ipc.dropRun).toHaveBeenCalledTimes(1);
     expect(ipc.dropRun).toHaveBeenLastCalledWith(7, { kind: 'copyTo', title: 'Copy to' });
     expect(ipc.dropCancel).not.toHaveBeenCalled();
@@ -237,7 +238,7 @@ describe('DropSurface', () => {
   it('hands the notch back at once under reduced motion', () => {
     const row = renderRow({ session: 8, items: [zip], reduceMotion: true });
     row.move(overTile(3));
-    row.release(overTile(5));
+    row.release(overTile(6));
     expect(ipc.dropRun).toHaveBeenLastCalledWith(8, { kind: 'unzip' });
     expect(row.onDone).toHaveBeenCalledTimes(1);
   });

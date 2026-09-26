@@ -52,6 +52,24 @@ pub fn enabled() -> bool {
     std::env::var("MUNA_SPIKE").is_ok_and(|value| value == "window")
 }
 
+/// S2 (docs/spikes/m4-drag.md): `MUNA_SPIKE=drag` runs the product shell and arms a drag-out of
+/// the files in `MUNA_SPIKE_DRAG_FILE` (`;`-separated) from the strip. `None` otherwise.
+#[must_use]
+pub fn drag_files() -> Option<Vec<String>> {
+    if !std::env::var("MUNA_SPIKE").is_ok_and(|value| value == "drag") {
+        return None;
+    }
+    let files = std::env::var("MUNA_SPIKE_DRAG_FILE").unwrap_or_default();
+    Some(
+        files
+            .split(';')
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .map(str::to_owned)
+            .collect(),
+    )
+}
+
 fn env_count(name: &str) -> u32 {
     std::env::var(name)
         .ok()

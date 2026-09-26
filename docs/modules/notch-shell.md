@@ -75,7 +75,9 @@ Rules:
   {BUSY, RUNNING_D3D_FULL_SCREEN, PRESENTATION_MODE} **or** the PILLAR heuristic: foreground
   rect covers ≥ 90 % of `rcMonitor` and the window has `WS_POPUP` or lacks `WS_CAPTION`
   (borderless video/game fullscreen; a maximised browser keeps its caption style and only
-  triggers `Peek`); `EVENT_SYSTEM_MOVESIZESTART` on any window → `Peek` unless the Window-snap
+  triggers `Peek`). The desktop itself (`Progman`, `WorkerW`) is a borderless monitor-sized
+  window that would pass the heuristic; it is exempt, so clicking bare wallpaper never parks
+  the notch; `EVENT_SYSTEM_MOVESIZESTART` on any window → `Peek` unless the Window-snap
   module wants the hot zone.
 - **Shapes**: *Notch* (flush to the top edge with 6 px *outward* top fillets — the flare of a
   real MacBook notch — and bottom radius 14 collapsed / 28 expanded, drawn as one SVG path with
@@ -319,3 +321,7 @@ The panel chrome and the module bar as shipped by the M1-E4 PR.
 
 - ~~Should Reserved mode be per-monitor or global?~~ Decided: per monitor (`MonitorLayout.mode`).
 - Do we need a "hot corner" fallback for touch/pen users? (Backlog.)
+- Two notch utilities cannot share the top-centre: another one running on the host (seen in
+  [spike S2](../spikes/m4-drag.md), a Qt full-screen layered window above ours) takes the
+  pointer and no event reaches Muna's strip. Diagnostics ([support](support.md)) should list
+  the window that owns the pointer over the strip when it is not `MunaNotch`. (Backlog.)

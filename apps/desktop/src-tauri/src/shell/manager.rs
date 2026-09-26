@@ -10,6 +10,7 @@
 //! main thread and re-entrant requests coalesce into one more pass.
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -239,35 +240,17 @@ impl ShellManager {
     /// from (docs/modules/drop-actions.md), keeps the paths in the drop registry for the
     /// module, and tells the model so the yield rules hold the strip in place meanwhile.
     fn on_drag_drop(self: &Arc<Self>, app: &AppHandle, label: &str, event: &DragDropEvent) {
+        // A drag out of the notch raises these too when it passes back over the notch; the
+        // Shelf must not take its own items back (docs/modules/shelf.md).
+        if self.drops.self_drag_active() {
+            if matches!(event, DragDropEvent::Drop { .. }) {
+                tracing::info!(label, "own drag dropped on the notch; ignored");
+            }
+            return;
+        }
         match event {
             DragDropEvent::Enter { paths, position } => {
-                let session = self.drops.begin(label, paths.clone());
-                self.drags.lock().enter(label, position.x, position.y);
-                let effects = self.model.lock().set_dragging(
-                    self.platform.as_ref(),
-                    label,
-                    true,
-                    Instant::now(),
-                );
-                self.apply(app, effects);
-                tracing::info!(label, session, count = paths.len(), "drag enter");
-                let position = self.css_point(label, DragPoint::new(position.x, position.y));
-                // Stat-ing the items can stall on a slow share; never on the event loop.
-                let app = app.clone();
-                let label = label.to_owned();
-                let paths = paths.clone();
-                tauri::async_runtime::spawn_blocking(move || {
-                    let items = paths.iter().map(|path| drop_item(path)).collect();
-                    emit(
-                        &app,
-                        &DropEntered {
-                            label,
-                            session,
-                            items,
-                            position,
-                        },
-                    );
-                });
+                self.on_drag_enter(app, label, paths, position.x, position.y);
             }
             DragDropEvent::Over { position } => {
                 let Some(session) = self.drops.current(label) else {
@@ -347,6 +330,42 @@ impl ShellManager {
                 .lock()
                 .set_dragging(self.platform.as_ref(), label, false, Instant::now());
         self.apply(app, effects);
+    }
+
+    /// A drag entered `label`: registers the session, holds the strip and tells the UI.
+    fn on_drag_enter(
+        self: &Arc<Self>,
+        app: &AppHandle,
+        label: &str,
+        paths: &[PathBuf],
+        x: f64,
+        y: f64,
+    ) {
+        let session = self.drops.begin(label, paths.to_vec());
+        self.drags.lock().enter(label, x, y);
+        let effects =
+            self.model
+                .lock()
+                .set_dragging(self.platform.as_ref(), label, true, Instant::now());
+        self.apply(app, effects);
+        tracing::info!(label, session, count = paths.len(), "drag enter");
+        let position = self.css_point(label, DragPoint::new(x, y));
+        // Stat-ing the items can stall on a slow share; never on the event loop.
+        let app = app.clone();
+        let label = label.to_owned();
+        let paths = paths.to_vec();
+        tauri::async_runtime::spawn_blocking(move || {
+            let items = paths.iter().map(|path| drop_item(path)).collect();
+            emit(
+                &app,
+                &DropEntered {
+                    label,
+                    session,
+                    items,
+                    position,
+                },
+            );
+        });
     }
 
     /// A drag position in physical client pixels as whole CSS pixels for the window `label`.

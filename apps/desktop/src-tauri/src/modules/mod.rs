@@ -19,6 +19,7 @@ pub mod live_activities;
 pub mod media;
 pub mod notifications;
 pub mod pomodoro;
+pub mod shelf;
 pub mod system_monitor;
 pub mod todo;
 pub mod weather;
@@ -91,21 +92,35 @@ pub struct ModuleServices {
     pub day_progress: Arc<day_progress::DayProgressService>,
     pub keyboard_shortcuts: Arc<keyboard_shortcuts::HotkeyService>,
     pub drop_actions: Arc<drop_actions::DropActionsService>,
+    pub shelf: Arc<shelf::ShelfService>,
 }
 
 impl ModuleServices {
-    /// `cache_dir` is the profile's cache folder; `None` keeps caches in memory (tests).
-    /// `store` is the profile database (module tables live there); `clock` is the hub's.
+    /// `profile_dir` is the profile folder (module caches and Shelf storage live under it);
+    /// `None` keeps caches in memory and disables Shelf copies (tests). `store` is the profile
+    /// database (module tables live there); `clock` is the hub's.
     #[must_use]
     pub fn new(
         platform: &Arc<dyn Platform>,
         hub: &Arc<Hub>,
-        cache_dir: Option<&Path>,
+        profile_dir: Option<&Path>,
         store: &Arc<Store>,
         clock: &Arc<dyn Clock>,
     ) -> Self {
-        let art_cache =
-            cache_dir.map(|dir| ArtCache::new(dir.join("art"), media::ART_CACHE_ENTRIES));
+        let art_cache = profile_dir
+            .map(|dir| ArtCache::new(dir.join("cache").join("art"), media::ART_CACHE_ENTRIES));
+        let shelf = Arc::new(shelf::ShelfService::new(
+            Arc::clone(platform),
+            Arc::clone(store),
+            Arc::clone(clock),
+            profile_dir.map(|dir| dir.join("shelf")),
+        ));
+        let drop_actions = Arc::new(drop_actions::DropActionsService::new(
+            Arc::clone(platform),
+            Arc::clone(hub),
+        ));
+        // The *Shelf* tile hands its items over through the core trait (ADR-0004).
+        drop_actions.set_shelf(Arc::clone(&shelf) as Arc<dyn muna_core::ShelfIntake>);
         Self {
             media: Arc::new(media::MediaService::new(
                 Arc::clone(platform),
@@ -153,10 +168,8 @@ impl ModuleServices {
                 Arc::new(day_progress::LocalZone),
             )),
             keyboard_shortcuts: Arc::new(keyboard_shortcuts::HotkeyService::new()),
-            drop_actions: Arc::new(drop_actions::DropActionsService::new(
-                Arc::clone(platform),
-                Arc::clone(hub),
-            )),
+            drop_actions,
+            shelf,
         }
     }
 }
@@ -192,6 +205,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         Box::new(drop_actions::DropActionsModule(Arc::clone(
             &services.drop_actions,
         ))),
+        Box::new(shelf::ShelfModule(Arc::clone(&services.shelf))),
     ]
 }
 

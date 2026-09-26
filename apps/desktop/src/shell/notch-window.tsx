@@ -40,6 +40,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { type DragOutHandlers, useDragOut, useDragSpike } from '../lib/drag-out';
 import { persistSettings, useSettings } from '../lib/settings';
 import {
   dropModuleOf,
@@ -142,6 +143,13 @@ export const wheelVolumeDelta = (deltaY: number): number => -Math.sign(deltaY) *
 
 const ignoreRefusal = () => {
   // The platform refused or the device vanished; the strip shows whatever is true next.
+};
+
+/** S2 spike: a suppressed native drag lands in the app log for the driver (G5). */
+const dragSpikeHandlers: DragOutHandlers = {
+  onNativeDragStart: () => {
+    commands.uiWarn('drag out html5 dragstart').catch(ignoreRefusal);
+  },
 };
 
 /** Radii the morph animates between, read from the tokens so theme changes are honoured. */
@@ -304,6 +312,11 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const speed = useRef(new SpeedTracker());
   const sampler = useRef(new MorphSampler());
   const lastPublished = useRef<ShapeRect[]>([]);
+
+  // S2 spike (docs/spikes/m4-drag.md): `MUNA_SPIKE=drag` arms a drag-out of a file from the
+  // whole window; `useDragSpike` answers `null` in the product and nothing is attached.
+  const dragSpike = useDragSpike();
+  useDragOut(rootRef, dragSpike, dragSpikeHandlers);
 
   const [panelContentHeight, setPanelContentHeight] = useState<number | null>(null);
   const [dropContentSize, setDropContentSize] = useState<Size | null>(null);

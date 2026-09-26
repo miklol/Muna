@@ -61,6 +61,22 @@ const MIGRATIONS: &[&str] = &[
     CREATE INDEX tasks_due ON tasks (due) WHERE deleted_at IS NULL AND completed_at IS NULL;
     INSERT INTO task_lists (id, name, sort_order, created_at, updated_at)
         VALUES ('inbox', NULL, 0, 0, 0);",
+    // M4-E2: the Shelf (docs/modules/shelf.md). `path` is set for files (a reference, or a
+    // copy inside Shelf storage when `copied` is 1), `text` for snippets; `size` is bytes when
+    // known; items keep arrival order.
+    "CREATE TABLE shelf_items (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        path TEXT,
+        text TEXT,
+        size INTEGER,
+        copied INTEGER NOT NULL DEFAULT 0,
+        added_at INTEGER NOT NULL,
+        sort_order INTEGER NOT NULL
+    );
+    CREATE INDEX shelf_items_order ON shelf_items (sort_order, added_at);
+    CREATE INDEX shelf_items_added_at ON shelf_items (added_at);",
 ];
 
 /// One pomodoro phase that ran, as logged by the module. Times are Unix milliseconds.

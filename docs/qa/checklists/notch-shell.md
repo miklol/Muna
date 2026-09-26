@@ -74,7 +74,7 @@ Measured on that run:
 | --- | --- |
 | Y1 | Strip black at rest; `MunaNotch` under the cursor at the strip and at the sliver; window placed |
 | Y2 | Hit rect left the strip **30 ms** after the foreground change (criterion ≤ 100 ms); sliver still `MunaNotch`; strip visibly up |
-| Y3 | Strip back 9 ms after the side window took the foreground; desktop check skipped — a real window covered the spot on this desktop |
+| Y3 | Strip back 9 ms after the side window took the foreground; desktop check skipped — a real window covered the spot on this desktop. **Re-run 2026-09-27 by the S2 drag spike**: with `Progman` in the foreground the notch parked at y −720 → fixed in `foreground.rs` (`Progman` / `WorkerW` are never fullscreen), verified by the spike's later runs |
 | Y4 | Strip visibly up **422 ms** after `SW_MAXIMIZE` (poll ≤ 500 ms + slide) |
 | Y5 | 30 % overlap: no peek within 1.5 s; 50 % overlap peeked after **330 ms** |
 | Y6 | Window moved; strip up **201 ms** after the drag began, still up after 600 ms; back 12–35 ms after release |
