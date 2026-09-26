@@ -105,6 +105,7 @@ fn inputs<'a>(
         foreground,
         quiet: UserNotificationState::AcceptsNotifications,
         moving: false,
+        dragging: false,
         locked: false,
         paused: false,
     }
@@ -156,6 +157,26 @@ fn a_window_drag_peeks_in_both_modes() {
     assert_eq!(decide(&i), YieldState::Peek);
     i.mode = PlacementMode::Reserved;
     assert_eq!(decide(&i), YieldState::Peek);
+}
+
+/// docs/build-plan/m4-power-tools.md "Risks": a file drag over the strip must win over Peek
+/// and lose to fullscreen holds.
+#[test]
+fn a_file_drag_over_the_strip_wins_over_peek_and_loses_to_park() {
+    let monitors = [primary()];
+    let caption = app(0x55, Rect::new(100, 0, 1400, 900), false);
+    let mut i = inputs(&monitors[0], &monitors, Some(&caption));
+    assert_eq!(decide(&i), YieldState::Peek);
+    i.dragging = true;
+    assert_eq!(decide(&i), YieldState::None);
+    i.moving = true;
+    assert_eq!(decide(&i), YieldState::None);
+    i.paused = true;
+    assert_eq!(decide(&i), YieldState::Parked);
+    i.paused = false;
+    let game = app(0x56, Rect::new(0, 0, 2560, 1440), true);
+    i.foreground = Some(&game);
+    assert_eq!(decide(&i), YieldState::Parked);
 }
 
 #[test]
@@ -909,6 +930,33 @@ fn moving_a_window_peeks_until_the_drag_ends() {
     assert_eq!(
         yield_effects(&model.set_moving(&platform, false, now)),
         vec![(PRIMARY_LABEL, YieldState::None)]
+    );
+}
+
+/// A file drag entering the window while a window drag peeks brings the strip back for the
+/// drop tiles; when the file drag leaves, the peek resumes. Only the window under the drag is
+/// affected, and an unknown label is a no-op.
+#[test]
+fn a_file_drag_holds_the_strip_in_place_while_it_is_over_the_window() {
+    let (platform, mut model, now) = ready_model(ShellSettings::default());
+    model.set_moving(&platform, true, now);
+    assert_eq!(
+        yield_effects(&model.set_dragging(&platform, PRIMARY_LABEL, true, now)),
+        vec![(PRIMARY_LABEL, YieldState::None)]
+    );
+    assert!(
+        model
+            .set_dragging(&platform, PRIMARY_LABEL, true, now)
+            .is_empty()
+    );
+    assert!(
+        model
+            .set_dragging(&platform, "notch-9", true, now)
+            .is_empty()
+    );
+    assert_eq!(
+        yield_effects(&model.set_dragging(&platform, PRIMARY_LABEL, false, now)),
+        vec![(PRIMARY_LABEL, YieldState::Peek)]
     );
 }
 

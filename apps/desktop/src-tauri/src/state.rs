@@ -82,6 +82,7 @@ impl AppState {
             Arc::clone(&self.platform),
             settings,
             started_at,
+            self.modules.drop_actions.sessions(),
         )));
         self
     }
@@ -142,6 +143,7 @@ impl AppState {
         self.modules.calendar.apply_settings(settings);
         self.modules.notifications.apply_settings(settings);
         self.modules.day_progress.apply_settings(settings);
+        self.modules.drop_actions.apply_settings(settings);
         let bindings = self.modules.keyboard_shortcuts.apply_settings(settings);
         for binding in bindings
             .iter()

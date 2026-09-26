@@ -8,6 +8,7 @@
 pub mod activities;
 pub mod artwork;
 pub mod clock;
+pub mod drops;
 pub mod settings;
 pub mod shell_settings;
 pub mod store;
@@ -15,11 +16,12 @@ pub mod tasks;
 pub mod wire;
 
 pub use activities::{
-    Activity, ActivityState, Glyph, Hub, Leading, Notice, PomodoroPhase, Scheduler, StripContent,
-    StripMessage, StripSink, Tint, Trailing, Waker,
+    Activity, ActivityState, DropActionKind, Glyph, Hub, Leading, Notice, PomodoroPhase, Scheduler,
+    StripContent, StripMessage, StripSink, Tint, Trailing, Waker,
 };
 pub use artwork::{ArtCache, Artwork, ArtworkError};
 pub use clock::{Clock, FakeClock, SystemClock};
+pub use drops::{DropSession, DropSessionId, DropSessions};
 pub use settings::{
     GeneralSettings, JsonValue, ReducedMotion, Settings, SettingsError, SettingsStore,
 };

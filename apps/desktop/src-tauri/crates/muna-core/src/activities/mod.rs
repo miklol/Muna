@@ -36,6 +36,9 @@ pub mod priority {
     pub const POWER: u8 = 90;
     pub const BLUETOOTH: u8 = 85;
     pub const POMODORO: u8 = 70;
+    /// A drop action in flight (docs/modules/drop-actions.md): the user just asked for it,
+    /// so it outranks scheduled content while it works, under the pomodoro they set running.
+    pub const DROP_JOB: u8 = 68;
     pub const EVENT_STARTING: u8 = 65;
     pub const MEDIA_PLAYING: u8 = 60;
     /// A task due within the hour (docs/modules/todo.md); under playing media so an hour of
@@ -107,6 +110,16 @@ pub enum Glyph {
     Hourglass,
     /// A calendar page (docs/modules/calendar.md): the next event, tinted like its source.
     Calendar,
+    /// A folder (docs/modules/drop-actions.md): copying or moving dropped files.
+    Folder,
+    /// A zip archive (docs/modules/drop-actions.md): zipping or unzipping.
+    Archive,
+    /// A share arrow (docs/modules/drop-actions.md): the Nearby Share sheet.
+    Share,
+    /// A bin (docs/modules/drop-actions.md): sent to the Recycle Bin.
+    Trash,
+    /// A drive (docs/modules/drop-actions.md): a removable volume ejected.
+    Drive,
 }
 
 /// The leading (left) slot of the strip.
@@ -262,6 +275,52 @@ pub enum StripMessage {
         app: String,
         title: String,
     },
+    /// A drop action working on `count` items (docs/modules/drop-actions.md); the trailing
+    /// slot carries its progress. The UI phrases it per action ("Zipping 3 items").
+    DropRunning {
+        action: DropActionKind,
+        count: u32,
+    },
+    /// A drop action finished; `count` is how many items it handled.
+    DropFinished {
+        action: DropActionKind,
+        count: u32,
+    },
+    /// A drop action failed or was cancelled by the user; the reason stays in the log.
+    DropFailed {
+        action: DropActionKind,
+    },
+}
+
+/// What a drop action does with the items, as a fact for the UI to phrase and tint
+/// (docs/modules/drop-actions.md "Tiles"). Closed on purpose, like [`Glyph`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum DropActionKind {
+    Share,
+    Copy,
+    Move,
+    Open,
+    OpenWith,
+    Zip,
+    Unzip,
+    Reveal,
+    Trash,
+    Eject,
+}
+
+impl DropActionKind {
+    /// The glyph the strip shows for this action.
+    #[must_use]
+    pub const fn glyph(self) -> Glyph {
+        match self {
+            Self::Share => Glyph::Share,
+            Self::Copy | Self::Move | Self::Open | Self::OpenWith | Self::Reveal => Glyph::Folder,
+            Self::Zip | Self::Unzip => Glyph::Archive,
+            Self::Trash => Glyph::Trash,
+            Self::Eject => Glyph::Drive,
+        }
+    }
 }
 
 /// One step of the pomodoro cycle; the UI localises the label and picks the tint.

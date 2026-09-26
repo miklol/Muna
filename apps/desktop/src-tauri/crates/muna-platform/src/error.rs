@@ -20,6 +20,11 @@ pub enum PlatformError {
     /// The user has not granted the required permission (notification listener, etc.).
     #[error("access to {0} was denied")]
     AccessDenied(&'static str),
+
+    /// The user cancelled the operation in a system dialog (a conflict prompt, the folder
+    /// picker). Not a failure: callers stay quiet.
+    #[error("{0} was cancelled")]
+    Cancelled(&'static str),
 }
 
 pub type PlatformResult<T> = Result<T, PlatformError>;

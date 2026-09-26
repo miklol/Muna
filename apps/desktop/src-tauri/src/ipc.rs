@@ -13,7 +13,7 @@ use muna_platform::{MediaCommand, MonitorInfo, PlatformError};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use specta_typescript::Typescript;
-use tauri::{AppHandle, State, WebviewWindow};
+use tauri::{AppHandle, Manager, State, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
@@ -23,6 +23,9 @@ use crate::modules::bluetooth::{BluetoothCommand, BluetoothSink, BluetoothSnapsh
 use crate::modules::calendar::{
     AddSourceError, CalendarCommand, CalendarSettings, CalendarSink, CalendarSnapshot,
     SourceSetting, UrlError,
+};
+use crate::modules::drop_actions::{
+    DropAction, DropActionsSnapshot, DropError, DropJob, DropSink, WindowThread,
 };
 use crate::modules::hud::{HudSink, HudState};
 use crate::modules::keyboard_shortcuts::{
@@ -97,6 +100,7 @@ impl From<PlatformError> for IpcError {
             PlatformError::Os { .. } => "platform.os",
             PlatformError::NotFound(_) => "platform.notFound",
             PlatformError::AccessDenied(_) => "platform.accessDenied",
+            PlatformError::Cancelled(_) => "platform.cancelled",
         };
         Self::new(code, error)
     }
@@ -342,6 +346,136 @@ impl HotkeyRegistrar for PluginRegistrar {
 #[serde(rename_all = "camelCase")]
 pub struct ShellPointerDownOutside {
     pub label: String,
+}
+
+/// One dragged item as the UI may know it (docs/modules/drop-actions.md): its name and kind,
+/// never its path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DropItem {
+    pub name: String,
+    /// Lower-case extension without the dot, when there is one.
+    pub extension: Option<String>,
+    pub is_directory: bool,
+}
+
+/// A point in whole CSS pixels relative to the notch window's client area (the units the UI
+/// lays its tiles out in).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DropPoint {
+    pub x: i32,
+    pub y: i32,
+}
+
+/// Files entered the notch window `label` in an OLE drag: the UI morphs into the tile row.
+/// `session` names the drag until [`Dropped`] or [`DropLeft`].
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct DropEntered {
+    pub label: String,
+    pub session: u32,
+    pub items: Vec<DropItem>,
+    pub position: DropPoint,
+}
+
+/// The drag moved over the window; at most one per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct DropMoved {
+    pub label: String,
+    pub session: u32,
+    pub position: DropPoint,
+}
+
+/// The drag left the window without dropping; the session is gone.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct DropLeft {
+    pub label: String,
+    pub session: u32,
+}
+
+/// The items were released over the window at `position`. The UI resolves the tile under it
+/// and calls `drop_run`, or `drop_cancel` when nothing was hit.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct Dropped {
+    pub label: String,
+    pub session: u32,
+    pub position: DropPoint,
+}
+
+/// The drop-actions row or a job changed (docs/modules/drop-actions.md).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct DropActionsChanged {
+    pub snapshot: DropActionsSnapshot,
+}
+
+/// Bridges the drop-actions service to [`DropActionsChanged`].
+pub struct DropEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for DropEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DropEventSink").finish_non_exhaustive()
+    }
+}
+
+impl DropEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl DropSink for DropEventSink {
+    fn changed(&self, snapshot: &DropActionsSnapshot) {
+        if let Err(error) = (DropActionsChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit DropActionsChanged");
+        }
+    }
+}
+
+/// Runs the share sheet on the main thread, which owns every notch window.
+pub struct MainThreadWindows {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for MainThreadWindows {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MainThreadWindows").finish_non_exhaustive()
+    }
+}
+
+impl MainThreadWindows {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl WindowThread for MainThreadWindows {
+    fn run(&self, label: &str, job: Box<dyn FnOnce(muna_platform::WindowHandle) + Send>) {
+        let app = self.app.clone();
+        let label = label.to_owned();
+        let queued = self.app.run_on_main_thread(move || {
+            let handle = app
+                .get_webview_window(&label)
+                .and_then(|window| crate::shell::manager::window_handle(&window))
+                .unwrap_or(0);
+            job(handle);
+        });
+        if let Err(error) = queued {
+            tracing::warn!(%error, "run_on_main_thread failed; the job is dropped");
+        }
+    }
 }
 
 /// The media module's state changed: sessions, the active one, the pin or which artwork
@@ -1405,6 +1539,59 @@ fn persist_hotkeys(app: &AppHandle, state: &Shared) -> Result<(), IpcError> {
     Ok(())
 }
 
+/// The drop-actions row and recent jobs (a window that just opened; afterwards it follows
+/// `DropActionsChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_drop_actions_snapshot(state: State<'_, Shared>) -> DropActionsSnapshot {
+    state.modules.drop_actions.snapshot()
+}
+
+/// Runs `action` on the items of a dropped session and returns the finished job
+/// (docs/modules/drop-actions.md). Blocks for as long as the shell's own dialogs are up, so
+/// it runs on a blocking thread. `drop.unknownSession` when the drag is gone or its items
+/// were never released over the window; `drop.unknownFolder` for a folder tile that was
+/// removed meanwhile.
+#[tauri::command]
+#[specta::specta]
+async fn drop_run(
+    state: State<'_, Shared>,
+    session: u32,
+    action: DropAction,
+) -> Result<DropJob, IpcError> {
+    let service = Arc::clone(&state.modules.drop_actions);
+    let job = tauri::async_runtime::spawn_blocking(move || service.run(session, &action))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(job)
+}
+
+/// The drop landed outside every tile (or the user declined the confirmation): forgets the
+/// session's items. `false` when it was already gone.
+#[tauri::command]
+#[specta::specta]
+fn drop_cancel(state: State<'_, Shared>, session: u32) -> bool {
+    state.modules.drop_actions.cancel_session(session)
+}
+
+/// Stops a running zip or unzip job at its next buffer; `false` for a job that is not
+/// running.
+#[tauri::command]
+#[specta::specta]
+fn drop_cancel_job(state: State<'_, Shared>, job: u32) -> bool {
+    state.modules.drop_actions.cancel_job(job)
+}
+
+impl From<DropError> for IpcError {
+    fn from(error: DropError) -> Self {
+        let code = match error {
+            DropError::UnknownSession | DropError::NotDropped => "drop.unknownSession",
+            DropError::UnknownFolder => "drop.unknownFolder",
+        };
+        Self::new(code, error)
+    }
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -1460,6 +1647,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_hotkeys,
             set_hotkey,
             clear_hotkey,
+            get_drop_actions_snapshot,
+            drop_run,
+            drop_cancel,
+            drop_cancel_job,
             quit_app
         ])
         .events(collect_events![
@@ -1470,6 +1661,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             ShellYieldChanged,
             HotkeyPressed,
             ShellPointerDownOutside,
+            DropEntered,
+            DropMoved,
+            DropLeft,
+            Dropped,
+            DropActionsChanged,
             MediaStateChanged,
             MediaArtChanged,
             HudStateChanged,

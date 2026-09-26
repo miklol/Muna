@@ -2,8 +2,9 @@
 //! what the platform reports to what one notch window should do. No timers, no OS calls, so
 //! every rule is a plain `cargo test` against scripted inputs.
 //!
-//! Precedence, highest first: paused display / locked session / fullscreen → *Park*; window
-//! drag or caption overlap → *Peek*; otherwise *None*. Parking is debounced by the caller
+//! Precedence, highest first: paused display / locked session / fullscreen → *Park*; a file
+//! drag over this window → *None* (the drop tiles need the strip in place); window drag or
+//! caption overlap → *Peek*; otherwise *None*. Parking is debounced by the caller
 //! ([`ParkDebounce`], 500 ms, "flapping fullscreen detection never flickers"); Peek is not
 //! (the acceptance criterion is "yields within 100 ms").
 
@@ -34,6 +35,10 @@ pub enum YieldState {
 }
 
 /// Everything the rules look at for one monitor.
+///
+/// The flags are independent observations from different Win32 sources (a window drag and an
+/// OLE file drag, a locked session and a user pause can each coexist), not a state machine.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct YieldInputs<'a> {
     pub mode: PlacementMode,
@@ -49,6 +54,9 @@ pub struct YieldInputs<'a> {
     pub quiet: UserNotificationState,
     /// A window is being dragged or resized somewhere (`EVENT_SYSTEM_MOVESIZESTART`).
     pub moving: bool,
+    /// A file drag (OLE) is over this window: the drop tiles are showing, so nothing short of
+    /// a park may move the strip (docs/build-plan/m4-power-tools.md "Risks").
+    pub dragging: bool,
     /// The session is locked (`WTS_SESSION_LOCK`).
     pub locked: bool,
     /// The user paused the notch on this display (tray menu).
@@ -66,6 +74,9 @@ pub fn decide(inputs: &YieldInputs<'_>) -> YieldState {
     });
     if foreground_here.is_some() && is_fullscreen(foreground_here, inputs.quiet) {
         return YieldState::Parked;
+    }
+    if inputs.dragging {
+        return YieldState::None;
     }
     if inputs.moving {
         return YieldState::Peek;
