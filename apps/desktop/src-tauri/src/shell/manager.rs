@@ -19,9 +19,10 @@ use muna_platform::{MonitorInfo, Platform, PlatformEvent, WindowHandle};
 use parking_lot::Mutex;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, DragDropEvent, Manager, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 use tauri_specta::Event;
 
+use super::drag::DragLog;
 use super::hit_test::PollRate;
 use super::memory_target::{Hold, MemoryTarget, MemoryTargetPolicy};
 use super::model::{Effect, PRIMARY_LABEL, ReconcilePlan, ShellLayout, ShellModel};
@@ -59,6 +60,8 @@ pub struct ShellManager {
     ready_reported: Mutex<HashSet<String>>,
     /// Low memory target while the cursor stays away from the notch (PRD ≤ 120 MB budget).
     memory_target: Mutex<MemoryTargetPolicy>,
+    /// OLE drags in flight over the notch windows, one summary per window label.
+    drags: Mutex<DragLog>,
 }
 
 impl std::fmt::Debug for ShellManager {
@@ -83,6 +86,7 @@ impl ShellManager {
             started_at,
             ready_reported: Mutex::new(HashSet::new()),
             memory_target: Mutex::new(MemoryTargetPolicy::new()),
+            drags: Mutex::new(DragLog::default()),
         }
     }
 
@@ -188,7 +192,7 @@ impl ShellManager {
         let Some(hwnd) = handle_of(&window) else {
             return;
         };
-        self.watch_scale(app, &window);
+        self.watch_window(app, &window);
         tracing::info!(label, monitor = %monitor.id, "notch window attached");
         let effects =
             self.model
@@ -197,11 +201,12 @@ impl ShellManager {
         self.apply(app, effects);
     }
 
-    fn watch_scale(self: &Arc<Self>, app: &AppHandle, window: &WebviewWindow) {
+    fn watch_window(self: &Arc<Self>, app: &AppHandle, window: &WebviewWindow) {
         let manager = Arc::clone(self);
         let app = app.clone();
-        window.on_window_event(move |event| {
-            if let WindowEvent::ScaleFactorChanged { .. } = event {
+        let label = window.label().to_owned();
+        window.on_window_event(move |event| match event {
+            WindowEvent::ScaleFactorChanged { .. } => {
                 // tao repositions the window to the OS-suggested rect; put it back. Hop through
                 // the async runtime so `run_on_main_thread` is queued, never inline.
                 let manager = Arc::clone(&manager);
@@ -210,7 +215,53 @@ impl ShellManager {
                     manager.request_reconcile(&app);
                 });
             }
+            // OLE drags reach the window through wry's drop target (docs/spikes/m4-drop.md).
+            WindowEvent::DragDrop(drag) => manager.on_drag_drop(&label, drag),
+            // The notch never takes focus on its own (`focusable: false`); a focus gain here
+            // means a drag or a click activated it, which the spike and the QA checklist watch.
+            WindowEvent::Focused(true) => tracing::warn!(label, "notch window focused"),
+            _ => {}
         });
+    }
+
+    fn on_drag_drop(&self, label: &str, event: &DragDropEvent) {
+        match event {
+            DragDropEvent::Enter { paths, position } => {
+                self.drags.lock().enter(label, position.x, position.y);
+                tracing::info!(
+                    label,
+                    count = paths.len(),
+                    x = position.x,
+                    y = position.y,
+                    "drag enter"
+                );
+            }
+            DragDropEvent::Over { position } => {
+                self.drags.lock().over(label, position.x, position.y);
+            }
+            DragDropEvent::Leave => {
+                let summary = self.drags.lock().finish(label);
+                tracing::info!(
+                    label,
+                    overs = summary.overs,
+                    first = %summary.first(),
+                    last = %summary.last(),
+                    "drag leave"
+                );
+            }
+            DragDropEvent::Drop { paths, position } => {
+                let summary = self.drags.lock().finish(label);
+                tracing::info!(
+                    label,
+                    count = paths.len(),
+                    x = position.x,
+                    y = position.y,
+                    overs = summary.overs,
+                    "drag drop"
+                );
+            }
+            _ => {}
+        }
     }
 
     /// Queues a reconcile on the main thread from any thread.

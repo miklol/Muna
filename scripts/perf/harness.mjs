@@ -105,6 +105,15 @@ export class Probe {
     return this.#send(`cursor ${Math.round(x)} ${Math.round(y)}`);
   }
 
+  /** Current cursor position in physical pixels (`{ x, y }`). */
+  cursorPosition() {
+    return this.#send('cursor');
+  }
+
+  foreground() {
+    return this.#send('foreground');
+  }
+
   close() {
     if (!this.#closed) {
       this.#child.stdin.write('quit\n');
