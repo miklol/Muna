@@ -28,6 +28,8 @@ pub enum Hold {
     StripContent,
     /// The settings window has focus.
     SettingsFocused,
+    /// A camera preview is decoding frames in some webview (docs/modules/mirror.md).
+    MirrorPreview,
 }
 
 /// Decides target transitions from the cursor poll's rate and the holds.

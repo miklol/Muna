@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use muna_core::{DropSessions, ShellSettings, SnapSessions};
-use muna_platform::{MonitorInfo, Platform, PlatformEvent, WindowHandle};
+use muna_platform::{MonitorInfo, PermissionPolicy, Platform, PlatformEvent, WindowHandle};
 use parking_lot::Mutex;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
@@ -73,6 +73,9 @@ pub struct ShellManager {
     /// Last `SnapDragMoved` position sent, per the notch window it was over, so the cursor poll
     /// only emits changes.
     snap_over: Mutex<Option<(String, DropPoint)>>,
+    /// What the app's pages may ask the browser for; installed on every webview the shell
+    /// attaches (the Mirror module flips the camera flag, docs/modules/mirror.md).
+    permissions: Arc<PermissionPolicy>,
 }
 
 impl std::fmt::Debug for ShellManager {
@@ -91,6 +94,7 @@ impl ShellManager {
         started_at: Instant,
         drops: Arc<DropSessions>,
         snaps: Arc<SnapSessions>,
+        permissions: Arc<PermissionPolicy>,
     ) -> Self {
         Self {
             platform,
@@ -107,6 +111,7 @@ impl ShellManager {
             drops,
             snaps,
             snap_over: Mutex::new(None),
+            permissions,
         }
     }
 
@@ -124,6 +129,7 @@ impl ShellManager {
         if let Some(settings) = app.get_webview_window(SETTINGS_LABEL) {
             let own: Vec<WindowHandle> = handle_of(&settings).into_iter().collect();
             self.model.lock().set_own_handles(own);
+            install_permission_policy(&settings, Arc::clone(&self.permissions));
             // Closing the settings window hides it; the tray brings it back (tray utility).
             let window = settings.clone();
             let manager = Arc::clone(self);
@@ -222,6 +228,7 @@ impl ShellManager {
             return;
         };
         self.watch_window(app, &window);
+        install_permission_policy(&window, Arc::clone(&self.permissions));
         tracing::info!(label, monitor = %monitor.id, "notch window attached");
         let effects =
             self.model
@@ -1016,6 +1023,29 @@ fn set_webview_memory_target(window: &WebviewWindow, target: MemoryTarget) {
     #[cfg(not(windows))]
     {
         let _ = (window, target);
+    }
+}
+
+/// Lets `policy` answer every web permission request of `window`'s webview (camera for the
+/// Mirror module, everything else denied; docs/modules/mirror.md). Logged, never fatal: a
+/// runtime that cannot take the handler just keeps its own default, which prompts.
+fn install_permission_policy(window: &WebviewWindow, policy: Arc<PermissionPolicy>) {
+    #[cfg(windows)]
+    {
+        use muna_platform::windows::webview::install_permission_handler;
+        let label = window.label().to_owned();
+        let result = window.with_webview(move |webview| {
+            if let Err(error) = install_permission_handler(&webview.controller(), policy) {
+                tracing::warn!(%error, label, "webview permission handler failed");
+            }
+        });
+        if let Err(error) = result {
+            tracing::warn!(%error, label = window.label(), "with_webview failed");
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, policy);
     }
 }
 

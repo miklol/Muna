@@ -412,6 +412,12 @@ export const commands = {
 	 */
 	healthCommand: (command: HealthCommand) => typedError<HealthSnapshot, IpcError>(__TAURI_INVOKE("health_command", { command })),
 	/**
+	 *  Tells the module a camera preview in this window started (`true`) or stopped (`false`), so
+	 *  the renderer keeps its normal memory target while frames are decoded. The page owns the
+	 *  stream; Rust never sees a frame (docs/modules/mirror.md).
+	 */
+	mirrorWatch: (watching: boolean) => __TAURI_INVOKE<void>("mirror_watch", { watching }),
+	/**
 	 *  What the Support pane shows (version, channel, OS and `WebView2`, profile, logs size, the
 	 *  last bundle). Reads the registry and the `WebView2` loader, so it runs off the main thread.
 	 */

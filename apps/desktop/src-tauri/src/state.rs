@@ -79,6 +79,7 @@ impl AppState {
             started_at,
             self.modules.drop_actions.sessions(),
             self.modules.window_snap.sessions(),
+            self.modules.mirror.permissions(),
         )));
         self
     }
@@ -147,6 +148,7 @@ impl AppState {
         self.modules.screen_time.apply_settings(settings);
         self.modules.ai_coding.apply_settings(settings);
         self.modules.health.apply_settings(settings);
+        self.modules.mirror.apply_settings(settings);
         self.modules.support.apply_settings(settings);
         let bindings = self.modules.keyboard_shortcuts.apply_settings(settings);
         for binding in bindings
