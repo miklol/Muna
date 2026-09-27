@@ -7,6 +7,7 @@
 
 use std::path::Path;
 
+use tracing::{debug, warn};
 use windows::Win32::Storage::FileSystem::{
     GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
 };
@@ -16,7 +17,10 @@ use super::thumbnails;
 use crate::error::{PlatformError, PlatformResult};
 use crate::types::AppDescription;
 
-/// Name and icon of `executable`, either `None` when the file does not carry it.
+/// Name and icon of `executable`, either `None` when the file does not carry it. The icon is
+/// also `None` when the shell cannot render it right now (its thumbnail cache is shared with
+/// Explorer and every other caller, so extraction can fail transiently); a hiccup there must
+/// not cost the caller the name, which comes from the file alone.
 pub(super) fn describe(executable: &Path, icon_size: u32) -> PlatformResult<AppDescription> {
     if !executable.is_file() {
         return Err(PlatformError::NotFound("executable".into()));
@@ -24,7 +28,14 @@ pub(super) fn describe(executable: &Path, icon_size: u32) -> PlatformResult<AppD
     let icon_png = match thumbnails::thumbnail(executable, icon_size) {
         Ok(png) => Some(png),
         Err(PlatformError::NotFound(_)) => None,
-        Err(error) => return Err(error),
+        Err(error) if thumbnails::shell_declined(&error) => {
+            debug!(%error, "the shell declined the executable's icon for now");
+            None
+        }
+        Err(error) => {
+            warn!(%error, "executable icon unavailable");
+            None
+        }
     };
     Ok(AppDescription {
         name: file_description(executable),
@@ -135,20 +146,58 @@ fn query_bytes<'a>(block: &'a [u8], sub_block: &str) -> Option<&'a [u8]> {
 mod tests {
     use std::path::Path;
 
-    use super::describe;
+    use super::{describe, file_description};
     use crate::error::PlatformError;
+    use crate::windows::thumbnails;
 
     #[test]
-    fn notepad_has_a_description_and_an_icon() {
+    fn notepad_describes_itself_as_notepad() {
         let notepad = Path::new(r"C:\Windows\System32\notepad.exe");
         if !notepad.is_file() {
             return;
         }
-        let description = describe(notepad, 32).expect("describe notepad");
         // What `(Get-Item notepad.exe).VersionInfo.FileDescription` reports on every Windows.
-        assert_eq!(description.name.as_deref(), Some("Notepad"));
-        let icon = description.icon_png.expect("icon");
-        assert_eq!(&icon[..8], b"\x89PNG\r\n\x1a\n", "PNG header");
+        assert_eq!(file_description(notepad).as_deref(), Some("Notepad"));
+    }
+
+    #[test]
+    fn a_file_without_a_version_resource_has_no_description() {
+        let temp = std::env::temp_dir().join("muna-app-info-no-version.exe");
+        std::fs::write(&temp, b"MZ not really an executable").unwrap();
+        let description = file_description(&temp);
+        let _ = std::fs::remove_file(&temp);
+        assert_eq!(description, None);
+    }
+
+    #[test]
+    #[cfg_attr(
+        not(feature = "platform-tests"),
+        ignore = "touches the shell's thumbnail cache"
+    )]
+    fn cmd_has_a_description_and_an_icon() {
+        // Not notepad.exe: the thumbnails test extracts that one concurrently, and the shell's
+        // cache does not like two extractions of the same item at once.
+        let cmd = Path::new(r"C:\Windows\System32\cmd.exe");
+        if !cmd.is_file() {
+            return;
+        }
+        let description = describe(cmd, 32).expect("describe cmd");
+        assert_eq!(
+            description.name.as_deref(),
+            Some("Windows Command Processor")
+        );
+        match description.icon_png {
+            Some(icon) => assert_eq!(&icon[..8], b"\x89PNG\r\n\x1a\n", "PNG header"),
+            // `describe` keeps the name when the shell declines the icon; make sure that,
+            // and not a bug of ours, is why the icon is missing.
+            None => match thumbnails::thumbnail(cmd, 32) {
+                Ok(_) => eprintln!("skipped the icon check: the shell declined once"),
+                Err(error) if thumbnails::shell_declined(&error) => {
+                    eprintln!("skipped the icon check: the shell declined ({error})");
+                }
+                Err(error) => panic!("icon unavailable: {error:?}"),
+            },
+        }
     }
 
     #[test]

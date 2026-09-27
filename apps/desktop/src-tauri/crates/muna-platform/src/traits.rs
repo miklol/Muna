@@ -184,7 +184,8 @@ pub trait Foreground: Send + Sync {
 /// thread and cache by path.
 pub trait AppInfo: Send + Sync {
     /// [`crate::PlatformError::NotFound`] when `executable` is gone; an executable without a
-    /// description or an icon answers with the fields `None`.
+    /// description or an icon answers with the fields `None`. The icon is also `None` when the
+    /// shell cannot render it right now, so a name is never lost to an icon hiccup.
     fn describe(&self, executable: &Path, icon_size: u32) -> PlatformResult<AppDescription>;
 }
 

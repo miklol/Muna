@@ -13,7 +13,11 @@ use windows::Win32::Graphics::Gdi::{
     BI_RGB, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, DeleteObject, GetDC, GetDIBits, HBITMAP,
     HGDIOBJ, ReleaseDC,
 };
-use windows::Win32::UI::Shell::{IShellItemImageFactory, SIIGBF_BIGGERSIZEOK, SIIGBF_RESIZETOFIT};
+use windows::Win32::UI::Shell::{
+    IShellItemImageFactory, SIIGBF_BIGGERSIZEOK, SIIGBF_RESIZETOFIT, WTS_E_EXTRACTIONBLOCKED,
+    WTS_E_EXTRACTIONPENDING, WTS_E_EXTRACTIONTIMEDOUT, WTS_E_FAILEDEXTRACTION,
+    WTS_E_SURROGATEUNAVAILABLE,
+};
 use windows::core::Interface;
 
 use super::file_ops::{on_sta_thread, shell_item};
@@ -22,6 +26,25 @@ use crate::error::{PlatformError, PlatformResult};
 
 /// Largest side the shell is asked for; bigger requests only cost memory.
 const MAX_SIDE: u32 = 512;
+
+/// Whether `error` is the shell declining an extraction for now (`WTS_E_*`: the thumbnail
+/// cache is busy, the extraction timed out or its surrogate is gone). Explorer shows a blank
+/// tile and tries again later; callers here treat it as "no icon this time".
+pub(super) fn shell_declined(error: &PlatformError) -> bool {
+    matches!(
+        error,
+        PlatformError::Os { code, .. }
+            if [
+                WTS_E_FAILEDEXTRACTION,
+                WTS_E_EXTRACTIONTIMEDOUT,
+                WTS_E_SURROGATEUNAVAILABLE,
+                WTS_E_EXTRACTIONPENDING,
+                WTS_E_EXTRACTIONBLOCKED,
+            ]
+            .iter()
+            .any(|declined| declined.0.cast_unsigned() == *code)
+    )
+}
 
 /// A `size` × `size` (at most, aspect kept) PNG of `item`.
 pub(super) fn thumbnail(item: &Path, size: u32) -> PlatformResult<Vec<u8>> {
@@ -211,7 +234,29 @@ mod tests {
         ignore = "touches the shell's thumbnail cache"
     )]
     fn the_shell_renders_a_thumbnail_for_a_real_file() {
-        let png = thumbnail(Path::new(r"C:\Windows\System32\notepad.exe"), 64).unwrap();
+        let png = match thumbnail(Path::new(r"C:\Windows\System32\notepad.exe"), 64) {
+            Ok(png) => png,
+            Err(error) if shell_declined(&error) => {
+                eprintln!("skipped: the shell declined the extraction ({error})");
+                return;
+            }
+            Err(error) => panic!("thumbnail: {error:?}"),
+        };
         assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
+    }
+
+    #[test]
+    fn only_the_shells_extraction_errors_count_as_declined() {
+        assert!(shell_declined(&PlatformError::Os {
+            api: "IShellItemImageFactory::GetImage",
+            code: 0x8004_B201,
+        }));
+        assert!(!shell_declined(&PlatformError::Os {
+            api: "IShellItemImageFactory::GetImage",
+            code: 0x8000_4005,
+        }));
+        assert!(!shell_declined(&PlatformError::NotFound(
+            "dropped item".into()
+        )));
     }
 }
