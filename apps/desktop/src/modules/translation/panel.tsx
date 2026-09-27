@@ -313,8 +313,10 @@ export function TranslationPanel() {
         aria-label={t('translation.output.label')}
         aria-busy={running || undefined}
         data-empty={outputEmpty || undefined}
-        // Long answers scroll; the region needs a tab stop for keyboard scrolling.
-        tabIndex={outputEmpty ? undefined : 0}
+        // The box scrolls when the answer is long; a tab stop lets the keyboard scroll it (axe
+        // `scrollable-region-focusable`), which jsx-a11y's static rule cannot see.
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- scrollable region
+        tabIndex={0}
       >
         <Text
           as="p"
