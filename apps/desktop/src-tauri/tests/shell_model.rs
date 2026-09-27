@@ -49,6 +49,7 @@ fn app(handle: isize, bounds: Rect, is_fullscreen: bool) -> ForegroundWindow {
         handle,
         title: "Some app".into(),
         process_name: "app.exe".into(),
+        process_path: r"C:\Apps\app.exe".into(),
         bounds,
         is_fullscreen,
     }

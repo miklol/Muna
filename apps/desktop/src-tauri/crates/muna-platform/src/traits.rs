@@ -6,16 +6,18 @@
 //! the length of a drag.
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use tokio::sync::broadcast;
 
 use crate::error::PlatformResult;
 use crate::events::PlatformEvent;
 use crate::types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
-    BrightnessMonitor, DragOutcome, DragPayload, ForegroundWindow, GeoPosition, MediaCommand,
-    MediaSession, MonitorInfo, Notification, NotificationAccess, NotificationDelivery, OsdState,
-    Rect, SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
+    AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
+    BluetoothRadioState, BrightnessMonitor, DragOutcome, DragPayload, ForegroundWindow,
+    GeoPosition, MediaCommand, MediaSession, MonitorInfo, Notification, NotificationAccess,
+    NotificationDelivery, OsdState, Rect, SystemSample, Thumbnail, TransferMode,
+    UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md). Snapshots come from a cache the
@@ -168,9 +170,22 @@ pub trait Monitors: Send + Sync {
     fn all(&self) -> PlatformResult<Vec<MonitorInfo>>;
 }
 
-/// Foreground window tracking for the yield rules (docs/modules/notch-shell.md).
+/// Foreground window tracking for the yield rules (docs/modules/notch-shell.md) and the
+/// screen-time attribution (docs/modules/screen-time.md).
 pub trait Foreground: Send + Sync {
     fn current(&self) -> PlatformResult<Option<ForegroundWindow>>;
+    /// How long since the user last touched the keyboard or the mouse (`GetLastInputInfo`).
+    /// Cheap; screen time asks every few seconds to pause attribution while nobody is there.
+    fn idle_for(&self) -> PlatformResult<Duration>;
+}
+
+/// What an executable says about itself (docs/modules/screen-time.md): the product name from
+/// its version resource and the shell's icon for it. Reads the file, so callers use a blocking
+/// thread and cache by path.
+pub trait AppInfo: Send + Sync {
+    /// [`crate::PlatformError::NotFound`] when `executable` is gone; an executable without a
+    /// description or an icon answers with the fields `None`.
+    fn describe(&self, executable: &Path, icon_size: u32) -> PlatformResult<AppDescription>;
 }
 
 /// Native affinities of the notch windows (ADR-0002). The windows themselves are created by
@@ -331,6 +346,7 @@ pub trait Platform: Send + Sync {
     fn notifications(&self) -> &dyn Notifications;
     fn monitors(&self) -> &dyn Monitors;
     fn foreground(&self) -> &dyn Foreground;
+    fn app_info(&self) -> &dyn AppInfo;
     fn windowing(&self) -> &dyn Windowing;
     fn app_bar(&self) -> &dyn AppBar;
     fn autostart(&self) -> &dyn Autostart;

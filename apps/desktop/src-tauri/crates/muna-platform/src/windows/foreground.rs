@@ -1,14 +1,19 @@
 //! Snapshot of a top-level window for the yield rules (docs/modules/notch-shell.md): title,
-//! process image name, DWM frame bounds and the PILLAR fullscreen heuristic.
+//! process image name and path, DWM frame bounds and the PILLAR fullscreen heuristic; and the
+//! session's idle time for screen time (docs/modules/screen-time.md).
+
+use std::time::Duration;
 
 use windows::Win32::Foundation::{CloseHandle, HWND, RECT};
 use windows::Win32::Graphics::Dwm::{DWMWA_EXTENDED_FRAME_BOUNDS, DwmGetWindowAttribute};
 use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow,
 };
+use windows::Win32::System::SystemInformation::GetTickCount;
 use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
 use windows::Win32::UI::WindowsAndMessaging::{
     GWL_STYLE, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect,
     GetWindowTextW, GetWindowThreadProcessId, WS_CAPTION, WS_POPUP,
@@ -16,6 +21,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::PWSTR;
 
 use super::monitors::rect_from;
+use crate::error::PlatformResult;
 use crate::types::{ForegroundWindow, Rect};
 
 /// Fraction of the monitor a window must cover to count as fullscreen (PILLAR heuristic).
@@ -33,10 +39,12 @@ pub(super) fn current() -> Option<ForegroundWindow> {
 
 pub(super) fn snapshot(hwnd: HWND) -> ForegroundWindow {
     let bounds = frame_bounds(hwnd);
+    let process_path = process_path(hwnd);
     ForegroundWindow {
         handle: hwnd.0 as isize,
         title: title(hwnd),
-        process_name: process_name(hwnd),
+        process_name: file_name(&process_path),
+        process_path,
         bounds,
         is_fullscreen: is_fullscreen(hwnd, bounds),
     }
@@ -50,8 +58,19 @@ fn title(hwnd: HWND) -> String {
     String::from_utf16_lossy(&buffer[..usize::try_from(len).unwrap_or(0).min(buffer.len())])
 }
 
+/// The last path component (`explorer.exe`) of `path`; empty for an empty path.
+fn file_name(path: &str) -> String {
+    path.rsplit(['\\', '/']).next().unwrap_or("").to_owned()
+}
+
 /// Image file name (`explorer.exe`) of the process owning `hwnd`; empty when unknown.
 pub(super) fn process_name(hwnd: HWND) -> String {
+    file_name(&process_path(hwnd))
+}
+
+/// Full image path (`C:\Windows\explorer.exe`) of the process owning `hwnd`; empty when
+/// unknown (the window is gone, or the process is protected).
+pub(super) fn process_path(hwnd: HWND) -> String {
     let mut pid = 0_u32;
     // SAFETY: `pid` is a valid, writable `u32`; a zero return means the window is gone.
     #[allow(unsafe_code)]
@@ -79,9 +98,30 @@ pub(super) fn process_name(hwnd: HWND) -> String {
         if result.is_err() {
             return String::new();
         }
-        let path = String::from_utf16_lossy(&buffer[..usize::try_from(len).unwrap_or(0)]);
-        path.rsplit(['\\', '/']).next().unwrap_or("").to_owned()
+        String::from_utf16_lossy(&buffer[..usize::try_from(len).unwrap_or(0)])
     }
+}
+
+/// Time since the last keyboard or mouse input on this session. `GetLastInputInfo` reports a
+/// 32-bit tick count, so the difference is taken with wrapping arithmetic against
+/// `GetTickCount`, the same clock.
+pub(super) fn idle_for() -> PlatformResult<Duration> {
+    let mut info = LASTINPUTINFO {
+        cbSize: u32::try_from(size_of::<LASTINPUTINFO>()).unwrap_or(u32::MAX),
+        dwTime: 0,
+    };
+    // SAFETY: `info` has `cbSize` set as the API requires and is a valid, writable struct.
+    #[allow(unsafe_code)]
+    let ok = unsafe { GetLastInputInfo(&raw mut info) }.as_bool();
+    if !ok {
+        return Err(super::last_error("GetLastInputInfo"));
+    }
+    // SAFETY: no arguments; reads the millisecond tick count.
+    #[allow(unsafe_code)]
+    let now = unsafe { GetTickCount() };
+    Ok(Duration::from_millis(u64::from(
+        now.wrapping_sub(info.dwTime),
+    )))
 }
 
 fn frame_bounds(hwnd: HWND) -> Rect {
