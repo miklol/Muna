@@ -112,6 +112,7 @@ pub fn run() {
             wire_module_sinks(app.handle(), &state.modules, state.shell.clone());
             let started = modules::start_all(&state.module_ctx(), &state.modules);
             tracing::info!(modules = ?started, "modules running");
+            ipc::describe_build(app.handle(), &state.modules.support, &started);
             let settings = state.settings.lock().clone();
             state.apply_module_settings(&settings);
             state.sync_autostart(app.handle(), settings.general.launch_at_login);
@@ -218,4 +219,7 @@ fn wire_module_sinks(
     modules
         .ai_coding
         .set_sink(Arc::new(ipc::AiCodingEventSink::new(app.clone())));
+    modules
+        .support
+        .set_sink(Arc::new(ipc::SupportEventSink::new(app.clone())));
 }
