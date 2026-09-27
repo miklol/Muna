@@ -139,11 +139,13 @@ pub fn run() {
                 ..
             } => {
                 // A destroyed notch window must not keep the strip suspended, nor keep the
-                // system monitor, screen time or AI coding publishing for a panel that is gone.
+                // system monitor, screen time or AI coding publishing for a panel that is gone,
+                // nor a mirror preview holding the memory target.
                 exit_state.activities.forget_window(&label);
                 exit_state.modules.system_monitor.forget_window(&label);
                 exit_state.modules.screen_time.forget_window(&label);
                 exit_state.modules.ai_coding.forget_window(&label);
+                exit_state.modules.mirror.forget_window(&label);
                 exit_state
                     .modules
                     .drop_actions
@@ -170,7 +172,10 @@ fn wire_module_sinks(
         )));
     modules
         .keyboard_shortcuts
-        .set_sink(Arc::new(ipc::HotkeyEventSink::new(app.clone(), shell)));
+        .set_sink(Arc::new(ipc::HotkeyEventSink::new(
+            app.clone(),
+            shell.clone(),
+        )));
     modules
         .media
         .set_sink(Arc::new(ipc::MediaEventSink::new(app.clone())));
@@ -222,6 +227,9 @@ fn wire_module_sinks(
     modules
         .health
         .set_sink(Arc::new(ipc::HealthEventSink::new(app.clone())));
+    modules
+        .mirror
+        .set_sink(Arc::new(ipc::MirrorPreviewSink::new(app.clone(), shell)));
     modules
         .support
         .set_sink(Arc::new(ipc::SupportEventSink::new(app.clone())));
