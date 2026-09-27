@@ -46,6 +46,9 @@ use crate::modules::notifications::{
     NotificationsCommand, NotificationsSink, NotificationsSnapshot,
 };
 use crate::modules::pomodoro::{PomodoroCommand, PomodoroSink, PomodoroState};
+use crate::modules::screen_time::{
+    ScreenTimeCommand, ScreenTimeError, ScreenTimeSink, ScreenTimeSnapshot,
+};
 use crate::modules::shelf::{ShelfCommand, ShelfError, ShelfSink, ShelfSnapshot};
 use crate::modules::system_monitor::{SystemMonitorSink, SystemMonitorSnapshot};
 use crate::modules::todo::{TodoCommand, TodoError, TodoSink, TodoSnapshot};
@@ -116,6 +119,18 @@ impl From<NotesError> for IpcError {
             NotesError::EmptyTitle => Self::new("notes.emptyTitle", error),
             // The OS message names the path; the code is enough for the UI.
             NotesError::Io(error) => Self::new("notes.io", error.kind()),
+        }
+    }
+}
+
+impl From<ScreenTimeError> for IpcError {
+    fn from(error: ScreenTimeError) -> Self {
+        match error {
+            ScreenTimeError::Store(error) => error.into(),
+            ScreenTimeError::Platform(error) => error.into(),
+            ScreenTimeError::Unknown => Self::new("screenTime.unknown", error),
+            // The OS message names the path; the code is enough for the UI.
+            ScreenTimeError::Io(error) => Self::new("screenTime.io", error.kind()),
         }
     }
 }
@@ -988,6 +1003,46 @@ impl NotesSink for NotesEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit NotesChanged");
+        }
+    }
+}
+
+/// The screen-time snapshot changed (docs/modules/screen-time.md). Emitted only while a window
+/// watches (`screen_time_watch`) and after every `screen_time_command`; the payload carries app
+/// names and icons, which are content and never logged.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ScreenTimeChanged {
+    pub snapshot: ScreenTimeSnapshot,
+}
+
+/// Bridges the screen-time service to [`ScreenTimeChanged`].
+pub struct ScreenTimeEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for ScreenTimeEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScreenTimeEventSink")
+            .finish_non_exhaustive()
+    }
+}
+
+impl ScreenTimeEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl ScreenTimeSink for ScreenTimeEventSink {
+    fn changed(&self, snapshot: &ScreenTimeSnapshot) {
+        if let Err(error) = (ScreenTimeChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit ScreenTimeChanged");
         }
     }
 }
@@ -1951,6 +2006,62 @@ async fn notes_pick_folder(
     Ok(folder.map(|path| path.to_string_lossy().into_owned()))
 }
 
+/// Today's usage as the module now sees it (a panel that just opened; afterwards it follows
+/// `ScreenTimeChanged`). Built from the store on a blocking thread; the open span is counted
+/// up to now.
+#[tauri::command]
+#[specta::specta]
+async fn get_screen_time_snapshot(
+    state: State<'_, Shared>,
+) -> Result<ScreenTimeSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.screen_time);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || service.snapshot())
+            .await
+            .map_err(|error| IpcError::new("platform.os", error))??,
+    )
+}
+
+/// Tells the module a panel in this window opened (`true`) or closed (`false`); snapshots are
+/// published on every tick while any panel watches (docs/modules/screen-time.md).
+#[tauri::command]
+#[specta::specta]
+fn screen_time_watch(window: WebviewWindow, state: State<'_, Shared>, watching: bool) {
+    state.modules.screen_time.watch(window.label(), watching);
+}
+
+/// Exclude or include an app, set its category or daily limit, or clear the history; answers
+/// with the snapshot after it. `screenTime.unknown` when `exe` has never been seen.
+#[tauri::command]
+#[specta::specta]
+async fn screen_time_command(
+    state: State<'_, Shared>,
+    command: ScreenTimeCommand,
+) -> Result<ScreenTimeSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.screen_time);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || service.command(command))
+            .await
+            .map_err(|error| IpcError::new("platform.os", error))??,
+    )
+}
+
+/// Opens the folder picker for Settings › Screen time and writes the last seven days as CSV
+/// into the chosen folder, revealing the file; returns its path, or `null` when the user
+/// dismissed the picker. `screenTime.io` when the folder refused the file.
+#[tauri::command]
+#[specta::specta]
+async fn screen_time_export(
+    state: State<'_, Shared>,
+    title: String,
+) -> Result<Option<String>, IpcError> {
+    let service = Arc::clone(&state.modules.screen_time);
+    let file = tauri::async_runtime::spawn_blocking(move || service.export(&title))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(file.map(|path| path.to_string_lossy().into_owned()))
+}
+
 /// Every bound action with its chord and whether the OS took it (docs/modules/
 /// keyboard-shortcuts.md). Actions without a chord are not listed; the UI knows the full set.
 #[tauri::command]
@@ -2310,6 +2421,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             notes_open_external,
             notes_reveal_folder,
             notes_pick_folder,
+            get_screen_time_snapshot,
+            screen_time_watch,
+            screen_time_command,
+            screen_time_export,
             get_notifications_snapshot,
             notifications_command,
             notifications_open_settings,
@@ -2352,6 +2467,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             CalendarChanged,
             CodeHostingChanged,
             NotesChanged,
+            ScreenTimeChanged,
             NotificationsChanged,
             ShelfChanged,
             SnapDragMoved,
