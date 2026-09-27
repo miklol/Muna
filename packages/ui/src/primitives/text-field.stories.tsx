@@ -47,6 +47,11 @@ export const Disabled: Story = {
   args: { isDisabled: true, defaultValue: 'Renew passport' },
 };
 
+/** A token: masked, never saved or autofilled by the browser; Enter still submits it. */
+export const Secret: Story = {
+  args: { 'aria-label': 'Access token', placeholder: 'Paste a token', secret: true },
+};
+
 export const LongContent: Story = {
   args: { defaultValue: 'a title long enough to overflow the field and scroll as you type' },
 };
