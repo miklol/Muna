@@ -34,7 +34,8 @@ leaves E4 a kickoff prompt rather than a branch.
   over playing media but under a starting event, the eye rest in-panel rather than an
   overlay, and the breaks goal derived from the interval. Spec:
   [modules/health](../modules/health.md); QA: [checklists/health](../qa/checklists/health.md).
-- **M5-E1c Mirror** — built on `m5-e1c-mirror` (base `m5-e1b-health`): the pure
+- **M5-E1c Mirror** — built on `m5-e1c-mirror` ([#49](https://github.com/miklol/Muna/pull/49),
+  base `m5-e1b-health`): the pure
   `PermissionPolicy` in `muna-platform` (camera for the app's own origin while the module is
   on, everything else denied, decisions not saved to the profile) behind WebView2's
   `PermissionRequested` on both webviews, `MirrorService` with `mirror_watch` →
