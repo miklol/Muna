@@ -385,6 +385,23 @@ export const commands = {
 	 */
 	screenTimeExport: (title: string) => typedError<string | null, IpcError>(__TAURI_INVOKE("screen_time_export", { title })),
 	/**
+	 *  The AI coding sessions as the module now sees them (a panel that just opened; afterwards it
+	 *  follows `AiCodingChanged`). Cheap: the snapshot is built from memory.
+	 */
+	getAiCodingSnapshot: () => __TAURI_INVOKE<AiCodingSnapshot>("get_ai_coding_snapshot"),
+	/**
+	 *  Tells the module a panel in this window opened (`true`) or closed (`false`); snapshots are
+	 *  published on every change while any panel watches (docs/modules/ai-coding.md).
+	 */
+	aiCodingWatch: (watching: boolean) => __TAURI_INVOKE<void>("ai_coding_watch", { watching }),
+	/**
+	 *  Answer a held permission request, bring a session's terminal forward, dismiss a wait from
+	 *  the strip, install or remove Claude Code's hooks, or refresh; answers with the snapshot
+	 *  after it. `aiCoding.unknown` names a session that is gone, `aiCoding.notWaiting` a session
+	 *  with nothing to decide, `aiCoding.hooksFile` a settings file that refused the edit.
+	 */
+	aiCodingCommand: (command: AiCodingCommand) => typedError<AiCodingSnapshot, IpcError>(__TAURI_INVOKE("ai_coding_command", { command })),
+	/**
 	 *  The Action Center as the module now sees it (a panel that just opened; afterwards it
 	 *  follows `NotificationsChanged`).
 	 */
@@ -480,6 +497,7 @@ export const commands = {
 
 /** Events */
 export const events = {
+	aiCodingChanged: makeEvent<AiCodingChanged>("ai-coding-changed"),
 	bluetoothChanged: makeEvent<BluetoothChanged>("bluetooth-changed"),
 	calendarChanged: makeEvent<CalendarChanged>("calendar-changed"),
 	codeHostingChanged: makeEvent<CodeHostingChanged>("code-hosting-changed"),
@@ -544,6 +562,80 @@ export type Activity = {
 export type ActivityState = {
 	activity: Activity,
 	focused: boolean,
+};
+
+/**  Which agent runs a session. */
+export type AiAgent = "claude" | "copilot" | "generic";
+
+/**
+ *  The AI coding snapshot changed (docs/modules/ai-coding.md). Emitted only while a window
+ *  watches (`ai_coding_watch`) and after every `ai_coding_command`; the payload carries project
+ *  names, branch names and task lines, which are content and never logged.
+ */
+export type AiCodingChanged = {
+	snapshot: AiCodingSnapshot,
+};
+
+/**  What the UI can ask for. */
+export type AiCodingCommand = 
+/**  Look for sessions and read their logs now. */
+{ kind: "refresh" } | 
+/**  Answer a held permission request. */
+{ kind: "allow"; session: string } | { kind: "deny"; session: string } | 
+/**  Bring the session's terminal forward. */
+{ kind: "focus"; session: string } | 
+/**  Take a waiting session off the strip, or a finished one out of *Recent*. */
+{ kind: "dismiss"; session: string } | 
+/**  Write or remove our hooks in Claude Code's settings file. */
+{ kind: "installClaudeHooks" } | { kind: "removeClaudeHooks" };
+
+/**  What the UI renders. */
+export type AiCodingSnapshot = {
+	enabled: boolean,
+	/**  Live sessions: waiting first (decidable first), then running, newest change first. */
+	sessions: AiSession[],
+	/**  Finished sessions of the last [`RECENT_FOR`], newest first. */
+	recent: AiSession[],
+	receiver: ReceiverState,
+	generatedAtMs: number,
+};
+
+/**  One session as the panel shows it (docs/modules/ai-coding.md, *Reference*). */
+export type AiSession = {
+	/**  `<agent>:<the agent's own session id>`. */
+	id: string,
+	agent: AiAgent,
+	/**  The working directory's name. */
+	project: string | null,
+	branch: string | null,
+	model: string | null,
+	status: AiStatus,
+	waiting: AiWaiting | null,
+	/**  The first line of the last prompt. */
+	task: string | null,
+	/**  The file the agent last read or edited, relative to the project when inside it. */
+	file: string | null,
+	startedAtMs: number,
+	updatedAtMs: number,
+	/**  Prompts and answers so far; `None` when the log was too large to count from its start. */
+	messages: number | null,
+	/**  Tokens the agent reported; `None` when the agent does not report them. */
+	tokens: number | null,
+	/**  `true` when *Show* can bring the session's terminal forward. */
+	canFocus: boolean,
+};
+
+export type AiStatus = "running" | "waiting" | "done";
+
+export type AiWaiting = {
+	kind: WaitingKind,
+	/**  The tool the agent wants to run (permission requests). */
+	tool: string | null,
+	/**  What the tool would do: the command or the file. The user's own session content. */
+	detail: string | null,
+	/**  `true` while *Allow* / *Deny* reach the agent (a held Claude Code hook). */
+	decidable: boolean,
+	sinceMs: number,
 };
 
 export type AppCategory = "browsing" | "development" | "communication" | "media" | "games" | "productivity" | "system" | "other";
@@ -1137,7 +1229,9 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 /**  A pull request (docs/modules/code-hosting.md): a review was requested. */
 "pullRequest" | 
 /**  A circle with a cross (docs/modules/code-hosting.md): checks failed on a pull request. */
-"xCircle";
+"xCircle" | 
+/**  A terminal prompt (docs/modules/ai-coding.md): a coding agent's session. */
+"terminal";
 
 /**  One action's binding as the pane and the palette see it. */
 export type HotkeyBinding = {
@@ -1662,6 +1756,17 @@ export type PullRequest = {
 	mine: boolean,
 };
 
+/**  The hook receiver as the pane shows it. */
+export type ReceiverState = {
+	/**  The port asked for, or the one actually bound while listening. */
+	port: number,
+	listening: boolean,
+	/**  The URL Claude Code's hooks post to. */
+	hookUrl: string,
+	/**  `true` when `%USERPROFILE%\.claude\settings.json` has our hooks for this URL. */
+	claudeHooksInstalled: boolean,
+};
+
 /**  Integer rectangle in physical (device) pixels, screen coordinates. */
 export type Rect = {
 	x: number,
@@ -2031,7 +2136,14 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
  *  An app reached the daily limit the user set for it (docs/modules/screen-time.md); the
  *  name is content and is never logged. The UI phrases it ("Steam · 2 h limit reached").
  */
-{ kind: "screenTimeLimit"; app: string; minutes: number };
+{ kind: "screenTimeLimit"; app: string; minutes: number } | 
+/**
+ *  A coding agent stopped for the user (docs/modules/ai-coding.md). With a `tool` it is
+ *  asking permission to run it ("Claude Code wants to run Bash"); without one it is
+ *  waiting for input ("Claude Code is waiting for you"). Both fields are the agent's own
+ *  names and are never logged.
+ */
+{ kind: "agentWaiting"; agent: string; tool: string | null };
 
 export type SystemMonitorBattery = {
 	percent: number,
@@ -2206,7 +2318,13 @@ export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
  */
 { kind: "time"; atMs: number } | 
 /**  A small whole number the UI formats for the locale (unread notifications). */
-{ kind: "count"; value: number };
+{ kind: "count"; value: number } | 
+/**
+ *  *Allow* and *Deny* for a coding agent's permission prompt (docs/modules/ai-coding.md);
+ *  the UI answers through the module's command with `session`. The strip keeps its wide
+ *  form while this slot shows so both buttons have room.
+ */
+{ kind: "decision"; session: string };
 
 /**
  *  How [`crate::FileOps::transfer`] writes its destination (docs/modules/drop-actions.md,
@@ -2226,6 +2344,15 @@ export type VolumeLevel = {
 	percent: number,
 	muted: boolean,
 };
+
+/**  Why a session stopped for the user. */
+export type WaitingKind = 
+/**  The agent asks whether it may run a tool. */
+"permission" | 
+/**  The agent finished its turn and waits for the next prompt. */
+"input" | 
+/**  The agent has been idle for a while. */
+"idle";
 
 /**
  *  The forecast, its place and the refresh state as the module now sees them

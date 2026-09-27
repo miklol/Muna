@@ -18,7 +18,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 specta = { version = "=2.0.0-rc.25", features = ["derive", "serde_json"] }
 thiserror = "2.0"
-tokio = { version = "1.47", features = ["sync", "time", "rt", "macros"] }
+tokio = { version = "1.47", features = ["sync", "time", "rt", "macros", "net"] }
 tracing = { version = "0.1", features = ["log"] }
 muna-core = { path = "crates/muna-core" }
 muna-platform = { path = "crates/muna-platform" }
@@ -71,6 +71,12 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 # Zone lookups for ICS `TZID`s in the calendar module (docs/modules/calendar.md); the version
 # `rrule` depends on, so the two share one `Tz`.
 chrono-tz = "0.10"
+# The AI coding module's loopback hook receiver (docs/modules/ai-coding.md): the HTTP/1.1
+# server, its tokio adapter and the body-limit helper. All three are already in the graph
+# through `reqwest`, so this adds edges, not crates.
+http-body-util = "0.1"
+hyper = { version = "1.7", default-features = false, features = ["server", "http1"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }
 log = "0.4"
 muna-core.workspace = true
 muna-platform.workspace = true

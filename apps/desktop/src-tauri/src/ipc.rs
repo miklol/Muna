@@ -21,6 +21,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
+use crate::modules::ai_coding::{AiCodingCommand, AiCodingError, AiCodingSink, AiCodingSnapshot};
 use crate::modules::bluetooth::{BluetoothCommand, BluetoothSink, BluetoothSnapshot};
 use crate::modules::calendar::{
     AddSourceError, CalendarCommand, CalendarSettings, CalendarSink, CalendarSnapshot,
@@ -131,6 +132,21 @@ impl From<ScreenTimeError> for IpcError {
             ScreenTimeError::Unknown => Self::new("screenTime.unknown", error),
             // The OS message names the path; the code is enough for the UI.
             ScreenTimeError::Io(error) => Self::new("screenTime.io", error.kind()),
+        }
+    }
+}
+
+impl From<AiCodingError> for IpcError {
+    fn from(error: AiCodingError) -> Self {
+        match error {
+            AiCodingError::Store(error) => error.into(),
+            AiCodingError::Platform(error) => error.into(),
+            AiCodingError::Unknown => Self::new("aiCoding.unknown", error),
+            AiCodingError::NotWaiting => Self::new("aiCoding.notWaiting", error),
+            AiCodingError::NoProfile => Self::new("aiCoding.noProfile", error),
+            // The OS message names the settings path; the code is enough for the UI.
+            AiCodingError::HooksFile(error) => Self::new("aiCoding.hooksFile", error.kind()),
+            AiCodingError::Io(error) => Self::new("aiCoding.io", error.kind()),
         }
     }
 }
@@ -1043,6 +1059,45 @@ impl ScreenTimeSink for ScreenTimeEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit ScreenTimeChanged");
+        }
+    }
+}
+
+/// The AI coding snapshot changed (docs/modules/ai-coding.md). Emitted only while a window
+/// watches (`ai_coding_watch`) and after every `ai_coding_command`; the payload carries project
+/// names, branch names and task lines, which are content and never logged.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct AiCodingChanged {
+    pub snapshot: AiCodingSnapshot,
+}
+
+/// Bridges the AI coding service to [`AiCodingChanged`].
+pub struct AiCodingEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for AiCodingEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AiCodingEventSink").finish_non_exhaustive()
+    }
+}
+
+impl AiCodingEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl AiCodingSink for AiCodingEventSink {
+    fn changed(&self, snapshot: &AiCodingSnapshot) {
+        if let Err(error) = (AiCodingChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit AiCodingChanged");
         }
     }
 }
@@ -2062,6 +2117,40 @@ async fn screen_time_export(
     Ok(file.map(|path| path.to_string_lossy().into_owned()))
 }
 
+/// The AI coding sessions as the module now sees them (a panel that just opened; afterwards it
+/// follows `AiCodingChanged`). Cheap: the snapshot is built from memory.
+#[tauri::command]
+#[specta::specta]
+fn get_ai_coding_snapshot(state: State<'_, Shared>) -> AiCodingSnapshot {
+    state.modules.ai_coding.snapshot()
+}
+
+/// Tells the module a panel in this window opened (`true`) or closed (`false`); snapshots are
+/// published on every change while any panel watches (docs/modules/ai-coding.md).
+#[tauri::command]
+#[specta::specta]
+fn ai_coding_watch(window: WebviewWindow, state: State<'_, Shared>, watching: bool) {
+    state.modules.ai_coding.watch(window.label(), watching);
+}
+
+/// Answer a held permission request, bring a session's terminal forward, dismiss a wait from
+/// the strip, install or remove Claude Code's hooks, or refresh; answers with the snapshot
+/// after it. `aiCoding.unknown` names a session that is gone, `aiCoding.notWaiting` a session
+/// with nothing to decide, `aiCoding.hooksFile` a settings file that refused the edit.
+#[tauri::command]
+#[specta::specta]
+async fn ai_coding_command(
+    state: State<'_, Shared>,
+    command: AiCodingCommand,
+) -> Result<AiCodingSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.ai_coding);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || service.command(command))
+            .await
+            .map_err(|error| IpcError::new("platform.os", error))??,
+    )
+}
+
 /// Every bound action with its chord and whether the OS took it (docs/modules/
 /// keyboard-shortcuts.md). Actions without a chord are not listed; the UI knows the full set.
 #[tauri::command]
@@ -2425,6 +2514,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             screen_time_watch,
             screen_time_command,
             screen_time_export,
+            get_ai_coding_snapshot,
+            ai_coding_watch,
+            ai_coding_command,
             get_notifications_snapshot,
             notifications_command,
             notifications_open_settings,
@@ -2468,6 +2560,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             CodeHostingChanged,
             NotesChanged,
             ScreenTimeChanged,
+            AiCodingChanged,
             NotificationsChanged,
             ShelfChanged,
             SnapDragMoved,
