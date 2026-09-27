@@ -18,6 +18,7 @@ pub mod hud;
 pub mod keyboard_shortcuts;
 pub mod live_activities;
 pub mod media;
+pub mod notes;
 pub mod notifications;
 pub mod pomodoro;
 pub mod shelf;
@@ -97,6 +98,7 @@ pub struct ModuleServices {
     pub shelf: Arc<shelf::ShelfService>,
     pub window_snap: Arc<window_snap::WindowSnapService>,
     pub code_hosting: Arc<code_hosting::CodeHostingService>,
+    pub notes: Arc<notes::NotesService>,
 }
 
 impl ModuleServices {
@@ -182,6 +184,11 @@ impl ModuleServices {
                 Arc::clone(clock),
                 Arc::new(code_hosting::GitHub::new()),
             )),
+            notes: Arc::new(notes::NotesService::new(
+                Arc::clone(platform),
+                Arc::clone(store),
+                profile_dir.map(notes::default_folder),
+            )),
         }
     }
 }
@@ -224,6 +231,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         Box::new(code_hosting::CodeHostingModule(Arc::clone(
             &services.code_hosting,
         ))),
+        Box::new(notes::NotesModule(Arc::clone(&services.notes))),
     ]
 }
 
