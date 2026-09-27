@@ -67,9 +67,29 @@ export const withMunaGlobals: Decorator = (Story, context) => (
   </MunaMotionProvider>
 );
 
+/**
+ * Empties React Aria's live announcer before a story renders. A focused button that toggles
+ * `isPending` is announced through `role="img"` nodes that reference the button's id, appended
+ * to a body-level live region and kept for seven seconds. The test runner plays a file's stories
+ * back to back in one page, so the previous story's nodes would dangle (their button is gone)
+ * inside the next story's axe run, which checks the whole body. Clearing the logs keeps stories
+ * isolated without touching a rule; it mirrors `clearAnnouncer()` through the DOM so it works
+ * for whichever `react-aria` instance owns the region.
+ */
+export function clearLiveAnnouncements(root: ParentNode = document): void {
+  for (const log of root.querySelectorAll('[data-live-announcer] [role="log"]')) {
+    log.replaceChildren();
+  }
+}
+
+const resetLiveRegion: NonNullable<Preview['beforeEach']> = () => {
+  clearLiveAnnouncements();
+};
+
 export const munaPreview = {
   parameters: munaParameters,
   globalTypes: munaGlobalTypes,
   initialGlobals: munaInitialGlobals,
   decorators: [withMunaGlobals],
+  beforeEach: [resetLiveRegion],
 } satisfies Preview;
