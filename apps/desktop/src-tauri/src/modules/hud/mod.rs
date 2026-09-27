@@ -220,6 +220,16 @@ impl HudService {
         }
     }
 
+    /// The Support module's *Restore system flyouts* repair (docs/modules/support.md): hands
+    /// the flyout back to Windows unconditionally, then re-applies the setting so a user who
+    /// wants it replaced gets a fresh suppression. Bypasses the cache on purpose: the repair
+    /// exists for the case where the cache and the desktop disagree.
+    pub fn repair_flyout(&self, settings: &Settings) {
+        *self.suppression.lock() = None;
+        self.set_suppressed(false);
+        self.apply_settings(settings);
+    }
+
     fn set_suppressed(&self, suppressed: bool) {
         {
             let mut last = self.suppression.lock();

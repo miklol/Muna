@@ -51,6 +51,10 @@ use crate::modules::screen_time::{
     ScreenTimeCommand, ScreenTimeError, ScreenTimeSink, ScreenTimeSnapshot,
 };
 use crate::modules::shelf::{ShelfCommand, ShelfError, ShelfSink, ShelfSnapshot};
+use crate::modules::support::{
+    SupportCommand, SupportError, SupportLink, SupportOutcome, SupportService, SupportSink,
+    SupportSnapshot,
+};
 use crate::modules::system_monitor::{SystemMonitorSink, SystemMonitorSnapshot};
 use crate::modules::todo::{TodoCommand, TodoError, TodoSink, TodoSnapshot};
 use crate::modules::weather::{
@@ -147,6 +151,21 @@ impl From<AiCodingError> for IpcError {
             // The OS message names the settings path; the code is enough for the UI.
             AiCodingError::HooksFile(error) => Self::new("aiCoding.hooksFile", error.kind()),
             AiCodingError::Io(error) => Self::new("aiCoding.io", error.kind()),
+        }
+    }
+}
+
+impl From<SupportError> for IpcError {
+    fn from(error: SupportError) -> Self {
+        match error {
+            SupportError::Platform(PlatformError::NotFound(_)) => {
+                Self::new("support.noDesktop", error)
+            }
+            SupportError::Platform(error) => error.into(),
+            // The OS message names the path; the code is enough for the UI.
+            SupportError::Io(error) => Self::new("support.io", error.kind()),
+            SupportError::Zip(error) => Self::new("support.zip", error),
+            SupportError::Updater(_) => Self::new("support.updater", error),
         }
     }
 }
@@ -2151,6 +2170,188 @@ async fn ai_coding_command(
     )
 }
 
+// --- support ------------------------------------------------------------------------------
+
+/// Snapshot of the Support module (docs/modules/support.md); emitted after a diagnostics
+/// bundle is written and on every channel change. Carries paths and versions, no content.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SupportChanged {
+    pub snapshot: SupportSnapshot,
+}
+
+/// Bridges the Support service to [`SupportChanged`].
+pub struct SupportEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for SupportEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SupportEventSink").finish_non_exhaustive()
+    }
+}
+
+impl SupportEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl SupportSink for SupportEventSink {
+    fn changed(&self, snapshot: &SupportSnapshot) {
+        if let Err(error) = (SupportChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit SupportChanged");
+        }
+    }
+}
+
+/// Tells the Support module what this build is: the package version, the modules that started
+/// and where a bundled `CHANGELOG.md` may sit (the resource folder, then next to the
+/// executable, then the repository root in development).
+pub fn describe_build(app: &AppHandle, support: &SupportService, started: &[&str]) {
+    support.set_version(&app.package_info().version.to_string());
+    support.set_started_modules(started);
+    let mut candidates = Vec::new();
+    if let Ok(resources) = app.path().resource_dir() {
+        candidates.push(resources.join("CHANGELOG.md"));
+    }
+    if let Some(next_to_exe) = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf))
+    {
+        candidates.push(next_to_exe.join("CHANGELOG.md"));
+    }
+    if cfg!(debug_assertions) {
+        candidates.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("..")
+                .join("..")
+                .join("CHANGELOG.md"),
+        );
+    }
+    support.set_changelog_candidates(candidates);
+}
+
+/// What the Support pane shows (version, channel, OS and `WebView2`, profile, logs size, the
+/// last bundle). Reads the registry and the `WebView2` loader, so it runs off the main thread.
+#[tauri::command]
+#[specta::specta]
+async fn get_support_snapshot(state: State<'_, Shared>) -> Result<SupportSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.support);
+    tauri::async_runtime::spawn_blocking(move || service.snapshot())
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
+/// The pane's actions (docs/modules/support.md). `diagnostics` answers with the bundle it
+/// wrote; `checkUpdates` answers with what the channel's manifest says and never downloads;
+/// the repairs and `openLogs` answer `done`. The repairs act on the HUD and the shell from
+/// here — the composition root — so the module never imports another module.
+#[tauri::command]
+#[specta::specta]
+async fn support_command(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    command: SupportCommand,
+) -> Result<SupportOutcome, IpcError> {
+    match command {
+        SupportCommand::Diagnostics => {
+            let service = Arc::clone(&state.modules.support);
+            let record = tauri::async_runtime::spawn_blocking(move || service.diagnostics())
+                .await
+                .map_err(|error| IpcError::new("platform.os", error))??;
+            Ok(SupportOutcome::Bundle(record))
+        }
+        SupportCommand::RepairFlyouts => {
+            let settings = state.settings.lock().clone();
+            let hud = Arc::clone(&state.modules.hud);
+            tauri::async_runtime::spawn_blocking(move || hud.repair_flyout(&settings))
+                .await
+                .map_err(|error| IpcError::new("platform.os", error))?;
+            Ok(SupportOutcome::Done)
+        }
+        SupportCommand::RepairAppBar => {
+            if let Some(shell) = &state.shell {
+                shell.repair_app_bars(&app);
+            }
+            Ok(SupportOutcome::Done)
+        }
+        SupportCommand::OpenLogs => {
+            let logs = state
+                .modules
+                .support
+                .logs_dir()
+                .ok_or_else(|| IpcError::new("settings.io", "profile directory is unknown"))?;
+            std::fs::create_dir_all(&logs).map_err(|error| IpcError::new("settings.io", error))?;
+            app.opener()
+                .open_path(logs.display().to_string(), None::<&str>)
+                .map_err(|error| IpcError::new("platform.os", error))?;
+            Ok(SupportOutcome::Done)
+        }
+        SupportCommand::CheckUpdates => check_updates(&app, &state).await,
+    }
+}
+
+/// Reads the channel's `latest.json` through the updater plugin. Only a check: installing is
+/// the release engineer's flow (docs/10-release-distribution.md) and needs the signing key
+/// this build may not carry yet, so the pane sends the user to the release page instead.
+async fn check_updates(app: &AppHandle, state: &Shared) -> Result<SupportOutcome, IpcError> {
+    use tauri_plugin_updater::UpdaterExt;
+    let channel = state.modules.support.settings().channel;
+    let endpoint = tauri::Url::parse(channel.endpoint())
+        .map_err(|error| IpcError::new("support.updater", error))?;
+    let updater = app
+        .updater_builder()
+        .endpoints(vec![endpoint])
+        .map_err(|error| IpcError::new("support.updater", error))?
+        .build()
+        .map_err(|error| IpcError::new("support.updater", error))?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|error| IpcError::from(SupportError::Updater(error.to_string())))?;
+    Ok(match update {
+        Some(update) => SupportOutcome::Update {
+            available: true,
+            version: Some(update.version.clone()),
+            notes: update.body.clone(),
+        },
+        None => SupportOutcome::Update {
+            available: false,
+            version: None,
+            notes: None,
+        },
+    })
+}
+
+/// Opens one of the Support pages in the default browser; the address is built in Rust.
+#[tauri::command]
+#[specta::specta]
+fn support_open(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    link: SupportLink,
+) -> Result<(), IpcError> {
+    let url = state.modules.support.link(link);
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
+/// The bundled `CHANGELOG.md`, or `None` when this build ships none (the pane then offers the
+/// release notes on GitHub).
+#[tauri::command]
+#[specta::specta]
+fn support_changelog(state: State<'_, Shared>) -> Option<String> {
+    state.modules.support.changelog()
+}
+
 /// Every bound action with its chord and whether the OS took it (docs/modules/
 /// keyboard-shortcuts.md). Actions without a chord are not listed; the UI knows the full set.
 #[tauri::command]
@@ -2517,6 +2718,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_ai_coding_snapshot,
             ai_coding_watch,
             ai_coding_command,
+            get_support_snapshot,
+            support_command,
+            support_open,
+            support_changelog,
             get_notifications_snapshot,
             notifications_command,
             notifications_open_settings,
@@ -2561,6 +2766,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             NotesChanged,
             ScreenTimeChanged,
             AiCodingChanged,
+            SupportChanged,
             NotificationsChanged,
             ShelfChanged,
             SnapDragMoved,

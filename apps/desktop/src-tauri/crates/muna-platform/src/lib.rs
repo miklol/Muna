@@ -25,8 +25,8 @@ pub use fake::{
 };
 pub use traits::{
     AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
-    Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemOsd,
-    SystemStats, WindowPlacement, Windowing,
+    Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemInfo,
+    SystemOsd, SystemStats, WindowPlacement, Windowing,
 };
 pub use types::{
     AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
@@ -34,7 +34,7 @@ pub use types::{
     DragOutcome, DragPayload, DropEffect, ForegroundWindow, GeoPosition, MediaCommand,
     MediaControls, MediaSession, MonitorInfo, Notification, NotificationAccess,
     NotificationDelivery, OsdState, PlaybackStatus, PowerSource, ProcessUsage, Rect, RepeatMode,
-    SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
+    SystemDescription, SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
 };
 
 /// Constructs the platform implementation for the current build.

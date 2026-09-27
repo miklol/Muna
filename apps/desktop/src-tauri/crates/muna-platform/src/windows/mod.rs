@@ -28,6 +28,7 @@ mod power;
 mod processes;
 mod pump;
 mod radio;
+mod system_info;
 mod system_stats;
 mod thumbnails;
 pub mod undocumented;
@@ -35,7 +36,7 @@ pub mod webview;
 mod window;
 mod winrt;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use tokio::sync::broadcast;
@@ -48,14 +49,14 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
-    Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemOsd,
-    SystemStats, WindowPlacement, Windowing,
+    Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemInfo,
+    SystemOsd, SystemStats, WindowPlacement, Windowing,
 };
 use crate::types::{
     AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
     BluetoothRadioState, BrightnessMonitor, DragOutcome, DragPayload, ForegroundWindow,
     GeoPosition, MediaCommand, MediaSession, MonitorInfo, Notification, NotificationAccess,
-    NotificationDelivery, OsdState, Rect, SystemSample, Thumbnail, TransferMode,
+    NotificationDelivery, OsdState, Rect, SystemDescription, SystemSample, Thumbnail, TransferMode,
     UserNotificationState, WindowHandle,
 };
 
@@ -420,6 +421,16 @@ impl Processes for WindowsPlatform {
     }
 }
 
+impl SystemInfo for WindowsPlatform {
+    fn describe(&self) -> PlatformResult<SystemDescription> {
+        system_info::describe()
+    }
+
+    fn desktop_dir(&self) -> PlatformResult<PathBuf> {
+        system_info::desktop_dir()
+    }
+}
+
 impl Windowing for WindowsPlatform {
     fn extended_style(&self, window: WindowHandle) -> PlatformResult<u32> {
         window::extended_style(window)
@@ -633,6 +644,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn processes(&self) -> &dyn Processes {
+        self
+    }
+
+    fn system_info(&self) -> &dyn SystemInfo {
         self
     }
 
