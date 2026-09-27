@@ -45,7 +45,8 @@ const failureKey: Readonly<Record<SupportFailure, MessageKey>> = {
   failed: 'support.error.failed',
 };
 
-type View = { kind: 'menu' } | { kind: 'repair' } | { kind: 'changelog'; releases: ChangelogRelease[] };
+type View =
+  { kind: 'menu' } | { kind: 'repair' } | { kind: 'changelog'; releases: ChangelogRelease[] };
 
 interface Note {
   tone: 'ok' | 'error';
@@ -279,7 +280,10 @@ export function SupportPanel() {
           busy={busy}
           onBack={backToMenu}
           onRepair={(kind) => {
-            run({ kind }, kind === 'repairFlyouts' ? 'support.repair.flyoutsDone' : 'support.repair.appBarDone');
+            run(
+              { kind },
+              kind === 'repairFlyouts' ? 'support.repair.flyoutsDone' : 'support.repair.appBarDone',
+            );
           }}
         />
       );
@@ -287,7 +291,13 @@ export function SupportPanel() {
     default:
       body = (
         <section className="support-view" aria-label={t('support.title')}>
-          <Text as="p" variant="caption" tone="tertiary" truncate={1} className="support-view__about">
+          <Text
+            as="p"
+            variant="caption"
+            tone="tertiary"
+            truncate={1}
+            className="support-view__about"
+          >
             {t('support.about', { version: snapshot.version, os: snapshot.system.os })}
           </Text>
           <ul className="support-list">

@@ -1,4 +1,11 @@
-import type { IpcError, Settings, SupportCommand, SupportLink, SupportOutcome, SupportSnapshot } from '@muna/contracts';
+import type {
+  IpcError,
+  Settings,
+  SupportCommand,
+  SupportLink,
+  SupportOutcome,
+  SupportSnapshot,
+} from '@muna/contracts';
 import type * as Contracts from '@muna/contracts';
 import { defaultSettings, readSupportSettings } from '@muna/contracts';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -98,7 +105,9 @@ describe('SupportSettingsPane', () => {
     await flush();
     expect(screen.getByRole('radio', { name: 'Stable' })).toBeChecked();
     expect(screen.getByText(/You have version 0\.3\.0/u)).toBeInTheDocument();
-    expect(screen.getByText('Windows 11 Pro (build 26200) · WebView2 140.0.3485.54')).toBeInTheDocument();
+    expect(
+      screen.getByText('Windows 11 Pro (build 26200) · WebView2 140.0.3485.54'),
+    ).toBeInTheDocument();
     expect(screen.getByText(/^1\.2 MB of logs/u)).toBeInTheDocument();
   });
 
@@ -153,13 +162,20 @@ describe('SupportSettingsPane', () => {
   it('saves the bundle, opens the logs folder and runs both repairs through Rust', async () => {
     ipc.supportCommand.mockResolvedValueOnce({
       status: 'ok',
-      data: { kind: 'bundle', path: 'D:\\Desktop\\muna-diagnostics-20260927-1030.zip', entries: 4, atMs: 0 },
+      data: {
+        kind: 'bundle',
+        path: 'D:\\Desktop\\muna-diagnostics-20260927-1030.zip',
+        entries: 4,
+        atMs: 0,
+      },
     });
     renderPane();
     await flush();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await flush();
-    expect(screen.getByRole('status')).toHaveTextContent('Saved muna-diagnostics-20260927-1030.zip');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Saved muna-diagnostics-20260927-1030.zip',
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     const repairs = screen.getAllByRole('button', { name: 'Repair' });

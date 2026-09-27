@@ -47,7 +47,9 @@ describe('parseChangelog', () => {
   });
 
   it('accepts plain headings, a leading v, CRLF and bullets outside a group', () => {
-    const releases = parseChangelog('## v1.0.0 - 2026-10-01\r\n- First stable release\r\n- Thanks\r\n');
+    const releases = parseChangelog(
+      '## v1.0.0 - 2026-10-01\r\n- First stable release\r\n- Thanks\r\n',
+    );
     expect(releases).toEqual([
       {
         version: '1.0.0',

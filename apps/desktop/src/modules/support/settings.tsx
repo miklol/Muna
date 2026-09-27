@@ -16,7 +16,12 @@ import { ActionRow, Section, SegmentedRow, ValueRow } from '../../settings/rows'
 import { useSettingsEditor } from '../../settings/settings-editor';
 import { bundleName } from './panel';
 import { useSupportStore } from './support-store';
-import { openLink, type SupportFailure, useSupportCommand, useSupportSubscription } from './use-support';
+import {
+  openLink,
+  type SupportFailure,
+  useSupportCommand,
+  useSupportSubscription,
+} from './use-support';
 
 /** Every module row survives search: module panes are not indexed yet (docs/modules/settings.md). */
 const everything = () => true;
@@ -67,9 +72,15 @@ export function SupportSettingsPane() {
 
   const describeUpdate = (outcome: SupportOutcome): Note => {
     if (outcome.kind === 'update' && outcome.available) {
-      return { tone: 'ok', text: t('support.settings.updateAvailable', { version: outcome.version ?? '' }) };
+      return {
+        tone: 'ok',
+        text: t('support.settings.updateAvailable', { version: outcome.version ?? '' }),
+      };
     }
-    return { tone: 'ok', text: t('support.settings.upToDate', { version: snapshot?.version ?? '' }) };
+    return {
+      tone: 'ok',
+      text: t('support.settings.upToDate', { version: snapshot?.version ?? '' }),
+    };
   };
 
   /** Runs a command; the update check reports into its own row, everything else under the pane. */
@@ -101,7 +112,10 @@ export function SupportSettingsPane() {
   const system =
     snapshot === null
       ? t('settings.loading')
-      : [snapshot.system.os, snapshot.system.webview2 === null ? null : `WebView2 ${snapshot.system.webview2}`]
+      : [
+          snapshot.system.os,
+          snapshot.system.webview2 === null ? null : `WebView2 ${snapshot.system.webview2}`,
+        ]
           .filter((part): part is string => part !== null)
           .join(' · ');
   const logs = snapshot === null ? null : formatBytes(snapshot.logsBytes, locale);
