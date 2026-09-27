@@ -38,8 +38,8 @@ stateDiagram-v2
   HoverReveal --> Collapsed: pointer leaves shape + 30 px padding ≥ 150 ms
   HoverReveal --> Expanded: pointer stays ≥ 600 ms total | click | hotkey
   Collapsed --> Expanded: click | hotkey | scroll-down gesture
-  Expanded --> Pinned: click pin / focus a text field
-  Pinned --> Expanded: unpin & blur
+  Expanded --> Pinned: click pin / focus a text field / a module holds the panel
+  Pinned --> Expanded: unpin & blur & hold released
   Expanded --> Collapsed: pointer leaves panel+bar+30 px ≥ 300 ms | Esc | click outside | collapse button
   Collapsed --> Drop: file drag enters hot zone
   Expanded --> Drop: file drag enters panel
@@ -57,7 +57,11 @@ Rules:
   Muna uses 250 ms / 300 ms with a 30 px extended hover padding around the shape so small
   pointer excursions don't collapse the panel.
 - Expanded panel is dismissed by `Esc`, clicking outside, or the ⤡ button. `Pinned` (when a
-  text field has focus or the user clicks the pin) disables auto-collapse.
+  text field has focus or the user clicks the pin) disables auto-collapse. A module may also
+  **hold** the panel (`usePanelHold`, since M5-E1b: the Health module while a guided flow
+  runs): the hold pins like a focused field, without the pin button lighting up, is recorded
+  even while the panel is closed so the next open pins at once, and lets go when the module
+  says so. `Esc`, the ⤡ button and the hotkey still close a held panel.
 - While `Expanded`, module switching via module bar, right rail, `Ctrl+Tab`/`Ctrl+Shift+Tab`,
   and per-module hotkeys. Global toggle hotkey default `Ctrl+Alt+Space`.
 - Muna never steals focus unless the user clicks a text field (`WS_EX_NOACTIVATE` toggled).
