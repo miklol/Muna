@@ -15,7 +15,7 @@ leaves E4 a kickoff prompt rather than a branch.
 
 ### Progress
 
-- **M5-E1a Support & diagnostics** — built on `m5-e1-support` (PR TBD, base `m4-close-out`): the
+- **M5-E1a Support & diagnostics** — built on `m5-e1-support` (#47, base `m4-close-out`): the
   `SystemInfo` trait (Windows + fake), the support service with the Desktop bundle, the two
   repairs as calls on the HUD and the shell, the update channel and the check-only updater
   call, the panel and the pane. Deviations from the table below: `sysinfo` instead of
