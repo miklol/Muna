@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { dropModuleOf, findModule, modules, snapModuleOf } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf and window snap (M4)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf, window snap and code hosting (M4)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
@@ -20,6 +20,7 @@ describe('module registry', () => {
       'drop-actions',
       'shelf',
       'window-snap',
+      'code-hosting',
     ]);
     expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
     expect(findModule('dashboard')?.settings).toBeDefined();
@@ -54,6 +55,9 @@ describe('module registry', () => {
     expect(findModule('shelf')?.titleKey).toBe('shelf.title');
     expect(findModule('shelf')?.settings).toBeDefined();
     expect(findModule('shelf')?.panel).toBeDefined();
+    expect(findModule('code-hosting')?.titleKey).toBe('codeHosting.title');
+    expect(findModule('code-hosting')?.settings).toBeDefined();
+    expect(findModule('code-hosting')?.panel).toBeDefined();
   });
 
   it('gives the HUD a settings pane but no panel: it lives in the strip', () => {
@@ -88,7 +92,7 @@ describe('module registry', () => {
     expect(snapModuleOf(modules.filter((module) => module.id !== 'window-snap'))).toBeUndefined();
   });
 
-  it('declares the M4-E6 module actions on the media, to-do and pomodoro modules only', () => {
+  it('declares the module actions on the media, to-do, pomodoro and code-hosting modules only', () => {
     const withActions = modules
       .filter((module) => module.actions !== undefined)
       .map((module) => [module.id, module.actions?.map((action) => action.id)]);
@@ -96,6 +100,7 @@ describe('module registry', () => {
       ['media', ['media.playPause']],
       ['todo', ['todo.quickAdd']],
       ['pomodoro', ['pomodoro.toggle']],
+      ['code-hosting', ['code-hosting.refresh']],
     ]);
   });
 
@@ -110,6 +115,7 @@ describe('module registry', () => {
       'bluetooth',
       'weather',
       'day-progress',
+      'code-hosting',
     ]);
   });
 

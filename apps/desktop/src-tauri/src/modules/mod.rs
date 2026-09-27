@@ -10,6 +10,7 @@
 
 pub mod bluetooth;
 pub mod calendar;
+pub mod code_hosting;
 pub mod dashboard;
 pub mod day_progress;
 pub mod drop_actions;
@@ -95,6 +96,7 @@ pub struct ModuleServices {
     pub drop_actions: Arc<drop_actions::DropActionsService>,
     pub shelf: Arc<shelf::ShelfService>,
     pub window_snap: Arc<window_snap::WindowSnapService>,
+    pub code_hosting: Arc<code_hosting::CodeHostingService>,
 }
 
 impl ModuleServices {
@@ -173,6 +175,13 @@ impl ModuleServices {
             drop_actions,
             shelf,
             window_snap: Arc::new(window_snap::WindowSnapService::new(Arc::clone(platform))),
+            code_hosting: Arc::new(code_hosting::CodeHostingService::new(
+                Arc::clone(platform),
+                Arc::clone(hub),
+                Arc::clone(store),
+                Arc::clone(clock),
+                Arc::new(code_hosting::GitHub::new()),
+            )),
         }
     }
 }
@@ -211,6 +220,9 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         Box::new(shelf::ShelfModule(Arc::clone(&services.shelf))),
         Box::new(window_snap::WindowSnapModule(Arc::clone(
             &services.window_snap,
+        ))),
+        Box::new(code_hosting::CodeHostingModule(Arc::clone(
+            &services.code_hosting,
         ))),
     ]
 }

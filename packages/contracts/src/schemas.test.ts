@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
 
 import type {
+  CodeHostingSnapshot,
   DragOutRequest,
   DragOutcome,
   DragSpike,
@@ -28,6 +29,12 @@ import {
   CALENDAR_SETTINGS_KEY,
   CALENDAR_STRIP_IDS,
   CALENDAR_STRIP_MS,
+  CODE_HOSTING_FILTERS,
+  CODE_HOSTING_MAX_TOKEN_CHARS,
+  CODE_HOSTING_POLL_MS,
+  CODE_HOSTING_SETTINGS_KEY,
+  CODE_HOSTING_STRIP_IDS,
+  CODE_HOSTING_TOKEN_KEY,
   DASHBOARD_GRID,
   DASHBOARD_SETTINGS_KEY,
   DAY_PROGRESS_BOUNDS,
@@ -74,7 +81,12 @@ import {
   WINDOW_SNAP_BOUNDS,
   WINDOW_SNAP_SETTINGS_KEY,
   clampDashboardSlots,
+  codeHostingChangedSchema,
+  codeHostingCommandSchema,
+  codeHostingSettingsSchema,
+  codeHostingSnapshotSchema,
   defaultCalendarSettings,
+  defaultCodeHostingSettings,
   defaultDashboardSettings,
   defaultDayProgressSettings,
   defaultDropActionsSettings,
@@ -102,12 +114,15 @@ import {
   dropMovedSchema,
   dropTilesPerRow,
   droppedSchema,
+  filterPullRequests,
   hotkeyBindingSchema,
   isSnoozeMinutes,
   monitorLayoutSchema,
   normaliseChord,
   normaliseSnapGrid,
+  pullRequestSchema,
   readCalendarSettings,
+  readCodeHostingSettings,
   readDashboardSettings,
   readDayProgressSettings,
   readDropActionsSettings,
@@ -139,6 +154,7 @@ import {
   stripContentSchema,
   windowSnapSettingsSchema,
   writeCalendarSettings,
+  writeCodeHostingSettings,
   writeDashboardSettings,
   writeDayProgressSettings,
   writeDropActionsSettings,
@@ -376,6 +392,30 @@ describe('strip content schema', () => {
           leading: { kind: 'icon', glyph: 'bell', tint: null },
           trailing: null,
           wide: { kind: 'notification', app: 'Mail', title: 'Invoice' },
+          holdMs: 0,
+        },
+      },
+      {
+        kind: 'notice',
+        notice: {
+          id: 'code-hosting:review:PR_kwDOA1',
+          module: 'code-hosting',
+          priority: 45,
+          leading: { kind: 'icon', glyph: 'pullRequest', tint: 'purple' },
+          trailing: null,
+          wide: { kind: 'reviewRequested', title: 'Snap zones for dragged windows' },
+          holdMs: 0,
+        },
+      },
+      {
+        kind: 'notice',
+        notice: {
+          id: 'code-hosting:checks:PR_kwDOD4',
+          module: 'code-hosting',
+          priority: 45,
+          leading: { kind: 'icon', glyph: 'xCircle', tint: 'red' },
+          trailing: null,
+          wide: { kind: 'checksFinished', title: 'Review queue', passed: false },
           holdMs: 0,
         },
       },
@@ -1582,4 +1622,157 @@ describe('window snap schemas', () => {
     expectTypeOf<z.infer<typeof snapDragMovedSchema>>().toEqualTypeOf<SnapDragMoved>();
     expectTypeOf<z.infer<typeof snapDragEndedSchema>>().toEqualTypeOf<SnapDragEnded>();
   });
+});
+
+describe('code hosting schemas', () => {
+  it('is off by default and announces both kinds of change once on', () => {
+    expect(defaultCodeHostingSettings()).toEqual({
+      enabled: false,
+      notices: { reviewRequested: true, checksFinished: true },
+    });
+    expect(readCodeHostingSettings(defaultSettings())).toEqual(defaultCodeHostingSettings());
+    expect(CODE_HOSTING_SETTINGS_KEY).toBe('code-hosting');
+    expect(CODE_HOSTING_POLL_MS).toBe(120_000);
+    expect(CODE_HOSTING_MAX_TOKEN_CHARS).toBe(255);
+    expect(CODE_HOSTING_TOKEN_KEY).toBe('code-hosting.github.token');
+    expect(CODE_HOSTING_STRIP_IDS.reviewPrefix).toBe('code-hosting:review:');
+    expect(CODE_HOSTING_STRIP_IDS.checksPrefix).toBe('code-hosting:checks:');
+    expect(CODE_HOSTING_FILTERS).toEqual(['toReview', 'mine', 'all']);
+  });
+
+  it('fills missing fields and falls back on a malformed entry', () => {
+    expect(codeHostingSettingsSchema.parse({ enabled: true })).toEqual({
+      enabled: true,
+      notices: { reviewRequested: true, checksFinished: true },
+    });
+    expect(codeHostingSettingsSchema.parse({ notices: { checksFinished: false } })).toEqual({
+      enabled: false,
+      notices: { reviewRequested: true, checksFinished: false },
+    });
+    const doc = writeCodeHostingSettings(defaultSettings(), {
+      enabled: true,
+      notices: { reviewRequested: false, checksFinished: true },
+    });
+    expect(readCodeHostingSettings(doc)).toEqual({
+      enabled: true,
+      notices: { reviewRequested: false, checksFinished: true },
+    });
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [CODE_HOSTING_SETTINGS_KEY]: { enabled: 'yes' } },
+    };
+    expect(readCodeHostingSettings(broken)).toEqual(defaultCodeHostingSettings());
+  });
+
+  it('round-trips the snapshot and its change event', () => {
+    const snapshot: CodeHostingSnapshot = {
+      enabled: true,
+      account: { provider: 'gitHub', login: 'octocat', avatarUrl: null },
+      pullRequests: [
+        {
+          id: 'PR_kwDOA1',
+          provider: 'gitHub',
+          repo: 'miklol/Muna',
+          number: 41,
+          title: 'Snap zones for dragged windows',
+          url: 'https://github.com/miklol/Muna/pull/41',
+          author: 'hubot',
+          authorAvatarUrl: 'https://avatars.githubusercontent.com/u/1?v=4',
+          draft: false,
+          additions: 5041,
+          deletions: 69,
+          changedFiles: 65,
+          checks: 'failure',
+          reviewDecision: 'reviewRequired',
+          updatedAtMs: 1_790_500_320_000,
+          reviewRequested: true,
+          mine: false,
+        },
+        {
+          id: 'PR_kwDOD4',
+          provider: 'gitHub',
+          repo: 'miklol/Muna',
+          number: 42,
+          title: 'Review queue',
+          url: 'https://github.com/miklol/Muna/pull/42',
+          author: 'octocat',
+          authorAvatarUrl: null,
+          draft: true,
+          additions: 0,
+          deletions: 0,
+          changedFiles: 0,
+          checks: 'pending',
+          reviewDecision: 'none',
+          updatedAtMs: 1_790_503_530_000,
+          reviewRequested: false,
+          mine: true,
+        },
+      ],
+      fetchedAtMs: 1_790_503_600_000,
+      fetching: false,
+      error: 'rateLimited',
+    };
+    expect(codeHostingSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+    expect(codeHostingChangedSchema.parse({ snapshot })).toEqual({ snapshot });
+    const off: CodeHostingSnapshot = {
+      enabled: false,
+      account: null,
+      pullRequests: [],
+      fetchedAtMs: null,
+      fetching: false,
+      error: null,
+    };
+    expect(codeHostingSnapshotSchema.parse(off)).toEqual(off);
+    expect(pullRequestSchema.safeParse({ ...snapshot.pullRequests[0], id: '' }).success).toBe(
+      false,
+    );
+    expect(
+      pullRequestSchema.safeParse({ ...snapshot.pullRequests[0], checks: 'queued' }).success,
+    ).toBe(false);
+    expect(codeHostingSnapshotSchema.safeParse({ ...off, error: 'timeout' }).success).toBe(false);
+    expectTypeOf<z.infer<typeof codeHostingSnapshotSchema>>().toEqualTypeOf<CodeHostingSnapshot>();
+  });
+
+  it('accepts the refresh command only', () => {
+    expect(codeHostingCommandSchema.parse({ kind: 'refresh' })).toEqual({ kind: 'refresh' });
+    expect(codeHostingCommandSchema.safeParse({ kind: 'connect' }).success).toBe(false);
+  });
+
+  it('filters the queue without reordering it', () => {
+    const rows = codeHostingSnapshotSchema.parse({
+      enabled: true,
+      account: null,
+      pullRequests: [
+        row('a', { reviewRequested: true, mine: false }),
+        row('b', { reviewRequested: true, mine: true }),
+        row('c', { reviewRequested: false, mine: true }),
+      ],
+      fetchedAtMs: null,
+      fetching: false,
+      error: null,
+    }).pullRequests;
+    expect(filterPullRequests(rows, 'toReview').map((pr) => pr.id)).toEqual(['a', 'b']);
+    expect(filterPullRequests(rows, 'mine').map((pr) => pr.id)).toEqual(['b', 'c']);
+    expect(filterPullRequests(rows, 'all').map((pr) => pr.id)).toEqual(['a', 'b', 'c']);
+    expect(filterPullRequests(rows, 'all')).not.toBe(rows);
+  });
+});
+
+const row = (id: string, flags: { reviewRequested: boolean; mine: boolean }) => ({
+  id,
+  provider: 'gitHub',
+  repo: 'octo-org/shared',
+  number: 1,
+  title: id,
+  url: `https://github.com/octo-org/shared/pull/${id}`,
+  author: 'hubot',
+  authorAvatarUrl: null,
+  draft: false,
+  additions: 1,
+  deletions: 1,
+  changedFiles: 1,
+  checks: 'none',
+  reviewDecision: 'none',
+  updatedAtMs: 0,
+  ...flags,
 });

@@ -204,4 +204,7 @@ fn wire_module_sinks(
     modules
         .shelf
         .set_sink(Arc::new(ipc::ShelfEventSink::new(app.clone())));
+    modules
+        .code_hosting
+        .set_sink(Arc::new(ipc::CodeHostingEventSink::new(app.clone())));
 }

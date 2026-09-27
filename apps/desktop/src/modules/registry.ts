@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 
 import { bluetoothModule } from './bluetooth';
 import { calendarModule } from './calendar';
+import { codeHostingModule } from './code-hosting';
 import { dashboardModule } from './dashboard';
 import { dayProgressModule } from './day-progress';
 import { dropActionsModule } from './drop-actions';
@@ -176,6 +177,7 @@ export const modules: readonly ModuleDefinition[] = [
   dropActionsModule,
   shelfModule,
   windowSnapModule,
+  codeHostingModule,
 ];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>

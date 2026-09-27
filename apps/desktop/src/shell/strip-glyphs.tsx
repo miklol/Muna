@@ -8,8 +8,10 @@ import {
   Bluetooth,
   Calendar,
   CircleCheck,
+  CircleX,
   Cpu,
   Folder,
+  GitPullRequest,
   HardDrive,
   Headphones,
   Hourglass,
@@ -77,6 +79,8 @@ export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   trash: 'strip.glyph.trash',
   drive: 'strip.glyph.drive',
   shelf: 'strip.glyph.shelf',
+  pullRequest: 'strip.glyph.pullRequest',
+  xCircle: 'strip.glyph.xCircle',
 };
 
 /**
@@ -143,5 +147,9 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <HardDrive {...glyphProps} />;
     case 'shelf':
       return <Inbox {...glyphProps} />;
+    case 'pullRequest':
+      return <GitPullRequest {...glyphProps} />;
+    case 'xCircle':
+      return <CircleX {...glyphProps} />;
   }
 };
