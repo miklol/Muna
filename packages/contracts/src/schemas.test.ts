@@ -80,6 +80,9 @@ import {
   HUD_VOLUME_STEP,
   KEYBOARD_SHORTCUTS_SETTINGS_KEY,
   MEDIA_SETTINGS_KEY,
+  MIRROR_BOUNDS,
+  MIRROR_SETTINGS_KEY,
+  MIRROR_ZOOM_STEPS,
   NOTES_AUTOSAVE_MS,
   NOTES_INBOX_ID,
   NOTES_MAX_NOTE_BYTES,
@@ -140,6 +143,7 @@ import {
   defaultHudSettings,
   defaultKeyboardShortcutsSettings,
   defaultMediaSettings,
+  defaultMirrorSettings,
   defaultNotesSettings,
   defaultNotificationsSettings,
   defaultPomodoroSettings,
@@ -182,6 +186,7 @@ import {
   noteSchema,
   notesChangedSchema,
   notesCommandSchema,
+  mirrorSettingsSchema,
   notesSettingsSchema,
   notesSnapshotSchema,
   pullRequestSchema,
@@ -195,6 +200,7 @@ import {
   readHudSettings,
   readKeyboardShortcutsSettings,
   readMediaSettings,
+  readMirrorSettings,
   readNotesSettings,
   readNotificationsSettings,
   readPomodoroSettings,
@@ -246,6 +252,7 @@ import {
   writeHudSettings,
   writeKeyboardShortcutsSettings,
   writeMediaSettings,
+  writeMirrorSettings,
   writeNotesSettings,
   writeNotificationsSettings,
   writePomodoroSettings,
@@ -2520,6 +2527,74 @@ describe('health schemas', () => {
       });
       expect(parsed.kind === 'notice' && parsed.notice.wide).toEqual(wide);
     }
+  });
+});
+
+describe('mirror schemas', () => {
+  it('defaults the namespace to camera off and mirrored, and round-trips it', () => {
+    expect(defaultMirrorSettings()).toEqual({
+      enabled: false,
+      flip: true,
+      deviceId: null,
+      deviceLabel: null,
+    });
+    expect(readMirrorSettings(defaultSettings())).toEqual(defaultMirrorSettings());
+    const chosen = {
+      enabled: true,
+      flip: false,
+      deviceId: 'cam-2',
+      deviceLabel: 'Desk camera',
+    };
+    const doc = writeMirrorSettings(defaultSettings(), chosen);
+    expect(readMirrorSettings(doc)).toEqual(chosen);
+    expect(doc.modules[MIRROR_SETTINGS_KEY]).toEqual(chosen);
+    expect(mirrorSettingsSchema.parse({ enabled: true })).toEqual({
+      ...defaultMirrorSettings(),
+      enabled: true,
+    });
+    expect(MIRROR_ZOOM_STEPS).toEqual([1, 1.5, 2]);
+  });
+
+  it('trims, bounds and pairs the device fields like the Rust clamp', () => {
+    expect(mirrorSettingsSchema.parse({ deviceId: '  cam-1  ', deviceLabel: '   ' })).toMatchObject(
+      { deviceId: 'cam-1', deviceLabel: null },
+    );
+    expect(
+      mirrorSettingsSchema.parse({
+        deviceId: 'x'.repeat(MIRROR_BOUNDS.deviceId.max + 1),
+        deviceLabel: 'Camera',
+      }),
+    ).toMatchObject({ deviceId: null, deviceLabel: null });
+    expect(
+      mirrorSettingsSchema.parse({
+        deviceId: 'cam',
+        deviceLabel: 'y'.repeat(MIRROR_BOUNDS.deviceLabel.max + 1),
+      }),
+    ).toMatchObject({ deviceId: 'cam', deviceLabel: null });
+    expect(mirrorSettingsSchema.parse({ deviceLabel: 'Orphan' })).toMatchObject({
+      deviceId: null,
+      deviceLabel: null,
+    });
+    expect(
+      mirrorSettingsSchema.parse({ deviceId: 'x'.repeat(MIRROR_BOUNDS.deviceId.max) }),
+    ).toMatchObject({
+      deviceId: 'x'.repeat(MIRROR_BOUNDS.deviceId.max),
+    });
+  });
+
+  it('refuses a wrong type and falls back to the defaults when reading', () => {
+    expect(mirrorSettingsSchema.safeParse({ enabled: 'yes' }).success).toBe(false);
+    expect(mirrorSettingsSchema.safeParse({ deviceId: 3 }).success).toBe(false);
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [MIRROR_SETTINGS_KEY]: { flip: 'mirror' } },
+    };
+    expect(readMirrorSettings(broken)).toEqual(defaultMirrorSettings());
+    const future: Settings = {
+      ...defaultSettings(),
+      modules: { [MIRROR_SETTINGS_KEY]: { enabled: true, future: 1 } },
+    };
+    expect(readMirrorSettings(future).enabled).toBe(true);
   });
 });
 
