@@ -334,7 +334,7 @@ fn copilot_log_reducer_follows_the_turn() {
     ));
     assert_eq!(state.model.as_deref(), Some("gpt-5"));
     assert_eq!(state.started_at_ms, Some(NOON_MS - 60_000));
-    assert!(!state.in_turn);
+    assert!(!state.in_turn());
     copilot::apply_line(
         &mut state,
         &event(
@@ -344,7 +344,7 @@ fn copilot_log_reducer_follows_the_turn() {
         )
         .to_string(),
     );
-    assert!(state.in_turn);
+    assert!(state.in_turn());
     assert_eq!(state.task.as_deref(), Some("Fix the tests"));
     assert_eq!(state.messages, 1);
     copilot::apply_line(
@@ -384,9 +384,69 @@ fn copilot_log_reducer_follows_the_turn() {
         &event("session.shutdown", "2024-06-12T12:00:05.000Z", &json!({})).to_string(),
     );
     assert!(state.ended);
-    assert!(!state.in_turn);
+    assert!(!state.in_turn());
 }
 
+/// The CLI logs `assistant.turn_end` after every model response — one per tool call — and
+/// only the response that asks for no tool ends the answer (observed in a live `events.jsonl`:
+/// thirteen thousand turn ends against thirty-three prompts).
+#[test]
+fn copilot_turn_ends_after_a_tool_request_keep_the_session_running() {
+    let tools = json!([{ "toolCallId": "t1", "name": "powershell" }]);
+    // (event, data, in a turn afterwards)
+    let script: [(&str, Value, bool); 19] = [
+        ("user.message", json!({ "content": "Run the tests" }), true),
+        ("assistant.turn_start", json!({ "turnId": "1" }), true),
+        (
+            "assistant.message",
+            json!({ "content": "", "toolRequests": tools }),
+            true,
+        ),
+        (
+            "tool.execution_start",
+            json!({ "toolName": "powershell" }),
+            true,
+        ),
+        (
+            "tool.execution_complete",
+            json!({ "toolCallId": "t1" }),
+            true,
+        ),
+        // The turn end the user never sees: the tools ran and another response follows.
+        ("assistant.turn_end", json!({ "turnId": "1" }), true),
+        ("assistant.turn_start", json!({ "turnId": "2" }), true),
+        (
+            "assistant.message",
+            json!({ "content": "All green.", "toolRequests": [] }),
+            true,
+        ),
+        // The response without tool requests ends the answer.
+        ("assistant.turn_end", json!({ "turnId": "2" }), false),
+        // An abort ends the turn whatever the last response asked for.
+        ("user.message", json!({ "content": "Again" }), true),
+        ("assistant.turn_start", json!({ "turnId": "3" }), true),
+        ("assistant.message", json!({ "toolRequests": tools }), true),
+        ("abort", json!({ "reason": "user_initiated" }), false),
+        // A message without the field at all (older logs) or with `null` is a final answer.
+        ("assistant.turn_start", json!({ "turnId": "4" }), true),
+        ("assistant.message", json!({ "content": "Done" }), true),
+        ("assistant.turn_end", json!({ "turnId": "4" }), false),
+        ("assistant.turn_start", json!({ "turnId": "5" }), true),
+        (
+            "assistant.message",
+            json!({ "content": "Done", "toolRequests": null }),
+            true,
+        ),
+        ("assistant.turn_end", json!({ "turnId": "5" }), false),
+    ];
+    let mut state = copilot::CopilotState::default();
+    for (second, (kind, data, in_turn)) in script.into_iter().enumerate() {
+        let at = format!("2024-06-12T12:00:{second:02}.000Z");
+        copilot::apply_line(&mut state, &event(kind, &at, &data).to_string());
+        assert_eq!(state.in_turn(), in_turn, "after event {second}: {kind}");
+    }
+    assert_eq!(state.messages, 7);
+}
 #[test]
 fn copilot_sessions_are_found_followed_and_retired() {
     let rig = Rig::new();

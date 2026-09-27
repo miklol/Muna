@@ -27,7 +27,8 @@ use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
 use windows::Win32::System::Threading::{
-    GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    GetCurrentProcessId, GetExitCodeProcess, GetProcessTimes, OpenProcess,
+    PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GWL_EXSTYLE, GWLP_HWNDPARENT, GetWindowLongPtrW, GetWindowTextLengthW,
@@ -340,18 +341,29 @@ unsafe extern "system" fn collect_window(window: HWND, lparam: LPARAM) -> BOOL {
     // SAFETY: `lparam` is the `Vec<(u32, WindowHandle)>` pointer `windows()` passed and is
     // live for the whole enumeration; every query takes the handle Windows just handed us.
     unsafe {
+        // Owner first: for a window of *this* process `GetWindowTextLengthW` sends
+        // `WM_GETTEXTLENGTH` to the owning thread and blocks until it answers. The caller
+        // may be a worker holding a lock the main thread is waiting on, and our own windows
+        // are never the terminal being looked for, so they are skipped before any call that
+        // can message the main thread. For other processes the length is read from the
+        // window's cached caption without a message.
+        let mut pid = 0_u32;
+        let thread = GetWindowThreadProcessId(window, Some(&raw mut pid));
+        if thread == 0 || pid == 0 || pid == GetCurrentProcessId() {
+            return BOOL::from(true);
+        }
         let visible = IsWindowVisible(window).as_bool();
         let owner = GetWindowLongPtrW(window, GWLP_HWNDPARENT);
-        let title_len = GetWindowTextLengthW(window);
         let ex_style =
             u32::try_from(GetWindowLongPtrW(window, GWL_EXSTYLE) & 0xFFFF_FFFF).unwrap_or(0);
+        // Cheap, message-free checks first; the caption length only for what is left.
+        if !is_candidate(visible, owner, 1, ex_style) {
+            return BOOL::from(true);
+        }
+        let title_len = GetWindowTextLengthW(window);
         if is_candidate(visible, owner, title_len, ex_style) {
-            let mut pid = 0_u32;
-            let thread = GetWindowThreadProcessId(window, Some(&raw mut pid));
-            if thread != 0 && pid != 0 {
-                let found = &mut *(lparam.0 as *mut Vec<(u32, WindowHandle)>);
-                found.push((pid, window.0 as isize));
-            }
+            let found = &mut *(lparam.0 as *mut Vec<(u32, WindowHandle)>);
+            found.push((pid, window.0 as isize));
         }
     }
     BOOL::from(true)
@@ -617,5 +629,98 @@ mod tests {
             focus(0x7FFF_FFF0),
             Err(PlatformError::NotFound("window".to_owned()))
         );
+    }
+
+    /// A window of this process on a thread that never pumps messages: `GetWindowTextLengthW`
+    /// on it would wait for ever, and `windows()` used to ask before looking at the owner.
+    /// The poll that resolves an agent's terminal runs on a worker while the main thread may
+    /// be waiting on the module's lock, so this is the deadlock that kept the shell from
+    /// ever answering its first command.
+    #[test]
+    #[cfg_attr(
+        not(feature = "platform-tests"),
+        ignore = "creates a window and enumerates the live desktop"
+    )]
+    fn enumerating_never_waits_on_a_window_of_this_process() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        use windows::Win32::Foundation::{
+            ERROR_CLASS_ALREADY_EXISTS, GetLastError, HINSTANCE, LRESULT, WPARAM,
+        };
+        use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, DefWindowProcW, DestroyWindow, RegisterClassW, WINDOW_EX_STYLE,
+            WNDCLASSW, WS_OVERLAPPED,
+        };
+        use windows::core::w;
+
+        #[allow(unsafe_code)]
+        unsafe extern "system" fn window_proc(
+            hwnd: HWND,
+            message: u32,
+            wparam: WPARAM,
+            lparam: LPARAM,
+        ) -> LRESULT {
+            // SAFETY: forwarding the exact arguments the OS gave us.
+            unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }
+        }
+
+        let (created_tx, created_rx) = mpsc::channel::<isize>();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let owner = std::thread::spawn(move || {
+            // SAFETY: the class and the window live on this thread; the window is destroyed
+            // here before the thread ends and every result is checked.
+            #[allow(unsafe_code)]
+            unsafe {
+                let module = GetModuleHandleW(None).unwrap();
+                let class = WNDCLASSW {
+                    lpfnWndProc: Some(window_proc),
+                    hInstance: HINSTANCE(module.0),
+                    lpszClassName: w!("MunaProcessesTest"),
+                    ..Default::default()
+                };
+                if RegisterClassW(&raw const class) == 0 {
+                    assert_eq!(GetLastError(), ERROR_CLASS_ALREADY_EXISTS);
+                }
+                let window = CreateWindowExW(
+                    WINDOW_EX_STYLE(0),
+                    w!("MunaProcessesTest"),
+                    w!("Muna processes test"),
+                    WS_OVERLAPPED,
+                    0,
+                    0,
+                    0,
+                    0,
+                    None,
+                    None,
+                    Some(HINSTANCE(module.0)),
+                    None,
+                )
+                .unwrap();
+                created_tx.send(window.0 as isize).unwrap();
+                // No message loop: anything sent to the window waits until this returns.
+                release_rx.recv().unwrap();
+                DestroyWindow(window).unwrap();
+            }
+        });
+        let window = created_rx.recv().unwrap();
+
+        let (done_tx, done_rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            done_tx.send(windows()).unwrap();
+        });
+        let found = done_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("enumeration waited on a window of this process")
+            .unwrap();
+        let ours = found.get(&std::process::id()).cloned().unwrap_or_default();
+        assert!(
+            !ours.contains(&window),
+            "this process's windows are never candidates"
+        );
+
+        release_tx.send(()).unwrap();
+        owner.join().unwrap();
     }
 }
