@@ -11,6 +11,7 @@ import {
 import { EmptyState, type SegmentedControlItem } from '@muna/ui';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import {
   type RowSpec,
   Section,
@@ -75,7 +76,8 @@ const brightnessRow = (monitor: BrightnessMonitor, format: (value: number) => st
  * and come back as `HudStateChanged`.
  */
 export function HudSettingsPane() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const locale = useLocale();
   const { settings, update } = useSettingsEditor();
   useHudSubscription();
   const state = useHudStore((store) => store.state);
@@ -85,7 +87,7 @@ export function HudSettingsPane() {
     update((current) => writeHudSettings(current, recipe(readHudSettings(current))));
   };
 
-  const percent = new Intl.NumberFormat(i18n.language, {
+  const percent = new Intl.NumberFormat(locale, {
     style: 'percent',
     maximumFractionDigits: 0,
   });

@@ -1,4 +1,4 @@
-import type { IpcError, Settings } from '@muna/contracts';
+import type { AppInfo, IpcError, Settings } from '@muna/contracts';
 import { defaultSettings } from '@muna/contracts';
 import type { InvokeArgs } from '@tauri-apps/api/core';
 import { clearMocks, mockIPC, mockWindows } from '@tauri-apps/api/mocks';
@@ -46,11 +46,21 @@ const resolveSettings = (parameter: MunaStoryParameters['settings']): Settings =
   return typeof parameter === 'function' ? parameter(base) : parameter;
 };
 
+/** What `app_info` answers in a story: a dev build on a US-English machine. */
+export const storyAppInfo: AppInfo = {
+  name: 'Muna',
+  version: '0.0.0-storybook',
+  platform: 'storybook',
+  profileDir: 'C:\\Users\\you\\AppData\\Local\\Muna',
+  regionFormat: 'en-US',
+};
+
 /**
  * Installs the fake IPC for one story: the settings document round-trips through
- * `get_settings`/`update_settings`, the log plugin is silenced, events are routed in-page so a
- * story can `emit()` to whatever the component listens for, and every other command goes to the
- * story's handlers. Anything left unmocked rejects loudly instead of hanging.
+ * `get_settings`/`update_settings`, `app_info` describes a dev build, the log plugin is
+ * silenced, events are routed in-page so a story can `emit()` to whatever the component
+ * listens for, and every other command goes to the story's handlers. Anything left unmocked
+ * rejects loudly instead of hanging.
  */
 export function installStoryIpc(parameters: MunaStoryParameters): Settings {
   clearMocks();
@@ -61,6 +71,7 @@ export function installStoryIpc(parameters: MunaStoryParameters): Settings {
       settings = (args as { settings: Settings }).settings;
       return settings;
     },
+    app_info: () => storyAppInfo,
     'plugin:log|log': () => undefined,
     ...parameters.ipc,
   };

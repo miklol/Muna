@@ -4,6 +4,7 @@ import { Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { filterLanguages, languageName } from './languages';
 import './translation.css';
 
@@ -34,8 +35,8 @@ export function LanguageList({
   focusOnMount = false,
   className,
 }: LanguageListProps) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const [query, setQuery] = useState('');
   const root = useRef<HTMLDivElement | null>(null);
 

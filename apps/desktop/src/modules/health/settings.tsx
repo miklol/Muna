@@ -11,6 +11,7 @@ import { Button, type SegmentedControlItem, Text } from '@muna/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { ActionRow, Section, SegmentedRow, SliderRow, ToggleRow } from '../../settings/rows';
 import { useSettingsEditor } from '../../settings/settings-editor';
 import { breatheRhythm } from './format';
@@ -39,8 +40,8 @@ const DEFAULT_WIND_DOWN_HOUR = 21;
  * reach Rust like any other; the data actions are commands.
  */
 export function HealthSettingsPane() {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const { settings, update } = useSettingsEditor();
   const health = readHealthSettings(settings);
   const send = useHealthCommand();

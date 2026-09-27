@@ -8,6 +8,7 @@ import { Button, ListRow, Text } from '@muna/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { ActionRow, Section, SliderRow, ToggleRow } from '../../settings/rows';
 import { useSettingsEditor } from '../../settings/settings-editor';
 import { formatClock } from './format';
@@ -35,8 +36,8 @@ type Outcome =
  * commands, answered with a fresh snapshot.
  */
 export function ScreenTimeSettingsPane() {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const { settings, update } = useSettingsEditor();
   useScreenTimeSubscription();
   const snapshot = useScreenTimeStore((store) => store.snapshot);

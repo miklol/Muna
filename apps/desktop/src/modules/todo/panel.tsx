@@ -19,6 +19,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { describeDue, type DueWords, isOverdue } from './due-label';
 import { parseTask } from './parse-task';
 import './todo.css';
@@ -67,7 +68,7 @@ const taskDue = (task: Task): TaskDue | null =>
  * when one is added, completed or removed; the panel keeps no timers.
  */
 export function TodoPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useTodoSubscription();
   const snapshot = useTodoStore((store) => store.snapshot);
   const now = useTodoStore((store) => store.receivedAt);
@@ -95,7 +96,7 @@ export function TodoPanel() {
     panelRef.current?.querySelector('input')?.focus();
   }, [quickAddPending, loaded, view, consumeQuickAdd]);
 
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   const words = useMemo<DueWords>(
     () => ({
       today: t('todo.due.today'),

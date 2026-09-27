@@ -6,6 +6,7 @@ import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { unwrap } from '../../lib/ipc';
+import { useLocale } from '../../lib/locale';
 import { type RowFilter, ToggleRow } from '../rows';
 import { useSettingsEditor } from '../settings-editor';
 import {
@@ -39,7 +40,8 @@ interface ScreenCardProps {
 }
 
 function ScreenCard({ monitor, number }: ScreenCardProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const locale = useLocale();
   const { settings, update } = useSettingsEditor();
   const own: MonitorLayout | undefined = settings.shell.monitors[monitor.id];
   const layout = own ?? settings.shell.defaults;
@@ -75,7 +77,7 @@ function ScreenCard({ monitor, number }: ScreenCardProps) {
     });
   };
 
-  const scale = new Intl.NumberFormat(i18n.language, { style: 'percent' }).format(monitor.dpi / 96);
+  const scale = new Intl.NumberFormat(locale, { style: 'percent' }).format(monitor.dpi / 96);
   const geometry = t('settings.screens.geometry', {
     width: monitor.bounds.width,
     height: monitor.bounds.height,

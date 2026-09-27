@@ -38,6 +38,7 @@ import { useState } from 'react';
 import { Button as AriaButton } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import {
   appByExe,
   barTint,
@@ -535,7 +536,7 @@ function Overview({ snapshot, locale, layout, onLayout, onOpen }: OverviewProps)
  * tick while the panel is mounted and stops when it is not.
  */
 export function ScreenTimePanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useScreenTimeSubscription();
   const snapshot = useScreenTimeStore((store) => store.snapshot);
   const send = useScreenTimeCommand();
@@ -543,7 +544,7 @@ export function ScreenTimePanel() {
   const enterSpring = useMotionPreset('content');
   const [layout, setLayout] = useState<Layout>('today');
   const [view, setView] = useState<View>({ kind: 'overview' });
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
 
   if (snapshot === null) return null;
 

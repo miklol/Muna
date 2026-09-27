@@ -2,6 +2,7 @@ import { Text } from '@muna/ui';
 import { Bluetooth, BluetoothOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import type { WidgetProps } from '../registry';
 import { DeviceIcon } from './bluetooth-icon';
 import { useBluetoothStore } from './bluetooth-store';
@@ -28,10 +29,10 @@ const formatPercent = (percent: number, locale: string): string =>
  * connected. Subscribes like the panel and unlistens on unmount.
  */
 export function BluetoothWidget(_props: WidgetProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useBluetoothSubscription();
   const snapshot = useBluetoothStore((store) => store.snapshot);
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
 
   if (snapshot === null) return null;
 

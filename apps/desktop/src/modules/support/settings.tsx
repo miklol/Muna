@@ -12,6 +12,7 @@ import { Button, Text } from '@muna/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { ActionRow, Section, SegmentedRow, ValueRow } from '../../settings/rows';
 import { useSettingsEditor } from '../../settings/settings-editor';
 import { bundleName } from './panel';
@@ -54,13 +55,13 @@ interface Note {
  * back for the updater endpoint.
  */
 export function SupportSettingsPane() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { settings, update } = useSettingsEditor();
   useSupportSubscription();
   const snapshot = useSupportStore((store) => store.snapshot);
   const send = useSupportCommand();
   const support = readSupportSettings(settings);
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   const [busy, setBusy] = useState<SupportCommand['kind'] | null>(null);
   const [updateNote, setUpdateNote] = useState<Note | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);

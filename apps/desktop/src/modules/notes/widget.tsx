@@ -3,6 +3,7 @@ import { Text } from '@muna/ui';
 import { FolderX, Pin, StickyNote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import type { WidgetProps } from '../registry';
 import { formatModified } from './format';
 import { useNotesStore } from './notes-store';
@@ -18,7 +19,8 @@ const ICON_STROKE = 1.75;
  * folder away, it says so in one line. A wide card adds when the note changed.
  */
 export function NotesWidget({ span }: WidgetProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const locale = useLocale();
   useNotesSubscription();
   const snapshot = useNotesStore((store) => store.snapshot);
   const now = useNotesStore((store) => store.receivedAt);
@@ -44,7 +46,6 @@ export function NotesWidget({ span }: WidgetProps) {
     );
   }
 
-  const locale = i18n.resolvedLanguage ?? i18n.language;
   return (
     <div className="notes-widget" aria-label={t('notes.widget.label')}>
       <p className="notes-widget__title">

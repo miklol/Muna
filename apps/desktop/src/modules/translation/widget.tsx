@@ -3,6 +3,7 @@ import { Text } from '@muna/ui';
 import { Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { useSettings } from '../../lib/settings';
 import type { WidgetProps } from '../registry';
 import { languageName } from './languages';
@@ -18,8 +19,8 @@ const ICON_STROKE = 1.75;
  * settings and the store only — no subscription, nothing leaves the machine from here.
  */
 export function TranslationWidget(_props: WidgetProps) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const settings = readTranslationSettings(useSettings() ?? defaultSettings());
   const phase = useTranslationStore((store) => store.result.phase);
 
