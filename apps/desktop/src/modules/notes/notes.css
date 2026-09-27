@@ -1,0 +1,261 @@
+/*
+ * Notes panel (docs/modules/notes.md "Panel"): the search or new-note field and the add button
+ * above the rows, each row a title, its first line and when it changed; the editor in place of
+ * the list with the title, its actions, the text area or the preview, and the save state under
+ * it. Composes tokens only; the primitives bring their own styles.
+ *
+ * Budget: the panel body has 284 px at most. The header takes one icon-button height, the
+ * status line one caption; the rows or the text area take the rest and scroll inside it.
+ */
+
+.notes-panel {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.notes-list,
+.notes-editor {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.notes-list__head,
+.notes-editor__head {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+}
+
+.notes-list__field {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.notes-list__rows {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.notes-row {
+  flex: none;
+}
+
+.notes-row__trailing {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  color: var(--text-3);
+}
+
+.notes-row[data-pinned] .notes-row__trailing {
+  color: var(--text-2);
+}
+
+.notes-list__count {
+  flex: none;
+  margin: 0;
+  padding-inline: var(--space-1);
+}
+
+/* The editor: back, the title (or its rename field), the actions on the right. */
+.notes-editor__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+  padding-inline: var(--space-1);
+}
+
+.notes-editor__rename {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.notes-editor__actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.notes-editor__body {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.notes-editor__status {
+  flex: none;
+  margin: 0;
+  padding-inline: var(--space-1);
+}
+
+.notes-empty {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+/* The light Markdown preview: the type scale's steps, nothing decorated beyond the tokens. */
+.notes-editor__preview {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow-y: auto;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  color: var(--text-1);
+  overflow-wrap: anywhere;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+  scrollbar-width: thin;
+}
+
+.notes-md > * {
+  margin: 0;
+}
+
+.notes-md > * + * {
+  margin-block-start: var(--space-2);
+}
+
+.notes-md__heading {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.notes-md__heading[data-level='1'] {
+  font-size: 1.35em;
+}
+
+.notes-md__heading[data-level='2'] {
+  font-size: 1.2em;
+}
+
+.notes-md__heading[data-level='3'] {
+  font-size: 1.05em;
+}
+
+.notes-md__list {
+  padding-inline-start: var(--space-4);
+}
+
+.notes-md__item[data-task] {
+  list-style: none;
+  margin-inline-start: calc(-1 * var(--space-4));
+}
+
+.notes-md__check {
+  display: inline-block;
+  inline-size: var(--space-4);
+  color: var(--text-2);
+}
+
+.notes-md__quote {
+  padding-inline-start: var(--space-3);
+  color: var(--text-2);
+  border-inline-start: 2px solid var(--hairline-strong);
+}
+
+.notes-md__code,
+.notes-md__pre {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.95em;
+}
+
+.notes-md__code {
+  padding: 0 var(--space-1);
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+
+.notes-md__pre {
+  padding: var(--space-2);
+  overflow-x: auto;
+  white-space: pre;
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+
+.notes-md__link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--hairline-strong);
+  text-underline-offset: 2px;
+}
+
+.notes-md__rule {
+  block-size: 1px;
+  margin-block: var(--space-3);
+  background: var(--hairline-strong);
+  border: 0;
+}
+
+/*
+ * Dashboard card body (docs/modules/dashboard.md "Widgets"): the pinned (or newest) note's
+ * title and first line; a wide card adds when it changed.
+ */
+.notes-widget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.notes-widget[data-empty] {
+  flex-direction: row;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--text-2);
+}
+
+.notes-widget__glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.notes-widget__glyph > svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.notes-widget__note,
+.notes-widget__title,
+.notes-widget__excerpt,
+.notes-widget__when {
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.notes-widget__title {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.notes-widget__title > svg {
+  flex: none;
+  color: var(--text-2);
+}
+
+.notes-widget__title > span {
+  min-inline-size: 0;
+}
+
+.notes-widget__when {
+  margin-block-start: auto;
+}
