@@ -143,6 +143,7 @@ impl AppState {
         self.modules.shelf.apply_settings(settings);
         self.modules.window_snap.apply_settings(settings);
         self.modules.code_hosting.apply_settings(settings);
+        self.modules.notes.apply_settings(settings);
         let bindings = self.modules.keyboard_shortcuts.apply_settings(settings);
         for binding in bindings
             .iter()

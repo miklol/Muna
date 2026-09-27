@@ -39,6 +39,9 @@ use crate::modules::keyboard_shortcuts::{
     KeyboardShortcutsSettings, RegisterError, actions as hotkey_actions,
 };
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
+use crate::modules::notes::{
+    Note, NoteContent, NoteDraft, NotesCommand, NotesError, NotesSink, NotesSnapshot,
+};
 use crate::modules::notifications::{
     NotificationsCommand, NotificationsSink, NotificationsSnapshot,
 };
@@ -97,6 +100,22 @@ impl From<TodoError> for IpcError {
             TodoError::Store(error) => error.into(),
             TodoError::EmptyTitle => Self::new("todo.emptyTitle", error),
             TodoError::EmptyName => Self::new("todo.emptyName", error),
+        }
+    }
+}
+
+impl From<NotesError> for IpcError {
+    fn from(error: NotesError) -> Self {
+        match error {
+            NotesError::Store(error) => error.into(),
+            NotesError::Platform(error) => error.into(),
+            NotesError::NoFolder => Self::new("notes.noFolder", error),
+            NotesError::Unknown => Self::new("notes.unknown", error),
+            NotesError::Conflict => Self::new("notes.conflict", error),
+            NotesError::TooLarge => Self::new("notes.tooLarge", error),
+            NotesError::EmptyTitle => Self::new("notes.emptyTitle", error),
+            // The OS message names the path; the code is enough for the UI.
+            NotesError::Io(error) => Self::new("notes.io", error.kind()),
         }
     }
 }
@@ -934,6 +953,45 @@ impl CodeHostingSink for CodeHostingEventSink {
     }
 }
 
+/// The notes folder as the module now lists it (docs/modules/notes.md): after a command, a
+/// write from the editor or a folder change in Settings. Carries the whole list; a note is a
+/// title and an excerpt, never its body.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct NotesChanged {
+    pub snapshot: NotesSnapshot,
+}
+
+/// Bridges the notes service to [`NotesChanged`].
+pub struct NotesEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for NotesEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NotesEventSink").finish_non_exhaustive()
+    }
+}
+
+impl NotesEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl NotesSink for NotesEventSink {
+    fn changed(&self, snapshot: &NotesSnapshot) {
+        if let Err(error) = (NotesChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit NotesChanged");
+        }
+    }
+}
+
 type Shared = Arc<AppState>;
 
 // Commands take the concrete `AppHandle` (= `AppHandle<Wry>`): tauri-specta's collectors
@@ -1749,6 +1807,150 @@ fn code_hosting_open_token_page(app: AppHandle) -> Result<(), IpcError> {
         .map_err(|error| IpcError::new("platform.os", error))
 }
 
+/// The notes folder, rescanned (a panel or widget that just opened; afterwards it follows
+/// `NotesChanged`). Walks the folder and reads the head of changed files, so it runs on a
+/// blocking thread.
+#[tauri::command]
+#[specta::specta]
+async fn get_notes_snapshot(state: State<'_, Shared>) -> Result<NotesSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.notes);
+    tauri::async_runtime::spawn_blocking(move || service.refresh())
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
+/// Refresh, pin or delete (to the Recycle Bin); answers with the snapshot after it.
+/// `notes.unknown` when `id` is not a note in the folder.
+#[tauri::command]
+#[specta::specta]
+async fn notes_command(
+    state: State<'_, Shared>,
+    command: NotesCommand,
+) -> Result<NotesSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.notes);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || service.command(command))
+            .await
+            .map_err(|error| IpcError::new("platform.os", error))??,
+    )
+}
+
+/// A new empty note named after `title` at the folder's root, for the editor.
+/// `notes.emptyTitle` for a blank title, `notes.io` when the folder refused the file.
+#[tauri::command]
+#[specta::specta]
+async fn notes_create(state: State<'_, Shared>, title: String) -> Result<NoteContent, IpcError> {
+    let service = Arc::clone(&state.modules.notes);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || service.create(&title))
+            .await
+            .map_err(|error| IpcError::new("platform.os", error))??,
+    )
+}
+
+/// The note's body for the editor, with the modified time a later save sends back.
+/// `notes.unknown` for an id outside the folder, `notes.tooLarge` past the editor's limit.
+#[tauri::command]
+#[specta::specta]
+async fn notes_open(state: State<'_, Shared>, id: String) -> Result<NoteContent, IpcError> {
+    let service = Arc::clone(&state.modules.notes);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || service.open(&id))
+            .await
+            .map_err(|error| IpcError::new("platform.os", error))??,
+    )
+}
+
+/// *Inbox* for quick capture, created when it does not exist yet.
+#[tauri::command]
+#[specta::specta]
+async fn notes_open_inbox(state: State<'_, Shared>) -> Result<NoteContent, IpcError> {
+    let service = Arc::clone(&state.modules.notes);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || service.open_inbox())
+            .await
+            .map_err(|error| IpcError::new("platform.os", error))??,
+    )
+}
+
+/// Writes the draft when the file is still what the editor loaded; `notes.conflict` when
+/// another app changed it since (the editor reopens the note), `notes.unknown` when it is
+/// gone.
+#[tauri::command]
+#[specta::specta]
+async fn notes_save(state: State<'_, Shared>, draft: NoteDraft) -> Result<NoteContent, IpcError> {
+    let service = Arc::clone(&state.modules.notes);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || service.save(&draft))
+            .await
+            .map_err(|error| IpcError::new("platform.os", error))??,
+    )
+}
+
+/// Renames the file to `title` (made safe and unique); answers with the note under its new
+/// id. `notes.emptyTitle` for a blank title.
+#[tauri::command]
+#[specta::specta]
+async fn notes_rename(
+    state: State<'_, Shared>,
+    id: String,
+    title: String,
+) -> Result<Note, IpcError> {
+    let service = Arc::clone(&state.modules.notes);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || service.rename(&id, &title))
+            .await
+            .map_err(|error| IpcError::new("platform.os", error))??,
+    )
+}
+
+/// Ids of the notes whose title or body contains `query`, newest first (at most 100). Reads
+/// the files, so it runs on a blocking thread.
+#[tauri::command]
+#[specta::specta]
+async fn notes_search(state: State<'_, Shared>, query: String) -> Result<Vec<String>, IpcError> {
+    let service = Arc::clone(&state.modules.notes);
+    tauri::async_runtime::spawn_blocking(move || service.search(&query))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
+/// Shows the note in Explorer.
+#[tauri::command]
+#[specta::specta]
+fn notes_reveal(state: State<'_, Shared>, id: String) -> Result<(), IpcError> {
+    Ok(state.modules.notes.reveal(&id)?)
+}
+
+/// Opens the note in its default app.
+#[tauri::command]
+#[specta::specta]
+fn notes_open_external(state: State<'_, Shared>, id: String) -> Result<(), IpcError> {
+    Ok(state.modules.notes.open_external(&id)?)
+}
+
+/// Opens the notes folder in Explorer (creating the default one when needed).
+#[tauri::command]
+#[specta::specta]
+fn notes_reveal_folder(state: State<'_, Shared>) -> Result<(), IpcError> {
+    Ok(state.modules.notes.reveal_folder()?)
+}
+
+/// Opens the folder picker for Settings › Notes and returns the chosen path, or `null` when
+/// the user dismissed it. The pane writes it into `settings.modules.notes.folder` itself.
+#[tauri::command]
+#[specta::specta]
+async fn notes_pick_folder(
+    state: State<'_, Shared>,
+    title: String,
+) -> Result<Option<String>, IpcError> {
+    let service = Arc::clone(&state.modules.notes);
+    let folder = tauri::async_runtime::spawn_blocking(move || service.choose_folder(&title))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(folder.map(|path| path.to_string_lossy().into_owned()))
+}
+
 /// Every bound action with its chord and whether the OS took it (docs/modules/
 /// keyboard-shortcuts.md). Actions without a chord are not listed; the UI knows the full set.
 #[tauri::command]
@@ -2096,6 +2298,18 @@ pub fn builder() -> Builder<tauri::Wry> {
             code_hosting_disconnect,
             code_hosting_open,
             code_hosting_open_token_page,
+            get_notes_snapshot,
+            notes_command,
+            notes_create,
+            notes_open,
+            notes_open_inbox,
+            notes_save,
+            notes_rename,
+            notes_search,
+            notes_reveal,
+            notes_open_external,
+            notes_reveal_folder,
+            notes_pick_folder,
             get_notifications_snapshot,
             notifications_command,
             notifications_open_settings,
@@ -2137,6 +2351,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             WeatherChanged,
             CalendarChanged,
             CodeHostingChanged,
+            NotesChanged,
             NotificationsChanged,
             ShelfChanged,
             SnapDragMoved,

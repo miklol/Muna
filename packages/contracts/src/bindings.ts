@@ -313,6 +313,56 @@ export const commands = {
 	 */
 	codeHostingOpenTokenPage: () => typedError<null, IpcError>(__TAURI_INVOKE("code_hosting_open_token_page")),
 	/**
+	 *  The notes folder, rescanned (a panel or widget that just opened; afterwards it follows
+	 *  `NotesChanged`). Walks the folder and reads the head of changed files, so it runs on a
+	 *  blocking thread.
+	 */
+	getNotesSnapshot: () => typedError<NotesSnapshot, IpcError>(__TAURI_INVOKE("get_notes_snapshot")),
+	/**
+	 *  Refresh, pin or delete (to the Recycle Bin); answers with the snapshot after it.
+	 *  `notes.unknown` when `id` is not a note in the folder.
+	 */
+	notesCommand: (command: NotesCommand) => typedError<NotesSnapshot, IpcError>(__TAURI_INVOKE("notes_command", { command })),
+	/**
+	 *  A new empty note named after `title` at the folder's root, for the editor.
+	 *  `notes.emptyTitle` for a blank title, `notes.io` when the folder refused the file.
+	 */
+	notesCreate: (title: string) => typedError<NoteContent, IpcError>(__TAURI_INVOKE("notes_create", { title })),
+	/**
+	 *  The note's body for the editor, with the modified time a later save sends back.
+	 *  `notes.unknown` for an id outside the folder, `notes.tooLarge` past the editor's limit.
+	 */
+	notesOpen: (id: string) => typedError<NoteContent, IpcError>(__TAURI_INVOKE("notes_open", { id })),
+	/**  *Inbox* for quick capture, created when it does not exist yet. */
+	notesOpenInbox: () => typedError<NoteContent, IpcError>(__TAURI_INVOKE("notes_open_inbox")),
+	/**
+	 *  Writes the draft when the file is still what the editor loaded; `notes.conflict` when
+	 *  another app changed it since (the editor reopens the note), `notes.unknown` when it is
+	 *  gone.
+	 */
+	notesSave: (draft: NoteDraft) => typedError<NoteContent, IpcError>(__TAURI_INVOKE("notes_save", { draft })),
+	/**
+	 *  Renames the file to `title` (made safe and unique); answers with the note under its new
+	 *  id. `notes.emptyTitle` for a blank title.
+	 */
+	notesRename: (id: string, title: string) => typedError<Note, IpcError>(__TAURI_INVOKE("notes_rename", { id, title })),
+	/**
+	 *  Ids of the notes whose title or body contains `query`, newest first (at most 100). Reads
+	 *  the files, so it runs on a blocking thread.
+	 */
+	notesSearch: (query: string) => typedError<string[], IpcError>(__TAURI_INVOKE("notes_search", { query })),
+	/**  Shows the note in Explorer. */
+	notesReveal: (id: string) => typedError<null, IpcError>(__TAURI_INVOKE("notes_reveal", { id })),
+	/**  Opens the note in its default app. */
+	notesOpenExternal: (id: string) => typedError<null, IpcError>(__TAURI_INVOKE("notes_open_external", { id })),
+	/**  Opens the notes folder in Explorer (creating the default one when needed). */
+	notesRevealFolder: () => typedError<null, IpcError>(__TAURI_INVOKE("notes_reveal_folder")),
+	/**
+	 *  Opens the folder picker for Settings › Notes and returns the chosen path, or `null` when
+	 *  the user dismissed it. The pane writes it into `settings.modules.notes.folder` itself.
+	 */
+	notesPickFolder: (title: string) => typedError<string | null, IpcError>(__TAURI_INVOKE("notes_pick_folder", { title })),
+	/**
 	 *  The Action Center as the module now sees it (a panel that just opened; afterwards it
 	 *  follows `NotificationsChanged`).
 	 */
@@ -421,6 +471,7 @@ export const events = {
 	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
 	mediaStateChanged: makeEvent<MediaStateChanged>("media-state-changed"),
 	morphRequested: makeEvent<MorphRequested>("morph-requested"),
+	notesChanged: makeEvent<NotesChanged>("notes-changed"),
 	notificationsChanged: makeEvent<NotificationsChanged>("notifications-changed"),
 	pomodoroStateChanged: makeEvent<PomodoroStateChanged>("pomodoro-state-changed"),
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
@@ -944,6 +995,12 @@ export type FetchError =
  */
 "provider";
 
+/**
+ *  Why the folder could not be listed. `Missing` is only ever a folder the user chose: the
+ *  default one is created on demand.
+ */
+export type FolderProblem = "missing" | "unreadable";
+
 /**  A whole forecast for one place. */
 export type Forecast = {
 	/**  IANA zone the times are in, e.g. `Europe/Berlin`. */
@@ -1236,6 +1293,73 @@ export type MorphRequested = {
  *  docs/05-design-system.md "Shape".
  */
 export type NotchShape = "notch" | "island";
+
+/**
+ *  One note as the list shows it. `id` is the path relative to the folder with `/`
+ *  separators; `title` its file stem.
+ */
+export type Note = {
+	id: string,
+	title: string,
+	/**  The sub-folder, relative to the notes folder; empty at the root. */
+	folder: string,
+	/**  The first words of the body, marks stripped; empty for an empty note. */
+	excerpt: string,
+	/**  Unix milliseconds of the file's modified time. */
+	modifiedMs: number,
+	bytes: number,
+	pinned: boolean,
+};
+
+/**
+ *  A note as the editor holds it. `modified_ms` is the baseline a save sends back, so an edit
+ *  made by another app in between is noticed instead of overwritten.
+ */
+export type NoteContent = {
+	id: string,
+	title: string,
+	body: string,
+	modifiedMs: number,
+};
+
+/**
+ *  What the editor sends back to save: the body, and the modified time of the [`NoteContent`]
+ *  it loaded so a file changed elsewhere since is never overwritten.
+ */
+export type NoteDraft = {
+	id: string,
+	body: string,
+	baseModifiedMs: number,
+};
+
+/**
+ *  The notes folder as the module now lists it (docs/modules/notes.md): after a command, a
+ *  write from the editor or a folder change in Settings. Carries the whole list; a note is a
+ *  title and an excerpt, never its body.
+ */
+export type NotesChanged = {
+	snapshot: NotesSnapshot,
+};
+
+/**  Commands that answer with the snapshot after them. */
+export type NotesCommand = 
+/**  Rescan the folder (the panel opening, *Refresh* in the pane). */
+{ kind: "refresh" } | { kind: "pin"; id: string; pinned: boolean } | 
+/**  To the Recycle Bin, never a permanent delete. */
+{ kind: "delete"; id: string };
+
+/**  What the panel, the widget and the settings pane render. */
+export type NotesSnapshot = {
+	/**  The folder in use, for display; empty when this build has none (a test profile). */
+	folder: string,
+	/**  Whether `folder` is the default rather than one the user chose. */
+	defaultFolder: boolean,
+	/**  Pinned notes first, then the rest, newest first within each group. */
+	notes: Note[],
+	/**  `Inbox.md` when it exists. */
+	inboxId: string | null,
+	problem: FolderProblem | null,
+};
 
 /**  Short, self-dismissing strip content. Pre-empts activities while held. */
 export type Notice = {
