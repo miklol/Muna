@@ -55,9 +55,11 @@ CLI sessions, the hook receiver from `curl`, the strip's allow / deny pair, the 
 [support](qa/checklists/support.md) (the diagnostics zip and what it must not hold, the
 feedback issue, the update check, both repairs against a real fault),
 [health](qa/checklists/health.md) (the sitting timer against a stopwatch, away and lock, the
-reminder while fullscreen, the four flows and the pinned panel, headphones) and
+reminder while fullscreen, the four flows and the pinned panel, headphones),
 [mirror](qa/checklists/mirror.md) (the camera light against the permission policy — spike
-S1 — the panel's controls, a second camera, the refusals, the widget).
+S1 — the panel's controls, a second camera, the refusals, the widget) and
+[translation](qa/checklists/translation.md) (streaming and cancel against a local model —
+spike S2 — the hosted provider's refusals, the key in Credential Manager, the pane).
 
 ## Module specs
 
