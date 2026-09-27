@@ -110,9 +110,9 @@ queue cached for an offline start. Pieces, in the order a poll flows:
   calendar providers do, and only `Secrets` comes from `muna-platform`; the token is read at
   every poll rather than held in memory; the **provider chip** is caption text — the 24 px
   `Chip` inside a row shares the filter chips' button shape without being one, and reads as
-  a second toolbar (a provider logo waits for a second host). **Deferred**: GitLab, Bitbucket, Jira and its
-  transitions, GitHub notifications and pipelines as their own lists, the left nav with
-  counts, a press-to-act strip, more than 25 rows per list.
+  a second toolbar (a provider logo waits for a second host). **Deferred**: GitLab,
+  Bitbucket, Jira and its transitions, GitHub notifications and pipelines as their own lists,
+  the left nav with counts, a press-to-act strip, more than 25 rows per list.
 - **Tests**: `tests/code_hosting.rs` (30 cases on the fake platform and scripted queues: the
   schedule, the baseline after connect and restore, notices for a new review request and a
   verdict with the per-poll cap, the backoff ladder, unauthorized stopping the clock, the
