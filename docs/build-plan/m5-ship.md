@@ -49,6 +49,26 @@ leaves E4 a kickoff prompt rather than a branch.
   (light on with the module on and no prompt, `NotAllowedError` with it off, light off within
   a second of a collapse) are rows 1–6 of the checklist and need the maintainer's machine.
   Spec: [modules/mirror](../modules/mirror.md); QA: [checklists/mirror](../qa/checklists/mirror.md).
+- **M5-E1d Translation** — built on `m5-e1d-translation` (PR pending, base `m5-e1c-mirror`):
+  the `Translator` trait with the `HttpTranslator` over the M4 `reqwest` client (SSE for
+  OpenAI-compatible servers, NDJSON for Ollama, one `Decoder` per wire), `check_endpoint`
+  (`https` anywhere, `http` only to a local or LAN host), the translate-only prompt with
+  language names, the key in Credential Manager through `Secrets` under
+  `translation.<provider>.key`, `TranslationService` with per-request cancel and a scripted
+  spike S2, the panel that streams into a scrollable answer box with *Stop*, *Copy* through
+  Rust and an inline language list, the widget, the pane and the `translation.translate`
+  palette action. Deviations from the tables below: the provider enum is
+  `TranslationProvider`, the chunk travels as `TranslationChunkEvent { chunk }`, two more
+  errors (`endpoint`, `vault`), a `TranslationChanged` event with a snapshot
+  (`get_translation_snapshot`: effective endpoint and model, `hasKey`, `needsKey`, `active`),
+  and a `translation_copy(text)` command so the webview never touches the clipboard. **Spike
+  S2's live run is not yet observed**: the scripted half passes in `tests/translation.rs`; the
+  run against LM Studio or Ollama is rows 1–4 of the checklist. Dictation and the
+  clipboard hotkey stay deferred. The shared Storybook preview gained an `afterEach` that
+  waits for Motion's WAAPI enter transitions before the a11y audit (the runner pauses CSS
+  animations only), which the panel's enabled primary button exposed. Spec:
+  [modules/translation](../modules/translation.md); QA:
+  [checklists/translation](../qa/checklists/translation.md).
 
 ### Order
 
@@ -90,7 +110,9 @@ leaves E4 a kickoff prompt rather than a branch.
   `translation_set_key(key)` / `translation_clear_key()` (Credential Manager, entry
   `translation.<provider>.key`), `translate({ text, source, target }) -> requestId`,
   `translation_cancel(requestId)`; event `TranslationChunk { requestId, text, done, error? }`.
-  The consent line names the endpoint before the first request.
+  The consent line names the endpoint before the first request. *As built in E1d: the event
+  is `TranslationChunkEvent { chunk }`, plus `get_translation_snapshot()`,
+  `TranslationChanged { snapshot }` and `translation_copy(text)`; the plan had no snapshot.*
 - **General**: `settings.general.language: 'system' | string` (a BCP-47 tag from the bundled
   set); the UI creates i18next with it and passes the same tag to every `Intl` formatter.
 - Every new type gets a zod schema in `packages/contracts/src/schemas.ts` and a round-trip
@@ -103,7 +125,7 @@ leaves E4 a kickoff prompt rather than a branch.
 | `SystemInfo` | **Built (E1a)**: `sysinfo` for the OS edition and build (`RtlGetVersion` gives the build without the edition), `GetAvailableCoreWebView2BrowserVersionString` for WebView2, `SHGetKnownFolderPath(FOLDERID_Desktop)` for the bundle's folder; the log size comes from the module, monitors from the shell's startup log | E1a |
 | ~~`Repair`~~ | **Not built as a trait (E1a)**: the two repairs are calls on services the shell already owns — `HudService::repair_flyout` (clear the suppression cache, show Windows's flyouts, apply the setting again) and `ShellManager::repair_app_bars` (release every app bar, reconcile) — so there was nothing platform-specific left to abstract | E1a |
 | ~~`WebviewPermissions`~~ | **Not built as a trait (E1c)**: `PermissionPolicy` (pure, in `muna-platform::permissions`) answers `ICoreWebView2::add_PermissionRequested` next to `set_memory_usage_target` in `windows/webview.rs` — camera for the app's own origin while `mirror.enabled`, everything else denied without a prompt, nothing saved to the profile; the shell installs it on both webviews. Like the memory target it is a function of the webview the shell already holds, so there was nothing to fake | E1c |
-| `Http` streaming | The M4 `reqwest` client with `text/event-stream` and NDJSON readers, cancel through a token; only inside the translation integration | E1d |
+| ~~`Http` streaming~~ | **Not built as a trait (E1d)**: the `Translator` trait lives in the module (`modules/translation/provider.rs`) with `HttpTranslator` over the M4 `reqwest` client — SSE and NDJSON `Decoder`s, `check_endpoint`, and cancel by dropping the request from the service's active set so the next `deliver` stops the read loop — plus a scripted translator in `tests/translation.rs`; nothing else streams, so nothing platform-wide was abstracted | E1d |
 | `Speech` | `Windows.Media.SpeechRecognition` — **deferred**; the mic button is not built in M5 | — |
 
 ### Spikes with exit criteria
@@ -121,7 +143,11 @@ leaves E4 a kickoff prompt rather than a branch.
   with a camera — the agent session that built E1c never opened one.*
 - **S2 Streaming with cancel** (before E1d): a fake provider in `tests/translation.rs` streams
   five chunks and a cancel after the second leaves no further `TranslationChunk`; live against
-  LM Studio or Ollama on the maintainer's machine. Exit: the test and one manual run.
+  LM Studio or Ollama on the maintainer's machine. Exit: the test and one manual run. *Record
+  (E1d): the scripted half passes — `spike_s2_a_cancel_after_the_second_piece_leaves_no_further_chunk`
+  and the decoder suites in `tests/translation.rs`; the live run is rows 1–4 of
+  [checklists/translation](../qa/checklists/translation.md) and still needs a machine with a
+  local model — the agent session that built E1d had no provider to talk to.*
 - **S3 RTL pseudo-locale** (E6): an `ar` pseudo-locale (mirrored English) renders the existing
   RTL stories without clipping or LTR punctuation leaks. Exit: the Storybook run with zero
   axe violations; findings become E3 rows.
