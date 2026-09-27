@@ -115,6 +115,22 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
   the cache **and the account in view**, so the pane still offers *Disconnect*. Details in
   [code-hosting → Implementation notes](../modules/code-hosting.md#implementation-notes-m4-e4);
   network and account rows in [qa/checklists/code-hosting](../qa/checklists/code-hosting.md).
+- **M4-E7 Notes — built** (branch `m4-e7-notes`, stacked on `m4-e4-code-hosting`). Plain
+  `.md` files in a folder (`%APPDATA%\Muna\notes` by default, or one the user chooses), the
+  title is the file name, saves carry the baseline modified time and are refused on a conflict,
+  deletes go to the Recycle Bin; the list, search (Rust full text, 150 ms after the last
+  keystroke), inline *New note*, the editor with 600 ms autosave, rename, pin, markdown-lite
+  preview, *Show in Explorer* and *Move to Recycle Bin*; the `notes.quickNote` action opens
+  *Inbox* with the caret at the end; the pinned-note widget; the folder pane. Against the plan:
+  **files, not SQLite** — the row below said "markdown-lite notes in SQLite", but the module
+  document's acceptance criterion is "plain `.md` readable by other apps", so the folder is the
+  database and `Store` meta holds only the pins (`notes:pins`); **no file watcher** — every
+  snapshot is a rescan on open and after every write, so an idle app costs nothing and other
+  apps' edits show up the next time the panel opens; preview links are shown, not followed (no
+  open-URL command; the notch does not open addresses read from a file). `@muna/ui` gained the
+  `TextArea` primitive. Details in
+  [notes → Implementation notes](../modules/notes.md#implementation-notes-m4-e7); folder and
+  other-app rows in [qa/checklists/notes](../qa/checklists/notes.md).
 
 ### Order
 
