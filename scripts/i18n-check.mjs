@@ -8,8 +8,10 @@
 //   4. every `t('key')` literal used by the apps exists in en.json, plural bases included;
 //   5. a translation keeps the English message's `{{placeholders}}`, no more and no fewer;
 //   6. a translation of two words or more is not the English message itself — that is a
-//      copied source string, not a translation (single words may be names or cognates, and
-//      the product names in `SAME_EVERYWHERE` read the same in every language);
+//      copied source string, not a translation (single words may be names or cognates; the
+//      product names and unit symbols in `SAME_EVERYWHERE` read the same in every language,
+//      and `SAME_AS_ENGLISH` lists, per language, the few messages it genuinely writes like
+//      English — an entry that no longer matches is reported so the lists cannot rot);
 //   7. every top-level section of a non-English catalog carries a `_review` note saying who
 //      reviewed it, or that nobody has yet; English, the source, carries none. Keys starting
 //      with `_` are notes for translators and never messages (`@muna/i18n` strips them).
@@ -33,8 +35,38 @@ const PLACEHOLDER = /\{\{\s*([^,}\s]+)[^}]*\}\}/g;
 /** A copied English message is one this long or longer; a single word may be a name or a cognate. */
 const COPIED_MIN_WORDS = 2;
 
-/** Product names that read the same in every language; add a key here only for those. */
-const SAME_EVERYWHERE = new Set(['aiCoding.agent.claude', 'aiCoding.agent.copilot']);
+/** Product names and unit symbols that read the same in every language; add a key here only for those. */
+const SAME_EVERYWHERE = new Set([
+  'aiCoding.agent.claude',
+  'aiCoding.agent.copilot',
+  'aiCoding.settings.copilotCli',
+  'weather.settings.metric',
+  'weather.settings.imperial',
+]);
+
+/**
+ * Messages one language writes exactly like English, with the reason: the SI symbols `h` and
+ * `min` (German says `Std.` and `Min.`), and `pull request`, which French, Spanish and
+ * Brazilian Portuguese developers use untranslated (German capitalises it as a noun).
+ */
+const UNIT_SYMBOL_KEYS = [
+  'strip.duration.hoursMinutes',
+  'dayProgress.duration.hoursMinutes',
+  'screenTime.duration.hoursMinutes',
+  'aiCoding.duration.hoursMinutes',
+  'health.duration.hoursMinutes',
+];
+const PULL_REQUEST_KEYS = [
+  'strip.glyph.pullRequest',
+  'codeHosting.queue',
+  'codeHosting.count_one',
+  'codeHosting.count_other',
+];
+const SAME_AS_ENGLISH = new Map([
+  ['fr.json', new Set([...UNIT_SYMBOL_KEYS, ...PULL_REQUEST_KEYS])],
+  ['es.json', new Set([...UNIT_SYMBOL_KEYS, ...PULL_REQUEST_KEYS])],
+  ['pt-BR.json', new Set([...UNIT_SYMBOL_KEYS, ...PULL_REQUEST_KEYS])],
+]);
 
 const isNote = (key) => key.startsWith('_');
 
@@ -138,6 +170,7 @@ for (const file of locales) {
   }
 
   let copied = 0;
+  const allowed = SAME_AS_ENGLISH.get(file) ?? new Set();
   for (const [key, text] of other) {
     if (text.trim() === '') {
       problems.push(`${file}: ${key} is empty`);
@@ -151,10 +184,19 @@ for (const file of locales) {
         `${file}: ${key} placeholders {{${placeholders(text).join(', ')}}} differ from English {{${placeholders(source).join(', ')}}}`,
       );
     }
-    if (text === source && wordCount(text) >= COPIED_MIN_WORDS && !SAME_EVERYWHERE.has(key)) {
+    const keepsEnglish = SAME_EVERYWHERE.has(key) || allowed.has(key);
+    if (text === source && wordCount(text) >= COPIED_MIN_WORDS && !keepsEnglish) {
       copied += 1;
       problems.push(`${file}: ${key} is the English message, not a translation`);
     }
+    if (text !== source && keepsEnglish) {
+      problems.push(
+        `${file}: ${key} is listed as reading like English but differs — remove it from the list`,
+      );
+    }
+  }
+  for (const key of allowed) {
+    if (!other.has(key)) problems.push(`${file}: SAME_AS_ENGLISH lists unknown key ${key}`);
   }
 
   for (const [section, child] of Object.entries(tree)) {
