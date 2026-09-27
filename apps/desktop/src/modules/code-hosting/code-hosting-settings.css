@@ -36,3 +36,19 @@
   min-inline-size: 0;
   margin: 0;
 }
+
+/* The account row's initial, as the panel draws it (the settings window loads only this file). */
+.code-hosting-account__avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--radius-thumb);
+  background: var(--surface-3);
+  color: var(--text-1);
+  font-size: var(--text-footnote);
+  font-weight: 600;
+  line-height: 1;
+}

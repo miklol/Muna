@@ -83,7 +83,7 @@ queue cached for an offline start. Pieces, in the order a poll flows:
   three **filter chips** — *To review*, *Mine*, *All* — kept in the module's Zustand store
   (a view choice, not a setting), the count and a refresh button that disables while a poll
   runs. A row shows the author's **initial** in a circle, the title with a draft glyph when
-  it is one, `repo #number`, *by author*, the GitHub chip, the change line `+64 −51 · 6 files
+  it is one, `repo #number`, *by author*, the host's name, the change line `+64 −51 · 6 files
   · Checks running · Review required` (numbers in the window's locale, `data-checks` for the
   colour) and ↗ (*Open title on GitHub*) through `code_hosting_open`. Under the list, one
   footnote: *Updated 10:05* or the poll's sentence; a failed poll keeps the last rows. Off, or
@@ -108,7 +108,9 @@ queue cached for an offline start. Pieces, in the order a poll flows:
   OAuth client id from the maintainer and plugs into the same `CodeHost` trait; no `Http`
   platform trait — `reqwest` stays inside the module behind `CodeHost`, as the weather and
   calendar providers do, and only `Secrets` comes from `muna-platform`; the token is read at
-  every poll rather than held in memory. **Deferred**: GitLab, Bitbucket, Jira and its
+  every poll rather than held in memory; the **provider chip** is caption text — the 24 px
+  `Chip` inside a row shares the filter chips' button shape without being one, and reads as
+  a second toolbar (a provider logo waits for a second host). **Deferred**: GitLab, Bitbucket, Jira and its
   transitions, GitHub notifications and pipelines as their own lists, the left nav with
   counts, a press-to-act strip, more than 25 rows per list.
 - **Tests**: `tests/code_hosting.rs` (30 cases on the fake platform and scripted queues: the
