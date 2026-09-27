@@ -171,7 +171,7 @@ function Head({ snapshot, clock, onStop }: HeadProps) {
       <span className="health-head__glyph" data-tint={flow === null ? 'pink' : flowTint[flow.flow]}>
         {glyph}
       </span>
-      <Text as="h3" variant="footnote" weight={600} truncate={1} className="health-head__title">
+      <Text as="h2" variant="footnote" weight={600} truncate={1} className="health-head__title">
         {title}
       </Text>
       {chip}
