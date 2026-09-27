@@ -9,6 +9,7 @@
 //! `// SAFETY:` comment (repository rule).
 
 mod app_bar;
+mod app_info;
 mod audio;
 mod autostart;
 mod bluetooth;
@@ -33,6 +34,9 @@ pub mod webview;
 mod window;
 mod winrt;
 
+use std::path::Path;
+use std::time::Duration;
+
 use tokio::sync::broadcast;
 use tracing::warn;
 use windows::Win32::Foundation::GetLastError;
@@ -42,15 +46,16 @@ pub use autostart::{AUTOSTART_ARG, STARTUP_TASK_ID};
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground, Location,
-    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
+    AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
+    Location, Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
     WindowPlacement, Windowing,
 };
 use crate::types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
-    BrightnessMonitor, DragOutcome, DragPayload, ForegroundWindow, GeoPosition, MediaCommand,
-    MediaSession, MonitorInfo, Notification, NotificationAccess, NotificationDelivery, OsdState,
-    Rect, SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
+    AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
+    BluetoothRadioState, BrightnessMonitor, DragOutcome, DragPayload, ForegroundWindow,
+    GeoPosition, MediaCommand, MediaSession, MonitorInfo, Notification, NotificationAccess,
+    NotificationDelivery, OsdState, Rect, SystemSample, Thumbnail, TransferMode,
+    UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -384,6 +389,16 @@ impl Foreground for WindowsPlatform {
     fn current(&self) -> PlatformResult<Option<ForegroundWindow>> {
         Ok(foreground::current())
     }
+
+    fn idle_for(&self) -> PlatformResult<Duration> {
+        foreground::idle_for()
+    }
+}
+
+impl AppInfo for WindowsPlatform {
+    fn describe(&self, executable: &Path, icon_size: u32) -> PlatformResult<AppDescription> {
+        app_info::describe(executable, icon_size)
+    }
 }
 
 impl Windowing for WindowsPlatform {
@@ -591,6 +606,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn foreground(&self) -> &dyn Foreground {
+        self
+    }
+
+    fn app_info(&self) -> &dyn AppInfo {
         self
     }
 

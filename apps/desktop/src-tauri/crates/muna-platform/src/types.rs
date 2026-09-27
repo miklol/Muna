@@ -410,9 +410,27 @@ pub struct ForegroundWindow {
     #[specta(skip)]
     pub handle: WindowHandle,
     pub title: String,
+    /// Image file name of the owning process (`explorer.exe`); empty when unknown.
     pub process_name: String,
+    /// Full image path of the owning process, for its icon and description
+    /// (docs/modules/screen-time.md); empty when unknown. Rust-side only: the UI gets names
+    /// and icons, never paths.
+    #[serde(skip)]
+    #[specta(skip)]
+    pub process_path: String,
     pub bounds: Rect,
     pub is_fullscreen: bool,
+}
+
+/// What the platform knows about an application from its executable
+/// (docs/modules/screen-time.md "Now" card): the product's own name and its icon.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AppDescription {
+    /// The file description from the version resource (`Visual Studio Code`); `None` when
+    /// the executable carries none.
+    pub name: Option<String>,
+    /// The icon as PNG bytes at the requested size; `None` when the shell has none.
+    pub icon_png: Option<Vec<u8>>,
 }
 
 /// A native top-level window handle (`HWND`) as an integer, so the shell crate never depends
