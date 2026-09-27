@@ -163,6 +163,19 @@ pub fn parse_timestamp_ms(value: &str) -> Option<i64> {
         .map(|time| time.timestamp_millis())
 }
 
+/// Where a session is in answering the last prompt.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Turn {
+    /// No answer under way: waiting for the user (or never prompted).
+    #[default]
+    Idle,
+    /// Between `assistant.turn_start` (or a prompt) and the response.
+    Answering,
+    /// The last `assistant.message` asked for tools: the `turn_end` that follows is the CLI
+    /// moving on to run them and answer again, not the end of the answer.
+    RunningTools,
+}
+
 /// What the log said so far about one session.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CopilotState {
@@ -172,8 +185,10 @@ pub struct CopilotState {
     pub started_at_ms: Option<i64>,
     /// The timestamp of the last event applied.
     pub last_event_ms: Option<i64>,
-    /// `true` between `assistant.turn_start` (or a prompt) and `assistant.turn_end`.
-    pub in_turn: bool,
+    /// The CLI logs one turn per model response, so a response that asked for tools ends in
+    /// an `assistant.turn_end` the user never sees; only the response without tool requests
+    /// brings the session back to [`Turn::Idle`].
+    pub turn: Turn,
     /// The CLI reported the task complete: waiting for the user, even if a turn is open.
     pub task_complete: bool,
     /// `session.shutdown` was logged.
@@ -184,6 +199,13 @@ pub struct CopilotState {
     pub task: Option<String>,
     /// The last file a tool was asked to read or edit.
     pub file: Option<String>,
+}
+
+impl CopilotState {
+    /// `true` while the CLI is answering the last prompt, tool runs included.
+    pub fn in_turn(&self) -> bool {
+        self.turn != Turn::Idle
+    }
 }
 
 #[derive(Deserialize)]
@@ -216,9 +238,13 @@ struct AssistantMessage {
 }
 
 #[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 struct AssistantMessageData {
     #[serde(default)]
     model: Option<String>,
+    /// Tools the response asked to run; the CLI keeps going while there are any.
+    #[serde(default)]
+    tool_requests: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(Deserialize)]
@@ -275,21 +301,40 @@ pub fn apply_line(state: &mut CopilotState, line: &str) -> bool {
             }
         }
         "assistant.turn_start" => {
-            state.in_turn = true;
+            state.turn = Turn::Answering;
             state.task_complete = false;
         }
-        "assistant.turn_end" | "abort" | "session.error" => state.in_turn = false,
+        // A response that asked for tools ends in a `turn_end` the CLI follows with the tool
+        // runs and another turn; the answer is only over when the last response asked for
+        // nothing.
+        "assistant.turn_end" => {
+            if state.turn == Turn::Answering {
+                state.turn = Turn::Idle;
+            }
+        }
+        "abort" | "session.error" => state.turn = Turn::Idle,
         "assistant.message" => {
             state.messages = state.messages.saturating_add(1);
-            if let Ok(event) = serde_json::from_str::<AssistantMessage>(line)
-                && event.data.model.is_some()
-            {
-                state.model = event.data.model;
+            if let Ok(event) = serde_json::from_str::<AssistantMessage>(line) {
+                if event.data.model.is_some() {
+                    state.model = event.data.model;
+                }
+                let asked_for_tools = event
+                    .data
+                    .tool_requests
+                    .is_some_and(|requests| !requests.is_empty());
+                // A response is always part of a turn, even when the tail joined the log
+                // after its `turn_start`.
+                state.turn = if asked_for_tools {
+                    Turn::RunningTools
+                } else {
+                    Turn::Answering
+                };
             }
         }
         "user.message" => {
             state.messages = state.messages.saturating_add(1);
-            state.in_turn = true;
+            state.turn = Turn::Answering;
             state.task_complete = false;
             if let Ok(event) = serde_json::from_str::<UserMessage>(line)
                 && let Some(task) = event.data.content.as_deref().and_then(task_line)
@@ -307,7 +352,7 @@ pub fn apply_line(state: &mut CopilotState, line: &str) -> bool {
         "session.task_complete" => state.task_complete = true,
         "session.shutdown" => {
             state.ended = true;
-            state.in_turn = false;
+            state.turn = Turn::Idle;
         }
         _ => {}
     }

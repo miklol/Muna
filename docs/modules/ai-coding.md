@@ -40,7 +40,12 @@ module with temp folders, scripted pids and a `FakeClock`. Pieces, in the order 
   window a process owns, so *Show* can bring a terminal forward through the shell's existing
   `WindowPlacement`) and `owner_of_local_port(port)` (`GetExtendedTcpTable` over IPv4 and
   IPv6, which is how a hook post's peer port becomes the CLI's pid and from there its window).
-  `FakePlatform` scripts both.
+  `FakePlatform` scripts both. `main_window` reads each window's owner **before** anything
+  else and skips windows of Muna's own process: `GetWindowTextLengthW` sends `WM_GETTEXTLENGTH`
+  synchronously to the owning thread, and asking Muna's own main thread from a worker that
+  holds the module lock the main thread is waiting on deadlocked the app at startup (found by
+  the perf smoke with a live Copilot session; `enumerating_never_waits_on_a_window_of_this_process`
+  guards it). Caption calls come last, after the cheap style and visibility checks.
 - **Receiver** (`receiver.rs`, the plan's `LocalReceiver`): an HTTP/1.1 server on `127.0.0.1`
   and a **configured port** (default `47391`; the next ten are tried when it is taken, and the
   pane shows the live one) — the plan said *random*, but hook URLs are static configuration in
@@ -73,8 +78,13 @@ module with temp folders, scripted pids and a `FakeClock`. Pieces, in the order 
   `%USERPROFILE%\.copilot\session-state` holding an `inuse.<pid>.lock`; `workspace.yaml` gives
   the working directory and the start; `events.jsonl` is followed with a `Tail` that reads only
   what was appended (a file over 8 MiB when first seen starts at its end and its counts are a
-  lower bound, shown as `messages: null`). `assistant.turn_start` is *running*, `turn_end`,
-  `abort` and `session.error` are *waiting · input*, the lock vanishing is *done*. The CLI
+  lower bound, shown as `messages: null`). A prompt or `assistant.turn_start` is *running*;
+  the CLI logs **one turn per model response**, so the `assistant.turn_end` after a response
+  that carried `toolRequests` is the CLI moving on to run them and does not end the answer
+  (a live log held thirteen thousand turn ends for thirty-three prompts) — only the `turn_end`
+  after a response without tool requests, `abort` and `session.error` are *waiting · input*;
+  the lock vanishing is *done*. A session found already waiting when Muna starts raises no
+  notice; only a stop observed after running does. The CLI
   reports no token usage, so `tokens` is `null` for these rows. No `notify` watcher: the
   service polls on a **cadence of 2 s while a Copilot turn runs or a window watches, 10 s
   otherwise, none while off or locked**, so an idle machine reads nothing.
@@ -123,4 +133,7 @@ module with temp folders, scripted pids and a `FakeClock`. Pieces, in the order 
 Deviations from the spec above, for the record: the receiver's port is configured, not
 random; the bearer token lives in the store's `meta` table; no `SendInput` fallback; Copilot
 CLI rows show no token count; Cursor and Codex have no adapter of their own yet (the generic
-route stands in). QA rows are in [qa/checklists/ai-coding](../qa/checklists/ai-coding.md).
+route stands in). Follow-up: the poll holds the module lock across its file reads and the
+window enumeration (tens of milliseconds), which stalls a settings change or a command that
+lands meanwhile; a two-phase poll (snapshot the sessions, read without the lock, apply) would
+remove it. QA rows are in [qa/checklists/ai-coding](../qa/checklists/ai-coding.md).

@@ -1354,7 +1354,7 @@ pub fn waiting_notice(session: &AiSession, waiting: &AiWaiting) -> Notice {
 fn copilot_status(state: &CopilotState, at_ms: i64) -> (AiStatus, Option<AiWaiting>) {
     if state.ended {
         (AiStatus::Done, None)
-    } else if state.in_turn && !state.task_complete {
+    } else if state.in_turn() && !state.task_complete {
         (AiStatus::Running, None)
     } else {
         (
