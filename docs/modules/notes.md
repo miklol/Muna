@@ -55,9 +55,10 @@ Pieces, in the order a keystroke flows:
 - **Folder** (`settings.rs`): `settings.modules.notes = { folder: null }` means the default,
   `%APPDATA%\Muna\notes` (created on demand, next to the profile); a chosen folder is used as
   is and **never created** — when it is missing (an unplugged drive) the snapshot carries
-  `problem: 'missing'` and every write is refused with `notes.noFolder`; a folder that exists
-  but cannot be walked is `problem: 'unreadable'`. The pane changes the folder through the
-  settings document; Rust follows the change and announces a fresh snapshot.
+  `problem: 'missing'` and every write is refused with `notes.io` (*not found*); a folder that
+  exists but cannot be walked is `problem: 'unreadable'`. `notes.noFolder` is reserved for a
+  build with no folder at all. The pane changes the folder through the settings document; Rust
+  follows the change and announces a fresh snapshot.
 - **Contract**: `get_notes_snapshot`, `notes_command({ kind: 'refresh' | 'pin' | 'delete' })`,
   `notes_create(title)`, `notes_open(id)`, `notes_open_inbox()`,
   `notes_save({ id, body, baseModifiedMs })`, `notes_rename(id, title) -> Note`,

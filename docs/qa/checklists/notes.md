@@ -20,8 +20,8 @@ for rows 22–24, a removable drive.
 
 | # | Scenario | Expect |
 | --- | ---------- | -------- |
-| 1 | Open the Notes panel with no folder on disk | *No notes yet* with *Create one above, or use the quick note shortcut to jot something into Inbox.*; the search field and *New note* show; the folder is **not** created yet |
-| 2 | *New note*, type `Meeting`, Enter | the folder appears with `Meeting.md` (empty, 0 bytes); the editor opens on *Meeting* with the caret in the text field; the status line reads *Edited hh:mm* |
+| 1 | Open the Notes panel with no folder on disk | *No notes yet* with *Create one above, or use the quick note shortcut to jot something into Inbox.*; the search field and *New note* show; `%APPDATA%\Muna\notes` now exists, empty |
+| 2 | *New note*, type `Meeting`, Enter | `Meeting.md` appears in the folder (empty, 0 bytes); the editor opens on *Meeting* with the caret in the text field; the status line reads *Edited hh:mm* |
 | 3 | *New note*, type nothing, Enter; then type `Meeting` again, Enter | nothing happens on the blank title (the field stays open); the second one creates `Meeting 2.md` and the editor opens on *Meeting 2* |
 | 4 | *New note*, type `a/b: c?`, Enter | `a b c.md` — the forbidden characters are gone; the title in the header is `a b c` |
 | 5 | *New note*, then Escape (or the *Cancel* button) | the title field is replaced by the search field again; nothing was created |
