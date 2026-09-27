@@ -89,10 +89,17 @@ import type {
   StripContent,
   StripHeight,
   StripMessage,
+  SupportChanged,
+  SupportCommand,
+  SupportLink,
+  SupportOutcome,
+  SupportSnapshot,
+  SystemDescription,
   Tint,
   Tracking,
   Trailing,
   TransferMode,
+  UpdateChannel,
   WaitingKind,
   YieldState,
 } from './bindings';
@@ -2202,3 +2209,110 @@ export const waitingSessions = (sessions: readonly AiSession[]): readonly AiSess
 /** The sessions still working, in the snapshot's order. */
 export const runningSessions = (sessions: readonly AiSession[]): readonly AiSession[] =>
   sessions.filter((session) => session.status === 'running');
+
+/** The key of the Support module's namespace; also its module id. */
+export const SUPPORT_SETTINGS_KEY = 'support';
+
+/** The release feeds *Check for updates* can read, in the order the pane lists them. */
+export const UPDATE_CHANNELS = ['stable', 'beta'] as const satisfies readonly UpdateChannel[];
+
+export const updateChannelSchema = z.enum(UPDATE_CHANNELS) satisfies z.ZodType<UpdateChannel>;
+
+/**
+ * Mirrors `modules::support::SupportSettings`: defaults for missing fields, a wrong type fails
+ * the whole entry, like the Rust side. `crashReports` is reserved: no reporter ships in 1.0.
+ */
+export const supportSettingsSchema = z.object({
+  channel: updateChannelSchema.default('stable'),
+  crashReports: z.boolean().default(false),
+});
+export type SupportSettings = z.infer<typeof supportSettingsSchema>;
+
+export const defaultSupportSettings = (): SupportSettings => supportSettingsSchema.parse({});
+
+/** Reads the Support namespace; a missing or malformed entry yields the defaults. */
+export const readSupportSettings = (settings: Settings): SupportSettings => {
+  const parsed = supportSettingsSchema.safeParse(settings.modules[SUPPORT_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultSupportSettings();
+};
+
+/** Returns a new document with the Support namespace replaced. */
+export const writeSupportSettings = (settings: Settings, support: SupportSettings): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [SUPPORT_SETTINGS_KEY]: support },
+});
+
+/** The machine as the Support module reports it; nothing that identifies the user. */
+export const systemDescriptionSchema = z.object({
+  os: z.string(),
+  webview2: z.string().nullable(),
+}) satisfies z.ZodType<SystemDescription>;
+
+/** The last diagnostics bundle written. */
+export const bundleRecordSchema = z.object({
+  path: z.string().min(1),
+  entries: z.number().int().min(0),
+  atMs: epochMs,
+});
+
+/** What `commands.getSupportSnapshot` returns and `events.supportChanged` carries. */
+export const supportSnapshotSchema = z.object({
+  version: z.string().min(1),
+  channel: updateChannelSchema,
+  system: systemDescriptionSchema,
+  profileDir: z.string().nullable(),
+  logsBytes: z.number().int().min(0),
+  lastBundle: bundleRecordSchema.nullable(),
+  changelog: z.boolean(),
+}) satisfies z.ZodType<SupportSnapshot>;
+
+export const supportChangedSchema = z.object({
+  snapshot: supportSnapshotSchema,
+}) satisfies z.ZodType<SupportChanged>;
+
+/** The argument of `commands.supportCommand`. */
+export const supportCommandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('diagnostics') }),
+  z.object({ kind: z.literal('repairFlyouts') }),
+  z.object({ kind: z.literal('repairAppBar') }),
+  z.object({ kind: z.literal('openLogs') }),
+  z.object({ kind: z.literal('checkUpdates') }),
+]) satisfies z.ZodType<SupportCommand>;
+
+/** What `commands.supportCommand` answers. */
+export const supportOutcomeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('done') }),
+  z.object({ kind: z.literal('bundle') }).extend(bundleRecordSchema.shape),
+  z.object({
+    kind: z.literal('update'),
+    available: z.boolean(),
+    version: z.string().nullable(),
+    notes: z.string().nullable(),
+  }),
+]) satisfies z.ZodType<SupportOutcome>;
+
+/** The argument of `commands.supportOpen`. */
+export const supportLinkSchema = z.enum([
+  'help',
+  'feedback',
+  'rate',
+  'releaseNotes',
+]) satisfies z.ZodType<SupportLink>;
+
+/**
+ * `1.2 MB` / `340 KB` for the pane's *Logs* row; whole kilobytes below a megabyte so the
+ * figure never reads as zero while logs exist.
+ */
+export const formatBytes = (bytes: number, locale?: string): string => {
+  if (bytes < 1024) {
+    return `${new Intl.NumberFormat(locale).format(bytes)} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    const kb = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(bytes / 1024);
+    return `${kb} KB`;
+  }
+  const mb = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(
+    bytes / (1024 * 1024),
+  );
+  return `${mb} MB`;
+};

@@ -402,6 +402,25 @@ export const commands = {
 	 */
 	aiCodingCommand: (command: AiCodingCommand) => typedError<AiCodingSnapshot, IpcError>(__TAURI_INVOKE("ai_coding_command", { command })),
 	/**
+	 *  What the Support pane shows (version, channel, OS and `WebView2`, profile, logs size, the
+	 *  last bundle). Reads the registry and the `WebView2` loader, so it runs off the main thread.
+	 */
+	getSupportSnapshot: () => typedError<SupportSnapshot, IpcError>(__TAURI_INVOKE("get_support_snapshot")),
+	/**
+	 *  The pane's actions (docs/modules/support.md). `diagnostics` answers with the bundle it
+	 *  wrote; `checkUpdates` answers with what the channel's manifest says and never downloads;
+	 *  the repairs and `openLogs` answer `done`. The repairs act on the HUD and the shell from
+	 *  here — the composition root — so the module never imports another module.
+	 */
+	supportCommand: (command: SupportCommand) => typedError<SupportOutcome, IpcError>(__TAURI_INVOKE("support_command", { command })),
+	/**  Opens one of the Support pages in the default browser; the address is built in Rust. */
+	supportOpen: (link: SupportLink) => typedError<null, IpcError>(__TAURI_INVOKE("support_open", { link })),
+	/**
+	 *  The bundled `CHANGELOG.md`, or `None` when this build ships none (the pane then offers the
+	 *  release notes on GitHub).
+	 */
+	supportChangelog: () => __TAURI_INVOKE<string | null>("support_changelog"),
+	/**
 	 *  The Action Center as the module now sees it (a panel that just opened; afterwards it
 	 *  follows `NotificationsChanged`).
 	 */
@@ -524,6 +543,7 @@ export const events = {
 	snapDragLeft: makeEvent<SnapDragLeft>("snap-drag-left"),
 	snapDragMoved: makeEvent<SnapDragMoved>("snap-drag-moved"),
 	stripContentChanged: makeEvent<StripContentChanged>("strip-content-changed"),
+	supportChanged: makeEvent<SupportChanged>("support-changed"),
 	systemMonitorChanged: makeEvent<SystemMonitorChanged>("system-monitor-changed"),
 	todoChanged: makeEvent<TodoChanged>("todo-changed"),
 	weatherChanged: makeEvent<WeatherChanged>("weather-changed"),
@@ -767,6 +787,13 @@ export type BrightnessMonitor = {
 	/**  0–100, normalised from the monitor's own range. */
 	percent: number,
 	kind: BrightnessKind,
+};
+
+/**  The last diagnostics bundle written, for the pane's *Saved to …* row. */
+export type BundleRecord = {
+	path: string,
+	entries: number,
+	atMs: number,
 };
 
 /**
@@ -2145,6 +2172,77 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
  */
 { kind: "agentWaiting"; agent: string; tool: string | null };
 
+/**
+ *  Snapshot of the Support module (docs/modules/support.md); emitted after a diagnostics
+ *  bundle is written and on every channel change. Carries paths and versions, no content.
+ */
+export type SupportChanged = {
+	snapshot: SupportSnapshot,
+};
+
+/**  The pane's one-shot actions. */
+export type SupportCommand = 
+/**  Zips logs, settings and the system facts to the Desktop. */
+{ kind: "diagnostics" } | 
+/**  Hands the system flyout back to Windows, then re-applies the HUD setting. */
+{ kind: "repairFlyouts" } | 
+/**  Releases every `AppBar` reservation and reconciles, so Reserved mode reserves afresh. */
+{ kind: "repairAppBar" } | 
+/**  Opens the profile's `logs` folder in Explorer. */
+{ kind: "openLogs" } | 
+/**  Reads the channel's update manifest once; never downloads. */
+{ kind: "checkUpdates" };
+
+/**
+ *  The pages *Support* opens in the browser. The URLs are built here, not in the UI, so the
+ *  webview never learns an address it could be talked into changing.
+ */
+export type SupportLink = 
+/**  The documentation. */
+"help" | 
+/**  A new issue with the system facts prefilled. */
+"feedback" | 
+/**  The repository page, where the star is. */
+"rate" | 
+/**  The release notes for the running version. */
+"releaseNotes";
+
+/**  What a [`SupportCommand`] produced. */
+export type SupportOutcome = 
+/**  The command ran; nothing to show beyond that. */
+({ kind: "done" }) & { available?: never; notes?: never; version?: never } | 
+/**  The diagnostics bundle was written. */
+{
+	kind: "bundle",
+} & BundleRecord | 
+/**  The update check answered: `version` is the newer release when there is one. */
+{ kind: "update"; available: boolean; version: string | null; notes: string | null };
+
+/**  Everything the pane shows (docs/modules/support.md). */
+export type SupportSnapshot = {
+	version: string,
+	channel: UpdateChannel,
+	system: SystemDescription,
+	/**  The profile folder; `None` in tests without one. */
+	profileDir: string | null,
+	/**  The size of the profile's log files (far below 2^53). */
+	logsBytes: number,
+	lastBundle: BundleRecord | null,
+	/**  A `CHANGELOG.md` ships with this build, so *What's new* can show it in place. */
+	changelog: boolean,
+};
+
+/**
+ *  The machine as the Support module reports it (docs/modules/support.md): what a bug report
+ *  needs and nothing that identifies the user.
+ */
+export type SystemDescription = {
+	/**  The OS edition and build as Windows names them (`Windows 11 Pro 26200.1234`). */
+	os: string,
+	/**  The `WebView2` runtime version (`140.0.3485.54`); `None` when no runtime is installed. */
+	webview2: string | null,
+};
+
 export type SystemMonitorBattery = {
 	percent: number,
 	charging: boolean,
@@ -2338,6 +2436,12 @@ export type Units =
 "metric" | 
 /**  °F and mph. */
 "imperial";
+
+/**
+ *  Which release feed *Check for updates* reads. Beta is a pre-release tag whose `latest.json`
+ *  the release workflow republishes; stable is the GitHub *latest* release.
+ */
+export type UpdateChannel = "stable" | "beta";
 
 /**  The default render endpoint's level. */
 export type VolumeLevel = {

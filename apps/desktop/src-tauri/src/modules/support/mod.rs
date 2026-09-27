@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use muna_core::{Clock, Settings};
+use muna_core::{Clock, Int53, Settings};
 use muna_platform::{Platform, PlatformError, SystemDescription};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -51,6 +51,7 @@ pub enum SupportLink {
 pub struct BundleRecord {
     pub path: String,
     pub entries: u32,
+    #[specta(type = Int53)]
     pub at_ms: i64,
 }
 
@@ -63,7 +64,8 @@ pub struct SupportSnapshot {
     pub system: SystemDescription,
     /// The profile folder; `None` in tests without one.
     pub profile_dir: Option<String>,
-    /// The size of the profile's log files.
+    /// The size of the profile's log files (far below 2^53).
+    #[specta(type = Int53)]
     pub logs_bytes: u64,
     pub last_bundle: Option<BundleRecord>,
     /// A `CHANGELOG.md` ships with this build, so *What's new* can show it in place.
