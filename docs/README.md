@@ -53,9 +53,11 @@ mixed DPI, elevated and UWP windows, the grid), [code-hosting](qa/checklists/cod
 limits, export, privacy), [ai-coding](qa/checklists/ai-coding.md) (Claude Code and Copilot
 CLI sessions, the hook receiver from `curl`, the strip's allow / deny pair, the pane),
 [support](qa/checklists/support.md) (the diagnostics zip and what it must not hold, the
-feedback issue, the update check, both repairs against a real fault) and
+feedback issue, the update check, both repairs against a real fault),
 [health](qa/checklists/health.md) (the sitting timer against a stopwatch, away and lock, the
-reminder while fullscreen, the four flows and the pinned panel, headphones).
+reminder while fullscreen, the four flows and the pinned panel, headphones) and
+[mirror](qa/checklists/mirror.md) (the camera light against the permission policy — spike
+S1 — the panel's controls, a second camera, the refusals, the widget).
 
 ## Module specs
 
