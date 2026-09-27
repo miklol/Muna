@@ -2,6 +2,111 @@
 
 Read `docs/07-roadmap.md#m5--polish-p2-tail--10-4-weeks`. Requires M4 merged.
 
+## Plan (muna-architect, 2026-09-27)
+
+M4 is built and stacked (#22 → … → #46), so M5 stacks on `m4-close-out` and merges after it,
+for the same reason M4 stacked on M3: every epic here touches the registry, the settings model
+and the shell that M4 changed. One PR per epic, phases A–E as before (platform → Rust module →
+contract → UI → docs and PR), each passing `pnpm -w ci`, `ci:rust`, `ci:deps`, `ci:app` and
+`docs:check` locally while the Actions budget is out. Two of the three exit criteria (14 days
+of green nightly perf, the 7-day soak on three machines) and the whole of E4 need the
+maintainer's machines, secrets and workflows; the plan builds everything that does not, and
+leaves E4 a kickoff prompt rather than a branch.
+
+### Progress
+
+_(filled in as epics land, newest last)_
+
+### Order
+
+| # | Epic | Why here | Depends on |
+| --- | ------ | ---------- | ------------ |
+| 1 | M5-E1a Support & diagnostics | Smallest; the diagnostics bundle and the repair buttons are what the soak (exit criterion 2) needs on a machine that misbehaves; the update-channel setting is the hook E4 wires | — |
+| 2 | M5-E1b Health | Local only; reuses `Foreground::idle_for` (M4-E8) and the HUD's level events; its guided flows are the first pinned panel flows, so they settle the pattern before Translation streams into one | — |
+| 3 | M5-E1c Mirror | Spike S1 (camera permission in WebView2) first; the smallest UI once the permission path exists | S1 |
+| 4 | M5-E1d Translation | The second network integration after code hosting; key in Credential Manager through the M3 `Secrets` trait; streaming; dictation deferred | S2 |
+| 5 | M5-E6 Localization | The string set is only frozen once the last module exists; language setting, `Intl` through the chosen locale, an RTL pseudo-locale smoke, the four machine drafts with review notes | E1 |
+| 6 | M5-E3 Accessibility | Audits every surface once, after the last module and the locale plumbing (names and live regions are strings too) | E1, E6 |
+| 7 | M5-E2 Fidelity pass | After accessibility so the two sets of fixes do not fight over the same components | E3 |
+| 8 | M5-E5 Landing site | Needs the final catalog and screenshots of the polished surfaces | E2 |
+| — | M5-E4 Release engineering | `muna-release-engineer` with the maintainer's secrets, on `main`, off this stack; nothing here edits `release.yml`, `scripts/msix/` or `release-please-config.json` | — |
+
+### Cross-cutting contract changes (additive)
+
+- **Support**: `settings.modules.support = { channel: 'stable' | 'beta', crashReports: false }`
+  (`crashReports` is reserved and stays `false`; no reporter ships); commands
+  `get_support_snapshot` (version, channel, WebView2 and OS versions, profile folder, the
+  repair states), `support_command({ kind: 'diagnostics' | 'repairFlyouts' | 'repairAppBar' |
+  'openLogs' | 'checkUpdates' })` returning the bundle path for `diagnostics`, `support_open({
+  target: 'help' | 'feedback' | 'rate' | 'releaseNotes' })` building the URL in Rust; event
+  `SupportChanged`.
+- **Health**: `settings.modules.health = { enabled, breakEveryMin (50), waterGoal (8),
+  windDownHour?, hearingWarning }`; `get_health_snapshot` (sitting since, today's counters,
+  weekday dots, the running flow), `health_command({ kind: 'startFlow' | 'stopFlow' |
+  'water' | 'snooze' | 'dismiss' | 'reset' })`, `HealthChanged`; strip content `health:break`
+  notice and `health:flow` activity (timer glyph, priority 45) while a flow runs.
+- **Mirror**: `settings.modules.mirror = { enabled: false, flip: true, deviceId?: string }`; no
+  snapshot — the panel calls `getUserMedia` itself; Rust only decides the permission (below)
+  and exposes `mirror_watch(on)` so the shell can lift the low memory target while the
+  preview runs. Streams stop on collapse, unmount and window hide.
+- **Translation**: `settings.modules.translation = { enabled: false, provider: 'openai' |
+  'ollama', endpoint, model, source: 'auto' | tag, target: tag }`; commands
+  `translation_set_key(key)` / `translation_clear_key()` (Credential Manager, entry
+  `translation.<provider>.key`), `translate({ text, source, target }) -> requestId`,
+  `translation_cancel(requestId)`; event `TranslationChunk { requestId, text, done, error? }`.
+  The consent line names the endpoint before the first request.
+- **General**: `settings.general.language: 'system' | string` (a BCP-47 tag from the bundled
+  set); the UI creates i18next with it and passes the same tag to every `Intl` formatter.
+- Every new type gets a zod schema in `packages/contracts/src/schemas.ts` and a round-trip
+  test; bindings regenerate with `--export-bindings`.
+
+### Platform traits (new in `muna-platform`, all scripted in `FakePlatform`)
+
+| Trait | Windows implementation | Epic |
+| ------- | ------------------------ | ------ |
+| `SystemInfo` | `RtlGetVersion` for the OS build, `GetAvailableCoreWebView2BrowserVersionString` for WebView2, monitors from the existing `Windowing`, the profile folder's size | E1a |
+| `Repair` | Reuses what the shell already owns: the HUD's flyout restore (`muna.exe --watchdog` path) and the AppBar de-registration (`ABM_REMOVE`) from the Reserved-strip mode, exposed as idempotent calls with a result the pane can show | E1a |
+| `WebviewPermissions` | `ICoreWebView2::add_PermissionRequested` next to `set_memory_usage_target` in `windows/webview.rs`: camera for the app's own origin while `mirror.enabled`, everything else denied without a prompt (the notch window cannot show one) | E1c |
+| `Http` streaming | The M4 `reqwest` client with `text/event-stream` and NDJSON readers, cancel through a token; only inside the translation integration | E1d |
+| `Speech` | `Windows.Media.SpeechRecognition` — **deferred**; the mic button is not built in M5 | — |
+
+### Spikes with exit criteria
+
+- **S1 Camera permission in WebView2** (before E1c phase A): with mirror on,
+  `getUserMedia({ video: true })` in the notch webview resolves without a prompt and the
+  camera light comes on; with mirror off it rejects with `NotAllowedError`; stopping the tracks
+  on collapse turns the light off within a second. Exit: the three observations logged in a
+  manual run; otherwise the module ships panel-only with the permission granted at the
+  settings window and the widget deferred.
+- **S2 Streaming with cancel** (before E1d): a fake provider in `tests/translation.rs` streams
+  five chunks and a cancel after the second leaves no further `TranslationChunk`; live against
+  LM Studio or Ollama on the maintainer's machine. Exit: the test and one manual run.
+- **S3 RTL pseudo-locale** (E6): an `ar` pseudo-locale (mirrored English) renders the existing
+  RTL stories without clipping or LTR punctuation leaks. Exit: the Storybook run with zero
+  axe violations; findings become E3 rows.
+
+### Risks
+
+- Actions budget: still nothing merges; every PR body records its parity results.
+- Camera privacy: no access until the user turns mirror on; the OS indicator is the proof, and
+  the pane says so. Never capture frames on the Rust side.
+- Translation sends text to a third party: the endpoint is named on the consent line and in
+  the pane; the key never leaves Credential Manager; nothing is logged but the chunk count.
+- Machine-drafted locales: every drafted file carries a `_review` note per section and the
+  language switcher labels them _draft_; en stays the source of truth.
+- High contrast: `[data-contrast=more]` shifts tokens on the black-glass material; audit the
+  strip's glyph-on-glass contrast before changing any material value.
+- Narrator: names and roles are testable; the actual reading order is a manual pass on the
+  maintainer's machine, recorded in `docs/qa/checklists/accessibility.md`.
+
+### Test plan
+
+Fake-platform Rust suites per module (`tests/<module>.rs`), Vitest for reducers, panels and
+panes, contract round-trips, `ci:app` after every epic (all P1 and P2 modules on), `i18n:check`
+extended to every locale (same key set as `en`, drafts flagged, no stray English), axe in both
+Storybooks for every new story, and the QA checklists `docs/qa/checklists/{support,health,
+mirror,translation,accessibility}.md` for the manual rows.
+
 ## M5-E1 · P2 modules — agent: `muna-module-developer`
 
 Generic module prompt for `health` (manual + Windows Health/Google Fit import where feasible,
