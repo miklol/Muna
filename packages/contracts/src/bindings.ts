@@ -402,6 +402,16 @@ export const commands = {
 	 */
 	aiCodingCommand: (command: AiCodingCommand) => typedError<AiCodingSnapshot, IpcError>(__TAURI_INVOKE("ai_coding_command", { command })),
 	/**
+	 *  The Health panel as it stands (a panel that just opened; afterwards it follows
+	 *  `HealthChanged`). Reads the week from the store, so it runs off the main thread.
+	 */
+	getHealthSnapshot: () => typedError<HealthSnapshot, IpcError>(__TAURI_INVOKE("get_health_snapshot")),
+	/**
+	 *  The panel's actions (docs/modules/health.md): start or stop a flow, log water, answer the
+	 *  reminder, reset today, clear the history. Answers with the snapshot after it.
+	 */
+	healthCommand: (command: HealthCommand) => typedError<HealthSnapshot, IpcError>(__TAURI_INVOKE("health_command", { command })),
+	/**
 	 *  What the Support pane shows (version, channel, OS and `WebView2`, profile, logs size, the
 	 *  last bundle). Reads the registry and the `WebView2` loader, so it runs off the main thread.
 	 */
@@ -525,6 +535,7 @@ export const events = {
 	dropLeft: makeEvent<DropLeft>("drop-left"),
 	dropMoved: makeEvent<DropMoved>("drop-moved"),
 	dropped: makeEvent<Dropped>("dropped"),
+	healthChanged: makeEvent<HealthChanged>("health-changed"),
 	hotkeyPressed: makeEvent<HotkeyPressed>("hotkey-pressed"),
 	hudStateChanged: makeEvent<HudStateChanged>("hud-state-changed"),
 	mediaArtChanged: makeEvent<MediaArtChanged>("media-art-changed"),
@@ -764,6 +775,16 @@ export type BluetoothSnapshot = {
 	 */
 	devices: BluetoothDeviceView[],
 };
+
+/**
+ *  How the Breathe flow paces itself (docs/modules/health.md: "box-breathing 4-4-4-4 or
+ *  4-7-8").
+ */
+export type BreathePattern = 
+/**  In 4 s, hold 4 s, out 4 s, hold 4 s. */
+"box" | 
+/**  In 4 s, hold 7 s, out 8 s. */
+"relax";
 
 /**  How a display's backlight is driven (docs/modules/hud.md "Brightness"). */
 export type BrightnessKind = 
@@ -1192,6 +1213,16 @@ export type FetchError =
  */
 "provider";
 
+/**  The running flow; the UI counts `remainingMs` down from `generatedAtMs`. */
+export type FlowState = {
+	flow: HealthFlow,
+	startedMs: number,
+	remainingMs: number,
+	totalMs: number,
+	/**  The Breathe pacing in force (other flows ignore it). */
+	pattern: BreathePattern,
+};
+
 /**
  *  Why the folder could not be listed. `Missing` is only ever a folder the user chose: the
  *  default one is created on demand.
@@ -1258,7 +1289,115 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 /**  A circle with a cross (docs/modules/code-hosting.md): checks failed on a pull request. */
 "xCircle" | 
 /**  A terminal prompt (docs/modules/ai-coding.md): a coding agent's session. */
-"terminal";
+"terminal" | 
+/**  A heart (docs/modules/health.md): the break reminder and the flows that count as one. */
+"heart";
+
+/**
+ *  The Health panel's snapshot changed: a command ran, the user sat down or stepped away, a
+ *  reminder fell due, a flow started or finished, the day rolled over
+ *  (docs/modules/health.md). The strip content travels through [`StripContentChanged`].
+ */
+export type HealthChanged = {
+	snapshot: HealthSnapshot,
+};
+
+/**  What the panel can ask for. */
+export type HealthCommand = 
+/**  Starts a guided flow (replacing a running one) and answers the break reminder. */
+{ kind: "startFlow"; flow: HealthFlow } | 
+/**  Stops the running flow early. */
+{ kind: "stopFlow" } | 
+/**  Logs `delta` glasses of water; negative undoes. */
+{ kind: "water"; delta: number } | 
+/**  Reminder again in ten minutes. */
+{ kind: "snooze" } | 
+/**  Puts the reminder away until the next interval. */
+{ kind: "dismiss" } | 
+/**  Today's counters back to zero; the sit starts over. */
+{ kind: "reset" } | 
+/**  Forgets every day's counters. */
+{ kind: "clearHistory" };
+
+/**
+ *  Today's counters as the panel shows them. Durations are `u32` milliseconds: a day is
+ *  86 400 000 ms.
+ */
+export type HealthDay = {
+	/**  Time at the desk today, the open sit included. */
+	activeMs: number,
+	/**  The longest sit today, the open one included. */
+	longestSitMs: number,
+	breaks: number,
+	water: number,
+	mindfulSeconds: number,
+	flows: number,
+};
+
+/**
+ *  A guided health flow (docs/modules/health.md "Take a break" cards); the UI localises the
+ *  label and picks the tint. Closed on purpose, like [`Glyph`].
+ */
+export type HealthFlow = 
+/**  Three minutes on your feet. */
+"move" | 
+/**  Paced breathing; the pattern is a setting. */
+"breathe" | 
+/**  Two minutes of stretches, one step at a time. */
+"stretch" | 
+/**  Twenty seconds looking at something twenty feet away. */
+"eyeRest";
+
+/**  What fills each ring. */
+export type HealthGoals = {
+	breaks: number,
+	water: number,
+	mindfulSeconds: number,
+};
+
+/**  Everything the panel shows (docs/modules/health.md). */
+export type HealthSnapshot = {
+	enabled: boolean,
+	sitting: SittingStatus,
+	/**  While sitting: when the sit began; the UI counts up from it. */
+	sittingSinceMs: number | null,
+	/**  The sit so far, exact at `generatedAtMs` (frozen while away). */
+	sittingMs: number,
+	/**  While sitting and no reminder is up: time to the next reminder. */
+	nextBreakInMs: number | null,
+	/**  A reminder is up and unanswered since this time. */
+	breakDueSinceMs: number | null,
+	today: HealthDay,
+	goals: HealthGoals,
+	/**  The last seven days, oldest first, today last. */
+	week: HealthWeekDay[],
+	/**  Days in a row, ending today or yesterday, with at least one goal met. */
+	streakDays: number,
+	flow: FlowState | null,
+	hearing: HearingState | null,
+	/**  The evening wind-down is in force (`windDownHour`). */
+	windingDown: boolean,
+	dayStartMs: number,
+	generatedAtMs: number,
+};
+
+/**  One weekday dot. */
+export type HealthWeekDay = {
+	dayStartMs: number,
+	breaks: number,
+	water: number,
+	mindfulSeconds: number,
+	/**  How many of the three goals the day met (0–3). */
+	goalsMet: number,
+};
+
+/**  Loud audio on headphones right now. */
+export type HearingState = {
+	percent: number,
+	loudForMs: number,
+	/**  The warning has been raised for this stretch. */
+	warned: boolean,
+};
 
 /**  One action's binding as the pane and the palette see it. */
 export type HotkeyBinding = {
@@ -2012,6 +2151,17 @@ export type ShellYieldChanged = {
 	state: YieldState,
 };
 
+/**  Where the user is, as far as input activity says. */
+export type SittingStatus = 
+/**  At the desk; `sittingSinceMs` says since when. */
+"sitting" | 
+/**  No input for a few minutes or the machine slept; the sit is paused. */
+"away" | 
+/**  The session is locked. */
+"locked" | 
+/**  The module is off. */
+"off";
+
 /**
  *  The tracked drag ended (button released). `label` is the notch window the cursor was over
  *  at that moment, if any: the UI resolves the tile under its last position and calls
@@ -2170,7 +2320,21 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
  *  waiting for input ("Claude Code is waiting for you"). Both fields are the agent's own
  *  names and are never logged.
  */
-{ kind: "agentWaiting"; agent: string; tool: string | null };
+{ kind: "agentWaiting"; agent: string; tool: string | null } | 
+/**
+ *  Time to get up (docs/modules/health.md): the user has been sitting `minutes`. The
+ *  notice's hover controls offer *Snooze* and *Dismiss* through the module's command.
+ */
+{ kind: "healthBreak"; minutes: number } | 
+/**  A guided flow is running; the trailing timer counts it down. */
+{ kind: "healthFlow"; flow: HealthFlow } | 
+/**  A guided flow ran its course. */
+{ kind: "healthFlowFinished"; flow: HealthFlow } | 
+/**
+ *  Loud audio on headphones for a while (docs/modules/health.md "hearing warning"): the
+ *  volume has been above the safe level for `minutes`.
+ */
+{ kind: "healthHearing"; percent: number; minutes: number };
 
 /**
  *  Snapshot of the Support module (docs/modules/support.md); emitted after a diagnostics

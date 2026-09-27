@@ -44,6 +44,10 @@ pub mod priority {
     /// user's own task is blocked until they answer, so it outranks playing media, but a
     /// calendar event that is starting still wins.
     pub const AGENT_WAITING: u8 = 62;
+    /// A guided health flow the user just started (docs/modules/health.md): a short timer
+    /// they are following right now, so it outranks playing media and a waiting agent, but a
+    /// calendar event that is starting still wins.
+    pub const HEALTH_FLOW: u8 = 64;
     pub const MEDIA_PLAYING: u8 = 60;
     /// A task due within the hour (docs/modules/todo.md); under playing media so an hour of
     /// lead time never hijacks the now-playing strip.
@@ -56,6 +60,11 @@ pub mod priority {
     /// (docs/modules/code-hosting.md): a notice that pre-empts what is on the strip while it
     /// holds, ordered among notices under a task or an event the user themselves scheduled.
     pub const CODE_HOSTING: u8 = 45;
+    /// A health nudge (docs/modules/health.md): the break reminder, a finished flow and the
+    /// hearing warning. Something the user set for themselves, so it sits under the
+    /// code-hosting notices and above the screen-time limit, which is the same kind of nudge
+    /// but about an app rather than the body.
+    pub const HEALTH: u8 = 44;
     /// A daily screen-time limit reached (docs/modules/screen-time.md): a nudge the user set
     /// for themselves, under the code-hosting notices, above unread notifications.
     pub const SCREEN_TIME_LIMIT: u8 = 42;
@@ -139,6 +148,8 @@ pub enum Glyph {
     XCircle,
     /// A terminal prompt (docs/modules/ai-coding.md): a coding agent's session.
     Terminal,
+    /// A heart (docs/modules/health.md): the break reminder and the flows that count as one.
+    Heart,
 }
 
 /// The leading (left) slot of the strip.
@@ -340,6 +351,25 @@ pub enum StripMessage {
         agent: String,
         tool: Option<String>,
     },
+    /// Time to get up (docs/modules/health.md): the user has been sitting `minutes`. The
+    /// notice's hover controls offer *Snooze* and *Dismiss* through the module's command.
+    HealthBreak {
+        minutes: u32,
+    },
+    /// A guided flow is running; the trailing timer counts it down.
+    HealthFlow {
+        flow: HealthFlow,
+    },
+    /// A guided flow ran its course.
+    HealthFlowFinished {
+        flow: HealthFlow,
+    },
+    /// Loud audio on headphones for a while (docs/modules/health.md "hearing warning"): the
+    /// volume has been above the safe level for `minutes`.
+    HealthHearing {
+        percent: u8,
+        minutes: u32,
+    },
 }
 
 /// What a drop action does with the items, as a fact for the UI to phrase and tint
@@ -390,6 +420,30 @@ impl PomodoroPhase {
     #[must_use]
     pub const fn is_break(self) -> bool {
         matches!(self, Self::ShortBreak | Self::LongBreak)
+    }
+}
+
+/// A guided health flow (docs/modules/health.md "Take a break" cards); the UI localises the
+/// label and picks the tint. Closed on purpose, like [`Glyph`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum HealthFlow {
+    /// Three minutes on your feet.
+    Move,
+    /// Paced breathing; the pattern is a setting.
+    Breathe,
+    /// Two minutes of stretches, one step at a time.
+    Stretch,
+    /// Twenty seconds looking at something twenty feet away.
+    EyeRest,
+}
+
+impl HealthFlow {
+    /// `true` for the flows that get the user off the chair, which end the current sit and
+    /// count as a break.
+    #[must_use]
+    pub const fn counts_as_break(self) -> bool {
+        matches!(self, Self::Move | Self::Stretch)
     }
 }
 

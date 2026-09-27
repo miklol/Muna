@@ -220,6 +220,9 @@ fn wire_module_sinks(
         .ai_coding
         .set_sink(Arc::new(ipc::AiCodingEventSink::new(app.clone())));
     modules
+        .health
+        .set_sink(Arc::new(ipc::HealthEventSink::new(app.clone())));
+    modules
         .support
         .set_sink(Arc::new(ipc::SupportEventSink::new(app.clone())));
 }

@@ -34,6 +34,7 @@ use crate::modules::code_hosting::{
 use crate::modules::drop_actions::{
     DropAction, DropActionsSnapshot, DropError, DropJob, DropSink, WindowThread,
 };
+use crate::modules::health::{HealthCommand, HealthSink, HealthSnapshot};
 use crate::modules::hud::{HudSink, HudState};
 use crate::modules::keyboard_shortcuts::{
     HotkeyBinding, HotkeyError, HotkeyRegistrar, HotkeyService, HotkeySink,
@@ -2170,6 +2171,72 @@ async fn ai_coding_command(
     )
 }
 
+// --- health -------------------------------------------------------------------------------
+
+/// The Health panel's snapshot changed: a command ran, the user sat down or stepped away, a
+/// reminder fell due, a flow started or finished, the day rolled over
+/// (docs/modules/health.md). The strip content travels through [`StripContentChanged`].
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthChanged {
+    pub snapshot: HealthSnapshot,
+}
+
+/// Bridges the Health service to [`HealthChanged`].
+pub struct HealthEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for HealthEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HealthEventSink").finish_non_exhaustive()
+    }
+}
+
+impl HealthEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl HealthSink for HealthEventSink {
+    fn changed(&self, snapshot: &HealthSnapshot) {
+        if let Err(error) = (HealthChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit HealthChanged");
+        }
+    }
+}
+
+/// The Health panel as it stands (a panel that just opened; afterwards it follows
+/// `HealthChanged`). Reads the week from the store, so it runs off the main thread.
+#[tauri::command]
+#[specta::specta]
+async fn get_health_snapshot(state: State<'_, Shared>) -> Result<HealthSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.health);
+    tauri::async_runtime::spawn_blocking(move || service.snapshot())
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
+/// The panel's actions (docs/modules/health.md): start or stop a flow, log water, answer the
+/// reminder, reset today, clear the history. Answers with the snapshot after it.
+#[tauri::command]
+#[specta::specta]
+async fn health_command(
+    state: State<'_, Shared>,
+    command: HealthCommand,
+) -> Result<HealthSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.health);
+    tauri::async_runtime::spawn_blocking(move || service.command(command))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
 // --- support ------------------------------------------------------------------------------
 
 /// Snapshot of the Support module (docs/modules/support.md); emitted after a diagnostics
@@ -2718,6 +2785,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_ai_coding_snapshot,
             ai_coding_watch,
             ai_coding_command,
+            get_health_snapshot,
+            health_command,
             get_support_snapshot,
             support_command,
             support_open,
@@ -2766,6 +2835,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             NotesChanged,
             ScreenTimeChanged,
             AiCodingChanged,
+            HealthChanged,
             SupportChanged,
             NotificationsChanged,
             ShelfChanged,
