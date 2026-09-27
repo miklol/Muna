@@ -1,6 +1,7 @@
 import { Ring, Text } from '@muna/ui';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import type { WidgetProps } from '../registry';
 import { buildGauges } from './panel';
 import { useSystemMonitorStore } from './system-monitor-store';
@@ -20,11 +21,11 @@ export const WIDGET_GAUGES = { 1: 2, 2: 4 } as const;
  * unmounting stops it, exactly like the panel.
  */
 export function SystemMonitorWidget({ span }: WidgetProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useSystemMonitorSubscription();
   const snapshot = useSystemMonitorStore((store) => store.snapshot);
   const peak = useSystemMonitorStore((store) => store.peakNetworkBytesPerS);
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   const gauges = buildGauges(snapshot, peak, { t, locale }).slice(0, WIDGET_GAUGES[span]);
 
   return (

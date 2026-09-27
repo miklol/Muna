@@ -2,6 +2,7 @@ import { Text } from '@muna/ui';
 import { CloudOff, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import type { WidgetProps } from '../registry';
 import { conditionKey, formatDegrees } from './format';
 import { placeLabel } from './panel';
@@ -19,10 +20,10 @@ const ICON_STROKE = 1.75;
  * the place. Off, waiting for a location or loading, it says so in one line.
  */
 export function WeatherWidget({ span }: WidgetProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useWeatherSubscription();
   const snapshot = useWeatherStore((store) => store.snapshot);
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
 
   if (snapshot === null) return null;
 

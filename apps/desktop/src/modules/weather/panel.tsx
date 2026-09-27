@@ -29,6 +29,7 @@ import { motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import {
   conditionKey,
   formatDegrees,
@@ -109,8 +110,8 @@ interface ForecastViewProps {
  * "offline → last forecast with a timestamp chip").
  */
 function ForecastView({ snapshot, forecast, onRefresh }: ForecastViewProps) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const { units } = snapshot;
   const { current } = forecast;
   const today = forecast.daily[0];

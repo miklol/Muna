@@ -4,6 +4,7 @@ import { Circle, ListChecks } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import type { WidgetProps } from '../registry';
 import { describeDue, type DueWords, isOverdue } from './due-label';
 import './todo.css';
@@ -37,11 +38,11 @@ export const upcomingTasks = (tasks: readonly Task[]): Task[] => {
  * complete or edit — the card is a glance, the panel is where tasks are worked.
  */
 export function TodoWidget(_props: WidgetProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useTodoSubscription();
   const snapshot = useTodoStore((store) => store.snapshot);
   const now = useTodoStore((store) => store.receivedAt);
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   const words = useMemo<DueWords>(
     () => ({
       today: t('todo.due.today'),

@@ -25,6 +25,7 @@ import { motion } from 'motion/react';
 import { type CSSProperties, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { useMinuteNow } from '../../lib/minute-now';
 import {
   type DayKey,
@@ -189,13 +190,13 @@ function Agenda({ snapshot, days, tintOf, day, nowMs, locale, onRefresh }: Agend
  * the refresh clock and the strip countdown are Rust's.
  */
 export function CalendarPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useCalendarSubscription();
   const snapshot = useCalendarStore((store) => store.snapshot);
   const send = useCalendarCommand();
   const reduceMotion = useReduceMotion();
   const enterSpring = useMotionPreset('content');
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   const nowMs = useMinuteNow().getTime();
   const todayKey = dayKeyOf(nowMs);
   const [selected, setSelected] = useState<DayKey>(todayKey);

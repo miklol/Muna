@@ -24,6 +24,7 @@ import { motion } from 'motion/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { persistSettings, useSettings } from '../../lib/settings';
 import { CameraView } from './camera-view';
 import './mirror.css';
@@ -89,8 +90,8 @@ export const formatZoom = (zoom: number, locale: string): string =>
  * or the window hides; while the module is off nothing is asked of the browser.
  */
 export function MirrorPanel() {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const document = useSettings() ?? defaultSettings();
   const mirror = readMirrorSettings(document);

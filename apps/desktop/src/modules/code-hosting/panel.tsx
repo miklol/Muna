@@ -21,6 +21,7 @@ import { ExternalLink, GitPullRequest, GitPullRequestDraft, RefreshCw } from 'lu
 import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { useCodeHostingStore } from './code-hosting-store';
 import { describeError, formatUpdated, initialOf, providerKey, rowMeta } from './format';
 import {
@@ -221,7 +222,7 @@ function Queue({ snapshot, filter, onFilter, onRefresh, locale }: QueueProps) {
  * clock lives in Rust.
  */
 export function CodeHostingPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useCodeHostingSubscription();
   const snapshot = useCodeHostingStore((store) => store.snapshot);
   const filter = useCodeHostingStore((store) => store.filter);
@@ -229,7 +230,7 @@ export function CodeHostingPanel() {
   const send = useCodeHostingCommand();
   const reduceMotion = useReduceMotion();
   const enterSpring = useMotionPreset('content');
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
 
   if (snapshot === null) return null;
 

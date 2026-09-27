@@ -1,10 +1,11 @@
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { MunaMotionProvider } from '@muna/ui/motion';
-import type { ReactNode } from 'react';
-import { I18nextProvider } from 'react-i18next';
+import { type ReactNode, useEffect } from 'react';
+import { I18nextProvider, useTranslation } from 'react-i18next';
 
 import { useAccent } from './lib/appearance';
 import { i18n } from './lib/i18n';
+import { appInfoQuery, applyDocumentLocale, LocaleProvider, resolveLocale } from './lib/locale';
 import { queryClient } from './lib/query-client';
 import { useSettings, useSettingsSubscription } from './lib/settings';
 
@@ -25,21 +26,34 @@ interface SettingsBridgeProps {
 }
 
 /**
- * Feeds the settings document into the window: the accent onto `<html>` and Settings →
- * Appearance → Reduce motion into `MunaMotionProvider`, which adds it to the OS preference.
- * The `off` value is kept for older files and behaves like `system` (docs/06-motion-spec.md).
+ * Feeds the settings document into the window: the accent onto `<html>`, Settings → General →
+ * Language into i18next (both windows switch the moment the document changes, no relaunch) and
+ * the `Intl` tag into `LocaleProvider`, and Settings → Appearance → Reduce motion into
+ * `MunaMotionProvider`, which adds it to the OS preference. The `off` value is kept for older
+ * files and behaves like `system` (docs/06-motion-spec.md).
  */
 function SettingsBridge({ children }: SettingsBridgeProps) {
   useSettingsSubscription();
   const settings = useSettings();
+  const info = useQuery(appInfoQuery).data;
+  const { i18n: instance } = useTranslation();
   useAccent(settings?.general.accent);
+  const { catalog, format } = resolveLocale(settings?.general.language, info?.regionFormat);
+  useEffect(() => {
+    if (instance.language !== catalog) {
+      void instance.changeLanguage(catalog);
+    }
+    applyDocumentLocale(instance);
+  }, [instance, catalog]);
   return (
-    <MunaMotionProvider
-      reduceMotion={settings?.general.reducedMotion === 'on'}
-      ignoreSystemPreference={ignoreSystemMotionPreference}
-    >
-      {children}
-    </MunaMotionProvider>
+    <LocaleProvider value={format}>
+      <MunaMotionProvider
+        reduceMotion={settings?.general.reducedMotion === 'on'}
+        ignoreSystemPreference={ignoreSystemMotionPreference}
+      >
+        {children}
+      </MunaMotionProvider>
+    </LocaleProvider>
   );
 }
 
