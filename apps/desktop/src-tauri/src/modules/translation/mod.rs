@@ -33,7 +33,7 @@ pub use provider::{
     MAX_TEXT_CHARS, Request, TranslateError, Translator, Wire, check_endpoint, normalise_key,
     system_prompt,
 };
-pub use settings::{AUTO, Provider, TranslationSettings};
+pub use settings::{AUTO, TranslationProvider, TranslationSettings};
 
 pub const ID: &str = "translation";
 
@@ -46,7 +46,7 @@ pub type RequestId = u32;
 #[serde(rename_all = "camelCase")]
 pub struct TranslationSnapshot {
     pub enabled: bool,
-    pub provider: Provider,
+    pub provider: TranslationProvider,
     /// Where requests go: the setting or the provider's default, as the consent line names it.
     pub endpoint: String,
     /// The model asked for: the setting or the provider's default.

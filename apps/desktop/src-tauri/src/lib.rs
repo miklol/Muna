@@ -231,6 +231,9 @@ fn wire_module_sinks(
         .mirror
         .set_sink(Arc::new(ipc::MirrorPreviewSink::new(app.clone(), shell)));
     modules
+        .translation
+        .set_sink(Arc::new(ipc::TranslationEventSink::new(app.clone())));
+    modules
         .support
         .set_sink(Arc::new(ipc::SupportEventSink::new(app.clone())));
 }

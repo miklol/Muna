@@ -18,7 +18,7 @@ use muna_lib::modules::translation::provider::{
 };
 use muna_lib::modules::translation::{
     AUTO, Chunks, Decoder, Delta, ID, Job, Key, KeyError, MAX_KEY_CHARS, MAX_OUTPUT_CHARS,
-    MAX_TEXT_CHARS, Provider, TranslateError, TranslateRequest, TranslationChunk,
+    MAX_TEXT_CHARS, TranslateError, TranslateRequest, TranslationChunk, TranslationProvider,
     TranslationService, TranslationSettings, TranslationSink, TranslationSnapshot, Translator,
     Wire, check_endpoint, normalise_key, system_prompt,
 };
@@ -233,7 +233,7 @@ fn registry_has_the_module_with_a_panel_and_a_widget() {
     assert_eq!(backend.capabilities(), &[Surface::Panel, Surface::Widget]);
     let snapshot = services.translation.snapshot();
     assert!(!snapshot.enabled, "off until the user turns it on");
-    assert_eq!(snapshot.provider, Provider::OpenAi);
+    assert_eq!(snapshot.provider, TranslationProvider::OpenAi);
     assert_eq!(snapshot.endpoint, "https://api.openai.com/v1");
     assert_eq!(snapshot.model, "gpt-4o-mini");
     assert!(!snapshot.has_key);
@@ -250,13 +250,29 @@ fn settings_default_to_off_openai_auto_to_english() {
     assert_eq!(settings.target, "en");
     assert_eq!(settings.effective_endpoint(), "https://api.openai.com/v1");
     assert_eq!(settings.effective_model(), "gpt-4o-mini");
+    assert_eq!(
+        serde_json::to_value(&settings).unwrap(),
+        serde_json::json!({
+            "enabled": false,
+            "provider": "openai",
+            "endpoint": "",
+            "model": "",
+            "source": "auto",
+            "target": "en",
+        }),
+        "the wire names match packages/contracts"
+    );
+    assert_eq!(
+        serde_json::to_value(TranslationProvider::Ollama).unwrap(),
+        serde_json::json!("ollama")
+    );
 }
 
 #[test]
 fn settings_round_trip_and_blank_fields_mean_the_provider_defaults() {
     let settings = TranslationSettings {
         enabled: true,
-        provider: Provider::Ollama,
+        provider: TranslationProvider::Ollama,
         endpoint: "  http://desk.local:11434/ ".to_owned(),
         model: "  ".to_owned(),
         source: "fr".to_owned(),
@@ -317,7 +333,7 @@ fn keys_are_kept_in_the_vault_under_the_provider_entry_and_never_come_back() {
 fn the_key_follows_the_provider() {
     let rig = Rig::new(five_pieces());
     rig.apply(&TranslationSettings {
-        provider: Provider::Ollama,
+        provider: TranslationProvider::Ollama,
         ..enabled()
     });
     rig.service.set_key("local-token").unwrap();
@@ -427,7 +443,7 @@ fn begin_checks_the_text_and_the_key() {
 fn ollama_needs_no_key_and_the_request_carries_the_route_and_the_pair() {
     let rig = Rig::new(five_pieces());
     rig.apply(&TranslationSettings {
-        provider: Provider::Ollama,
+        provider: TranslationProvider::Ollama,
         endpoint: "http://127.0.0.1:11434/".to_owned(),
         model: "gemma3".to_owned(),
         source: AUTO.to_owned(),
@@ -443,7 +459,7 @@ fn ollama_needs_no_key_and_the_request_carries_the_route_and_the_pair() {
         })
         .unwrap();
     let request = &job.request;
-    assert_eq!(request.provider, Provider::Ollama);
+    assert_eq!(request.provider, TranslationProvider::Ollama);
     assert_eq!(
         request.endpoint, "http://127.0.0.1:11434",
         "trailing slash dropped"
@@ -453,8 +469,8 @@ fn ollama_needs_no_key_and_the_request_carries_the_route_and_the_pair() {
     assert_eq!(request.source, "en", "the panel's choice wins");
     assert_eq!(request.target, "es", "a blank choice means the setting");
     assert_eq!(request.text, "Good morning", "trimmed");
-    assert_eq!(route(Provider::Ollama), "/api/chat");
-    assert_eq!(route(Provider::OpenAi), "/chat/completions");
+    assert_eq!(route(TranslationProvider::Ollama), "/api/chat");
+    assert_eq!(route(TranslationProvider::OpenAi), "/chat/completions");
 }
 
 #[test]
@@ -513,7 +529,7 @@ fn endpoints_are_https_or_local_http() {
 #[test]
 fn the_request_debug_never_shows_the_text_or_the_key() {
     let request = Request {
-        provider: Provider::OpenAi,
+        provider: TranslationProvider::OpenAi,
         endpoint: "https://api.openai.com/v1".to_owned(),
         model: "gpt-4o-mini".to_owned(),
         key: Some(Key(KEY.to_owned())),
@@ -748,7 +764,7 @@ fn the_prompt_asks_for_the_translation_and_nothing_else() {
 #[test]
 fn the_body_streams_and_carries_the_prompt_for_each_provider() {
     let mut request = Request {
-        provider: Provider::OpenAi,
+        provider: TranslationProvider::OpenAi,
         endpoint: "https://api.openai.com/v1".to_owned(),
         model: "gpt-4o-mini".to_owned(),
         key: Some(Key(KEY.to_owned())),
@@ -766,7 +782,7 @@ fn the_body_streams_and_carries_the_prompt_for_each_provider() {
         !body.to_string().contains(KEY),
         "the key goes in the header, never the body"
     );
-    request.provider = Provider::Ollama;
+    request.provider = TranslationProvider::Ollama;
     request.model = "llama3.2".to_owned();
     let body = request_body(&request);
     assert_eq!(body["model"], "llama3.2");
@@ -857,8 +873,11 @@ fn the_decoder_joins_lines_across_chunk_boundaries() {
         ],
         "nothing after [DONE]"
     );
-    assert_eq!(Wire::for_provider(Provider::OpenAi), Wire::Sse);
-    assert_eq!(Wire::for_provider(Provider::Ollama), Wire::Ndjson);
+    assert_eq!(Wire::for_provider(TranslationProvider::OpenAi), Wire::Sse);
+    assert_eq!(
+        Wire::for_provider(TranslationProvider::Ollama),
+        Wire::Ndjson
+    );
 }
 
 #[test]

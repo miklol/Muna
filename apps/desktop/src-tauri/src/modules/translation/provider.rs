@@ -24,7 +24,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use super::settings::{AUTO, Provider};
+use super::settings::{AUTO, TranslationProvider};
 
 /// How long connecting and the first byte of the answer may take.
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
@@ -138,7 +138,7 @@ impl fmt::Debug for Key {
 /// never the text or the key.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Request {
-    pub provider: Provider,
+    pub provider: TranslationProvider,
     /// The API base, already checked by [`check_endpoint`].
     pub endpoint: String,
     pub model: String,
@@ -324,10 +324,10 @@ pub enum Wire {
 
 impl Wire {
     #[must_use]
-    pub const fn for_provider(provider: Provider) -> Self {
+    pub const fn for_provider(provider: TranslationProvider) -> Self {
         match provider {
-            Provider::OpenAi => Self::Sse,
-            Provider::Ollama => Self::Ndjson,
+            TranslationProvider::OpenAi => Self::Sse,
+            TranslationProvider::Ollama => Self::Ndjson,
         }
     }
 }
@@ -508,13 +508,13 @@ pub fn request_body(request: &Request) -> serde_json::Value {
         { "role": "user", "content": request.text },
     ]);
     match request.provider {
-        Provider::OpenAi => serde_json::json!({
+        TranslationProvider::OpenAi => serde_json::json!({
             "model": request.model,
             "stream": true,
             "temperature": TEMPERATURE,
             "messages": messages,
         }),
-        Provider::Ollama => serde_json::json!({
+        TranslationProvider::Ollama => serde_json::json!({
             "model": request.model,
             "stream": true,
             "options": { "temperature": TEMPERATURE },
@@ -525,10 +525,10 @@ pub fn request_body(request: &Request) -> serde_json::Value {
 
 /// The route under the API base for `provider`.
 #[must_use]
-pub const fn route(provider: Provider) -> &'static str {
+pub const fn route(provider: TranslationProvider) -> &'static str {
     match provider {
-        Provider::OpenAi => "/chat/completions",
-        Provider::Ollama => "/api/chat",
+        TranslationProvider::OpenAi => "/chat/completions",
+        TranslationProvider::Ollama => "/api/chat",
     }
 }
 

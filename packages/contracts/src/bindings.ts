@@ -418,6 +418,30 @@ export const commands = {
 	 */
 	mirrorWatch: (watching: boolean) => __TAURI_INVOKE<void>("mirror_watch", { watching }),
 	/**
+	 *  The translation module's state (a pane or panel that just opened; afterwards it follows
+	 *  `TranslationChanged`).
+	 */
+	getTranslationSnapshot: () => __TAURI_INVOKE<TranslationSnapshot>("get_translation_snapshot"),
+	/**
+	 *  Keeps an API key for the current provider in the credential vault; it is never echoed
+	 *  back and never reaches the settings document. `translation.key.empty` / `malformed` for a
+	 *  key that is not one, `translation.vault` when the vault would not keep it.
+	 */
+	translationSetKey: (key: string) => typedError<TranslationSnapshot, IpcError>(__TAURI_INVOKE("translation_set_key", { key })),
+	/**  Forgets the current provider's key. `translation.vault` when the vault would not. */
+	translationClearKey: () => typedError<TranslationSnapshot, IpcError>(__TAURI_INVOKE("translation_clear_key")),
+	/**
+	 *  Starts a translation and returns its id; the answer arrives as `TranslationChunkEvent`s
+	 *  with that id, the last one `done`. Refused before anything is sent with
+	 *  `translation.disabled` while the module is off, `translation.empty` / `tooLong` for the
+	 *  text, `translation.noKey` when the provider needs a key and none is saved,
+	 *  `translation.endpoint` when the endpoint is not an address text may go to, and
+	 *  `translation.vault` when the key could not be read.
+	 */
+	translate: (request: TranslateRequest) => typedError<number, IpcError>(__TAURI_INVOKE("translate", { request })),
+	/**  Drops a running translation: no further chunk follows, not even a final one. */
+	translationCancel: (requestId: number) => __TAURI_INVOKE<void>("translation_cancel", { requestId }),
+	/**
 	 *  What the Support pane shows (version, channel, OS and `WebView2`, profile, logs size, the
 	 *  last bundle). Reads the registry and the `WebView2` loader, so it runs off the main thread.
 	 */
@@ -563,6 +587,8 @@ export const events = {
 	supportChanged: makeEvent<SupportChanged>("support-changed"),
 	systemMonitorChanged: makeEvent<SystemMonitorChanged>("system-monitor-changed"),
 	todoChanged: makeEvent<TodoChanged>("todo-changed"),
+	translationChanged: makeEvent<TranslationChanged>("translation-changed"),
+	translationChunkEvent: makeEvent<TranslationChunkEvent>("translation-chunk-event"),
 	weatherChanged: makeEvent<WeatherChanged>("weather-changed"),
 };
 
@@ -2599,6 +2625,106 @@ export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } |
  *  the *Copy to* / *Move to* and folder tiles).
  */
 export type TransferMode = "copy" | "move";
+
+/**
+ *  Why a translation did not happen or did not finish. Never carries what the server said: the
+ *  UI has one sentence per case.
+ */
+export type TranslateError = 
+/**  The module is off: nothing leaves the machine. */
+"disabled" | 
+/**  Nothing to translate. */
+"empty" | 
+/**  More than [`MAX_TEXT_CHARS`]. */
+"tooLong" | 
+/**  The provider needs a key and none is saved. */
+"noKey" | 
+/**
+ *  The endpoint is not an address requests may go to (not a URL, or plain `http` to a host
+ *  outside the local network, which would send the key in the clear).
+ */
+"endpoint" | 
+/**  The credential vault could not be read. */
+"vault" | 
+/**  No connection, a DNS failure or a timeout. */
+"offline" | 
+/**  The provider refused the key (401 or 403). */
+"unauthorized" | 
+/**  The provider asked for a pause (429). */
+"rateLimited" | 
+/**  The provider does not have the model (404, or Ollama's "model not found"). */
+"modelMissing" | 
+/**
+ *  The provider answered, but not with a translation (an error status, a shape this build
+ *  does not understand, an answer longer than [`MAX_OUTPUT_CHARS`]).
+ */
+"provider";
+
+/**  What the panel sends. Blank languages mean the ones in the settings. */
+export type TranslateRequest = {
+	text: string,
+	/**  A BCP-47 tag, [`AUTO`], or `None` for the setting. */
+	source: string | null,
+	/**  A BCP-47 tag, or `None` for the setting. */
+	target: string | null,
+};
+
+/**
+ *  The translation module's state as the pane shows it (docs/modules/translation.md): after a
+ *  settings change, a key saved or removed, and as requests start and end.
+ */
+export type TranslationChanged = {
+	snapshot: TranslationSnapshot,
+};
+
+/**
+ *  A piece of a translation, or its end (docs/modules/translation.md acceptance criteria:
+ *  "streaming tokens render progressively").
+ */
+export type TranslationChunk = {
+	requestId: number,
+	/**  More of the translation; empty on the final chunk. */
+	text: string,
+	/**  The last chunk of this request: nothing follows. */
+	done: boolean,
+	/**  Set on a final chunk when the request did not finish properly. */
+	error: TranslateError | null,
+};
+
+/**
+ *  A piece of a translation, or its end (docs/modules/translation.md): one per streamed
+ *  token group while a request runs, then one with `done` — unless the request was cancelled,
+ *  in which case nothing more comes. Carries content; never logged.
+ */
+export type TranslationChunkEvent = {
+	chunk: TranslationChunk,
+};
+
+/**
+ *  Which wire the text goes over (docs/modules/translation.md "Providers"). Closed on purpose:
+ *  the UI maps each to a name, a default endpoint and a default model.
+ */
+export type TranslationProvider = 
+/**  Any OpenAI-compatible chat endpoint (`OpenAI`, `Azure OpenAI`, `OpenRouter`, `LM Studio`). */
+"openai" | 
+/**  A local (or LAN) Ollama server, `POST /api/chat`. */
+"ollama";
+
+/**  What the pane shows beside the settings document (docs/modules/translation.md). */
+export type TranslationSnapshot = {
+	enabled: boolean,
+	provider: TranslationProvider,
+	/**  Where requests go: the setting or the provider's default, as the consent line names it. */
+	endpoint: string,
+	/**  The model asked for: the setting or the provider's default. */
+	model: string,
+	/**  A key is saved for `provider`. The key itself never comes back. */
+	hasKey: boolean,
+	/**  `provider` refuses a request without a key. */
+	needsKey: boolean,
+	/**  Translations in flight. */
+	active: number,
+};
 
 /**  How temperatures and wind speeds read; the forecast itself is always metric. */
 export type Units = 
