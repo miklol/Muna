@@ -442,6 +442,12 @@ export const commands = {
 	/**  Drops a running translation: no further chunk follows, not even a final one. */
 	translationCancel: (requestId: number) => __TAURI_INVOKE<void>("translation_cancel", { requestId }),
 	/**
+	 *  Puts a finished translation on the clipboard as text (the panel's *Copy*), through the
+	 *  platform layer so it works whether or not the notch window holds focus. Empty text is a
+	 *  no-op. `platform.*` when the clipboard would not take it.
+	 */
+	translationCopy: (text: string) => typedError<null, IpcError>(__TAURI_INVOKE("translation_copy", { text })),
+	/**
 	 *  What the Support pane shows (version, channel, OS and `WebView2`, profile, logs size, the
 	 *  last bundle). Reads the registry and the `WebView2` loader, so it runs off the main thread.
 	 */

@@ -1640,6 +1640,109 @@
       "useDefault": "Use default"
     }
   },
+  "translation": {
+    "title": "Translation",
+    "auto": "Detect language",
+    "head": {
+      "back": "Back",
+      "from": "Translate from",
+      "to": "Translate to",
+      "fromLanguage": "Translate from: {{language}}",
+      "toLanguage": "Translate to: {{language}}",
+      "swap": "Swap languages",
+      "settings": "Settings"
+    },
+    "source": {
+      "label": "Text to translate",
+      "placeholder": "Type or paste text"
+    },
+    "output": {
+      "label": "Translation",
+      "placeholder": "The translation appears here",
+      "translating": "Translating",
+      "copy": "Copy translation",
+      "copied": "Copied"
+    },
+    "actions": {
+      "translate": "Translate",
+      "stop": "Stop",
+      "translateText": "Translate text"
+    },
+    "footer": {
+      "consent": "Text goes to {{host}}",
+      "noKey": "Add an API key in Settings first",
+      "tooLong": "Up to {{max}} characters at a time",
+      "translating": "Translating",
+      "done": "Translation finished"
+    },
+    "state": {
+      "offTitle": "Translation is off",
+      "offBody": "Turn it on in Settings to translate text with your own provider. Nothing is sent anywhere until you do.",
+      "openSettings": "Open Settings"
+    },
+    "error": {
+      "disabled": "Turn translation on in Settings first.",
+      "empty": "Enter some text to translate.",
+      "tooLong": "That is more than {{max}} characters. Translate it in parts.",
+      "noKey": "Add an API key in Settings first.",
+      "endpoint": "The endpoint is not an address text can go to. Check it in Settings.",
+      "vault": "Windows Credential Manager did not answer. Try again.",
+      "offline": "No connection to {{host}}. Check your network and the endpoint.",
+      "unauthorized": "{{host}} refused the API key. Check it in Settings.",
+      "rateLimited": "{{host}} asked for a pause. Try again in a moment.",
+      "modelMissing": "{{host}} does not have the model {{model}}. Check it in Settings.",
+      "provider": "{{host}} did not answer with a translation. Try again.",
+      "failed": "The translation did not start. Try again."
+    },
+    "list": {
+      "label": "Languages",
+      "search": "Search languages",
+      "clear": "Clear search",
+      "empty": "No language matches"
+    },
+    "widget": {
+      "off": "Translation is off",
+      "offBody": "Turn it on in Settings",
+      "pair": "{{source}} → {{target}}",
+      "translating": "Translating",
+      "ready": "Open the panel to translate"
+    },
+    "settings": {
+      "section": "Translation",
+      "privacy": "Text you translate leaves your PC for the endpoint below, and nowhere else; nothing is sent until you turn this on. The API key stays in Windows Credential Manager, never in the settings file or the logs.",
+      "enabled": "Translate text",
+      "enabledBody": "Sends the text you enter to {{host}}.",
+      "provider": "Provider",
+      "providerBody": "OpenAI-compatible covers OpenAI, Azure OpenAI, OpenRouter and LM Studio. Switching clears the endpoint and model fields.",
+      "providerOpenai": "OpenAI-compatible",
+      "providerOllama": "Ollama",
+      "endpoint": "Endpoint",
+      "endpointBody": "The API base. Plain http is accepted for local and LAN addresses only.",
+      "model": "Model",
+      "modelBody": "Leave blank for {{model}}.",
+      "key": "API key",
+      "keyField": "API key",
+      "keyPlaceholder": "Paste a key",
+      "keySave": "Save",
+      "keyRemove": "Remove",
+      "keyBusy": "Talking to Windows Credential Manager",
+      "keySaved": "A key is saved for {{provider}}. It is never shown again.",
+      "keyRequired": "Required by this provider. Saved in Windows Credential Manager.",
+      "keyOptional": "Optional; most local servers need none.",
+      "keyFailed": {
+        "empty": "Paste a key first.",
+        "malformed": "That does not look like a key. Paste it again.",
+        "vault": "Windows Credential Manager did not keep the key. Try again.",
+        "failed": "The key was not saved. Try again."
+      },
+      "languages": "Languages",
+      "languagesBody": "The pair the panel starts with. Picking a language in the panel changes it here too.",
+      "from": "Translate from",
+      "to": "Translate to",
+      "change": "Change",
+      "done": "Done"
+    }
+  },
   "support": {
     "title": "Support",
     "about": "Muna {{version}} · {{os}}",

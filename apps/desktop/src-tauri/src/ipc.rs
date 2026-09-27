@@ -2424,6 +2424,22 @@ fn translation_cancel(state: State<'_, Shared>, request_id: RequestId) {
     state.modules.translation.cancel(request_id);
 }
 
+/// Puts a finished translation on the clipboard as text (the panel's *Copy*), through the
+/// platform layer so it works whether or not the notch window holds focus. Empty text is a
+/// no-op. `platform.*` when the clipboard would not take it.
+#[tauri::command]
+#[specta::specta]
+fn translation_copy(state: State<'_, Shared>, text: String) -> Result<(), IpcError> {
+    if text.trim().is_empty() {
+        return Ok(());
+    }
+    state
+        .platform
+        .drag_source()
+        .place_on_clipboard(&DragPayload::Text(text))?;
+    Ok(())
+}
+
 // --- support ------------------------------------------------------------------------------
 
 /// Snapshot of the Support module (docs/modules/support.md); emitted after a diagnostics
@@ -2980,6 +2996,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             translation_clear_key,
             translate,
             translation_cancel,
+            translation_copy,
             get_support_snapshot,
             support_command,
             support_open,
