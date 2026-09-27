@@ -66,10 +66,11 @@ pub const TO_REVIEW_SEARCH: &str = "is:pr is:open archived:false review-requeste
 pub const MINE_SEARCH: &str = "is:pr is:open archived:false author:@me";
 
 /// Why a poll or a *Connect* did not produce a queue. Never carries what the host said: the
-/// UI has one sentence per case.
+/// UI has one sentence per case. Named apart from the weather module's `FetchError` because
+/// both reach the generated bindings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, thiserror::Error)]
 #[serde(rename_all = "camelCase")]
-pub enum FetchError {
+pub enum CodeHostError {
     /// No connection, a DNS failure or a timeout: the last queue stands with its time.
     #[error("the code host could not be reached")]
     Offline,
@@ -174,7 +175,7 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 /// reasoning synchronous and only awaits at the edge.
 pub trait CodeHost: Send + Sync {
     /// The account and its queue for `token`.
-    fn fetch(&self, token: String) -> BoxFuture<'_, Result<Queue, FetchError>>;
+    fn fetch(&self, token: String) -> BoxFuture<'_, Result<Queue, CodeHostError>>;
     /// For diagnostics.
     fn name(&self) -> &'static str;
 }
@@ -227,7 +228,7 @@ impl GitHub {
         Self::default()
     }
 
-    fn client(&self) -> Result<&reqwest::Client, FetchError> {
+    fn client(&self) -> Result<&reqwest::Client, CodeHostError> {
         self.client
             .get_or_init(|| {
                 reqwest::Client::builder()
@@ -241,12 +242,12 @@ impl GitHub {
                     .ok()
             })
             .as_ref()
-            .ok_or(FetchError::Provider)
+            .ok_or(CodeHostError::Provider)
     }
 }
 
 impl CodeHost for GitHub {
-    fn fetch(&self, token: String) -> BoxFuture<'_, Result<Queue, FetchError>> {
+    fn fetch(&self, token: String) -> BoxFuture<'_, Result<Queue, CodeHostError>> {
         Box::pin(async move {
             let body = serde_json::json!({
                 "query": QUERY,
@@ -267,27 +268,27 @@ impl CodeHost for GitHub {
                 .map_err(|error| classify(&error))?;
             let status = response.status();
             if status.as_u16() == 401 {
-                return Err(FetchError::Unauthorized);
+                return Err(CodeHostError::Unauthorized);
             }
             if status.as_u16() == 429 || (status.as_u16() == 403 && is_rate_limited(&response)) {
-                return Err(FetchError::RateLimited);
+                return Err(CodeHostError::RateLimited);
             }
             if status.as_u16() == 403 {
-                return Err(FetchError::Unauthorized);
+                return Err(CodeHostError::Unauthorized);
             }
             if !status.is_success() {
                 tracing::warn!(status = status.as_u16(), "code hosting query refused");
-                return Err(FetchError::Provider);
+                return Err(CodeHostError::Provider);
             }
             if response
                 .content_length()
                 .is_some_and(|length| length > MAX_BODY_BYTES as u64)
             {
-                return Err(FetchError::Provider);
+                return Err(CodeHostError::Provider);
             }
             let bytes = response.bytes().await.map_err(|error| classify(&error))?;
             if bytes.len() > MAX_BODY_BYTES {
-                return Err(FetchError::Provider);
+                return Err(CodeHostError::Provider);
             }
             parse_queue(&String::from_utf8_lossy(&bytes))
         })
@@ -310,11 +311,11 @@ fn is_rate_limited(response: &reqwest::Response) -> bool {
 }
 
 /// A transport failure is "offline"; anything the server said is "provider".
-fn classify(error: &reqwest::Error) -> FetchError {
+fn classify(error: &reqwest::Error) -> CodeHostError {
     if error.is_status() || error.is_decode() || error.is_body() {
-        FetchError::Provider
+        CodeHostError::Provider
     } else {
-        FetchError::Offline
+        CodeHostError::Offline
     }
 }
 
@@ -417,10 +418,10 @@ struct Rollup {
 }
 
 /// A GraphQL response body as a queue. Pure, so the tests feed it fixtures.
-pub fn parse_queue(json: &str) -> Result<Queue, FetchError> {
+pub fn parse_queue(json: &str) -> Result<Queue, CodeHostError> {
     let envelope: Envelope = serde_json::from_str(json).map_err(|error| {
         tracing::warn!(%error, "code hosting response is not the expected shape");
-        FetchError::Provider
+        CodeHostError::Provider
     })?;
     let Some(data) = envelope.data else {
         if envelope
@@ -428,14 +429,14 @@ pub fn parse_queue(json: &str) -> Result<Queue, FetchError> {
             .iter()
             .any(|error| error.kind == "FORBIDDEN" || error.kind == "UNAUTHORIZED")
         {
-            return Err(FetchError::Unauthorized);
+            return Err(CodeHostError::Unauthorized);
         }
         if envelope
             .errors
             .iter()
             .any(|error| error.kind == "RATE_LIMITED")
         {
-            return Err(FetchError::RateLimited);
+            return Err(CodeHostError::RateLimited);
         }
         // Error kinds are enums, not content; messages may name repositories, so only the kinds
         // are logged.
@@ -455,7 +456,7 @@ pub fn parse_queue(json: &str) -> Result<Queue, FetchError> {
             count = envelope.errors.len(),
             "code hosting query failed"
         );
-        return Err(FetchError::Provider);
+        return Err(CodeHostError::Provider);
     };
     // Partial data (a repository the token cannot read) still lists everything else; the
     // messages stay out of the log for the same reason as above.

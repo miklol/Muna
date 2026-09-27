@@ -1,6 +1,9 @@
 {
   "data": {
-    "viewer": { "login": "octocat", "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4" },
+    "viewer": {
+      "login": "octocat",
+      "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4"
+    },
     "toReview": {
       "issueCount": 3,
       "nodes": [
@@ -16,8 +19,11 @@
           "changedFiles": 65,
           "reviewDecision": "REVIEW_REQUIRED",
           "repository": { "nameWithOwner": "miklol/Muna" },
-          "author": { "login": "copilot-app", "avatarUrl": "https://avatars.githubusercontent.com/in/1143301?v=4" },
-          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "FAILURE" } } } ] }
+          "author": {
+            "login": "copilot-app",
+            "avatarUrl": "https://avatars.githubusercontent.com/in/1143301?v=4"
+          },
+          "commits": { "nodes": [{ "commit": { "statusCheckRollup": { "state": "FAILURE" } } }] }
         },
         {
           "id": "PR_kwDOB2",
@@ -32,7 +38,7 @@
           "reviewDecision": null,
           "repository": { "nameWithOwner": "octo-org/infra" },
           "author": { "login": "hubot", "avatarUrl": null },
-          "commits": { "nodes": [ { "commit": { "statusCheckRollup": null } } ] }
+          "commits": { "nodes": [{ "commit": { "statusCheckRollup": null } }] }
         },
         {
           "id": "PR_kwDOC3",
@@ -46,8 +52,11 @@
           "changedFiles": 1,
           "reviewDecision": "APPROVED",
           "repository": { "nameWithOwner": "octo-org/shared" },
-          "author": { "login": "octocat", "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4" },
-          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "SUCCESS" } } } ] }
+          "author": {
+            "login": "octocat",
+            "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4"
+          },
+          "commits": { "nodes": [{ "commit": { "statusCheckRollup": { "state": "SUCCESS" } } }] }
         },
         null
       ]
@@ -67,8 +76,11 @@
           "changedFiles": 38,
           "reviewDecision": "CHANGES_REQUESTED",
           "repository": { "nameWithOwner": "miklol/Muna" },
-          "author": { "login": "octocat", "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4" },
-          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "PENDING" } } } ] }
+          "author": {
+            "login": "octocat",
+            "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4"
+          },
+          "commits": { "nodes": [{ "commit": { "statusCheckRollup": { "state": "PENDING" } } }] }
         },
         {
           "id": "PR_kwDOC3",
@@ -82,14 +94,21 @@
           "changedFiles": 1,
           "reviewDecision": "APPROVED",
           "repository": { "nameWithOwner": "octo-org/shared" },
-          "author": { "login": "octocat", "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4" },
-          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "SUCCESS" } } } ] }
+          "author": {
+            "login": "octocat",
+            "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4"
+          },
+          "commits": { "nodes": [{ "commit": { "statusCheckRollup": { "state": "SUCCESS" } } }] }
         },
         { "__typename": "Issue" }
       ]
     }
   },
   "errors": [
-    { "type": "FORBIDDEN", "path": ["toReview", "nodes", 4], "message": "Resource not accessible by personal access token" }
+    {
+      "type": "FORBIDDEN",
+      "path": ["toReview", "nodes", 4],
+      "message": "Resource not accessible by personal access token"
+    }
   ]
 }

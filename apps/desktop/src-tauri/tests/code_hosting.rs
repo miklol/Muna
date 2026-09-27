@@ -15,9 +15,9 @@ use muna_core::{
 };
 use muna_lib::modules::code_hosting::provider::{BoxFuture, MAX_TOKEN_CHARS, parse_queue};
 use muna_lib::modules::code_hosting::{
-    Account, CACHE_KEY, ChecksState, CodeHost, CodeHostingCommand, CodeHostingService,
-    CodeHostingSettings, CodeHostingSink, CodeHostingSnapshot, ConnectError, FetchError, ID, Job,
-    NOTICES_PER_POLL, NoticeSettings, POLL, Provider, PullRequest, Queue, RETRY_MAX,
+    Account, CACHE_KEY, ChecksState, CodeHost, CodeHostError, CodeHostingCommand,
+    CodeHostingService, CodeHostingSettings, CodeHostingSink, CodeHostingSnapshot, ConnectError,
+    ID, Job, NOTICES_PER_POLL, NoticeSettings, POLL, Provider, PullRequest, Queue, RETRY_MAX,
     ReviewDecision, TOKEN_KEY, Token, TokenError, backoff, normalise_token, notices_for,
 };
 use muna_lib::modules::{ModuleServices, Surface, backends};
@@ -31,7 +31,7 @@ const TOKEN: &str = "ghp_examplevalue0123456789abcdefghijklmnop";
 /// A host that never makes a request: answers are scripted, newest last; the token of every
 /// call is recorded so the tests can check what was sent (and that nothing was).
 struct StubHost {
-    answers: Mutex<Vec<Result<Queue, FetchError>>>,
+    answers: Mutex<Vec<Result<Queue, CodeHostError>>>,
     tokens: Mutex<Vec<String>>,
 }
 
@@ -43,19 +43,19 @@ impl StubHost {
         }
     }
 
-    fn script(&self, answer: Result<Queue, FetchError>) {
+    fn script(&self, answer: Result<Queue, CodeHostError>) {
         self.answers.lock().push(answer);
     }
 }
 
 impl CodeHost for StubHost {
-    fn fetch(&self, token: String) -> BoxFuture<'_, Result<Queue, FetchError>> {
+    fn fetch(&self, token: String) -> BoxFuture<'_, Result<Queue, CodeHostError>> {
         self.tokens.lock().push(token);
         let answer = self
             .answers
             .lock()
             .pop()
-            .unwrap_or(Err(FetchError::Offline));
+            .unwrap_or(Err(CodeHostError::Offline));
         Box::pin(async move { answer })
     }
 
@@ -170,7 +170,7 @@ impl Rig {
     }
 
     /// What the backend loop does for a `Job`: hand the scripted answer over.
-    fn poll(&self, answer: Result<Queue, FetchError>) -> Job {
+    fn poll(&self, answer: Result<Queue, CodeHostError>) -> Job {
         let job = self.service.plan().expect("a poll is due");
         self.service.complete_poll(answer);
         job
@@ -316,18 +316,18 @@ fn parse_queue_merges_both_lists_newest_first_and_skips_what_is_not_a_pull_reque
 fn parse_queue_maps_answers_without_data_to_one_error_each() {
     assert_eq!(
         parse_queue(r#"{"errors":[{"type":"RATE_LIMITED","message":"slow down"}]}"#),
-        Err(FetchError::RateLimited)
+        Err(CodeHostError::RateLimited)
     );
     assert_eq!(
         parse_queue(r#"{"data":null,"errors":[{"type":"FORBIDDEN","message":"no"}]}"#),
-        Err(FetchError::Unauthorized)
+        Err(CodeHostError::Unauthorized)
     );
     assert_eq!(
         parse_queue(r#"{"errors":[{"message":"Something went wrong"}]}"#),
-        Err(FetchError::Provider)
+        Err(CodeHostError::Provider)
     );
-    assert_eq!(parse_queue("<!doctype html>"), Err(FetchError::Provider));
-    assert_eq!(parse_queue(r#"{"data":{}}"#), Err(FetchError::Provider));
+    assert_eq!(parse_queue("<!doctype html>"), Err(CodeHostError::Provider));
+    assert_eq!(parse_queue(r#"{"data":{}}"#), Err(CodeHostError::Provider));
 }
 
 #[test]
@@ -492,20 +492,20 @@ fn a_refused_or_unanswered_connect_keeps_nothing() {
     rig.enable();
     for (answer, expected) in [
         (
-            FetchError::Unauthorized,
-            ConnectError::Fetch(FetchError::Unauthorized),
+            CodeHostError::Unauthorized,
+            ConnectError::Fetch(CodeHostError::Unauthorized),
         ),
         (
-            FetchError::Offline,
-            ConnectError::Fetch(FetchError::Offline),
+            CodeHostError::Offline,
+            ConnectError::Fetch(CodeHostError::Offline),
         ),
         (
-            FetchError::RateLimited,
-            ConnectError::Fetch(FetchError::RateLimited),
+            CodeHostError::RateLimited,
+            ConnectError::Fetch(CodeHostError::RateLimited),
         ),
         (
-            FetchError::Provider,
-            ConnectError::Fetch(FetchError::Provider),
+            CodeHostError::Provider,
+            ConnectError::Fetch(CodeHostError::Provider),
         ),
     ] {
         rig.host.script(Err(answer));
@@ -724,9 +724,9 @@ fn failures_back_off_and_keep_the_queue_until_a_poll_works() {
     let baseline = rig.snapshot().pull_requests;
 
     rig.pass(POLL);
-    rig.poll(Err(FetchError::Offline));
+    rig.poll(Err(CodeHostError::Offline));
     let snapshot = rig.snapshot();
-    assert_eq!(snapshot.error, Some(FetchError::Offline));
+    assert_eq!(snapshot.error, Some(CodeHostError::Offline));
     assert_eq!(snapshot.pull_requests, baseline, "the last queue stands");
     assert_eq!(
         snapshot.fetched_at_ms,
@@ -736,13 +736,13 @@ fn failures_back_off_and_keep_the_queue_until_a_poll_works() {
     assert_eq!(rig.service.next_wake(), Some(backoff(1)));
 
     rig.pass(backoff(1));
-    rig.poll(Err(FetchError::Provider));
-    assert_eq!(rig.snapshot().error, Some(FetchError::Provider));
+    rig.poll(Err(CodeHostError::Provider));
+    assert_eq!(rig.snapshot().error, Some(CodeHostError::Provider));
     assert_eq!(rig.service.next_wake(), Some(backoff(2)));
 
     rig.pass(backoff(2));
-    rig.poll(Err(FetchError::RateLimited));
-    assert_eq!(rig.snapshot().error, Some(FetchError::RateLimited));
+    rig.poll(Err(CodeHostError::RateLimited));
+    assert_eq!(rig.snapshot().error, Some(CodeHostError::RateLimited));
     assert_eq!(rig.service.next_wake(), Some(backoff(3)));
 
     rig.pass(backoff(3));
@@ -758,9 +758,9 @@ fn failures_back_off_and_keep_the_queue_until_a_poll_works() {
 fn a_refused_token_stops_polling_until_refresh_or_reconnect() {
     let rig = Rig::connected();
     rig.pass(POLL);
-    rig.poll(Err(FetchError::Unauthorized));
+    rig.poll(Err(CodeHostError::Unauthorized));
     let snapshot = rig.snapshot();
-    assert_eq!(snapshot.error, Some(FetchError::Unauthorized));
+    assert_eq!(snapshot.error, Some(CodeHostError::Unauthorized));
     assert!(
         snapshot.account.is_some(),
         "the pane still names the account"
@@ -773,7 +773,7 @@ fn a_refused_token_stops_polling_until_refresh_or_reconnect() {
     // "Refresh" tries once more.
     rig.service.command(CodeHostingCommand::Refresh);
     assert_eq!(rig.service.next_wake(), Some(Duration::ZERO));
-    rig.poll(Err(FetchError::Unauthorized));
+    rig.poll(Err(CodeHostError::Unauthorized));
     assert_eq!(rig.service.next_wake(), None);
 
     // A new token starts over.
@@ -843,7 +843,7 @@ fn a_token_removed_from_the_vault_ends_polling() {
     rig.pass(POLL);
     assert_eq!(rig.service.plan(), None, "nothing to send");
     let snapshot = rig.snapshot();
-    assert_eq!(snapshot.error, Some(FetchError::Unauthorized));
+    assert_eq!(snapshot.error, Some(CodeHostError::Unauthorized));
     assert_eq!(rig.service.next_wake(), None);
     assert!(
         rig.host.tokens.lock().len() == 1,

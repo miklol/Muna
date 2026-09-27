@@ -27,8 +27,8 @@ use crate::modules::calendar::{
     SourceSetting, UrlError,
 };
 use crate::modules::code_hosting::{
-    CodeHostingCommand, CodeHostingSink, CodeHostingSnapshot, ConnectError,
-    FetchError as CodeHostFetchError, NEW_TOKEN_URL, TokenError,
+    CodeHostError, CodeHostingCommand, CodeHostingSink, CodeHostingSnapshot, ConnectError,
+    NEW_TOKEN_URL, TokenError,
 };
 use crate::modules::drop_actions::{
     DropAction, DropActionsSnapshot, DropError, DropJob, DropSink, WindowThread,
@@ -143,10 +143,10 @@ impl From<ConnectError> for IpcError {
             ConnectError::Disabled => "codeHosting.disabled",
             ConnectError::Token(TokenError::Empty) => "codeHosting.token.empty",
             ConnectError::Token(TokenError::Malformed) => "codeHosting.token.malformed",
-            ConnectError::Fetch(CodeHostFetchError::Offline) => "codeHosting.offline",
-            ConnectError::Fetch(CodeHostFetchError::Unauthorized) => "codeHosting.unauthorized",
-            ConnectError::Fetch(CodeHostFetchError::RateLimited) => "codeHosting.rateLimited",
-            ConnectError::Fetch(CodeHostFetchError::Provider) => "codeHosting.provider",
+            ConnectError::Fetch(CodeHostError::Offline) => "codeHosting.offline",
+            ConnectError::Fetch(CodeHostError::Unauthorized) => "codeHosting.unauthorized",
+            ConnectError::Fetch(CodeHostError::RateLimited) => "codeHosting.rateLimited",
+            ConnectError::Fetch(CodeHostError::Provider) => "codeHosting.provider",
             ConnectError::Vault => "codeHosting.vault",
         };
         Self::new(code, error)

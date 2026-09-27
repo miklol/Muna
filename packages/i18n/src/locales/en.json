@@ -91,7 +91,10 @@
         "trash": "Could not delete",
         "eject": "Could not eject the drive",
         "shelf": "Could not add to the Shelf"
-      }
+      },
+      "reviewRequested": "Review requested: {{title}}",
+      "checksPassed": "Checks passed: {{title}}",
+      "checksFailed": "Checks failed: {{title}}"
     },
     "describe": {
       "battery": "Battery {{percent}}",
@@ -119,7 +122,10 @@
       "notificationArrived": "New from {{app}}: {{title}}",
       "notificationLatest": "Unread from {{app}}: {{title}}",
       "notificationUnread_one": "{{count}} unread, latest from {{app}}: {{title}}",
-      "notificationUnread_other": "{{count}} unread, latest from {{app}}: {{title}}"
+      "notificationUnread_other": "{{count}} unread, latest from {{app}}: {{title}}",
+      "reviewRequested": "Your review is requested on {{title}}",
+      "checksPassed": "Checks passed on {{title}}",
+      "checksFailed": "Checks failed on {{title}}"
     },
     "glyph": {
       "battery": "Battery",
@@ -150,7 +156,9 @@
       "share": "Share",
       "trash": "Recycle bin",
       "drive": "Drive",
-      "shelf": "Shelf"
+      "shelf": "Shelf",
+      "pullRequest": "Pull request",
+      "xCircle": "Failed"
     }
   },
   "spike": {
