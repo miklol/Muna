@@ -14,6 +14,8 @@ import type {
   DropActionsSnapshot,
   DropEntered,
   DropJob,
+  HealthCommand,
+  HealthSnapshot,
   HotkeyBinding,
   NoteContent,
   NoteDraft,
@@ -69,6 +71,10 @@ import {
   DROP_MAX_FOLDERS,
   DROP_TILES_PER_ROW,
   DROP_TILES_PER_ROW_EXPANDED,
+  HEALTH_BOUNDS,
+  HEALTH_FLOWS,
+  HEALTH_SETTINGS_KEY,
+  HEALTH_STRIP_IDS,
   HUD_NOTICE_IDS,
   HUD_SETTINGS_KEY,
   HUD_VOLUME_STEP,
@@ -130,6 +136,7 @@ import {
   defaultDashboardSettings,
   defaultDayProgressSettings,
   defaultDropActionsSettings,
+  defaultHealthSettings,
   defaultHudSettings,
   defaultKeyboardShortcutsSettings,
   defaultMediaSettings,
@@ -159,6 +166,11 @@ import {
   droppedSchema,
   filterPullRequests,
   formatBytes,
+  healthChangedSchema,
+  healthCommandSchema,
+  healthGoalsMet,
+  healthSettingsSchema,
+  healthSnapshotSchema,
   hotkeyBindingSchema,
   isSnoozeMinutes,
   limitProgress,
@@ -179,6 +191,7 @@ import {
   readDashboardSettings,
   readDayProgressSettings,
   readDropActionsSettings,
+  readHealthSettings,
   readHudSettings,
   readKeyboardShortcutsSettings,
   readMediaSettings,
@@ -229,6 +242,7 @@ import {
   writeDashboardSettings,
   writeDayProgressSettings,
   writeDropActionsSettings,
+  writeHealthSettings,
   writeHudSettings,
   writeKeyboardShortcutsSettings,
   writeMediaSettings,
@@ -2317,6 +2331,195 @@ describe('ai coding contract', () => {
     expect(waitingSessions([waiting, running, later])).toEqual([waiting]);
     expect(runningSessions([waiting, running, later])).toEqual([running, later]);
     expect(waitingSessions([])).toEqual([]);
+  });
+});
+
+describe('health schemas', () => {
+  const DAY = Date.UTC(2026, 2, 4);
+  const NOW = DAY + 6 * 3_600_000;
+
+  const day = (overrides: Partial<HealthSnapshot['today']> = {}): HealthSnapshot['today'] => ({
+    activeMs: 0,
+    longestSitMs: 0,
+    breaks: 0,
+    water: 0,
+    mindfulSeconds: 0,
+    flows: 0,
+    ...overrides,
+  });
+
+  const snapshot = (overrides: Partial<HealthSnapshot> = {}): HealthSnapshot => ({
+    enabled: true,
+    sitting: 'sitting',
+    sittingSinceMs: NOW - 20 * 60_000,
+    sittingMs: 20 * 60_000,
+    nextBreakInMs: 30 * 60_000,
+    breakDueSinceMs: null,
+    today: day({ activeMs: 20 * 60_000, longestSitMs: 20 * 60_000, water: 3 }),
+    goals: { breaks: 7, water: 8, mindfulSeconds: 600 },
+    week: Array.from({ length: 7 }, (_, index) => ({
+      dayStartMs: DAY - (6 - index) * 86_400_000,
+      breaks: index,
+      water: 8,
+      mindfulSeconds: 0,
+      goalsMet: index >= 6 ? 1 : 2,
+    })),
+    streakDays: 3,
+    flow: null,
+    hearing: null,
+    windingDown: false,
+    dayStartMs: DAY,
+    generatedAtMs: NOW,
+    ...overrides,
+  });
+
+  it('defaults the namespace, clamps the bounds and round-trips it', () => {
+    expect(defaultHealthSettings()).toEqual({
+      enabled: true,
+      breakEveryMin: 50,
+      waterGoal: 8,
+      windDownHour: null,
+      hearingWarning: true,
+      breathePattern: 'box',
+    });
+    expect(readHealthSettings(defaultSettings())).toEqual(defaultHealthSettings());
+    expect(healthSettingsSchema.parse({ breakEveryMin: 5, waterGoal: 0, windDownHour: 3 })).toEqual(
+      {
+        ...defaultHealthSettings(),
+        breakEveryMin: HEALTH_BOUNDS.breakEveryMin.min,
+        waterGoal: HEALTH_BOUNDS.waterGoal.min,
+        windDownHour: HEALTH_BOUNDS.windDownHour.min,
+      },
+    );
+    expect(
+      healthSettingsSchema.parse({ breakEveryMin: 250, waterGoal: 99, windDownHour: 30 }),
+    ).toEqual({
+      ...defaultHealthSettings(),
+      breakEveryMin: HEALTH_BOUNDS.breakEveryMin.max,
+      waterGoal: HEALTH_BOUNDS.waterGoal.max,
+      windDownHour: HEALTH_BOUNDS.windDownHour.max,
+    });
+    const wanted = {
+      enabled: false,
+      breakEveryMin: 30,
+      waterGoal: 10,
+      windDownHour: 21,
+      hearingWarning: false,
+      breathePattern: 'relax',
+    } as const;
+    const doc = writeHealthSettings(defaultSettings(), wanted);
+    expect(readHealthSettings(doc)).toEqual(wanted);
+    expect(doc.modules[HEALTH_SETTINGS_KEY]).toEqual(wanted);
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [HEALTH_SETTINGS_KEY]: { breakEveryMin: 'soon' } },
+    };
+    expect(readHealthSettings(broken)).toEqual(defaultHealthSettings());
+    expect(healthSettingsSchema.safeParse({ breathePattern: 'wim-hof' }).success).toBe(false);
+  });
+
+  it('names the strip ids and the flows the Rust side publishes', () => {
+    expect(HEALTH_STRIP_IDS).toEqual({
+      flow: 'health:flow',
+      break: 'health:break',
+      flowFinished: 'health:flow-finished',
+      hearing: 'health:hearing',
+    });
+    expect(HEALTH_FLOWS).toEqual(['move', 'breathe', 'stretch', 'eyeRest']);
+  });
+
+  it('round-trips the snapshot and its change event', () => {
+    const sitting = snapshot();
+    expect(healthSnapshotSchema.parse(sitting)).toEqual(sitting);
+    expect(healthChangedSchema.parse({ snapshot: sitting })).toEqual({ snapshot: sitting });
+    const flowing = snapshot({
+      nextBreakInMs: null,
+      flow: {
+        flow: 'breathe',
+        startedMs: NOW - 10_000,
+        remainingMs: 118_000,
+        totalMs: 128_000,
+        pattern: 'box',
+      },
+      hearing: { percent: 90, loudForMs: 60_000, warned: false },
+      windingDown: true,
+    });
+    expect(healthSnapshotSchema.parse(flowing)).toEqual(flowing);
+    const off = snapshot({
+      enabled: false,
+      sitting: 'off',
+      sittingSinceMs: null,
+      sittingMs: 0,
+      nextBreakInMs: null,
+      week: [],
+      streakDays: 0,
+    });
+    expect(healthSnapshotSchema.parse(off)).toEqual(off);
+    expect(healthSnapshotSchema.safeParse({ ...sitting, sitting: 'standing' }).success).toBe(false);
+    expect(healthSnapshotSchema.safeParse({ ...sitting, sittingMs: -1 }).success).toBe(false);
+    expect(
+      healthSnapshotSchema.safeParse({ ...sitting, week: [{ ...sitting.week[0], goalsMet: 4 }] })
+        .success,
+    ).toBe(false);
+    expect(
+      healthSnapshotSchema.safeParse({ ...sitting, goals: { ...sitting.goals, water: 0 } }).success,
+    ).toBe(false);
+    expectTypeOf<z.infer<typeof healthSnapshotSchema>>().toEqualTypeOf<HealthSnapshot>();
+  });
+
+  it('round-trips the commands', () => {
+    const commands: HealthCommand[] = [
+      { kind: 'startFlow', flow: 'move' },
+      { kind: 'startFlow', flow: 'eyeRest' },
+      { kind: 'stopFlow' },
+      { kind: 'water', delta: 1 },
+      { kind: 'water', delta: -1 },
+      { kind: 'snooze' },
+      { kind: 'dismiss' },
+      { kind: 'reset' },
+      { kind: 'clearHistory' },
+    ];
+    for (const command of commands) {
+      expect(healthCommandSchema.parse(command)).toEqual(command);
+    }
+    expect(healthCommandSchema.safeParse({ kind: 'startFlow', flow: 'nap' }).success).toBe(false);
+    expect(healthCommandSchema.safeParse({ kind: 'water', delta: 0.5 }).success).toBe(false);
+    expectTypeOf<z.infer<typeof healthCommandSchema>>().toEqualTypeOf<HealthCommand>();
+  });
+
+  it('scores a day against the goals the way the weekday dots do', () => {
+    const goals = { breaks: 7, water: 8, mindfulSeconds: 600 };
+    expect(healthGoalsMet(day(), goals)).toBe(0);
+    expect(healthGoalsMet(day({ water: 8 }), goals)).toBe(1);
+    expect(healthGoalsMet(day({ water: 9, breaks: 7 }), goals)).toBe(2);
+    expect(healthGoalsMet(day({ water: 8, breaks: 7, mindfulSeconds: 600 }), goals)).toBe(3);
+  });
+
+  it('reads the health strip messages and the heart glyph', () => {
+    const content: StripContent = {
+      kind: 'notice',
+      notice: {
+        id: HEALTH_STRIP_IDS.break,
+        module: 'health',
+        priority: 44,
+        leading: { kind: 'icon', glyph: 'heart', tint: 'pink' },
+        trailing: null,
+        wide: { kind: 'healthBreak', minutes: 50 },
+        holdMs: 8000,
+      },
+    };
+    expect(stripContentSchema.parse(content)).toEqual(content);
+    for (const wide of [
+      { kind: 'healthFlow', flow: 'move' },
+      { kind: 'healthFlowFinished', flow: 'stretch' },
+      { kind: 'healthHearing', percent: 90, minutes: 10 },
+    ] as const) {
+      const parsed = stripContentSchema.parse({
+        ...content,
+        notice: { ...content.notice, wide },
+      });
+      expect(parsed.kind === 'notice' && parsed.notice.wide).toEqual(wide);
+    }
   });
 });
 
