@@ -1,0 +1,116 @@
+/*
+ * Mirror panel (docs/modules/mirror.md): the camera named in the head with the controls beside
+ * it, then the live picture — a 16:9 frame with continuous corners that the video covers. The
+ * frame is bounded by the panel body (284 px at most, minus the 28 px head and the gap), so it
+ * lands around 240 px tall and 427 px wide, centred. Composes tokens only; the primitives
+ * bring their own styles.
+ */
+
+.mirror-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  block-size: 100%;
+  min-block-size: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.mirror-head {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+}
+
+.mirror-head__glyph {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent-blue);
+}
+
+.mirror-head__title {
+  flex: 0 1 auto;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.mirror-head__spacer {
+  flex: 1 1 auto;
+}
+
+/* The zoom button holds the same width at 1×, 1.5× and 2× so the row does not shuffle. */
+.mirror-zoom {
+  min-inline-size: 4.5em;
+}
+
+.mirror-frame {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: center;
+  aspect-ratio: 16 / 9;
+  inline-size: auto;
+  max-inline-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius-card);
+}
+
+.mirror-frame--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 100%;
+}
+
+/* The picture covers the frame; a transform mirrors and zooms it without a layout change. */
+.mirror-video {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  transform-origin: center;
+  background: #000;
+}
+
+.mirror-state {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+/*
+ * The dashboard card (docs/modules/dashboard.md "Widgets"): the picture at the card's height on
+ * the side the reading order starts, the module title and the camera or the state beside it.
+ */
+.mirror-widget {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.mirror-widget__frame {
+  flex: none;
+  aspect-ratio: 16 / 9;
+  block-size: 100%;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+
+.mirror-widget__frame--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+
+.mirror-widget__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
