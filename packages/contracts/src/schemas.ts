@@ -110,6 +110,13 @@ import type {
   Tracking,
   Trailing,
   TransferMode,
+  TranslateError,
+  TranslateRequest,
+  TranslationChanged,
+  TranslationChunk,
+  TranslationChunkEvent,
+  TranslationProvider,
+  TranslationSnapshot,
   UpdateChannel,
   WaitingKind,
   YieldState,
@@ -2448,6 +2455,171 @@ export const writeMirrorSettings = (settings: Settings, mirror: MirrorSettings):
   ...settings,
   modules: { ...settings.modules, [MIRROR_SETTINGS_KEY]: mirror },
 });
+
+/** The key of the Translation module's namespace; also its module id. */
+export const TRANSLATION_SETTINGS_KEY = 'translation';
+
+/** The source language that means "let the provider detect it" (`modules::translation::AUTO`). */
+export const TRANSLATION_AUTO = 'auto';
+
+/** The providers this build talks to, in the order the pane offers them. */
+export const TRANSLATION_PROVIDERS = [
+  'openai',
+  'ollama',
+] as const satisfies readonly TranslationProvider[];
+
+export const translationProviderSchema = z.enum(
+  TRANSLATION_PROVIDERS,
+) satisfies z.ZodType<TranslationProvider>;
+
+/**
+ * Where requests go and what is asked for when the endpoint or model field is blank (mirrors
+ * `TranslationProvider::default_endpoint` / `default_model` / `needs_key`).
+ */
+export const TRANSLATION_PROVIDER_DEFAULTS: Readonly<
+  Record<TranslationProvider, { endpoint: string; model: string; needsKey: boolean }>
+> = {
+  openai: { endpoint: 'https://api.openai.com/v1', model: 'gpt-4o-mini', needsKey: true },
+  ollama: { endpoint: 'http://127.0.0.1:11434', model: 'llama3.2', needsKey: false },
+};
+
+/** Bounds the module clamps to (mirrors `modules::translation::{settings, provider}`). */
+export const TRANSLATION_BOUNDS = {
+  /** Endpoint and model strings. */
+  field: { max: 512 },
+  /** A BCP-47 tag. */
+  tag: { max: 35 },
+  /** The most text one request may send (`MAX_TEXT_CHARS`). */
+  text: { max: 5000 },
+  /** The longest key kept (`MAX_KEY_CHARS`). */
+  key: { max: 512 },
+} as const;
+
+/** A trimmed, bounded free-text field; oversized is clipped like the Rust `clip`. */
+const boundedField = (max: number) =>
+  z
+    .string()
+    .default('')
+    .transform((value) => Array.from(value.trim()).slice(0, max).join(''));
+
+/** A trimmed, bounded language tag; blank becomes `fallback`. */
+const boundedTag = (fallback: string) =>
+  z
+    .string()
+    .default(fallback)
+    .transform((value) => {
+      const trimmed = Array.from(value.trim()).slice(0, TRANSLATION_BOUNDS.tag.max).join('');
+      return trimmed === '' ? fallback : trimmed;
+    });
+
+/**
+ * Mirrors `modules::translation::TranslationSettings`: off by default (nothing is sent until
+ * the user turns it on), defaults for missing fields, fields trimmed and bounded, a wrong type
+ * fails the whole entry.
+ */
+export const translationSettingsSchema = z.object({
+  /** The only switch that lets text leave the machine. */
+  enabled: z.boolean().default(false),
+  provider: translationProviderSchema.default('openai'),
+  /** The API base requests go to; blank means the provider's default. */
+  endpoint: boundedField(TRANSLATION_BOUNDS.field.max),
+  /** The model asked for; blank means the provider's default. */
+  model: boundedField(TRANSLATION_BOUNDS.field.max),
+  /** The language the text is in, or `TRANSLATION_AUTO`. */
+  source: boundedTag(TRANSLATION_AUTO),
+  /** The language to translate into. */
+  target: boundedTag('en'),
+});
+export type TranslationSettings = z.infer<typeof translationSettingsSchema>;
+
+export const defaultTranslationSettings = (): TranslationSettings =>
+  translationSettingsSchema.parse({});
+
+/** Reads the Translation namespace; a missing or malformed entry yields the defaults, like Rust. */
+export const readTranslationSettings = (settings: Settings): TranslationSettings => {
+  const parsed = translationSettingsSchema.safeParse(
+    settings.modules[TRANSLATION_SETTINGS_KEY] ?? {},
+  );
+  return parsed.success ? parsed.data : defaultTranslationSettings();
+};
+
+/** Returns a new document with the Translation namespace replaced. */
+export const writeTranslationSettings = (
+  settings: Settings,
+  translation: TranslationSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [TRANSLATION_SETTINGS_KEY]: translation },
+});
+
+/** The endpoint requests go to for `settings`: the field or the provider's default, like Rust. */
+export const translationEndpointOf = (settings: TranslationSettings): string => {
+  const trimmed = settings.endpoint.trim().replace(/\/+$/u, '');
+  return trimmed === '' ? TRANSLATION_PROVIDER_DEFAULTS[settings.provider].endpoint : trimmed;
+};
+
+/** The model asked for: the field or the provider's default, like Rust. */
+export const translationModelOf = (settings: TranslationSettings): string => {
+  const trimmed = settings.model.trim();
+  return trimmed === '' ? TRANSLATION_PROVIDER_DEFAULTS[settings.provider].model : trimmed;
+};
+
+/** The host name of an endpoint, for the consent line; the whole string when it is not a URL. */
+export const translationHostOf = (endpoint: string): string => {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return endpoint;
+  }
+};
+
+export const translateErrorSchema = z.enum([
+  'disabled',
+  'empty',
+  'tooLong',
+  'noKey',
+  'endpoint',
+  'vault',
+  'offline',
+  'unauthorized',
+  'rateLimited',
+  'modelMissing',
+  'provider',
+]) satisfies z.ZodType<TranslateError>;
+
+/** The argument of `commands.translate`. */
+export const translateRequestSchema = z.object({
+  text: z.string(),
+  source: z.string().nullable(),
+  target: z.string().nullable(),
+}) satisfies z.ZodType<TranslateRequest>;
+
+/** One piece of a streamed translation, as `events.translationChunkEvent` carries it. */
+export const translationChunkSchema = z.object({
+  requestId: z.number().int().min(0),
+  text: z.string(),
+  done: z.boolean(),
+  error: translateErrorSchema.nullable(),
+}) satisfies z.ZodType<TranslationChunk>;
+
+export const translationChunkEventSchema = z.object({
+  chunk: translationChunkSchema,
+}) satisfies z.ZodType<TranslationChunkEvent>;
+
+/** What `commands.getTranslationSnapshot` returns and `events.translationChanged` carries. */
+export const translationSnapshotSchema = z.object({
+  enabled: z.boolean(),
+  provider: translationProviderSchema,
+  endpoint: z.string(),
+  model: z.string(),
+  hasKey: z.boolean(),
+  needsKey: z.boolean(),
+  active: z.number().int().min(0),
+}) satisfies z.ZodType<TranslationSnapshot>;
+
+export const translationChangedSchema = z.object({
+  snapshot: translationSnapshotSchema,
+}) satisfies z.ZodType<TranslationChanged>;
 
 /** The key of the Support module's namespace; also its module id. */
 export const SUPPORT_SETTINGS_KEY = 'support';

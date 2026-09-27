@@ -59,6 +59,10 @@ use crate::modules::support::{
 };
 use crate::modules::system_monitor::{SystemMonitorSink, SystemMonitorSnapshot};
 use crate::modules::todo::{TodoCommand, TodoError, TodoSink, TodoSnapshot};
+use crate::modules::translation::{
+    KeyError, RequestId, TranslateError, TranslateRequest, TranslationChunk, TranslationSink,
+    TranslationSnapshot,
+};
 use crate::modules::weather::{
     FetchError, Place, SearchError, WeatherCommand, WeatherSink, WeatherSnapshot,
 };
@@ -231,6 +235,36 @@ impl From<HotkeyError> for IpcError {
             HotkeyError::Invalid => "hotkey.invalid",
             HotkeyError::InUse => "hotkey.inUse",
             HotkeyError::Taken { .. } => "hotkey.taken",
+        };
+        Self::new(code, error)
+    }
+}
+
+impl From<KeyError> for IpcError {
+    fn from(error: KeyError) -> Self {
+        let code = match &error {
+            KeyError::Empty => "translation.key.empty",
+            KeyError::Malformed => "translation.key.malformed",
+            KeyError::Vault => "translation.vault",
+        };
+        Self::new(code, error)
+    }
+}
+
+impl From<TranslateError> for IpcError {
+    fn from(error: TranslateError) -> Self {
+        let code = match &error {
+            TranslateError::Disabled => "translation.disabled",
+            TranslateError::Empty => "translation.empty",
+            TranslateError::TooLong => "translation.tooLong",
+            TranslateError::NoKey => "translation.noKey",
+            TranslateError::Endpoint => "translation.endpoint",
+            TranslateError::Vault => "translation.vault",
+            TranslateError::Offline => "translation.offline",
+            TranslateError::Unauthorized => "translation.unauthorized",
+            TranslateError::RateLimited => "translation.rateLimited",
+            TranslateError::ModelMissing => "translation.modelMissing",
+            TranslateError::Provider => "translation.provider",
         };
         Self::new(code, error)
     }
@@ -2278,6 +2312,134 @@ fn mirror_watch(window: WebviewWindow, state: State<'_, Shared>, watching: bool)
     state.modules.mirror.watch(window.label(), watching);
 }
 
+// --- translation --------------------------------------------------------------------------
+
+/// A piece of a translation, or its end (docs/modules/translation.md): one per streamed
+/// token group while a request runs, then one with `done` — unless the request was cancelled,
+/// in which case nothing more comes. Carries content; never logged.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct TranslationChunkEvent {
+    pub chunk: TranslationChunk,
+}
+
+/// The translation module's state as the pane shows it (docs/modules/translation.md): after a
+/// settings change, a key saved or removed, and as requests start and end.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct TranslationChanged {
+    pub snapshot: TranslationSnapshot,
+}
+
+/// Bridges the translation service to [`TranslationChunkEvent`] and [`TranslationChanged`].
+pub struct TranslationEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for TranslationEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TranslationEventSink")
+            .finish_non_exhaustive()
+    }
+}
+
+impl TranslationEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl TranslationSink for TranslationEventSink {
+    fn chunk(&self, chunk: &TranslationChunk) {
+        if let Err(error) = (TranslationChunkEvent {
+            chunk: chunk.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit TranslationChunkEvent");
+        }
+    }
+
+    fn changed(&self, snapshot: &TranslationSnapshot) {
+        if let Err(error) = (TranslationChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit TranslationChanged");
+        }
+    }
+}
+
+/// The translation module's state (a pane or panel that just opened; afterwards it follows
+/// `TranslationChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_translation_snapshot(state: State<'_, Shared>) -> TranslationSnapshot {
+    state.modules.translation.snapshot()
+}
+
+/// Keeps an API key for the current provider in the credential vault; it is never echoed
+/// back and never reaches the settings document. `translation.key.empty` / `malformed` for a
+/// key that is not one, `translation.vault` when the vault would not keep it.
+#[tauri::command]
+#[specta::specta]
+fn translation_set_key(
+    state: State<'_, Shared>,
+    key: String,
+) -> Result<TranslationSnapshot, IpcError> {
+    Ok(state.modules.translation.set_key(&key)?)
+}
+
+/// Forgets the current provider's key. `translation.vault` when the vault would not.
+#[tauri::command]
+#[specta::specta]
+fn translation_clear_key(state: State<'_, Shared>) -> Result<TranslationSnapshot, IpcError> {
+    Ok(state.modules.translation.clear_key()?)
+}
+
+/// Starts a translation and returns its id; the answer arrives as `TranslationChunkEvent`s
+/// with that id, the last one `done`. Refused before anything is sent with
+/// `translation.disabled` while the module is off, `translation.empty` / `tooLong` for the
+/// text, `translation.noKey` when the provider needs a key and none is saved,
+/// `translation.endpoint` when the endpoint is not an address text may go to, and
+/// `translation.vault` when the key could not be read.
+#[tauri::command]
+#[specta::specta]
+fn translate(state: State<'_, Shared>, request: TranslateRequest) -> Result<RequestId, IpcError> {
+    let service = Arc::clone(&state.modules.translation);
+    let job = service.begin(request)?;
+    let id = job.id;
+    tauri::async_runtime::spawn(async move {
+        service.run(job).await;
+    });
+    Ok(id)
+}
+
+/// Drops a running translation: no further chunk follows, not even a final one.
+#[tauri::command]
+#[specta::specta]
+fn translation_cancel(state: State<'_, Shared>, request_id: RequestId) {
+    state.modules.translation.cancel(request_id);
+}
+
+/// Puts a finished translation on the clipboard as text (the panel's *Copy*), through the
+/// platform layer so it works whether or not the notch window holds focus. Empty text is a
+/// no-op. `platform.*` when the clipboard would not take it.
+#[tauri::command]
+#[specta::specta]
+fn translation_copy(state: State<'_, Shared>, text: String) -> Result<(), IpcError> {
+    if text.trim().is_empty() {
+        return Ok(());
+    }
+    state
+        .platform
+        .drag_source()
+        .place_on_clipboard(&DragPayload::Text(text))?;
+    Ok(())
+}
+
 // --- support ------------------------------------------------------------------------------
 
 /// Snapshot of the Support module (docs/modules/support.md); emitted after a diagnostics
@@ -2829,6 +2991,12 @@ pub fn builder() -> Builder<tauri::Wry> {
             get_health_snapshot,
             health_command,
             mirror_watch,
+            get_translation_snapshot,
+            translation_set_key,
+            translation_clear_key,
+            translate,
+            translation_cancel,
+            translation_copy,
             get_support_snapshot,
             support_command,
             support_open,
@@ -2878,6 +3046,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             ScreenTimeChanged,
             AiCodingChanged,
             HealthChanged,
+            TranslationChunkEvent,
+            TranslationChanged,
             SupportChanged,
             NotificationsChanged,
             ShelfChanged,
