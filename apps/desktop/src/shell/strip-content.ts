@@ -1,6 +1,7 @@
 import {
   type DropActionKind,
   HUD_NOTICE_IDS,
+  type HealthFlow,
   type Leading,
   type PomodoroPhase,
   type StripContent,
@@ -28,6 +29,24 @@ export const pomodoroFinishedKey: Readonly<Record<PomodoroPhase, PomodoroMessage
   work: 'strip.message.pomodoroWorkFinished',
   shortBreak: 'strip.message.pomodoroShortBreakFinished',
   longBreak: 'strip.message.pomodoroLongBreakFinished',
+};
+
+type HealthMessageKey = Extract<MessageKey, `strip.message.health${string}`>;
+
+/** The wide text while a guided health flow runs (docs/modules/health.md, "Strip"). */
+export const healthFlowKey: Readonly<Record<HealthFlow, HealthMessageKey>> = {
+  move: 'strip.message.healthFlowMove',
+  breathe: 'strip.message.healthFlowBreathe',
+  stretch: 'strip.message.healthFlowStretch',
+  eyeRest: 'strip.message.healthFlowEyeRest',
+};
+
+/** The notice text when a guided health flow ran its course. */
+export const healthFlowFinishedKey: Readonly<Record<HealthFlow, HealthMessageKey>> = {
+  move: 'strip.message.healthFlowMoveFinished',
+  breathe: 'strip.message.healthFlowBreatheFinished',
+  stretch: 'strip.message.healthFlowStretchFinished',
+  eyeRest: 'strip.message.healthFlowEyeRestFinished',
 };
 
 /**
@@ -168,6 +187,17 @@ export const messageText = (message: StripMessage, t: Translate): string => {
       return message.tool === null
         ? t('strip.message.agentWaiting', { agent: message.agent })
         : t('strip.message.agentPermission', { agent: message.agent, tool: message.tool });
+    case 'healthBreak':
+      return t('strip.message.healthBreak', { duration: formatMinutes(message.minutes, t) });
+    case 'healthFlow':
+      return t(healthFlowKey[message.flow]);
+    case 'healthFlowFinished':
+      return t(healthFlowFinishedKey[message.flow]);
+    case 'healthHearing':
+      return t('strip.message.healthHearing', {
+        percent: message.percent,
+        duration: formatMinutes(message.minutes, t),
+      });
   }
 };
 
@@ -417,6 +447,23 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
           ? t('strip.describe.agentDecision', { agent, tool })
           : t('strip.describe.agentPermission', { agent, tool });
       }
+      case 'healthBreak':
+        return t('strip.describe.healthBreak', {
+          duration: formatMinutes(item.wide.minutes, t),
+        });
+      case 'healthFlow': {
+        // The countdown on the right says how long the flow has to go.
+        const fact =
+          item.trailing?.kind === 'timer' ? describeSlot(item.trailing, t, locale) : null;
+        return fact === null ? message : t('strip.describe.healthFlow', { flow: message, fact });
+      }
+      case 'healthFlowFinished':
+        return message;
+      case 'healthHearing':
+        return t('strip.describe.healthHearing', {
+          percent: formatPercent(item.wide.percent, locale),
+          duration: formatMinutes(item.wide.minutes, t),
+        });
     }
   }
   // A battery glyph beside its own percentage is one fact, not two.
