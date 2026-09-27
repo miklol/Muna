@@ -1,0 +1,37 @@
+/*
+ * Segmented ring primitive — stroke 8 (small 6), butt caps so the 2 px gaps between arcs stay
+ * gaps, starts at 12 o'clock. The track is `--surface-3` so an empty ring still reads as a
+ * ring; every arc is its own tint.
+ */
+
+.muna-segmented-ring {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+
+.muna-segmented-ring__svg {
+  display: block;
+  grid-area: 1 / 1;
+  transform: rotate(-90deg);
+}
+
+.muna-segmented-ring__track {
+  fill: none;
+  stroke: var(--surface-3);
+}
+
+.muna-segmented-ring__segment {
+  fill: none;
+  stroke: var(--muna-tint);
+  stroke-linecap: butt;
+}
+
+.muna-segmented-ring__content {
+  display: inline-flex;
+  grid-area: 1 / 1;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}

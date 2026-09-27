@@ -21,6 +21,7 @@ pub mod media;
 pub mod notes;
 pub mod notifications;
 pub mod pomodoro;
+pub mod screen_time;
 pub mod shelf;
 pub mod system_monitor;
 pub mod todo;
@@ -99,6 +100,7 @@ pub struct ModuleServices {
     pub window_snap: Arc<window_snap::WindowSnapService>,
     pub code_hosting: Arc<code_hosting::CodeHostingService>,
     pub notes: Arc<notes::NotesService>,
+    pub screen_time: Arc<screen_time::ScreenTimeService>,
 }
 
 impl ModuleServices {
@@ -189,6 +191,13 @@ impl ModuleServices {
                 Arc::clone(store),
                 profile_dir.map(notes::default_folder),
             )),
+            screen_time: Arc::new(screen_time::ScreenTimeService::new(
+                Arc::clone(platform),
+                Arc::clone(hub),
+                Arc::clone(store),
+                Arc::clone(clock),
+                Arc::new(screen_time::LocalZone),
+            )),
         }
     }
 }
@@ -232,6 +241,9 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
             &services.code_hosting,
         ))),
         Box::new(notes::NotesModule(Arc::clone(&services.notes))),
+        Box::new(screen_time::ScreenTimeModule(Arc::clone(
+            &services.screen_time,
+        ))),
     ]
 }
 

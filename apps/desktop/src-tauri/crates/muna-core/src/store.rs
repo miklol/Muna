@@ -77,6 +77,30 @@ const MIGRATIONS: &[&str] = &[
     );
     CREATE INDEX shelf_items_order ON shelf_items (sort_order, added_at);
     CREATE INDEX shelf_items_added_at ON shelf_items (added_at);",
+    // M4-E8: Screen time (docs/modules/screen-time.md). `usage_apps` is one row per executable
+    // (`exe` is the lower-case file name), holding the display name and last path for its
+    // icon plus the user's choices: `category` overrides the rule table when set, `excluded`
+    // apps are never recorded, `limit_minutes` is the daily limit. `usage_sessions` are the
+    // foreground spans; the open one is written with its last flush time and moved forward.
+    // Never window titles. Times are Unix milliseconds.
+    "CREATE TABLE usage_apps (
+        exe TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        path TEXT NOT NULL,
+        category TEXT,
+        excluded INTEGER NOT NULL DEFAULT 0,
+        limit_minutes INTEGER,
+        first_seen INTEGER NOT NULL,
+        last_seen INTEGER NOT NULL
+    );
+    CREATE TABLE usage_sessions (
+        id INTEGER PRIMARY KEY,
+        exe TEXT NOT NULL REFERENCES usage_apps (exe) ON DELETE CASCADE,
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER NOT NULL
+    );
+    CREATE INDEX usage_sessions_span ON usage_sessions (started_at, ended_at);
+    CREATE INDEX usage_sessions_exe ON usage_sessions (exe, started_at);",
 ];
 
 /// One pomodoro phase that ran, as logged by the module. Times are Unix milliseconds.

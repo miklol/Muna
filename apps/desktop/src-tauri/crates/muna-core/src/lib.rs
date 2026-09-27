@@ -15,6 +15,7 @@ pub mod shell_settings;
 pub mod snap;
 pub mod store;
 pub mod tasks;
+pub mod usage;
 pub mod wire;
 
 pub use activities::{
@@ -32,4 +33,5 @@ pub use shell_settings::{MonitorLayout, NotchShape, PlacementMode, ShellSettings
 pub use snap::{SnapSession, SnapSessionId, SnapSessions, SnapWindow};
 pub use store::{PomodoroSessionRecord, Store, StoreError};
 pub use tasks::{Due, INBOX_LIST_ID, NewTask, Task, TaskList, TaskPatch};
+pub use usage::{AppSighting, UsageApp, UsageSession};
 pub use wire::{Finite, Int53};

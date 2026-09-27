@@ -24,17 +24,17 @@ pub use fake::{
     WindowingCall,
 };
 pub use traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground, Location,
-    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
+    AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
+    Location, Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
     WindowPlacement, Windowing,
 };
 pub use types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothDeviceKind,
-    BluetoothRadioState, BrightnessKind, BrightnessMonitor, DiskSpace, DragOutcome, DragPayload,
-    DropEffect, ForegroundWindow, GeoPosition, MediaCommand, MediaControls, MediaSession,
-    MonitorInfo, Notification, NotificationAccess, NotificationDelivery, OsdState, PlaybackStatus,
-    PowerSource, ProcessUsage, Rect, RepeatMode, SystemSample, Thumbnail, TransferMode,
-    UserNotificationState, WindowHandle,
+    AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
+    BluetoothDeviceKind, BluetoothRadioState, BrightnessKind, BrightnessMonitor, DiskSpace,
+    DragOutcome, DragPayload, DropEffect, ForegroundWindow, GeoPosition, MediaCommand,
+    MediaControls, MediaSession, MonitorInfo, Notification, NotificationAccess,
+    NotificationDelivery, OsdState, PlaybackStatus, PowerSource, ProcessUsage, Rect, RepeatMode,
+    SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
 };
 
 /// Constructs the platform implementation for the current build.
