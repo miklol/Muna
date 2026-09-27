@@ -11,6 +11,7 @@ import { dropActionsModule } from './drop-actions';
 import { hudModule } from './hud';
 import { keyboardShortcutsModule } from './keyboard-shortcuts';
 import { mediaModule } from './media';
+import { notesModule } from './notes';
 import { notificationsModule } from './notifications';
 import { pomodoroModule } from './pomodoro';
 import { shelfModule } from './shelf';
@@ -178,6 +179,7 @@ export const modules: readonly ModuleDefinition[] = [
   shelfModule,
   windowSnapModule,
   codeHostingModule,
+  notesModule,
 ];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>
