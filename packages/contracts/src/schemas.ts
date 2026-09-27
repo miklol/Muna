@@ -17,6 +17,7 @@ import type {
   AiWaiting,
   AppCategory,
   AppUsage,
+  BreathePattern,
   CategoryUsage,
   ChecksState,
   CodeHostError,
@@ -46,8 +47,17 @@ import type {
   DropTile,
   Dropped,
   ExcludedApp,
+  FlowState,
   FolderProblem,
   Glyph,
+  HealthChanged,
+  HealthCommand,
+  HealthDay,
+  HealthFlow,
+  HealthGoals,
+  HealthSnapshot,
+  HealthWeekDay,
+  HearingState,
   HotkeyBinding,
   HotkeyState,
   JsonValue,
@@ -80,6 +90,7 @@ import type {
   ShelfSnapshot,
   ShellLayout,
   ShellSettings,
+  SittingStatus,
   SnapDragEnded,
   SnapDragLeft,
   SnapDragMoved,
@@ -236,6 +247,7 @@ export const glyphSchema = z.enum([
   'pullRequest',
   'xCircle',
   'terminal',
+  'heart',
 ]) satisfies z.ZodType<Glyph>;
 
 /** What a drop action does with the items (docs/modules/drop-actions.md "Tiles"). */
@@ -308,6 +320,16 @@ export const pomodoroPhaseSchema = z.enum([
   'longBreak',
 ]) satisfies z.ZodType<PomodoroPhase>;
 
+/** The guided flows the Health panel offers (docs/modules/health.md "Take a break"). */
+export const HEALTH_FLOWS = [
+  'move',
+  'breathe',
+  'stretch',
+  'eyeRest',
+] as const satisfies readonly HealthFlow[];
+
+export const healthFlowSchema = z.enum(HEALTH_FLOWS) satisfies z.ZodType<HealthFlow>;
+
 export const stripMessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('text'), value: z.string() }),
   z.object({ kind: z.literal('batteryLow'), percent }),
@@ -344,6 +366,10 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
     minutes: z.number().int().min(1),
   }),
   z.object({ kind: z.literal('agentWaiting'), agent: z.string(), tool: z.string().nullable() }),
+  z.object({ kind: z.literal('healthBreak'), minutes: z.number().int().min(0) }),
+  z.object({ kind: z.literal('healthFlow'), flow: healthFlowSchema }),
+  z.object({ kind: z.literal('healthFlowFinished'), flow: healthFlowSchema }),
+  z.object({ kind: z.literal('healthHearing'), percent, minutes: z.number().int().min(0) }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({
@@ -2209,6 +2235,160 @@ export const waitingSessions = (sessions: readonly AiSession[]): readonly AiSess
 /** The sessions still working, in the snapshot's order. */
 export const runningSessions = (sessions: readonly AiSession[]): readonly AiSession[] =>
   sessions.filter((session) => session.status === 'running');
+
+/** The key of the Health module's namespace; also its module id. */
+export const HEALTH_SETTINGS_KEY = 'health';
+
+/** The Health module's strip ids (docs/modules/health.md "Contract"). */
+export const HEALTH_STRIP_IDS = {
+  flow: 'health:flow',
+  break: 'health:break',
+  flowFinished: 'health:flow-finished',
+  hearing: 'health:hearing',
+} as const;
+
+/** The bounds the Health pane offers and the module clamps to (`modules::health::settings`). */
+export const HEALTH_BOUNDS = {
+  breakEveryMin: { min: 15, max: 180 },
+  waterGoal: { min: 1, max: 20 },
+  windDownHour: { min: 18, max: 23 },
+} as const;
+
+/** How the Breathe flow paces itself: box 4-4-4-4 or relax 4-7-8. */
+export const BREATHE_PATTERNS = ['box', 'relax'] as const satisfies readonly BreathePattern[];
+
+export const breathePatternSchema = z.enum(BREATHE_PATTERNS) satisfies z.ZodType<BreathePattern>;
+
+/**
+ * Mirrors `modules::health::HealthSettings`: defaults for missing fields, out-of-range values
+ * clamp to the bounds, a wrong type fails the whole entry, like the Rust side.
+ */
+export const healthSettingsSchema = z.object({
+  enabled: z.boolean().default(true),
+  breakEveryMin: clampedInt(HEALTH_BOUNDS.breakEveryMin, 50),
+  waterGoal: clampedInt(HEALTH_BOUNDS.waterGoal, 8),
+  /** The local hour from which the panel reports winding down; `null` never does. */
+  windDownHour: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(null)
+    .transform((value) =>
+      value === null
+        ? null
+        : Math.min(HEALTH_BOUNDS.windDownHour.max, Math.max(HEALTH_BOUNDS.windDownHour.min, value)),
+    ),
+  hearingWarning: z.boolean().default(true),
+  breathePattern: breathePatternSchema.default('box'),
+});
+export type HealthSettings = z.infer<typeof healthSettingsSchema>;
+
+export const defaultHealthSettings = (): HealthSettings => healthSettingsSchema.parse({});
+
+/** Reads the Health namespace; a missing or malformed entry yields the defaults, like Rust. */
+export const readHealthSettings = (settings: Settings): HealthSettings => {
+  const parsed = healthSettingsSchema.safeParse(settings.modules[HEALTH_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultHealthSettings();
+};
+
+/** Returns a new document with the Health namespace replaced. */
+export const writeHealthSettings = (settings: Settings, health: HealthSettings): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [HEALTH_SETTINGS_KEY]: health },
+});
+
+export const sittingStatusSchema = z.enum([
+  'sitting',
+  'away',
+  'locked',
+  'off',
+]) satisfies z.ZodType<SittingStatus>;
+
+/** Today's counters as the panel shows them. */
+export const healthDaySchema = z.object({
+  activeMs: durationMs,
+  longestSitMs: durationMs,
+  breaks: z.number().int().min(0),
+  water: z.number().int().min(0),
+  mindfulSeconds: z.number().int().min(0),
+  flows: z.number().int().min(0),
+}) satisfies z.ZodType<HealthDay>;
+
+/** What fills each ring. */
+export const healthGoalsSchema = z.object({
+  breaks: z.number().int().min(1),
+  water: z.number().int().min(1),
+  mindfulSeconds: z.number().int().min(1),
+}) satisfies z.ZodType<HealthGoals>;
+
+/** One weekday dot. */
+export const healthWeekDaySchema = z.object({
+  dayStartMs: epochMs,
+  breaks: z.number().int().min(0),
+  water: z.number().int().min(0),
+  mindfulSeconds: z.number().int().min(0),
+  goalsMet: z.number().int().min(0).max(3),
+}) satisfies z.ZodType<HealthWeekDay>;
+
+/** The running flow; the UI counts `remainingMs` down from `generatedAtMs`. */
+export const flowStateSchema = z.object({
+  flow: healthFlowSchema,
+  startedMs: epochMs,
+  remainingMs: durationMs,
+  totalMs: durationMs,
+  pattern: breathePatternSchema,
+}) satisfies z.ZodType<FlowState>;
+
+/** Loud audio on headphones right now. */
+export const hearingStateSchema = z.object({
+  percent,
+  loudForMs: durationMs,
+  warned: z.boolean(),
+}) satisfies z.ZodType<HearingState>;
+
+/** What `commands.getHealthSnapshot` returns and `events.healthChanged` carries. */
+export const healthSnapshotSchema = z.object({
+  enabled: z.boolean(),
+  sitting: sittingStatusSchema,
+  sittingSinceMs: epochMs.nullable(),
+  sittingMs: durationMs,
+  nextBreakInMs: durationMs.nullable(),
+  breakDueSinceMs: epochMs.nullable(),
+  today: healthDaySchema,
+  goals: healthGoalsSchema,
+  week: z.array(healthWeekDaySchema),
+  streakDays: z.number().int().min(0),
+  flow: flowStateSchema.nullable(),
+  hearing: hearingStateSchema.nullable(),
+  windingDown: z.boolean(),
+  dayStartMs: epochMs,
+  generatedAtMs: epochMs,
+}) satisfies z.ZodType<HealthSnapshot>;
+
+export const healthChangedSchema = z.object({
+  snapshot: healthSnapshotSchema,
+}) satisfies z.ZodType<HealthChanged>;
+
+/** The argument of `commands.healthCommand`. */
+export const healthCommandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('startFlow'), flow: healthFlowSchema }),
+  z.object({ kind: z.literal('stopFlow') }),
+  z.object({ kind: z.literal('water'), delta: z.number().int() }),
+  z.object({ kind: z.literal('snooze') }),
+  z.object({ kind: z.literal('dismiss') }),
+  z.object({ kind: z.literal('reset') }),
+  z.object({ kind: z.literal('clearHistory') }),
+]) satisfies z.ZodType<HealthCommand>;
+
+/** How many of the three goals `day` met, the way the Rust side scores a weekday dot. */
+export const healthGoalsMet = (
+  day: Pick<HealthDay, 'breaks' | 'water' | 'mindfulSeconds'>,
+  goals: HealthGoals,
+): number =>
+  Number(day.breaks >= goals.breaks) +
+  Number(day.water >= goals.water) +
+  Number(day.mindfulSeconds >= goals.mindfulSeconds);
 
 /** The key of the Support module's namespace; also its module id. */
 export const SUPPORT_SETTINGS_KEY = 'support';
