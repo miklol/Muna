@@ -151,7 +151,8 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | ------ | ----- | ------- |
 | GitHub | REST/GraphQL with **device flow** OAuth (`client_id` public); notifications `GET /notifications`, PRs `search/issues`, checks `GET /repos/{o}/{r}/commits/{sha}/check-runs`; ETag + `X-Poll-Interval` | Token in Credential Manager |
 | GitLab | REST v4 PAT or OAuth PKCE; `/merge_requests?scope=assigned_to_me`, `/todos` | Self-hosted URL supported |
-| Claude Code / Codex / Copilot CLI status | Watch local session files (`%USERPROFILE%\.claude\projects\**\*.jsonl`), terminal titles via `EVENT_OBJECT_NAMECHANGE` on console/WT windows, optional local HTTP webhook (`127.0.0.1:port`) posted by hooks | Best effort; per-tool adapter |
+| Claude Code / Codex / Copilot CLI status | Watch local session files (`%USERPROFILE%\.claude\projects\**\*.jsonl`), terminal titles via `EVENT_OBJECT_NAMECHANGE` on console/WT windows, optional local HTTP webhook (`127.0.0.1:port`) posted by hooks | Best effort; per-tool adapter. **Built** (M4-E5): the webhook is `ai_coding::receiver` (hyper on `127.0.0.1`, configured port, bearer token, held `PermissionRequest`); Claude Code posts seven hook events and its transcript is tailed; Copilot CLI is followed through `%USERPROFILE%\.copilot\session-state\*` (`inuse.<pid>.lock`, `events.jsonl`) on a 2 s / 10 s poll — no `notify` watcher and no terminal-title watching |
+| Terminal of a coding agent | `GetExtendedTcpTable(TCP_TABLE_OWNER_PID_CONNECTIONS)` (IPv4 and IPv6) maps a hook post's loopback peer port to the CLI's pid; `EnumWindows` + `GetWindowThreadProcessId` to its main window, brought forward through the shell's `WindowPlacement` | **Built** (M4-E5) as the `Processes` trait (`owner_of_local_port`, `main_window`); the Copilot pid comes from the lock file name instead |
 
 ## Packaging, update, signing
 

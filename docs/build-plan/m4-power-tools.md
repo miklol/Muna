@@ -151,6 +151,26 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
   `SegmentedRing` primitive. Details in
   [screen-time → Implementation notes](../modules/screen-time.md#implementation-notes-m4-e8);
   attribution and privacy rows in [qa/checklists/screen-time](../qa/checklists/screen-time.md).
+- **M4-E5 AI coding status — built** (branch `m4-e5-ai-coding`, stacked on
+  `m4-e8-screen-time`). The `Processes` trait (`main_window(pid)`,
+  `owner_of_local_port(port)` over `GetExtendedTcpTable`) is the only platform addition. The
+  `LocalReceiver` row became `ai_coding::receiver`: hyper on `127.0.0.1`, a **configured port**
+  (47391, the next ten tried when taken) rather than the random one planned — hook URLs are
+  static configuration in the agents' own files — a per-install bearer token in the store's
+  `meta` table, 64 KiB bodies, 30 requests a second, and a `PermissionRequest` **held** up to
+  25 s for the strip's answer. Claude Code posts seven hook events (*Install hooks* writes and
+  removes exactly those in `~\.claude\settings.json`), its transcript is tailed for usage and
+  the branch is read from `HEAD` without a `git` process; Copilot CLI has no hooks, so live
+  sessions are its `inuse.<pid>.lock` files and `events.jsonl` is followed on a 2 s / 10 s
+  cadence (no `notify` watcher, nothing while off or locked); any process may post the
+  generic document. A decidable prompt is the `ai-coding:waiting:<session>` activity
+  (priority 62, `Trailing::Decision`), everything else that stops for the user a notice. The
+  panel, the widget and the pane as specified; `@muna/ui` gained the `DecisionButtons`
+  primitive and the strip a `decision` slot. Not built: the `SendInput('y')` fallback (a
+  decision reaches only an agent that can take it), Cursor / Codex adapters (the generic
+  route stands in), Copilot token counts (the CLI reports none). Details in
+  [ai-coding → Implementation notes](../modules/ai-coding.md#implementation-notes-m4-e5);
+  timing and receiver rows in [qa/checklists/ai-coding](../qa/checklists/ai-coding.md).
 
 ### Order
 
@@ -195,7 +215,7 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
 | `WindowEvents` | `SetWinEventHook(EVENT_SYSTEM_MOVESIZESTART / END, EVENT_SYSTEM_FOREGROUND)` on a dedicated message-pump thread, `DWMWA_EXTENDED_FRAME_BOUNDS`, `SetWindowPos`, `GetLastInputInfo` — built for E3 as `MoveSizeChanged { started, window }` plus the `WindowPlacement` trait (`is_snappable`, `frame_bounds`, `place`, `maximize`); E8 added `Foreground::idle_for` (`GetLastInputInfo`) and `ForegroundWindow.process_path` | E3, E8 |
 | `AppIcons` | Built as `AppInfo::describe(path, px)`: the version resource's `FileDescription` plus the shell icon through `IShellItemImageFactory` (the shelf's renderer), not `SHGetFileInfoW` | E8 |
 | `Http` | `reqwest` with ETag / `If-None-Match` and a per-host poll-interval, only inside user-enabled integrations; tokens in Credential Manager through `keyring` | E4 |
-| `LocalReceiver` | `127.0.0.1` listener on a random port with a per-launch token; body size and rate limits | E5 |
+| `LocalReceiver` | Built as `ai_coding::receiver` (hyper on `127.0.0.1`, configured port with ten retries, per-install bearer token from the store's `meta`, 64 KiB bodies, 30 req/s, held permission requests); the platform side is the `Processes` trait — `main_window(pid)` and `owner_of_local_port(port)` via `GetExtendedTcpTable` | E5 |
 
 ### Spikes with exit criteria
 
