@@ -61,7 +61,7 @@ Manager, and the failure statuses. Rows 1–4 are spike S2; they need a local se
 | 31 | Edit `settings.json` by hand: a 600-character `endpoint`, `"source": ""`, `"target": "x".repeat(40)` | Rust clips the endpoint to 512 characters and the tag to 35, the source falls back to `auto`; the pane still reads |
 | 32 | Dashboard → *Add a widget* → Translation | *Detect language → English* with *Open the panel to translate*; *Translating* while a request runs; with the module off, *Translation is off · Turn it on in Settings* |
 | 33 | Command palette → *Translate text* | the Translation panel opens with the source box focused |
-| 34 | Tab through the panel | *Translate from*, *Swap languages* (when enabled), *Translate to*, *Settings*, the source box, the answer box when it has text (Tab, then arrows scroll a long answer), *Copy translation*, *Translate* / *Stop*; in the list, *Back* returns to the pair |
+| 34 | Tab through the panel | *Translate from*, *Swap languages* (when enabled), *Translate to*, *Settings*, the source box, the answer box (named *Translation*; arrows scroll a long answer), *Copy translation*, *Translate* / *Stop*; in the list, *Back* returns to the pair |
 | 35 | Narrator on, translate | the footer is a single status region: *Translating* once, *Translation finished* once; the answer box is not read word by word while it streams (no live region) but reads as *Translation* when reached |
 | 36 | Reduced motion (Windows *Animation effects* off) | the panel body fades in only; the pair ↔ list switch has no slide |
 | 37 | Task Manager → Details, sort by CPU, panel closed for five minutes with the module on | `muna.exe` and `notch.exe` together stay under 0.3 % CPU; no network traffic from Muna (Resource Monitor → Network) |
