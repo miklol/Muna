@@ -86,10 +86,53 @@ const resetLiveRegion: NonNullable<Preview['beforeEach']> = () => {
   clearLiveAnnouncements();
 };
 
+/** The longest a story waits for its enter transitions before the audit runs anyway. */
+export const SETTLE_MS = 3000;
+
+/** Motion creates its Web Animations a frame or two after the commit; wait for them to show up. */
+const WARMUP_MS = 100;
+
+/**
+ * Waits for the page's finite Web Animations to finish, `limit` milliseconds at most.
+ *
+ * Motion drives enter transitions through WAAPI. The test runner pauses CSS animations and
+ * transitions before a story's `afterEach` hooks run but leaves WAAPI alone, and axe reads
+ * computed styles: a story audited during a fade blends every foreground into the glass and
+ * reports a contrast ratio no one ever sees at rest. Looping animations (shimmer) are skipped;
+ * `finished` rejects for a cancelled animation, which counts as settled too.
+ */
+export async function settleAnimations(limit = SETTLE_MS): Promise<void> {
+  if (typeof document.getAnimations !== 'function') return;
+  const deadline = performance.now() + limit;
+  await new Promise((resolve) => setTimeout(resolve, WARMUP_MS));
+  const running = () =>
+    document
+      .getAnimations()
+      .filter(
+        (animation) =>
+          animation.playState === 'running' &&
+          animation.effect?.getTiming().iterations !== Infinity,
+      );
+  for (let active = running(); active.length > 0; active = running()) {
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) return;
+    await Promise.race([
+      Promise.allSettled(active.map((animation) => animation.finished)),
+      new Promise((resolve) => setTimeout(resolve, remaining)),
+    ]);
+  }
+}
+
+// Storybook runs `afterEach` hooks in reverse: the project's come before the a11y addon's audit.
+const settleBeforeAudit: NonNullable<Preview['afterEach']> = async () => {
+  await settleAnimations();
+};
+
 export const munaPreview = {
   parameters: munaParameters,
   globalTypes: munaGlobalTypes,
   initialGlobals: munaInitialGlobals,
   decorators: [withMunaGlobals],
   beforeEach: [resetLiveRegion],
+  afterEach: [settleBeforeAudit],
 } satisfies Preview;

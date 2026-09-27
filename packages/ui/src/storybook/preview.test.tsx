@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { clearLiveAnnouncements } from './preview';
+import { clearLiveAnnouncements, settleAnimations } from './preview';
 
 // The markup React Aria's LiveAnnouncer builds: a hidden wrapper holding one log per politeness.
 function mountLiveRegion(): HTMLDivElement {
@@ -44,5 +44,65 @@ describe('clearLiveAnnouncements', () => {
     expect(() => {
       clearLiveAnnouncements();
     }).not.toThrow();
+  });
+});
+
+// jsdom has no Web Animations API; a stub of `document.getAnimations` stands in for it.
+function fakeAnimation(iterations: number, finish: Promise<unknown>): Animation {
+  return {
+    playState: 'running',
+    effect: { getTiming: () => ({ iterations }) },
+    finished: finish,
+  } as unknown as Animation;
+}
+
+describe('settleAnimations', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(document, 'getAnimations');
+    vi.useRealTimers();
+  });
+
+  it('returns once the running finite animations have finished', async () => {
+    let finish: (() => void) | undefined;
+    const enter = fakeAnimation(
+      1,
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    let calls = 0;
+    document.getAnimations = () => {
+      calls += 1;
+      return calls === 1 ? [enter] : [];
+    };
+
+    let settled = false;
+    const wait = settleAnimations().then(() => {
+      settled = true;
+    });
+    // Past the warm-up the animation is found and awaited.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(settled).toBe(false);
+    finish?.();
+    await wait;
+    expect(settled).toBe(true);
+  });
+
+  it('skips looping animations and settles at once', async () => {
+    document.getAnimations = () => [fakeAnimation(Infinity, new Promise(() => undefined))];
+    await expect(settleAnimations()).resolves.toBeUndefined();
+  });
+
+  it('gives up after the limit when an animation never finishes', async () => {
+    vi.useFakeTimers();
+    document.getAnimations = () => [fakeAnimation(1, new Promise(() => undefined))];
+    const wait = settleAnimations(200);
+    // The warm-up, then the whole limit.
+    await vi.advanceTimersByTimeAsync(400);
+    await expect(wait).resolves.toBeUndefined();
+  });
+
+  it('does nothing where the Web Animations API is missing', async () => {
+    await expect(settleAnimations()).resolves.toBeUndefined();
   });
 });

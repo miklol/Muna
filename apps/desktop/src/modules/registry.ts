@@ -22,6 +22,7 @@ import { shelfModule } from './shelf';
 import { supportModule } from './support';
 import { systemMonitorModule } from './system-monitor';
 import { todoModule } from './todo';
+import { translationModule } from './translation';
 import { weatherModule } from './weather';
 import { windowSnapModule } from './window-snap';
 
@@ -189,6 +190,7 @@ export const modules: readonly ModuleDefinition[] = [
   aiCodingModule,
   healthModule,
   mirrorModule,
+  translationModule,
   supportModule,
 ];
 

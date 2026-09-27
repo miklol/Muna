@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { dropModuleOf, findModule, modules, snapModuleOf } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf, window snap, code hosting, notes, screen time and AI coding (M4), then health, mirror and support (M5)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf, window snap, code hosting, notes, screen time and AI coding (M4), then health, mirror, translation and support (M5)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
@@ -26,6 +26,7 @@ describe('module registry', () => {
       'ai-coding',
       'health',
       'mirror',
+      'translation',
       'support',
     ]);
     expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
@@ -80,6 +81,9 @@ describe('module registry', () => {
     expect(findModule('mirror')?.settings).toBeDefined();
     expect(findModule('mirror')?.panel).toBeDefined();
     expect(findModule('mirror')?.actions).toBeUndefined();
+    expect(findModule('translation')?.titleKey).toBe('translation.title');
+    expect(findModule('translation')?.settings).toBeDefined();
+    expect(findModule('translation')?.panel).toBeDefined();
     expect(findModule('support')?.titleKey).toBe('support.title');
     expect(findModule('support')?.settings).toBeDefined();
     expect(findModule('support')?.panel).toBeDefined();
@@ -118,7 +122,7 @@ describe('module registry', () => {
     expect(snapModuleOf(modules.filter((module) => module.id !== 'window-snap'))).toBeUndefined();
   });
 
-  it('declares the module actions on the media, to-do, pomodoro, code-hosting, notes and health modules only', () => {
+  it('declares the module actions on the media, to-do, pomodoro, code-hosting, notes, health and translation modules only', () => {
     const withActions = modules
       .filter((module) => module.actions !== undefined)
       .map((module) => [module.id, module.actions?.map((action) => action.id)]);
@@ -129,6 +133,7 @@ describe('module registry', () => {
       ['code-hosting', ['code-hosting.refresh']],
       ['notes', ['notes.quickNote']],
       ['health', ['health.water', 'health.breathe']],
+      ['translation', ['translation.translate']],
     ]);
   });
 
@@ -149,6 +154,7 @@ describe('module registry', () => {
       'ai-coding',
       'health',
       'mirror',
+      'translation',
     ]);
   });
 
