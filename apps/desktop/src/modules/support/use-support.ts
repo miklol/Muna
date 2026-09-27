@@ -51,8 +51,7 @@ export function useSupportSubscription(): void {
 export type SupportFailure = 'noDesktop' | 'io' | 'zip' | 'updater' | 'failed';
 
 export type CommandOutcome =
-  | { status: 'ok'; outcome: SupportOutcome }
-  | { status: 'error'; failure: SupportFailure };
+  { status: 'ok'; outcome: SupportOutcome } | { status: 'error'; failure: SupportFailure };
 
 const failureOf = (error: IpcError): SupportFailure => {
   switch (error.code) {

@@ -1,4 +1,10 @@
-import type { IpcError, SupportCommand, SupportLink, SupportOutcome, SupportSnapshot } from '@muna/contracts';
+import type {
+  IpcError,
+  SupportCommand,
+  SupportLink,
+  SupportOutcome,
+  SupportSnapshot,
+} from '@muna/contracts';
 import type * as Contracts from '@muna/contracts';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
