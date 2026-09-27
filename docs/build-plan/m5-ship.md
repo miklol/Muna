@@ -100,7 +100,7 @@ leaves E4 a kickoff prompt rather than a branch.
 - Translation sends text to a third party: the endpoint is named on the consent line and in
   the pane; the key never leaves Credential Manager; nothing is logged but the chunk count.
 - Machine-drafted locales: every drafted file carries a `_review` note per section and the
-  language switcher labels them _draft_; en stays the source of truth.
+  language switcher labels them *draft*; en stays the source of truth.
 - High contrast: `[data-contrast=more]` shifts tokens on the black-glass material; audit the
   strip's glyph-on-glass contrast before changing any material value.
 - Narrator: names and roles are testable; the actual reading order is a manual pass on the
