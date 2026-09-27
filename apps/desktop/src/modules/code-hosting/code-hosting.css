@@ -85,8 +85,7 @@
 }
 
 /* The initial stands where the plan draws an avatar: the notch never loads remote images. */
-.code-hosting-row__avatar,
-.code-hosting-account__avatar {
+.code-hosting-row__avatar {
   display: inline-flex;
   flex: none;
   align-items: center;

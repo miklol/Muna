@@ -1,6 +1,6 @@
 import type { CodeHostingSnapshot, PullRequest } from '@muna/contracts';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 
 import { PanelFrame } from '../../storybook/frames';
 import type { IpcHandlers, MunaStoryParameters } from '../../storybook/ipc';
@@ -140,8 +140,11 @@ export const Mine: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(await canvas.findByRole('button', { name: 'Mine' }));
-    await expect(canvas.getByText('GitHub review queue behind a token')).toBeVisible();
-    await expect(canvas.getByText('2 pull requests')).toBeVisible();
+    // The panel enters through the `content` preset from opacity 0; wait for the frame.
+    await waitFor(async () => {
+      await expect(canvas.getByText('GitHub review queue behind a token')).toBeVisible();
+      await expect(canvas.getByText('2 pull requests')).toBeVisible();
+    });
   },
 };
 

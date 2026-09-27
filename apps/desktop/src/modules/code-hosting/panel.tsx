@@ -64,8 +64,9 @@ interface RowProps {
 
 /**
  * One pull request: the author's initial where the plan draws an avatar (the notch never
- * loads remote images), the title, `repo #num` with the host's chip, the change line, and a
- * button that opens the page through Rust.
+ * loads remote images), the title, `repo #num`, the author and the host's name as caption text
+ * (a `Chip` here would share the filter chips' button shape without being one), the change
+ * line, and a button that opens the page through Rust.
  */
 function Row({ row, locale }: RowProps) {
   const { t } = useTranslation();
@@ -96,7 +97,15 @@ function Row({ row, locale }: RowProps) {
           <Text as="span" variant="caption" tone="tertiary" truncate={1}>
             {t('codeHosting.byAuthor', { author: row.author })}
           </Text>
-          <Chip className="code-hosting-row__provider">{provider}</Chip>
+          <Text
+            as="span"
+            variant="caption"
+            tone="tertiary"
+            truncate={1}
+            className="code-hosting-row__provider"
+          >
+            {provider}
+          </Text>
         </span>
         <Text
           as="span"
