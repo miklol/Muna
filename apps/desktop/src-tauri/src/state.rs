@@ -149,6 +149,7 @@ impl AppState {
         self.modules.ai_coding.apply_settings(settings);
         self.modules.health.apply_settings(settings);
         self.modules.mirror.apply_settings(settings);
+        self.modules.translation.apply_settings(settings);
         self.modules.support.apply_settings(settings);
         let bindings = self.modules.keyboard_shortcuts.apply_settings(settings);
         for binding in bindings
