@@ -3,7 +3,7 @@
 //! it goes to and where, and the language pair the panel opens with. Off by default: nothing is
 //! sent until the user turns the module on (`.github/copilot-instructions.md`, "no network calls
 //! without an explicit user-enabled integration"). The API key never lives here — it is in the
-//! credential vault under [`Provider::key_entry`]. A missing or malformed entry yields the
+//! credential vault under [`TranslationProvider::key_entry`]. A missing or malformed entry yields the
 //! defaults instead of failing the whole document, and unknown keys are ignored so an older
 //! build can read a newer file.
 
@@ -22,15 +22,16 @@ pub const TAG_MAX: usize = 35;
 /// the UI maps each to a name, a default endpoint and a default model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
-pub enum Provider {
+pub enum TranslationProvider {
     /// Any OpenAI-compatible chat endpoint (`OpenAI`, `Azure OpenAI`, `OpenRouter`, `LM Studio`).
     #[default]
+    #[serde(rename = "openai")]
     OpenAi,
     /// A local (or LAN) Ollama server, `POST /api/chat`.
     Ollama,
 }
 
-impl Provider {
+impl TranslationProvider {
     /// The id the vault entry and the logs use.
     #[must_use]
     pub const fn id(self) -> &'static str {
@@ -81,10 +82,10 @@ impl Provider {
 pub struct TranslationSettings {
     /// The only switch that lets text leave the machine. Off by default.
     pub enabled: bool,
-    pub provider: Provider,
-    /// The API base the requests go to; blank means [`Provider::default_endpoint`].
+    pub provider: TranslationProvider,
+    /// The API base the requests go to; blank means [`TranslationProvider::default_endpoint`].
     pub endpoint: String,
-    /// The model asked for; blank means [`Provider::default_model`].
+    /// The model asked for; blank means [`TranslationProvider::default_model`].
     pub model: String,
     /// BCP-47 tag of the language the text is in, or [`AUTO`].
     pub source: String,
@@ -96,7 +97,7 @@ impl Default for TranslationSettings {
     fn default() -> Self {
         Self {
             enabled: false,
-            provider: Provider::OpenAi,
+            provider: TranslationProvider::OpenAi,
             endpoint: String::new(),
             model: String::new(),
             source: AUTO.to_owned(),
