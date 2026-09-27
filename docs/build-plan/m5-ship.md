@@ -23,7 +23,8 @@ leaves E4 a kickoff prompt rather than a branch.
   `HudService::repair_flyout` and `ShellManager::repair_app_bars`, wired in `ipc.rs`. Monitor
   topology is not in the bundle yet (it is in the logs); `crashReports` stays reserved. Spec:
   [modules/support](../modules/support.md); QA: [checklists/support](../qa/checklists/support.md).
-- **M5-E1b Health** — built on `m5-e1b-health` (base `m5-e1-support`): the pure tracker
+- **M5-E1b Health** — built on `m5-e1b-health` ([#48](https://github.com/miklol/Muna/pull/48),
+  base `m5-e1-support`): the pure tracker
   (sits, absences, lock and sleep, the interval with snooze, dismiss and the fullscreen
   deferral, the four flows, the hearing clock), the `health_days` store, the service with its
   30 s tick only while at the desk, the panel with the first **held (pinned) panel flows**
