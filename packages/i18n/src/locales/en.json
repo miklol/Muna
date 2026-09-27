@@ -1175,7 +1175,6 @@
   },
   "screenTime": {
     "title": "Screen time",
-    "today": "Today",
     "total": "{{duration}} today",
     "switches_one": "{{count}} switch",
     "switches_other": "{{count}} switches",
@@ -1206,7 +1205,6 @@
       "settings": "Settings"
     },
     "donut": {
-      "label": "Time by category",
       "describe": "{{duration}} today across {{count}} categories"
     },
     "category": {
@@ -1226,14 +1224,12 @@
       "sessions_one": "{{count}} session",
       "sessions_other": "{{count}} sessions",
       "limitReached": "Limit reached",
-      "open": "Details for {{name}}",
       "empty": "No apps yet today"
     },
     "detail": {
       "back": "Back to today",
       "longest": "Longest {{duration}}",
       "category": "Category",
-      "categoryRule": "Suggested",
       "limit": "Daily limit",
       "limitNone": "None",
       "limitBody": "The notch nudges you once when the app passes this today.",
@@ -1242,15 +1238,11 @@
     },
     "week": {
       "label": "Last 7 days",
-      "toggle": "Show the week",
-      "toggleToday": "Show today",
       "day": "{{day}}, {{duration}}",
       "today": "Today",
       "average": "Daily average {{duration}}"
     },
     "layout": {
-      "label": "Layout",
-      "today": "Today",
       "week": "Week"
     },
     "widget": {

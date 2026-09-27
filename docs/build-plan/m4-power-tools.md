@@ -131,6 +131,26 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
   `TextArea` primitive. Details in
   [notes → Implementation notes](../modules/notes.md#implementation-notes-m4-e7); folder and
   other-app rows in [qa/checklists/notes](../qa/checklists/notes.md).
+- **M4-E8 Screen time — built** (branch `m4-e8-screen-time`, stacked on `m4-e7-notes`). No new
+  hook: the shell's foreground, idle and lock signals become spans per lower-case executable in
+  SQLite (migration 5: `usage_apps`, `usage_sessions`); a 10 s tick only while on and unlocked
+  pauses at the moment input stopped, splits at the day-reset hour, flushes once a minute,
+  checks per-app limits (the `screenTimeLimit` strip notice, priority 42, once a day) and
+  prunes 90 days back. The snapshot carries the tracking state, the app in front, today's
+  totals, the top 20 apps with icons, the categories, the last seven days and the excluded
+  list, and is published only while a notch window watches. Commands exclude (which forgets
+  the app's history), include, set category, set limit and clear history; CSV export to a
+  picked folder. The panel has the head chips, the donut with the legend and the session
+  facts, the now card, the ranking with limit bars, the week as stacked bars and an app's
+  details; the widget shows the small donut and what is in front; the pane has counting, idle,
+  day start, the excluded apps, export and clear. Against the plan: **`AppInfo`, not
+  `AppIcons`** — one call gives the version resource's display name and the shell icon through
+  the shelf's image factory, so `SHGetFileInfoW` was not needed; **no `SetWinEventHook`
+  work** — E3 already raised `EVENT_SYSTEM_FOREGROUND`; browser-tab attribution stays deferred
+  (titles are never read); UWP apps count as `applicationframehost.exe`. `@muna/ui` gained the
+  `SegmentedRing` primitive. Details in
+  [screen-time → Implementation notes](../modules/screen-time.md#implementation-notes-m4-e8);
+  attribution and privacy rows in [qa/checklists/screen-time](../qa/checklists/screen-time.md).
 
 ### Order
 
@@ -172,8 +192,8 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
 | `DropTarget` | Tauri `dragDropEnabled` events on the notch window first; `IDropTarget` on the window only if Tauri does not deliver *enter / over / leave* on a non-focusable transparent window (spike S1) | E1 |
 | `FileOps` | `IFileOperation` (copy, move, recycle with `FOF_ALLOWUNDO`), `CM_Request_Device_EjectW`, `ShellExecuteExW`, `DataTransferManager` via `IDataTransferManagerInterop` | E1, E2 |
 | `DragSource` | `DoDragDrop` with a `CF_HDROP` / `CF_UNICODETEXT` data object on the UI thread; thumbnails via `IShellItemImageFactory` | E2 |
-| `WindowEvents` | `SetWinEventHook(EVENT_SYSTEM_MOVESIZESTART / END, EVENT_SYSTEM_FOREGROUND)` on a dedicated message-pump thread, `DWMWA_EXTENDED_FRAME_BOUNDS`, `SetWindowPos`, `GetLastInputInfo` — built for E3 as `MoveSizeChanged { started, window }` plus the `WindowPlacement` trait (`is_snappable`, `frame_bounds`, `place`, `maximize`); `GetLastInputInfo` waits for E8 | E3, E8 |
-| `AppIcons` | `SHGetFileInfoW` → PNG bytes, cached by path | E8 |
+| `WindowEvents` | `SetWinEventHook(EVENT_SYSTEM_MOVESIZESTART / END, EVENT_SYSTEM_FOREGROUND)` on a dedicated message-pump thread, `DWMWA_EXTENDED_FRAME_BOUNDS`, `SetWindowPos`, `GetLastInputInfo` — built for E3 as `MoveSizeChanged { started, window }` plus the `WindowPlacement` trait (`is_snappable`, `frame_bounds`, `place`, `maximize`); E8 added `Foreground::idle_for` (`GetLastInputInfo`) and `ForegroundWindow.process_path` | E3, E8 |
+| `AppIcons` | Built as `AppInfo::describe(path, px)`: the version resource's `FileDescription` plus the shell icon through `IShellItemImageFactory` (the shelf's renderer), not `SHGetFileInfoW` | E8 |
 | `Http` | `reqwest` with ETag / `If-None-Match` and a per-host poll-interval, only inside user-enabled integrations; tokens in Credential Manager through `keyring` | E4 |
 | `LocalReceiver` | `127.0.0.1` listener on a random port with a per-launch token; body size and rate limits | E5 |
 
