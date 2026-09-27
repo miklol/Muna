@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MunaMotionProvider } from '../motion/reduced-motion';
@@ -161,5 +162,40 @@ describe('StripView', () => {
     expect(screen.getByRole('slider', { name: 'Volume' })).toHaveValue('70');
     expect(region.querySelector('[data-slot="trailing"] .muna-strip__slot-content')).toBe(mounted);
     expect(region.querySelector('.muna-level-track__value')).toHaveTextContent('70%');
+  });
+
+  it('shows a decision as two pressable pills beside the wide text', async () => {
+    const user = userEvent.setup();
+    const onAllow = vi.fn();
+    const onDeny = vi.fn();
+    render(
+      <StripView
+        aria-label="Notch strip"
+        itemId="ai-coding:waiting:claude:s1"
+        kind="activity"
+        leading={{ kind: 'icon', icon, tint: 'orange' }}
+        trailing={{
+          kind: 'decision',
+          label: 'Allow or deny',
+          allowLabel: 'Allow',
+          denyLabel: 'Deny',
+          onAllow,
+          onDeny,
+        }}
+        text="Claude Code wants to run Bash"
+        wide
+        description="Claude Code wants to run Bash, allow or deny"
+      />,
+    );
+    const region = screen.getByRole('region', { name: 'Notch strip' });
+    expect(region).toHaveAttribute('data-wide', 'true');
+    expect(region.querySelector('.muna-strip__wide')).toHaveTextContent(
+      'Claude Code wants to run Bash',
+    );
+    const group = screen.getByRole('group', { name: 'Allow or deny' });
+    expect(group.closest('[data-slot="trailing"]')).not.toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Allow' }));
+    expect(onAllow).toHaveBeenCalledTimes(1);
+    expect(onDeny).not.toHaveBeenCalled();
   });
 });

@@ -86,6 +86,70 @@ describe('strip content mapping', () => {
     expect(messageText({ kind: 'screenTimeLimit', app: 'Steam', minutes: 90 }, t)).toBe(
       'Steam · 1 h 30 min limit reached',
     );
+    expect(messageText({ kind: 'agentWaiting', agent: 'Claude Code', tool: 'Bash' }, t)).toBe(
+      'Claude Code wants to run Bash',
+    );
+    expect(messageText({ kind: 'agentWaiting', agent: 'GitHub Copilot', tool: null }, t)).toBe(
+      'GitHub Copilot is waiting for you',
+    );
+  });
+
+  it('keeps a waiting agent wide while the decision pair shows, and wires the pills to the session', () => {
+    const onDecide = vi.fn();
+    const waiting = (trailing: Trailing | null, wide: boolean): StripContent => ({
+      kind: 'activity',
+      wide,
+      activity: {
+        id: 'ai-coding:waiting:claude:s1',
+        module: 'ai-coding',
+        priority: 62,
+        leading: { kind: 'icon', glyph: 'terminal', tint: 'orange' },
+        trailing,
+        wide: { kind: 'agentWaiting', agent: 'Claude Code', tool: 'Bash' },
+      },
+    });
+    const decidable = waiting({ kind: 'decision', session: 'claude:s1' }, false);
+    expect(wantsWide(decidable)).toBe(true);
+    const shown = present(decidable, t, 'en', 0, { decision: { onDecide, pending: null } });
+    expect(shown).toMatchObject({
+      text: 'Claude Code wants to run Bash',
+      wide: true,
+      description: 'Claude Code wants to run Bash, allow or deny',
+    });
+    expect(shown.trailing).toMatchObject({
+      kind: 'decision',
+      label: 'Allow or deny',
+      allowLabel: 'Allow',
+      denyLabel: 'Deny',
+      isDisabled: false,
+    });
+    if (shown.trailing?.kind !== 'decision') throw new Error('expected the decision pair');
+    shown.trailing.onAllow();
+    shown.trailing.onDeny();
+    expect(onDecide.mock.calls).toEqual([
+      ['claude:s1', true],
+      ['claude:s1', false],
+    ]);
+
+    // An answer on its way: the pair dims until Rust retracts the activity.
+    const pending = present(decidable, t, 'en', 0, {
+      decision: { onDecide, pending: 'claude:s1' },
+    });
+    expect(pending.trailing).toMatchObject({ kind: 'decision', isDisabled: true });
+
+    // Without the pair (the hold expired, or the agent is Copilot) the burst rule applies.
+    const plain = waiting(null, false);
+    expect(wantsWide(plain)).toBe(false);
+    expect(present(plain, t, 'en', 0)).toMatchObject({
+      wide: false,
+      description: 'Claude Code wants to run Bash',
+    });
+    const pills = toSlot({ kind: 'decision', session: 'claude:s1' }, ctx);
+    expect(pills).toMatchObject({ kind: 'decision', label: '', allowLabel: '', denyLabel: '' });
+    if (pills?.kind !== 'decision') throw new Error('expected the decision pair');
+    expect(() => {
+      pills.onAllow();
+    }).not.toThrow();
   });
 
   it('formats a minute count as hours and minutes', () => {

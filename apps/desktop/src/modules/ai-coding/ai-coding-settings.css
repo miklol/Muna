@@ -1,0 +1,32 @@
+/*
+ * Settings → AI coding (docs/modules/ai-coding.md): the receiver's port field, its listening
+ * dot and the hook URL as row values. Composes tokens only.
+ */
+
+.ai-coding-settings__port {
+  inline-size: 7ch;
+}
+
+.ai-coding-settings__port input {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+/* Grey until the receiver binds its port, then the same green as a working session. */
+.ai-coding-settings__state {
+  display: inline-block;
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: var(--radius-thumb);
+  background: var(--text-3);
+}
+
+.ai-coding-settings__state[data-listening] {
+  background: var(--accent-green);
+}
+
+.ai-coding-settings__url {
+  max-inline-size: 240px;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}

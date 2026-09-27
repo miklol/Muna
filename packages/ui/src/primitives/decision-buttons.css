@@ -1,0 +1,106 @@
+/*
+ * DecisionButtons primitive — the Allow / Deny pair in the strip's trailing slot
+ * (docs/modules/ai-coding.md). Each pill is the slot's 20 px tall with an 11/600 caption label;
+ * Allow is tinted green on the black glass, Deny is plain. The hit area extends to the strip's
+ * height (`::before`) so a quick press does not need to land on the pill itself. Press scales
+ * 0.96 with the `press` preset, like every button.
+ */
+
+.muna-decision {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding-inline-end: var(--space-1);
+}
+
+.muna-decision__button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  block-size: var(--size-strip-slot);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-thumb);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
+  font-weight: 600;
+  letter-spacing: var(--text-caption--letter-spacing);
+  white-space: nowrap;
+  cursor: default;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform var(--muna-motion-press),
+    background-color var(--muna-motion-press);
+}
+
+/* Effective hit area: the strip's height around the 20 px pill. */
+.muna-decision__button::before {
+  content: '';
+  position: absolute;
+  inset: calc((var(--size-strip-slot) - var(--size-strip-height)) / 2) 0;
+  border-radius: inherit;
+}
+
+.muna-decision__button--allow {
+  background: color-mix(in oklab, var(--accent-green) 28%, transparent);
+  color: var(--accent-green);
+}
+
+.muna-decision__button[data-hovered] {
+  background: var(--surface-3);
+}
+
+.muna-decision__button--allow[data-hovered] {
+  background: color-mix(in oklab, var(--accent-green) 40%, transparent);
+}
+
+.muna-decision__button[data-pressed] {
+  transform: scale(0.96);
+}
+
+.muna-decision__button[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-decision__button[data-disabled] {
+  background: var(--surface-1);
+  color: var(--text-3);
+}
+
+@media (prefers-contrast: more) {
+  .muna-decision__button--allow {
+    background: var(--accent-green);
+    color: var(--on-accent);
+  }
+}
+
+[data-contrast='more'] .muna-decision__button--allow {
+  background: var(--accent-green);
+  color: var(--on-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-decision__button {
+    transition: none;
+  }
+
+  .muna-decision__button[data-pressed] {
+    transform: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-decision__button {
+  transition: none;
+}
+
+:root[data-reduce-motion] .muna-decision__button[data-pressed] {
+  transform: none;
+}

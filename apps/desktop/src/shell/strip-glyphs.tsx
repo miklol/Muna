@@ -25,6 +25,7 @@ import {
   Play,
   Share2,
   Sun,
+  Terminal,
   Timer,
   Trash2,
   Volume,
@@ -81,6 +82,7 @@ export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   shelf: 'strip.glyph.shelf',
   pullRequest: 'strip.glyph.pullRequest',
   xCircle: 'strip.glyph.xCircle',
+  terminal: 'strip.glyph.terminal',
 };
 
 /**
@@ -151,5 +153,7 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <GitPullRequest {...glyphProps} />;
     case 'xCircle':
       return <CircleX {...glyphProps} />;
+    case 'terminal':
+      return <Terminal {...glyphProps} />;
   }
 };

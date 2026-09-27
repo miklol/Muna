@@ -7,6 +7,7 @@ import {
   BellGlyph,
   MusicGlyph,
   SunGlyph,
+  TerminalGlyph,
   TimerGlyph,
   VolumeGlyph,
   VolumeMutedGlyph,
@@ -240,6 +241,61 @@ export const BrightnessHud: Story = {
     description: 'Brightness, 70%',
   },
   render: framed,
+};
+
+/** A coding agent asks permission: the terminal glyph, the sentence, Allow / Deny on the right. */
+function AgentWaitingStrip() {
+  const [answer, setAnswer] = useState<'allow' | 'deny' | null>(null);
+  const answered = answer !== null;
+  return (
+    <div style={{ display: 'grid', gap: 'var(--space-4)', justifyItems: 'center' }}>
+      <Frame wide={!answered}>
+        <StripView
+          aria-label="Notch strip"
+          itemId={answered ? null : 'ai-coding:waiting:claude:s1'}
+          kind={answered ? 'idle' : 'activity'}
+          leading={
+            answered
+              ? null
+              : { kind: 'icon', icon: <TerminalGlyph />, tint: 'orange', id: 'terminal' }
+          }
+          trailing={
+            answered
+              ? null
+              : {
+                  kind: 'decision',
+                  label: 'Allow or deny',
+                  allowLabel: 'Allow',
+                  denyLabel: 'Deny',
+                  onAllow: () => {
+                    setAnswer('allow');
+                  },
+                  onDeny: () => {
+                    setAnswer('deny');
+                  },
+                }
+          }
+          text={answered ? null : 'Claude Code wants to run Bash'}
+          wide={!answered}
+          description={
+            answered ? 'Muna is running.' : 'Claude Code wants to run Bash, allow or deny'
+          }
+        />
+      </Frame>
+      <Text as="p" variant="caption" tone="secondary">
+        {answer === null ? 'Press Allow or Deny.' : `Answered: ${answer}.`}
+      </Text>
+    </div>
+  );
+}
+
+/**
+ * AI coding (docs/modules/ai-coding.md): the wide form with the decision pair trailing. The
+ * pills appear with `reveal`; an answer collapses the strip.
+ */
+export const AgentWaiting: Story = {
+  args: { itemId: 'ai-coding:waiting:claude:s1', kind: 'activity', description: '' },
+  render: () => <AgentWaitingStrip />,
 };
 
 const idle: StripViewProps = {
