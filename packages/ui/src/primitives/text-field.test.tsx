@@ -51,4 +51,17 @@ describe('TextField', () => {
     expect(onChange).toHaveBeenCalledWith('Fixedx');
     expect(input).toHaveValue('Fixed');
   });
+
+  it('masks a secret and keeps the browser from saving it, but still submits it', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<TextField aria-label="Access token" secret onSubmit={onSubmit} />);
+    // A password input has no textbox role; find it by its label.
+    const input = screen.getByLabelText('Access token');
+    expect(input).toHaveAttribute('type', 'password');
+    expect(input).toHaveAttribute('autocomplete', 'off');
+    expect(input).toHaveAttribute('spellcheck', 'false');
+    await user.type(input, 'ghp_secret{Enter}');
+    expect(onSubmit).toHaveBeenCalledWith('ghp_secret');
+  });
 });

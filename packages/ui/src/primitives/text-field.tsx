@@ -29,6 +29,12 @@ export interface TextFieldProps extends Omit<
    * the owner decides what a submit means. Ignored while an IME composition is open.
    */
   onSubmit?: ((value: string) => void) | undefined;
+  /**
+   * A token or password: the input masks its text and asks the browser not to save or
+   * autofill it. The value still reaches `onChange` in clear; the owner sends it on and
+   * clears the field.
+   */
+  secret?: boolean;
   className?: string;
 }
 
@@ -37,7 +43,14 @@ export interface TextFieldProps extends Omit<
  * radius 8. The focused border is `--hairline-strong`; the accent focus ring appears for
  * keyboard focus only. Quick-entry fields (a new task) pass `onSubmit`.
  */
-export function TextField({ placeholder, leading, onSubmit, className, ...rest }: TextFieldProps) {
+export function TextField({
+  placeholder,
+  leading,
+  onSubmit,
+  secret = false,
+  className,
+  ...rest
+}: TextFieldProps) {
   const submitOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Enter' || onSubmit === undefined || event.nativeEvent.isComposing) return;
     const value = event.currentTarget.value.trim();
@@ -46,7 +59,11 @@ export function TextField({ placeholder, leading, onSubmit, className, ...rest }
     onSubmit(value);
   };
   return (
-    <AriaTextField {...rest} className={cx('muna-text-field', className)}>
+    <AriaTextField
+      {...rest}
+      {...(secret ? { type: 'password', autoComplete: 'off' } : {})}
+      className={cx('muna-text-field', className)}
+    >
       {leading !== undefined && (
         <span aria-hidden="true" className="muna-text-field__leading">
           {leading}
@@ -54,6 +71,7 @@ export function TextField({ placeholder, leading, onSubmit, className, ...rest }
       )}
       <Input
         {...(placeholder === undefined ? {} : { placeholder })}
+        {...(secret ? { spellCheck: false } : {})}
         className="muna-text-field__input"
         onKeyDown={submitOnEnter}
       />
