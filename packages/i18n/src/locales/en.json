@@ -94,7 +94,13 @@
       },
       "reviewRequested": "Review requested: {{title}}",
       "checksPassed": "Checks passed: {{title}}",
-      "checksFailed": "Checks failed: {{title}}"
+      "checksFailed": "Checks failed: {{title}}",
+      "screenTimeLimit": "{{app}} · {{limit}} limit reached"
+    },
+    "duration": {
+      "hours": "{{count}} h",
+      "minutes": "{{count}} min",
+      "hoursMinutes": "{{hours}} h {{minutes}} min"
     },
     "describe": {
       "battery": "Battery {{percent}}",
@@ -125,7 +131,8 @@
       "notificationUnread_other": "{{count}} unread, latest from {{app}}: {{title}}",
       "reviewRequested": "Your review is requested on {{title}}",
       "checksPassed": "Checks passed on {{title}}",
-      "checksFailed": "Checks failed on {{title}}"
+      "checksFailed": "Checks failed on {{title}}",
+      "screenTimeLimit": "{{app}} reached its daily limit of {{limit}}"
     },
     "glyph": {
       "battery": "Battery",
@@ -1164,6 +1171,121 @@
       "quickNote": "Quick note",
       "quickNoteBody": "Opens Inbox in the notch with the cursor at the end. Set a shortcut for it under Keyboard shortcuts.",
       "shortcuts": "Keyboard shortcuts"
+    }
+  },
+  "screenTime": {
+    "title": "Screen time",
+    "today": "Today",
+    "total": "{{duration}} today",
+    "switches_one": "{{count}} switch",
+    "switches_other": "{{count}} switches",
+    "duration": {
+      "hoursMinutes": "{{hours}} h {{minutes}} min",
+      "hours": "{{hours}} h",
+      "minutes": "{{minutes}} min",
+      "seconds": "{{seconds}} s",
+      "none": "0 min"
+    },
+    "now": {
+      "label": "Now",
+      "since": "since {{time}}",
+      "idle": "Away",
+      "idleBody": "Time stops counting until you are back.",
+      "locked": "Locked",
+      "lockedBody": "Time stops counting until you unlock.",
+      "off": "Screen time is off",
+      "offBody": "Turn it on in Settings to start counting.",
+      "nothing": "Nothing yet",
+      "nothingBody": "Switch to another app to start the count."
+    },
+    "insights": {
+      "label": "Insights",
+      "average": "Average session",
+      "longest": "Longest session",
+      "categories": "Categories",
+      "settings": "Settings"
+    },
+    "donut": {
+      "label": "Time by category",
+      "describe": "{{duration}} today across {{count}} categories"
+    },
+    "category": {
+      "browsing": "Browsing",
+      "development": "Development",
+      "communication": "Communication",
+      "media": "Media",
+      "games": "Games",
+      "productivity": "Productivity",
+      "system": "System",
+      "other": "Other"
+    },
+    "apps": {
+      "label": "Apps",
+      "row": "{{name}}, {{duration}}",
+      "rowLimit": "{{name}}, {{duration}} of a {{limit}} limit",
+      "sessions_one": "{{count}} session",
+      "sessions_other": "{{count}} sessions",
+      "limitReached": "Limit reached",
+      "open": "Details for {{name}}",
+      "empty": "No apps yet today"
+    },
+    "detail": {
+      "back": "Back to today",
+      "longest": "Longest {{duration}}",
+      "category": "Category",
+      "categoryRule": "Suggested",
+      "limit": "Daily limit",
+      "limitNone": "None",
+      "limitBody": "The notch nudges you once when the app passes this today.",
+      "exclude": "Exclude this app",
+      "excludeBody": "Forgets its history and stops counting it. You can include it again in Settings."
+    },
+    "week": {
+      "label": "Last 7 days",
+      "toggle": "Show the week",
+      "toggleToday": "Show today",
+      "day": "{{day}}, {{duration}}",
+      "today": "Today",
+      "average": "Daily average {{duration}}"
+    },
+    "layout": {
+      "today": "Today",
+      "week": "Week"
+    },
+    "widget": {
+      "label": "Screen time",
+      "off": "Off",
+      "empty": "Nothing yet"
+    },
+    "error": {
+      "unknown": "That app is not in the history any more.",
+      "io": "The file could not be written. Choose another folder and try again.",
+      "failed": "That did not work. Try again."
+    },
+    "settings": {
+      "section": "Counting",
+      "enabled": "Count screen time",
+      "enabledBody": "Which app is in front, for how long. Window titles are never read; nothing leaves this PC.",
+      "idle": "Pause after",
+      "idleBody": "Time stops counting after this long without a key or mouse movement.",
+      "idleMinutes_one": "{{count}} minute",
+      "idleMinutes_other": "{{count}} minutes",
+      "dayReset": "Day starts at",
+      "dayResetBody": "Time after midnight counts towards the day before until this hour.",
+      "excluded": "Excluded apps",
+      "excludedBody": "Never counted. Include one again and it counts from now on.",
+      "excludedEmpty": "No excluded apps. Exclude one from its details in the panel.",
+      "include": "Include {{name}}",
+      "data": "Data",
+      "export": "Export CSV",
+      "exportBody": "Every recorded span with its app and category, into a folder you choose.",
+      "exportTitle": "Choose a folder for the export",
+      "exported": "Saved to {{path}}",
+      "clear": "Clear history",
+      "clearBody": "Deletes every recorded span. Categories, limits and excluded apps stay.",
+      "clearQuestion": "Delete all screen time history?",
+      "clearConfirm": "Clear",
+      "cancel": "Cancel"
     }
   },
   "settings": {

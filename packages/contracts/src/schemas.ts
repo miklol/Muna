@@ -8,11 +8,17 @@ import { z } from 'zod';
 import type {
   Account,
   Activity,
+  AppCategory,
+  AppUsage,
+  CategoryUsage,
   ChecksState,
   CodeHostError,
   CodeHostingChanged,
   CodeHostingCommand,
   CodeHostingSnapshot,
+  CurrentApp,
+  DayTotals,
+  DayUsage,
   DragOutRequest,
   DragOutcome,
   DragSpike,
@@ -32,6 +38,7 @@ import type {
   DropPoint,
   DropTile,
   Dropped,
+  ExcludedApp,
   FolderProblem,
   Glyph,
   HotkeyBinding,
@@ -54,6 +61,9 @@ import type {
   PullRequest,
   ReducedMotion,
   ReviewDecision,
+  ScreenTimeChanged,
+  ScreenTimeCommand,
+  ScreenTimeSnapshot,
   Settings,
   ShelfChanged,
   ShelfCommand,
@@ -72,6 +82,7 @@ import type {
   StripHeight,
   StripMessage,
   Tint,
+  Tracking,
   Trailing,
   TransferMode,
   YieldState,
@@ -309,6 +320,11 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('dropFailed'), action: dropActionKindSchema }),
   z.object({ kind: z.literal('reviewRequested'), title: z.string() }),
   z.object({ kind: z.literal('checksFinished'), title: z.string(), passed: z.boolean() }),
+  z.object({
+    kind: z.literal('screenTimeLimit'),
+    app: z.string(),
+    minutes: z.number().int().min(1),
+  }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({
@@ -1840,3 +1856,201 @@ export const notesCommandSchema = z.discriminatedUnion('kind', [
  * folder. The list arrives pinned first, newest first, so it is simply the head.
  */
 export const widgetNote = (notes: readonly Note[]): Note | null => notes[0] ?? null;
+
+/** The key of the screen time module's namespace; also its module id. */
+export const SCREEN_TIME_SETTINGS_KEY = 'screen-time';
+
+/**
+ * Bounds the settings pane offers and the module clamps to (mirrors
+ * `modules::screen_time::settings`).
+ */
+export const SCREEN_TIME_BOUNDS = {
+  idleMinutes: { min: 1, max: 60 },
+  dayResetHour: { min: 0, max: 23 },
+  /** A daily limit in minutes; the pane offers presets, the module accepts any in range. */
+  limitMinutes: { min: 5, max: 24 * 60 },
+} as const;
+
+/** How many apps the snapshot ranks (mirrors `modules::screen_time::TOP_APPS`). */
+export const SCREEN_TIME_TOP_APPS = 20;
+
+/** Days in the week view, today included (mirrors `modules::screen_time::WEEK_DAYS`). */
+export const SCREEN_TIME_WEEK_DAYS = 7;
+
+/** The limit presets the app detail offers, in minutes. */
+export const SCREEN_TIME_LIMIT_PRESETS = [15, 30, 60, 120, 180, 240] as const;
+
+/**
+ * Mirrors `modules::screen_time::ScreenTimeSettings`: defaults for missing fields, clamped
+ * ranges, and a wrong type fails the whole entry, like the Rust side.
+ */
+export const screenTimeSettingsSchema = z.object({
+  /** Record at all; off closes the open span and shows the panel's off state. */
+  enabled: z.boolean().default(true),
+  /** Minutes without input before time stops counting. */
+  idleMinutes: clampedInt(SCREEN_TIME_BOUNDS.idleMinutes, 5),
+  /** The local hour the day rolls over at (4 = a night owl's day ends at 04:00). */
+  dayResetHour: clampedInt(SCREEN_TIME_BOUNDS.dayResetHour, 0),
+});
+export type ScreenTimeSettings = z.infer<typeof screenTimeSettingsSchema>;
+
+export const defaultScreenTimeSettings = (): ScreenTimeSettings =>
+  screenTimeSettingsSchema.parse({});
+
+/** Reads the screen time namespace; a missing or malformed entry yields the defaults. */
+export const readScreenTimeSettings = (settings: Settings): ScreenTimeSettings => {
+  const parsed = screenTimeSettingsSchema.safeParse(
+    settings.modules[SCREEN_TIME_SETTINGS_KEY] ?? {},
+  );
+  return parsed.success ? parsed.data : defaultScreenTimeSettings();
+};
+
+/** Returns a new document with the screen time namespace replaced. */
+export const writeScreenTimeSettings = (
+  settings: Settings,
+  screenTime: ScreenTimeSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [SCREEN_TIME_SETTINGS_KEY]: screenTime },
+});
+
+/** The eight buckets, in legend order (mirrors `AppCategory::ALL`). */
+export const APP_CATEGORIES = [
+  'browsing',
+  'development',
+  'communication',
+  'media',
+  'games',
+  'productivity',
+  'system',
+  'other',
+] as const satisfies readonly AppCategory[];
+
+export const appCategorySchema = z.enum(APP_CATEGORIES) satisfies z.ZodType<AppCategory>;
+
+/** Whether time is accruing right now, and if not, why. */
+export const trackingSchema = z.enum([
+  'active',
+  'idle',
+  'locked',
+  'off',
+]) satisfies z.ZodType<Tracking>;
+
+const durationMs = z.number().int().min(0);
+const epochMs = z.number().int();
+
+/** The app in the foreground right now, for the *Now* card. */
+export const currentAppSchema = z.object({
+  exe: z.string().min(1),
+  name: z.string(),
+  category: appCategorySchema,
+  sinceMs: epochMs,
+  icon: z.string().nullable(),
+}) satisfies z.ZodType<CurrentApp>;
+
+export const dayTotalsSchema = z.object({
+  totalMs: durationMs,
+  switches: z.number().int().min(0),
+  longestMs: durationMs,
+  averageMs: durationMs,
+}) satisfies z.ZodType<DayTotals>;
+
+/** One row of the app ranking. */
+export const appUsageSchema = z.object({
+  exe: z.string().min(1),
+  name: z.string(),
+  category: appCategorySchema,
+  totalMs: durationMs,
+  sessions: z.number().int().min(0),
+  longestMs: durationMs,
+  icon: z.string().nullable(),
+  limitMinutes: z.number().int().min(1).nullable(),
+  limitReached: z.boolean(),
+}) satisfies z.ZodType<AppUsage>;
+
+export const categoryUsageSchema = z.object({
+  category: appCategorySchema,
+  totalMs: durationMs,
+}) satisfies z.ZodType<CategoryUsage>;
+
+/** One day of the week view. */
+export const dayUsageSchema = z.object({
+  dayStartMs: epochMs,
+  totalMs: durationMs,
+  byCategory: z.array(categoryUsageSchema),
+}) satisfies z.ZodType<DayUsage>;
+
+export const excludedAppSchema = z.object({
+  exe: z.string().min(1),
+  name: z.string(),
+}) satisfies z.ZodType<ExcludedApp>;
+
+/** What `commands.getScreenTimeSnapshot` returns and `events.screenTimeChanged` carries. */
+export const screenTimeSnapshotSchema = z.object({
+  tracking: trackingSchema,
+  now: currentAppSchema.nullable(),
+  today: dayTotalsSchema,
+  apps: z.array(appUsageSchema).max(SCREEN_TIME_TOP_APPS),
+  categories: z.array(categoryUsageSchema),
+  week: z.array(dayUsageSchema).length(SCREEN_TIME_WEEK_DAYS),
+  excluded: z.array(excludedAppSchema),
+  dayStartMs: epochMs,
+  generatedAtMs: epochMs,
+}) satisfies z.ZodType<ScreenTimeSnapshot>;
+
+export const screenTimeChangedSchema = z.object({
+  snapshot: screenTimeSnapshotSchema,
+}) satisfies z.ZodType<ScreenTimeChanged>;
+
+/** The argument of `commands.screenTimeCommand`. */
+export const screenTimeCommandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('refresh') }),
+  z.object({ kind: z.literal('exclude'), exe: z.string().min(1) }),
+  z.object({ kind: z.literal('include'), exe: z.string().min(1) }),
+  z.object({
+    kind: z.literal('setCategory'),
+    exe: z.string().min(1),
+    category: appCategorySchema.nullable(),
+  }),
+  z.object({
+    kind: z.literal('setLimit'),
+    exe: z.string().min(1),
+    minutes: z.number().int().min(0).nullable(),
+  }),
+  z.object({ kind: z.literal('clearHistory') }),
+]) satisfies z.ZodType<ScreenTimeCommand>;
+
+/**
+ * The share of the day each category took, in legend order, for the donut: every category with
+ * time, each at least a hairline so a sliver is still visible. Sums to 1 when there is any time,
+ * and is empty otherwise.
+ */
+export const categoryShares = (
+  categories: readonly CategoryUsage[],
+): readonly { category: AppCategory; share: number }[] => {
+  const total = categories.reduce((sum, entry) => sum + entry.totalMs, 0);
+  if (total <= 0) {
+    return [];
+  }
+  return categories
+    .filter((entry) => entry.totalMs > 0)
+    .map((entry) => ({ category: entry.category, share: entry.totalMs / total }));
+};
+
+/**
+ * How much of its limit an app has used, 0–1 (clamped); `null` when it has none. The ranking
+ * draws it as a track under the bar and switches to the warning tint at 1.
+ */
+export const limitProgress = (app: Pick<AppUsage, 'totalMs' | 'limitMinutes'>): number | null => {
+  if (app.limitMinutes === null || app.limitMinutes <= 0) {
+    return null;
+  }
+  return Math.min(1, app.totalMs / (app.limitMinutes * 60_000));
+};
+
+/**
+ * The tallest day of the week, so the bars scale to it; at least a minute so an empty week
+ * still draws a baseline instead of dividing by zero.
+ */
+export const weekScaleMs = (week: readonly DayUsage[]): number =>
+  Math.max(60_000, ...week.map((day) => day.totalMs));
