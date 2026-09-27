@@ -128,6 +128,13 @@ export const messageText = (message: StripMessage, t: Translate): string => {
       return t(dropFinishedKey(message.action), { count: message.count });
     case 'dropFailed':
       return t(dropFailedKey(message.action));
+    case 'reviewRequested':
+      // The title is the pull request's words; the strip shows it as written.
+      return t('strip.message.reviewRequested', { title: message.title });
+    case 'checksFinished':
+      return message.passed
+        ? t('strip.message.checksPassed', { title: message.title })
+        : t('strip.message.checksFailed', { title: message.title });
   }
 };
 
@@ -319,6 +326,12 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
       case 'dropFinished':
       case 'dropFailed':
         return message;
+      case 'reviewRequested':
+        return t('strip.describe.reviewRequested', { title: item.wide.title });
+      case 'checksFinished':
+        return item.wide.passed
+          ? t('strip.describe.checksPassed', { title: item.wide.title })
+          : t('strip.describe.checksFailed', { title: item.wide.title });
     }
   }
   // A battery glyph beside its own percentage is one fact, not two.

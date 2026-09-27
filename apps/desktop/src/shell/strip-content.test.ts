@@ -1,4 +1,9 @@
-import { HUD_NOTICE_IDS, type StripContent, type Trailing } from '@muna/contracts';
+import {
+  HUD_NOTICE_IDS,
+  type StripContent,
+  type StripMessage,
+  type Trailing,
+} from '@muna/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '../lib/i18n';
@@ -68,6 +73,47 @@ describe('strip content mapping', () => {
       'Teams · Standup moved',
     );
     expect(messageText({ kind: 'notification', app: 'Teams', title: '' }, t)).toBe('Teams');
+    expect(messageText({ kind: 'reviewRequested', title: 'Snap zones' }, t)).toBe(
+      'Review requested: Snap zones',
+    );
+    expect(messageText({ kind: 'checksFinished', title: 'Snap zones', passed: true }, t)).toBe(
+      'Checks passed: Snap zones',
+    );
+    expect(messageText({ kind: 'checksFinished', title: 'Snap zones', passed: false }, t)).toBe(
+      'Checks failed: Snap zones',
+    );
+  });
+
+  it('describes a review request and finished checks as one sentence each', () => {
+    const notice = (glyph: 'pullRequest' | 'checkCircle' | 'xCircle', wide: StripMessage) =>
+      present(
+        {
+          kind: 'notice',
+          notice: {
+            id: 'code-hosting:review:PR_1',
+            module: 'code-hosting',
+            priority: 45,
+            leading: { kind: 'icon', glyph, tint: 'purple' },
+            trailing: null,
+            wide,
+            holdMs: 0,
+          },
+        },
+        t,
+        'en',
+        0,
+      );
+    expect(notice('pullRequest', { kind: 'reviewRequested', title: 'Snap zones' })).toMatchObject({
+      text: 'Review requested: Snap zones',
+      wide: true,
+      description: 'Your review is requested on Snap zones',
+    });
+    expect(
+      notice('checkCircle', { kind: 'checksFinished', title: 'Snap zones', passed: true }),
+    ).toMatchObject({ description: 'Checks passed on Snap zones' });
+    expect(
+      notice('xCircle', { kind: 'checksFinished', title: 'Snap zones', passed: false }),
+    ).toMatchObject({ description: 'Checks failed on Snap zones' });
   });
 
   it('formats an unread count for the locale and describes the glance and the arrival', () => {

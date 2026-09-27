@@ -282,6 +282,37 @@ export const commands = {
 	 */
 	calendarOpen: (eventId: string) => typedError<null, IpcError>(__TAURI_INVOKE("calendar_open", { eventId })),
 	/**
+	 *  The connected account, its review queue and the poll state as the module now sees them (a
+	 *  panel that just opened; afterwards it follows `CodeHostingChanged`).
+	 */
+	getCodeHostingSnapshot: () => __TAURI_INVOKE<CodeHostingSnapshot>("get_code_hosting_snapshot"),
+	/**
+	 *  Refreshes now; returns the snapshot as it stands afterwards (the work itself runs in the
+	 *  module's loop and arrives as `CodeHostingChanged`).
+	 */
+	codeHostingCommand: (command: CodeHostingCommand) => __TAURI_INVOKE<CodeHostingSnapshot>("code_hosting_command", { command }),
+	/**
+	 *  Connects a GitHub account with a personal access token: the token is checked against the
+	 *  host once, goes to the credential vault and is never echoed back; the queue it returned is
+	 *  the snapshot. `codeHosting.disabled` while the module is off, `codeHosting.token.*` for a
+	 *  blank or malformed token, `codeHosting.unauthorized` when the host refused it,
+	 *  `codeHosting.offline` / `rateLimited` / `provider` when the check did not get an answer,
+	 *  `codeHosting.vault` when the vault would not keep it.
+	 */
+	codeHostingConnect: (token: string) => typedError<CodeHostingSnapshot, IpcError>(__TAURI_INVOKE("code_hosting_connect", { token })),
+	/**  Forgets the token, the account and the cached queue. */
+	codeHostingDisconnect: () => __TAURI_INVOKE<CodeHostingSnapshot>("code_hosting_disconnect"),
+	/**
+	 *  Opens a listed pull request in the default browser. Only pages the module itself fetched
+	 *  are opened; `codeHosting.unknown` when `id` is not in the queue.
+	 */
+	codeHostingOpen: (id: string) => typedError<null, IpcError>(__TAURI_INVOKE("code_hosting_open", { id })),
+	/**
+	 *  Opens GitHub's *New personal access token* page, pre-filled for Muna, in the default
+	 *  browser. A fixed address the webview cannot vary.
+	 */
+	codeHostingOpenTokenPage: () => typedError<null, IpcError>(__TAURI_INVOKE("code_hosting_open_token_page")),
+	/**
 	 *  The Action Center as the module now sees it (a panel that just opened; afterwards it
 	 *  follows `NotificationsChanged`).
 	 */
@@ -379,6 +410,7 @@ export const commands = {
 export const events = {
 	bluetoothChanged: makeEvent<BluetoothChanged>("bluetooth-changed"),
 	calendarChanged: makeEvent<CalendarChanged>("calendar-changed"),
+	codeHostingChanged: makeEvent<CodeHostingChanged>("code-hosting-changed"),
 	dropActionsChanged: makeEvent<DropActionsChanged>("drop-actions-changed"),
 	dropEntered: makeEvent<DropEntered>("drop-entered"),
 	dropLeft: makeEvent<DropLeft>("drop-left"),
@@ -414,6 +446,13 @@ export type AccessState = "allowed" |
 "unspecified" | 
 /**  This Windows has no listener at all. */
 "unavailable";
+
+/**  The connected account, as the settings pane names it. */
+export type Account = {
+	provider: Provider,
+	login: string,
+	avatarUrl: string | null,
+};
 
 /**  Long-lived strip content owned by a module (`id` is `<module>:<key>`). */
 export type Activity = {
@@ -588,6 +627,77 @@ export type CalendarSnapshot = {
 	windowEndMs: number,
 	/**  Some enabled source could not be reached on its last fetch. */
 	offline: boolean,
+};
+
+/**
+ *  Where the checks on a pull request's last commit stand, as GitHub's status check rollup
+ *  reports them.
+ */
+export type ChecksState = 
+/**  No checks run on this repository. */
+"none" | 
+/**  Running, queued or expected. */
+"pending" | "success" | 
+/**  A failed or errored check. */
+"failure";
+
+/**
+ *  Why a poll or a *Connect* did not produce a queue. Never carries what the host said: the
+ *  UI has one sentence per case. Named apart from the weather module's `FetchError` because
+ *  both reach the generated bindings.
+ */
+export type CodeHostError = 
+/**  No connection, a DNS failure or a timeout: the last queue stands with its time. */
+"offline" | 
+/**
+ *  The host refused the token (401, or a 403 that is not the rate limit): it expired or
+ *  was revoked. Polling stops until the user connects again.
+ */
+"unauthorized" | 
+/**
+ *  The host asked for a pause (403 or 429 with the rate-limit headers): the next poll
+ *  waits longer.
+ */
+"rateLimited" | 
+/**
+ *  The host answered, but not with a queue (an error status, GraphQL errors without data,
+ *  a shape this build does not understand).
+ */
+"provider";
+
+/**
+ *  The connected account, its review queue and the poll state as the module now sees them
+ *  (docs/modules/code-hosting.md): after a poll, a command, a connect or a settings change.
+ */
+export type CodeHostingChanged = {
+	snapshot: CodeHostingSnapshot,
+};
+
+/**
+ *  What the panel can ask for. Settings go through the settings document like every module's;
+ *  connecting and disconnecting have their own commands because they touch the vault.
+ */
+export type CodeHostingCommand = 
+/**  Fetches now, whatever the schedule says. */
+{ kind: "refresh" };
+
+/**  What the UI renders (docs/modules/code-hosting.md). */
+export type CodeHostingSnapshot = {
+	/**  `false` until the user turns the module on; nothing below is populated meanwhile. */
+	enabled: boolean,
+	/**  The connected account; `None` shows *Connect* in the panel and the pane. */
+	account: Account | null,
+	/**  The last good queue, newest first, possibly from a previous launch. */
+	pullRequests: PullRequest[],
+	/**  When `pull_requests` was fetched, Unix milliseconds; the timestamp chip while offline. */
+	fetchedAtMs: number | null,
+	/**  A request is on the wire. */
+	fetching: boolean,
+	/**
+	 *  Why the last poll failed; cleared by the next one that works. The queue, if any, stays.
+	 *  `Unauthorized` also stops polling until the user connects again.
+	 */
+	error: CodeHostError | null,
 };
 
 /**
@@ -888,7 +998,11 @@ export type Glyph = "battery" | "batteryCharging" | "bluetooth" | "headphones" |
 /**  A drive (docs/modules/drop-actions.md): a removable volume ejected. */
 "drive" | 
 /**  A tray (docs/modules/shelf.md): items parked on the Shelf. */
-"shelf";
+"shelf" | 
+/**  A pull request (docs/modules/code-hosting.md): a review was requested. */
+"pullRequest" | 
+/**  A circle with a cross (docs/modules/code-hosting.md): checks failed on a pull request. */
+"xCircle";
 
 /**  One action's binding as the pane and the palette see it. */
 export type HotkeyBinding = {
@@ -1310,6 +1424,42 @@ export type PomodoroStatus =
 /**  Nothing running; the ring is full and the button says start. */
 "idle" | "running" | "paused";
 
+/**
+ *  A code host this build talks to. Closed on purpose, like the strip glyphs: the UI maps
+ *  each to a chip and a logo.
+ */
+export type Provider = "gitHub";
+
+/**
+ *  One row of the queue (docs/modules/code-hosting.md "Reference"). The title, the author and
+ *  the repository name are content and are never logged.
+ */
+export type PullRequest = {
+	/**  The host's node id; stable for the life of the pull request. */
+	id: string,
+	provider: Provider,
+	/**  `owner/name`. */
+	repo: string,
+	number: number,
+	title: string,
+	/**  The web page; the only thing `code_hosting_open` hands to the browser. */
+	url: string,
+	author: string,
+	authorAvatarUrl: string | null,
+	draft: boolean,
+	additions: number,
+	deletions: number,
+	changedFiles: number,
+	checks: ChecksState,
+	reviewDecision: ReviewDecision,
+	/**  The last update the host saw, Unix milliseconds; the list is newest first. */
+	updatedAtMs: number,
+	/**  The user's review was asked for. */
+	reviewRequested: boolean,
+	/**  The user opened it. */
+	mine: boolean,
+};
+
 /**  Integer rectangle in physical (device) pixels, screen coordinates. */
 export type Rect = {
 	x: number,
@@ -1324,6 +1474,11 @@ export type ReducedMotion =
 
 /**  `MediaPlaybackAutoRepeatMode`. */
 export type RepeatMode = "none" | "track" | "list";
+
+/**  The review decision on a pull request, as GitHub computes it from the required reviews. */
+export type ReviewDecision = 
+/**  The repository requires no review, or nobody has reviewed yet. */
+"none" | "reviewRequired" | "approved" | "changesRequested";
 
 export type Settings = {
 	version: number,
@@ -1617,7 +1772,17 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
 /**  A drop action finished; `count` is how many items it handled. */
 { kind: "dropFinished"; action: DropActionKind; count: number } | 
 /**  A drop action failed or was cancelled by the user; the reason stays in the log. */
-{ kind: "dropFailed"; action: DropActionKind };
+{ kind: "dropFailed"; action: DropActionKind } | 
+/**
+ *  Someone asked the user to review a pull request (docs/modules/code-hosting.md); the
+ *  title is content and is never logged. The UI phrases it ("Review requested · title").
+ */
+{ kind: "reviewRequested"; title: string } | 
+/**
+ *  The checks on a pull request the user opened finished (docs/modules/code-hosting.md);
+ *  the title is content and is never logged.
+ */
+{ kind: "checksFinished"; title: string; passed: boolean };
 
 export type SystemMonitorBattery = {
 	percent: number,

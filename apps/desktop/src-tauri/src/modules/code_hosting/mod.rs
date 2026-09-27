@@ -33,7 +33,7 @@ use tokio::sync::Notify;
 
 use super::{ModuleBackend, ModuleCtx, Surface};
 pub use provider::{
-    Account, ChecksState, CodeHost, FetchError, GitHub, NEW_TOKEN_URL, Provider, PullRequest,
+    Account, ChecksState, CodeHost, CodeHostError, GitHub, NEW_TOKEN_URL, Provider, PullRequest,
     Queue, ReviewDecision, TokenError, normalise_token,
 };
 pub use settings::{CodeHostingSettings, NoticeSettings};
@@ -69,7 +69,7 @@ pub struct CodeHostingSnapshot {
     pub fetching: bool,
     /// Why the last poll failed; cleared by the next one that works. The queue, if any, stays.
     /// `Unauthorized` also stops polling until the user connects again.
-    pub error: Option<FetchError>,
+    pub error: Option<CodeHostError>,
 }
 
 /// What the panel can ask for. Settings go through the settings document like every module's;
@@ -89,7 +89,7 @@ pub enum ConnectError {
     #[error(transparent)]
     Token(#[from] TokenError),
     #[error(transparent)]
-    Fetch(#[from] FetchError),
+    Fetch(#[from] CodeHostError),
     /// The credential vault refused the token; nothing was kept.
     #[error("the token could not be stored")]
     Vault,
@@ -143,7 +143,7 @@ struct Inner {
     account: Option<Account>,
     pull_requests: Vec<PullRequest>,
     fetched_at_ms: Option<i64>,
-    error: Option<FetchError>,
+    error: Option<CodeHostError>,
     /// Consecutive polls that failed; sets the wait before the next.
     failures: u32,
     /// Wall time the next poll may run; `None` when one is wanted as soon as possible.
@@ -271,7 +271,7 @@ impl CodeHostingService {
                     if inner.settings.enabled && inner.account.is_some() {
                         inner.force = true;
                         // A refusal stops the schedule; an explicit refresh may try again.
-                        if inner.error == Some(FetchError::Unauthorized) {
+                        if inner.error == Some(CodeHostError::Unauthorized) {
                             inner.error = None;
                         }
                     }
@@ -312,7 +312,7 @@ impl CodeHostingService {
                 Ok(Some(token)) => token,
                 Ok(None) => {
                     tracing::info!("code hosting token is gone from the vault; connect again");
-                    inner.error = Some(FetchError::Unauthorized);
+                    inner.error = Some(CodeHostError::Unauthorized);
                     inner.due_at_ms = None;
                     let snapshot = snapshot_of(&inner);
                     drop(inner);
@@ -321,7 +321,7 @@ impl CodeHostingService {
                 }
                 Err(error) => {
                     inner.failures += 1;
-                    inner.error = Some(FetchError::Provider);
+                    inner.error = Some(CodeHostError::Provider);
                     inner.due_at_ms = Some(now + duration_ms(backoff(inner.failures)));
                     tracing::warn!(%error, failures = inner.failures, "code hosting vault unreadable");
                     let snapshot = snapshot_of(&inner);
@@ -355,7 +355,7 @@ impl CodeHostingService {
     }
 
     /// The outcome of a [`Job`].
-    pub fn complete_poll(&self, result: Result<Queue, FetchError>) {
+    pub fn complete_poll(&self, result: Result<Queue, CodeHostError>) {
         let now = self.now_ms();
         let (snapshot, notices) = {
             let mut inner = self.inner.lock();
@@ -381,8 +381,8 @@ impl CodeHostingService {
                         }
                         self.adopt(&mut inner, queue, now);
                     }
-                    Err(FetchError::Unauthorized) => {
-                        inner.error = Some(FetchError::Unauthorized);
+                    Err(CodeHostError::Unauthorized) => {
+                        inner.error = Some(CodeHostError::Unauthorized);
                         inner.due_at_ms = None;
                         inner.failures = 0;
                         tracing::info!("code hosting token refused; connect again");
@@ -599,7 +599,7 @@ fn schedule(inner: &Inner, now: i64) -> Schedule {
     if inner.force {
         return Schedule::Now;
     }
-    if inner.error == Some(FetchError::Unauthorized) {
+    if inner.error == Some(CodeHostError::Unauthorized) {
         return Schedule::Never;
     }
     match inner.due_at_ms {
