@@ -44,9 +44,14 @@ strip, the Windows flyout after a hard kill), [notifications](qa/checklists/noti
 (the consent states, both installers, focus and busy holds, capture hiding),
 [drop-actions](qa/checklists/drop-actions.md) (drags from Explorer, browsers and Outlook, every
 tile against the real shell, eject with a USB stick), [shelf](qa/checklists/shelf.md)
-(drag-out into Explorer, browsers, Outlook and Teams, copies, thumbnails, missing files) and
+(drag-out into Explorer, browsers, Outlook and Teams, copies, thumbnails, missing files),
 [window-snap](qa/checklists/window-snap.md) (the zones against real drags, exact placement on
-mixed DPI, elevated and UWP windows, the grid).
+mixed DPI, elevated and UWP windows, the grid), [code-hosting](qa/checklists/code-hosting.md)
+(the token form, polling and backoff against a real account, the review and checks notices),
+[notes](qa/checklists/notes.md) (autosave, conflicts, the Recycle Bin, a chosen folder),
+[screen-time](qa/checklists/screen-time.md) (attribution against a manual log, idle and lock,
+limits, export, privacy) and [ai-coding](qa/checklists/ai-coding.md) (Claude Code and Copilot
+CLI sessions, the hook receiver from `curl`, the strip's allow / deny pair, the pane).
 
 ## Module specs
 
