@@ -1249,6 +1249,7 @@
       "average": "Daily average {{duration}}"
     },
     "layout": {
+      "label": "Layout",
       "today": "Today",
       "week": "Week"
     },
@@ -1276,6 +1277,7 @@
       "excludedBody": "Never counted. Include one again and it counts from now on.",
       "excludedEmpty": "No excluded apps. Exclude one from its details in the panel.",
       "include": "Include {{name}}",
+      "includeShort": "Include",
       "data": "Data",
       "export": "Export CSV",
       "exportBody": "Every recorded span with its app and category, into a folder you choose.",

@@ -4,7 +4,7 @@
  * needs first; M1-E4 added the panel chrome, the module bar and the shared controls; M1-E2 the
  * strip's slot renderers; M1-E3 the search field; M1-E5 the option tiles; M2-E2 the media
  * pieces (album art, marquee, waveform); M2-E3 the HUD level track; M3-E2 the checkbox and
- * text field; M3-E1 the month grid; M4-E7 the text area.
+ * text field; M3-E1 the month grid; M4-E7 the text area; M4-E8 the segmented ring.
  */
 export { AlbumArt, type AlbumArtProps, paletteVars } from './album-art';
 export { BatteryGlyph, type BatteryGlyphProps, batteryLevels, batteryTint } from './battery-glyph';
@@ -46,6 +46,15 @@ export { PanelChrome, type PanelChromeProps } from './panel-chrome';
 export { ProgressTrack, type ProgressTrackProps } from './progress-track';
 export { Ring, type RingProps } from './ring';
 export { SearchField, type SearchFieldProps } from './search-field';
+export {
+  type RingArc,
+  type RingSegment,
+  ringArcs,
+  SegmentedRing,
+  type SegmentedRingProps,
+  segmentColor,
+  type SegmentTint,
+} from './segmented-ring';
 export {
   SegmentedControl,
   type SegmentedControlItem,

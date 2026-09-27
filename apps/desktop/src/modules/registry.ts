@@ -14,6 +14,7 @@ import { mediaModule } from './media';
 import { notesModule } from './notes';
 import { notificationsModule } from './notifications';
 import { pomodoroModule } from './pomodoro';
+import { screenTimeModule } from './screen-time';
 import { shelfModule } from './shelf';
 import { systemMonitorModule } from './system-monitor';
 import { todoModule } from './todo';
@@ -180,6 +181,7 @@ export const modules: readonly ModuleDefinition[] = [
   windowSnapModule,
   codeHostingModule,
   notesModule,
+  screenTimeModule,
 ];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>
