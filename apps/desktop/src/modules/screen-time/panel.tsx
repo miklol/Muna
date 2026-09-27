@@ -487,7 +487,8 @@ function Overview({ snapshot, locale, layout, onLayout, onOpen }: OverviewProps)
   const { t } = useTranslation();
   return (
     <>
-      <header className="stime-head">
+      {/* A div, not a header: the panel chrome already owns the banner landmark. */}
+      <div className="stime-head">
         <Chip icon={<Clock {...CHIP_ICON} />}>
           <span className="tabular-nums">
             {t('screenTime.total', { duration: formatDuration(snapshot.today.totalMs, t) })}
@@ -511,7 +512,7 @@ function Overview({ snapshot, locale, layout, onLayout, onOpen }: OverviewProps)
         <IconButton aria-label={t('screenTime.insights.settings')} onPress={openSettings}>
           <Settings2 strokeWidth={ICON_STROKE} />
         </IconButton>
-      </header>
+      </div>
       {layout === 'today' ? (
         <div className="stime-today">
           <Insights snapshot={snapshot} />
