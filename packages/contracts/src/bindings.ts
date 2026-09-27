@@ -363,6 +363,28 @@ export const commands = {
 	 */
 	notesPickFolder: (title: string) => typedError<string | null, IpcError>(__TAURI_INVOKE("notes_pick_folder", { title })),
 	/**
+	 *  Today's usage as the module now sees it (a panel that just opened; afterwards it follows
+	 *  `ScreenTimeChanged`). Built from the store on a blocking thread; the open span is counted
+	 *  up to now.
+	 */
+	getScreenTimeSnapshot: () => typedError<ScreenTimeSnapshot, IpcError>(__TAURI_INVOKE("get_screen_time_snapshot")),
+	/**
+	 *  Tells the module a panel in this window opened (`true`) or closed (`false`); snapshots are
+	 *  published on every tick while any panel watches (docs/modules/screen-time.md).
+	 */
+	screenTimeWatch: (watching: boolean) => __TAURI_INVOKE<void>("screen_time_watch", { watching }),
+	/**
+	 *  Exclude or include an app, set its category or daily limit, or clear the history; answers
+	 *  with the snapshot after it. `screenTime.unknown` when `exe` has never been seen.
+	 */
+	screenTimeCommand: (command: ScreenTimeCommand) => typedError<ScreenTimeSnapshot, IpcError>(__TAURI_INVOKE("screen_time_command", { command })),
+	/**
+	 *  Opens the folder picker for Settings › Screen time and writes the last seven days as CSV
+	 *  into the chosen folder, revealing the file; returns its path, or `null` when the user
+	 *  dismissed the picker. `screenTime.io` when the folder refused the file.
+	 */
+	screenTimeExport: (title: string) => typedError<string | null, IpcError>(__TAURI_INVOKE("screen_time_export", { title })),
+	/**
 	 *  The Action Center as the module now sees it (a panel that just opened; afterwards it
 	 *  follows `NotificationsChanged`).
 	 */
@@ -474,6 +496,7 @@ export const events = {
 	notesChanged: makeEvent<NotesChanged>("notes-changed"),
 	notificationsChanged: makeEvent<NotificationsChanged>("notifications-changed"),
 	pomodoroStateChanged: makeEvent<PomodoroStateChanged>("pomodoro-state-changed"),
+	screenTimeChanged: makeEvent<ScreenTimeChanged>("screen-time-changed"),
 	settingsChanged: makeEvent<SettingsChanged>("settings-changed"),
 	shelfChanged: makeEvent<ShelfChanged>("shelf-changed"),
 	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
@@ -523,6 +546,8 @@ export type ActivityState = {
 	focused: boolean,
 };
 
+export type AppCategory = "browsing" | "development" | "communication" | "media" | "games" | "productivity" | "system" | "other";
+
 /**  Static facts about the running build, for the settings "About" section and diagnostics. */
 export type AppInfo = {
 	name: string,
@@ -530,6 +555,21 @@ export type AppInfo = {
 	/**  `"windows"` or `"fake"`. */
 	platform: string,
 	profileDir: string,
+};
+
+/**  One row of the app ranking. */
+export type AppUsage = {
+	exe: string,
+	name: string,
+	category: AppCategory,
+	totalMs: number,
+	sessions: number,
+	longestMs: number,
+	icon: string | null,
+	/**  The daily limit, when one is set. */
+	limitMinutes: number | null,
+	/**  Today's total is at or past the limit. */
+	limitReached: boolean,
 };
 
 /**  Prepared artwork as the UI consumes it. */
@@ -680,6 +720,11 @@ export type CalendarSnapshot = {
 	offline: boolean,
 };
 
+export type CategoryUsage = {
+	category: AppCategory,
+	totalMs: number,
+};
+
 /**
  *  Where the checks on a pull request's last commit stand, as GitHub's status check rollup
  *  reports them.
@@ -751,6 +796,17 @@ export type CodeHostingSnapshot = {
 	error: CodeHostError | null,
 };
 
+/**  The app in the foreground right now, for the *Now* card. */
+export type CurrentApp = {
+	exe: string,
+	name: string,
+	category: AppCategory,
+	/**  When this span started (after an idle gap, when input resumed). */
+	sinceMs: number,
+	/**  PNG data URL, when the executable has an icon. */
+	icon: string | null,
+};
+
 /**
  *  The conditions at the place right now. Every number came out of JSON, which cannot spell
  *  `NaN`, so they export as plain `number`s ([`Finite`]).
@@ -781,6 +837,22 @@ export type DayForecast = {
 	sunset: string,
 	/**  The day's highest hourly chance, 0–100. */
 	precipitationPercent: number | null,
+};
+
+/**  The day's headline numbers. */
+export type DayTotals = {
+	totalMs: number,
+	/**  Spans that touched the day: how often the user switched. */
+	switches: number,
+	longestMs: number,
+	averageMs: number,
+};
+
+/**  One day of the week view. */
+export type DayUsage = {
+	dayStartMs: number,
+	totalMs: number,
+	byCategory: CategoryUsage[],
 };
 
 /**  What a drag out of the notch carries (docs/modules/shelf.md "Drag out"). */
@@ -960,6 +1032,12 @@ export type Dropped = {
 	label: string,
 	session: number,
 	position: DropPoint,
+};
+
+/**  An app the user excluded, for the settings pane's list. */
+export type ExcludedApp = {
+	exe: string,
+	name: string,
 };
 
 /**
@@ -1604,6 +1682,48 @@ export type ReviewDecision =
 /**  The repository requires no review, or nobody has reviewed yet. */
 "none" | "reviewRequired" | "approved" | "changesRequested";
 
+/**
+ *  The screen-time snapshot changed (docs/modules/screen-time.md). Emitted only while a window
+ *  watches (`screen_time_watch`) and after every `screen_time_command`; the payload carries app
+ *  names and icons, which are content and never logged.
+ */
+export type ScreenTimeChanged = {
+	snapshot: ScreenTimeSnapshot,
+};
+
+/**  Commands that answer with the snapshot after them. */
+export type ScreenTimeCommand = 
+/**  Recompute (a panel opening). */
+{ kind: "refresh" } | 
+/**  Forget the app's history and stop recording it. */
+{ kind: "exclude"; exe: string } | 
+/**  Record the app again from now on. */
+{ kind: "include"; exe: string } | 
+/**  Override the category, or `None` to go back to the rule. */
+{ kind: "setCategory"; exe: string; category: AppCategory | null } | 
+/**  A daily limit in minutes, or `None` (or 0) for none. */
+{ kind: "setLimit"; exe: string; minutes: number | null } | 
+/**  Delete every span; exclusions, categories and limits stay. */
+{ kind: "clearHistory" };
+
+/**  What the panel, the widget and the settings pane render. */
+export type ScreenTimeSnapshot = {
+	tracking: Tracking,
+	/**  The app accruing time right now; `None` while idle, locked, off, or on an excluded app. */
+	now: CurrentApp | null,
+	today: DayTotals,
+	/**  Today's apps, most time first, at most [`TOP_APPS`]. */
+	apps: AppUsage[],
+	/**  Today's categories with time, in legend order. */
+	categories: CategoryUsage[],
+	/**  The last [`WEEK_DAYS`] days, oldest first, today last. */
+	week: DayUsage[],
+	excluded: ExcludedApp[],
+	/**  When today started, so the UI can label the day and its boundary. */
+	dayStartMs: number,
+	generatedAtMs: number,
+};
+
 export type Settings = {
 	version: number,
 	general: GeneralSettings,
@@ -1906,7 +2026,12 @@ export type StripMessage = { kind: "text"; value: string } | { kind: "batteryLow
  *  The checks on a pull request the user opened finished (docs/modules/code-hosting.md);
  *  the title is content and is never logged.
  */
-{ kind: "checksFinished"; title: string; passed: boolean };
+{ kind: "checksFinished"; title: string; passed: boolean } | 
+/**
+ *  An app reached the daily limit the user set for it (docs/modules/screen-time.md); the
+ *  name is content and is never logged. The UI phrases it ("Steam · 2 h limit reached").
+ */
+{ kind: "screenTimeLimit"; app: string; minutes: number };
 
 export type SystemMonitorBattery = {
 	percent: number,
@@ -2046,6 +2171,9 @@ export type TodoSnapshot = {
 	/**  `settings.modules.todo.retentionDays`, so the trash can say when a task goes. */
 	retentionDays: number,
 };
+
+/**  Whether time is accruing right now, and if not, why. */
+export type Tracking = "active" | "idle" | "locked" | "off";
 
 /**  The trailing (right) slot of the strip. */
 export type Trailing = { kind: "icon"; glyph: Glyph; tint: Tint | null } | 
