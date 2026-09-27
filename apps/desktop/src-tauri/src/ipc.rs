@@ -270,7 +270,8 @@ impl From<TranslateError> for IpcError {
     }
 }
 
-/// Static facts about the running build, for the settings "About" section and diagnostics.
+/// Static facts about the running build, for the settings "About" section, diagnostics and
+/// the locale plumbing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppInfo {
@@ -279,6 +280,10 @@ pub struct AppInfo {
     /// `"windows"` or `"fake"`.
     pub platform: String,
     pub profile_dir: String,
+    /// The user's regional format (`de-CH`), which dates and numbers follow under the
+    /// `system` language; empty when Windows would not say, and the UI falls back to the
+    /// display language.
+    pub region_format: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
@@ -1165,6 +1170,14 @@ type Shared = Arc<AppState>;
 #[tauri::command]
 #[specta::specta]
 fn app_info(app: AppHandle, state: State<'_, Shared>) -> AppInfo {
+    let region_format = state
+        .platform
+        .system_info()
+        .region_format()
+        .unwrap_or_else(|error| {
+            tracing::warn!(%error, "regional format unavailable; formats follow the display language");
+            String::new()
+        });
     AppInfo {
         name: app.package_info().name.clone(),
         version: app.package_info().version.to_string(),
@@ -1175,6 +1188,7 @@ fn app_info(app: AppHandle, state: State<'_, Shared>) -> AppInfo {
             .parent()
             .map(Path::display)
             .map_or_else(String::new, |p| p.to_string()),
+        region_format,
     }
 }
 

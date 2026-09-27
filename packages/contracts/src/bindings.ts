@@ -709,13 +709,22 @@ export type AiWaiting = {
 
 export type AppCategory = "browsing" | "development" | "communication" | "media" | "games" | "productivity" | "system" | "other";
 
-/**  Static facts about the running build, for the settings "About" section and diagnostics. */
+/**
+ *  Static facts about the running build, for the settings "About" section, diagnostics and
+ *  the locale plumbing.
+ */
 export type AppInfo = {
 	name: string,
 	version: string,
 	/**  `"windows"` or `"fake"`. */
 	platform: string,
 	profileDir: string,
+	/**
+	 *  The user's regional format (`de-CH`), which dates and numbers follow under the
+	 *  `system` language; empty when Windows would not say, and the UI falls back to the
+	 *  display language.
+	 */
+	regionFormat: string,
 };
 
 /**  One row of the app ranking. */
@@ -1285,6 +1294,11 @@ export type GeneralSettings = {
 	accent: string,
 	/**  The welcome tour was finished or skipped; the settings window shows it until then (v4). */
 	onboarded: boolean,
+	/**
+	 *  UI language: `system` or a catalog tag (`de`, `pt-BR`); the UI resolves it, so an
+	 *  unknown tag (a catalog that was dropped) behaves like `system` (v6).
+	 */
+	language: string,
 };
 
 /**

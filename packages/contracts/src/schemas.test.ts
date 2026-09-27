@@ -99,6 +99,7 @@ import {
   SCREEN_TIME_TOP_APPS,
   SCREEN_TIME_WEEK_DAYS,
   SETTINGS_VERSION,
+  SYSTEM_LANGUAGE,
   SHELF_BOUNDS,
   SHELF_EXPIRY_CHOICES,
   SHELF_PREVIEW_CHARS,
@@ -317,11 +318,25 @@ describe('settings schema', () => {
     expect(
       monitorLayoutSchema.safeParse({ ...settings.shell.defaults, stripHeight: 'huge' }).success,
     ).toBe(false);
-    // The toggle hotkey moved to the keyboard-shortcuts namespace in version 5.
-    expect(SETTINGS_VERSION).toBe(5);
+    // The toggle hotkey moved to the keyboard-shortcuts namespace in version 5; the language
+    // arrived in version 6.
+    expect(SETTINGS_VERSION).toBe(6);
     expect(
       shellSettingsSchema.safeParse({ ...settings.shell, toggleHotkey: 'ctrl+alt+space' }).data,
     ).not.toHaveProperty('toggleHotkey');
+  });
+
+  it('carries the language setting and refuses an empty one', () => {
+    const settings = defaultSettings();
+    expect(settings.general.language).toBe(SYSTEM_LANGUAGE);
+    expect(
+      settingsSchema.parse({ ...settings, general: { ...settings.general, language: 'pt-BR' } })
+        .general.language,
+    ).toBe('pt-BR');
+    expect(
+      settingsSchema.safeParse({ ...settings, general: { ...settings.general, language: '' } })
+        .success,
+    ).toBe(false);
   });
 
   it('matches the specta-generated type exactly', () => {
