@@ -210,9 +210,10 @@ pub trait Processes: Send + Sync {
     fn focus(&self, window: WindowHandle) -> PlatformResult<()>;
 }
 
-/// The machine, for Support & diagnostics (docs/modules/support.md): the OS build and the
-/// `WebView2` runtime a bug report needs, and the Desktop folder the diagnostics bundle is
-/// written to. Read once per bundle; nothing here is watched.
+/// The machine, for Support & diagnostics (docs/modules/support.md) and the locale plumbing
+/// (docs/localization.md): the OS build and the `WebView2` runtime a bug report needs, the
+/// Desktop folder the diagnostics bundle is written to, and the regional format dates and
+/// numbers follow. Read once per bundle or window; nothing here is watched.
 pub trait SystemInfo: Send + Sync {
     /// The OS edition and build, and the `WebView2` runtime version when one is installed.
     /// Never fails for want of a runtime: that is reported as `webview2: None`.
@@ -220,6 +221,10 @@ pub trait SystemInfo: Send + Sync {
     /// The user's Desktop folder (`FOLDERID_Desktop`, which follows a `OneDrive` redirection);
     /// [`crate::PlatformError::NotFound`] when the shell has none.
     fn desktop_dir(&self) -> PlatformResult<PathBuf>;
+    /// The user's regional format as a BCP-47 tag (`de-CH`): Settings → Time & language →
+    /// Region, which may differ from the display language. The UI formats with it under the
+    /// `system` language setting.
+    fn region_format(&self) -> PlatformResult<String>;
 }
 
 /// Native affinities of the notch windows (ADR-0002). The windows themselves are created by

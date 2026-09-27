@@ -122,7 +122,10 @@ import type {
   YieldState,
 } from './bindings';
 
-export const SETTINGS_VERSION = 5;
+export const SETTINGS_VERSION = 6;
+
+/** Settings → General → Language: follow the Windows display language. */
+export const SYSTEM_LANGUAGE = 'system';
 
 /** Strip height presets in CSS px (docs/modules/notch-shell.md, "Settings"). */
 export const STRIP_HEIGHT_PX: Readonly<Record<StripHeight, number>> = {
@@ -159,6 +162,8 @@ export const generalSettingsSchema = z.object({
   reducedMotion: reducedMotionSchema,
   accent: z.string().min(1),
   onboarded: z.boolean(),
+  // `system` or a catalog tag; `@muna/i18n` resolves it and treats an unknown tag as `system`.
+  language: z.string().min(1).max(35),
 });
 
 export const placementModeSchema = z.enum([
@@ -423,7 +428,13 @@ export const defaultShellSettings = (): ShellSettings => ({
 
 export const defaultSettings = (): Settings => ({
   version: SETTINGS_VERSION,
-  general: { launchAtLogin: false, reducedMotion: 'system', accent: 'blue', onboarded: false },
+  general: {
+    launchAtLogin: false,
+    reducedMotion: 'system',
+    accent: 'blue',
+    onboarded: false,
+    language: SYSTEM_LANGUAGE,
+  },
   shell: defaultShellSettings(),
   modules: {},
 });

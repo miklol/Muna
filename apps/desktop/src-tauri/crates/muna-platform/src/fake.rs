@@ -152,6 +152,8 @@ struct State {
     system: SystemDescription,
     /// Scripted Desktop folder; `None` answers `NotFound`.
     desktop_dir: Option<PathBuf>,
+    /// Scripted answer to `SystemInfo::region_format`.
+    region_format: String,
     monitors: Vec<MonitorInfo>,
     foreground: Option<ForegroundWindow>,
     /// Scripted answer to `Foreground::idle_for`.
@@ -267,6 +269,7 @@ impl Default for State {
                 webview2: Some("0.0.0.0".into()),
             },
             desktop_dir: None,
+            region_format: "en-US".into(),
             monitors: vec![MonitorInfo {
                 id: r"\\.\DISPLAY1".into(),
                 bounds: Rect::new(0, 0, 2560, 1440),
@@ -588,6 +591,11 @@ impl FakePlatform {
     /// `NotFound`.
     pub fn set_desktop_dir(&self, dir: Option<PathBuf>) {
         self.state.lock().desktop_dir = dir;
+    }
+
+    /// Scripts the regional format [`SystemInfo::region_format`] answers (`en-US` by default).
+    pub fn set_region_format(&self, tag: impl Into<String>) {
+        self.state.lock().region_format = tag.into();
     }
 
     pub fn set_monitors(&self, monitors: Vec<MonitorInfo>) {
@@ -1465,6 +1473,10 @@ impl SystemInfo for FakePlatform {
             .desktop_dir
             .clone()
             .ok_or(PlatformError::NotFound("desktop folder".into()))
+    }
+
+    fn region_format(&self) -> PlatformResult<String> {
+        Ok(self.state.lock().region_format.clone())
     }
 }
 

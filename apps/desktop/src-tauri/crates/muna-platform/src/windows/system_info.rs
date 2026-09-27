@@ -1,20 +1,25 @@
 //! [`SystemInfo`](crate::traits::SystemInfo) on Windows (docs/modules/support.md): the OS
 //! edition and build from the same registry keys `winver` reads (through `sysinfo`), the
-//! `WebView2` runtime version from the statically linked loader, and the Desktop known folder.
+//! `WebView2` runtime version from the statically linked loader, the Desktop known folder, and
+//! the user's regional format (docs/localization.md).
 
 use std::path::PathBuf;
 
 use sysinfo::System;
 use webview2_com::Microsoft::Web::WebView2::Win32::GetAvailableCoreWebView2BrowserVersionString;
+use windows::Win32::Globalization::GetUserDefaultLocaleName;
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::Shell::{FOLDERID_Desktop, KF_FLAG_DEFAULT, SHGetKnownFolderPath};
 
-use super::os_error;
+use super::{last_error, os_error};
 use crate::error::{PlatformError, PlatformResult};
 use crate::types::SystemDescription;
 
 /// `HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)`: the loader's answer when no runtime is installed.
 const E_FILE_NOT_FOUND: i32 = 0x8007_0002_u32.cast_signed();
+
+/// `LOCALE_NAME_MAX_LENGTH`: the longest locale name Windows writes, NUL included.
+const LOCALE_NAME_MAX_LENGTH: usize = 85;
 
 pub(super) fn describe() -> PlatformResult<SystemDescription> {
     Ok(SystemDescription {
@@ -84,6 +89,27 @@ pub(super) fn desktop_dir() -> PlatformResult<PathBuf> {
     }
 }
 
+/// The user's regional format (`GetUserDefaultLocaleName`), e.g. `de-CH`; a custom locale's
+/// `-x-` private-use tail is kept, since `Intl` accepts it.
+pub(super) fn region_format() -> PlatformResult<String> {
+    let mut buffer = [0_u16; LOCALE_NAME_MAX_LENGTH];
+    // SAFETY: the buffer is `LOCALE_NAME_MAX_LENGTH` wide, the most the call ever writes; on
+    // success the answer is the written length, NUL included, and 0 means failure.
+    #[allow(unsafe_code)]
+    let written = unsafe { GetUserDefaultLocaleName(&mut buffer) };
+    let Ok(written) = usize::try_from(written) else {
+        return Err(last_error("GetUserDefaultLocaleName"));
+    };
+    if written == 0 {
+        return Err(last_error("GetUserDefaultLocaleName"));
+    }
+    let name = String::from_utf16_lossy(&buffer[..written.saturating_sub(1)]);
+    if name.is_empty() {
+        return Err(PlatformError::NotFound("regional format".into()));
+    }
+    Ok(name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,5 +134,15 @@ mod tests {
         let version = webview2_version().expect("loader answers");
         let version = version.expect("a runtime is installed");
         assert!(version.split('.').count() >= 3, "{version}");
+    }
+
+    #[test]
+    fn region_format_is_a_language_tag() {
+        let tag = region_format().expect("regional format");
+        let language = tag.split('-').next().unwrap_or_default();
+        assert!(
+            (2..=3).contains(&language.len()) && language.chars().all(|c| c.is_ascii_alphabetic()),
+            "{tag}"
+        );
     }
 }
