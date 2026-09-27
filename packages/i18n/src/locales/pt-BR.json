@@ -1800,11 +1800,11 @@
     },
     "repair": {
       "title": "Reparar",
-      "body": "Os flyouts e o espaço reservado",
+      "body": "Os controles flutuantes e o espaço reservado",
       "action": "Reparar",
-      "flyouts": "Flyouts de volume e brilho",
-      "flyoutsBody": "Mostra de novo os flyouts do próprio Windows e depois os oculta conforme o HUD estiver configurado.",
-      "flyoutsDone": "Flyouts reparados.",
+      "flyouts": "Controles flutuantes de volume e brilho",
+      "flyoutsBody": "Mostra de novo os controles flutuantes do próprio Windows e depois os oculta conforme o HUD estiver configurado.",
+      "flyoutsDone": "Controles flutuantes reparados.",
       "appBar": "Espaço reservado",
       "appBarBody": "Registra de novo o espaço acima da Notch se alguma janela o sobrepõe ou se sobrou uma lacuna.",
       "appBarDone": "Espaço reservado reparado."

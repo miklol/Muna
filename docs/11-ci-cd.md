@@ -196,7 +196,7 @@ satisfied.
 | Storybook | `build-storybook`, `test-storybook` with axe | Every component has a story; zero serious/critical axe violations | `web` |
 | Contracts | tauri-specta regeneration | Committed bindings identical to generated | `rust` |
 | Design tokens | Vitest snapshot of `tokens.css` | Snapshot changes only with a docs change in the same PR | `web` |
-| i18n | `scripts/i18n-check.mjs` | No missing/unused keys in `en`; other locales may lag | `web` |
+| i18n | `scripts/i18n-check.mjs` | Every `t('…')` key exists in `en`; every locale has exactly `en`'s keys, the same `{{placeholders}}`, a `_review` note per section and no copied English (rules in [localization](localization.md#i18ncheck)) | `web` |
 | Shell scenarios | Playwright S1–S14 | All pass on Windows Server 2022 image; 1 automatic retry allowed for Playwright only | `app` |
 | Perf smoke | `scripts/perf --smoke` | Startup < 1.5 s (gates release builds; reported for the debug build the job makes), idle CPU ≤ 0.3 % (median window of the 60–90 s steady state), RSS ≤ 120 MB (PRD budgets) | `app` |
 | Bundle size | `scripts/bundle-size.mjs` | Frontend JS ≤ 1.2 MB gzipped; exe ≤ 12 MB; MSIX ≤ 20 MB | `app`, `release` |
@@ -399,7 +399,7 @@ feature it checks exists). Renaming one is a `ci` change that updates the workfl
 | Script | Contract |
 | -------- | ---------- |
 | `lint`, `typecheck`, `test` | Whole-workspace lint, `tsc --noEmit`, Vitest (`test -- --run --coverage` in CI) |
-| `i18n:check` | `scripts/i18n-check.mjs`; fails on missing/unused `en` keys |
+| `i18n:check` | `scripts/i18n-check.mjs`; fails on a `t('…')` key missing from `en`, and on a locale that differs from `en`'s key set, placeholders or review notes, or copies English |
 | `storybook:ci` | For the design system and the desktop app in turn: `build-storybook` into `<project>/storybook-static`, then `test-storybook` with axe against it (`packages/ui` is the artifact the workflow uploads) |
 | `contracts:generate` | Regenerates `packages/contracts` from tauri-specta; CI diffs the result |
 | `licenses:check` | `license-checker-rseidelsohn` with the allowlist above |
