@@ -207,6 +207,35 @@ impl Store {
         Ok(())
     }
 
+    /// The value under `key`, created from `bytes` random bytes (lower-case hex) the first time
+    /// it is asked for. One transaction, so two callers never mint two secrets.
+    pub fn meta_or_random(&self, key: &str, bytes: u32) -> Result<String, StoreError> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let existing: Option<String> = tx
+            .query_row(
+                "SELECT value FROM meta WHERE key = ?1",
+                params![key],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let value = if let Some(value) = existing {
+            value
+        } else {
+            let minted: String =
+                tx.query_row("SELECT lower(hex(randomblob(?1)))", params![bytes], |row| {
+                    row.get(0)
+                })?;
+            tx.execute(
+                "INSERT INTO meta (key, value) VALUES (?1, ?2)",
+                params![key, minted],
+            )?;
+            minted
+        };
+        tx.commit()?;
+        Ok(value)
+    }
+
     /// Appends one pomodoro phase to the log.
     pub fn log_pomodoro_session(&self, record: &PomodoroSessionRecord) -> Result<(), StoreError> {
         self.conn.lock().execute(
@@ -259,6 +288,23 @@ mod tests {
         store.remove_meta("last_run").unwrap();
         store.remove_meta("never_there").unwrap();
         assert_eq!(store.get_meta("last_run").unwrap(), None);
+    }
+
+    #[test]
+    fn a_random_meta_value_is_minted_once_and_kept() {
+        let store = Store::open_in_memory().unwrap();
+        let token = store.meta_or_random("token", 32).unwrap();
+        assert_eq!(token.len(), 64);
+        assert!(
+            token
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_uppercase())
+        );
+        assert_eq!(store.meta_or_random("token", 32).unwrap(), token);
+        assert_eq!(store.get_meta("token").unwrap(), Some(token.clone()));
+        assert_ne!(store.meta_or_random("other", 32).unwrap(), token);
+        store.set_meta("chosen", "abc").unwrap();
+        assert_eq!(store.meta_or_random("chosen", 32).unwrap(), "abc");
     }
 
     #[test]
