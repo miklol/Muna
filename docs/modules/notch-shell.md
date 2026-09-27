@@ -163,8 +163,10 @@ applies.
 - **Low** after the cursor has been outside every notch window for 30 s
   (`MEMORY_LOW_AFTER`), while no hold is active.
 - **Holds** (`Hold`): strip content that animates on its own — a playing waveform, a running
-  timer, the wide text burst, any notice (`StripContent::animates()` in `muna-core`) — and a
-  *visible* settings window with focus. A still chip (paused media, a plain icon) does not
+  timer, the wide text burst, any notice (`StripContent::animates()` in `muna-core`) — a
+  *visible* settings window with focus, and a running camera preview (`Hold::MirrorPreview`,
+  since M5-E1c: the mirror panel or widget reports it through `mirror_watch`). A still chip
+  (paused media, a plain icon) does not
   hold, so the everyday "Spotify paused" desk still gets the trim. WebView2 creation hands the
   hidden settings window a focus event that no blur follows; the manager checks `is_visible`
   before counting it.
