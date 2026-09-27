@@ -1,8 +1,10 @@
 {
   "app": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "name": "Muna"
   },
   "notch": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "placeholder": "Muna is running.",
     "strip": "Notch strip",
     "modules": "Modules",
@@ -16,6 +18,7 @@
     }
   },
   "strip": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "message": {
       "batteryLow": "Low battery",
       "bluetoothConnected": "{{name}} connected",
@@ -194,12 +197,14 @@
     }
   },
   "spike": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "label": "Muna window spike",
     "strip": "Strip",
     "panel": "Panel",
     "hint": "Press Ctrl+Alt+M to morph, Ctrl+Alt+P to park, Ctrl+Alt+C to hide from captures."
   },
   "media": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Media",
     "actions": {
       "playPause": "Play or pause"
@@ -238,6 +243,7 @@
     }
   },
   "hud": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Volume and brightness",
     "volume": "Volume",
     "brightness": "Brightness",
@@ -267,6 +273,7 @@
     }
   },
   "pomodoro": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Pomodoro",
     "actions": {
       "toggle": "Start or pause the timer"
@@ -312,6 +319,7 @@
     }
   },
   "todo": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Tasks",
     "actions": {
       "quickAdd": "Add a task"
@@ -364,6 +372,7 @@
     }
   },
   "systemMonitor": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "System",
     "cpu": "CPU",
     "memory": "Memory",
@@ -401,6 +410,7 @@
     }
   },
   "bluetooth": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Bluetooth",
     "widget": {
       "none": "No devices connected",
@@ -459,6 +469,7 @@
     }
   },
   "weather": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Weather",
     "currentLocation": "Current location",
     "refresh": "Refresh",
@@ -547,6 +558,7 @@
     }
   },
   "calendar": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Calendar",
     "month": "Month",
     "agenda": "Agenda",
@@ -634,6 +646,7 @@
     }
   },
   "notifications": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Notifications",
     "list": "Notifications by app",
     "unread_one": "{{count}} unread",
@@ -707,6 +720,7 @@
     }
   },
   "dayProgress": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Day",
     "today": "Today",
     "stats": "Today at a glance",
@@ -764,6 +778,7 @@
     }
   },
   "dashboard": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Dashboard",
     "grid": "Widgets",
     "widget": "{{name}} widget",
@@ -798,6 +813,7 @@
     }
   },
   "shortcuts": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Keyboard shortcuts",
     "group": {
       "shell": "Notch"
@@ -843,6 +859,7 @@
     }
   },
   "dropActions": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Drop actions",
     "row_one": "Drop {{count}} item on an action",
     "row_other": "Drop {{count}} items on an action",
@@ -934,6 +951,7 @@
     }
   },
   "shelf": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Shelf",
     "items_one": "{{count}} item",
     "items_other": "{{count}} items",
@@ -975,6 +993,7 @@
     }
   },
   "windowSnap": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Window snap",
     "zones": "Snap zones",
     "zone": {
@@ -1005,6 +1024,7 @@
     }
   },
   "codeHosting": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Code hosting",
     "queue": "Pull requests",
     "actions": {
@@ -1115,6 +1135,7 @@
     }
   },
   "notes": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Notes",
     "actions": {
       "quickNote": "Write a quick note"
@@ -1199,6 +1220,7 @@
     }
   },
   "screenTime": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Screen time",
     "total": "{{duration}} today",
     "switches_one": "{{count}} switch",
@@ -1308,6 +1330,7 @@
     }
   },
   "aiCoding": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "AI coding",
     "agent": {
       "claude": "Claude Code",
@@ -1424,6 +1447,7 @@
     }
   },
   "health": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Health",
     "actions": {
       "water": "Log a glass of water",
@@ -1582,6 +1606,7 @@
     }
   },
   "mirror": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Mirror",
     "head": {
       "off": "Mirror is off",
@@ -1641,6 +1666,7 @@
     }
   },
   "translation": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Translation",
     "auto": "Detect language",
     "head": {
@@ -1744,6 +1770,7 @@
     }
   },
   "support": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Support",
     "about": "Muna {{version}} · {{os}}",
     "back": "Back",
@@ -1817,6 +1844,7 @@
     }
   },
   "settings": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Muna settings",
     "version": "Version {{version}}",
     "loading": "Loading settings…",
@@ -1948,6 +1976,7 @@
     }
   },
   "onboarding": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
     "title": "Welcome tour",
     "progress": "Step {{current}} of {{total}}",
     "skip": "Skip",
