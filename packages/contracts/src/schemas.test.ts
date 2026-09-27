@@ -2,6 +2,9 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
 
 import type {
+  AiCodingCommand,
+  AiCodingSnapshot,
+  AiSession,
   AppUsage,
   CodeHostingSnapshot,
   DayUsage,
@@ -32,6 +35,13 @@ import type {
   StripContent,
 } from './bindings';
 import {
+  AI_AGENTS,
+  AI_CODING_BOUNDS,
+  AI_CODING_DEFAULT_PORT,
+  AI_CODING_PORT_ATTEMPTS,
+  AI_CODING_RECENT_FOR_MS,
+  AI_CODING_RECENT_MAX,
+  AI_CODING_SETTINGS_KEY,
   APP_CATEGORIES,
   CALENDAR_MAX_NAME_CHARS,
   CALENDAR_REFRESH_CHOICES_MINUTES,
@@ -98,6 +108,11 @@ import {
   WEATHER_SETTINGS_KEY,
   WINDOW_SNAP_BOUNDS,
   WINDOW_SNAP_SETTINGS_KEY,
+  aiCodingChangedSchema,
+  aiCodingCommandSchema,
+  aiCodingSettingsSchema,
+  aiCodingSnapshotSchema,
+  aiSessionSchema,
   appUsageSchema,
   categoryShares,
   clampDashboardSlots,
@@ -105,6 +120,7 @@ import {
   codeHostingCommandSchema,
   codeHostingSettingsSchema,
   codeHostingSnapshotSchema,
+  defaultAiCodingSettings,
   defaultCalendarSettings,
   defaultCodeHostingSettings,
   defaultDashboardSettings,
@@ -151,6 +167,7 @@ import {
   notesSettingsSchema,
   notesSnapshotSchema,
   pullRequestSchema,
+  readAiCodingSettings,
   readCalendarSettings,
   readCodeHostingSettings,
   readDashboardSettings,
@@ -168,6 +185,7 @@ import {
   readTodoSettings,
   readWeatherSettings,
   readWindowSnapSettings,
+  runningSessions,
   screenTimeChangedSchema,
   screenTimeCommandSchema,
   screenTimeSettingsSchema,
@@ -188,9 +206,11 @@ import {
   snapZoneRefSchema,
   snapZoneSchema,
   stripContentSchema,
+  waitingSessions,
   weekScaleMs,
   widgetNote,
   windowSnapSettingsSchema,
+  writeAiCodingSettings,
   writeCalendarSettings,
   writeCodeHostingSettings,
   writeDashboardSettings,
@@ -471,10 +491,48 @@ describe('strip content schema', () => {
           holdMs: 0,
         },
       },
+      {
+        kind: 'activity',
+        wide: true,
+        activity: {
+          id: 'ai-coding:waiting:claude:s1',
+          module: 'ai-coding',
+          priority: 62,
+          leading: { kind: 'icon', glyph: 'terminal', tint: 'orange' },
+          trailing: { kind: 'decision', session: 'claude:s1' },
+          wide: { kind: 'agentWaiting', agent: 'Claude Code', tool: 'Bash' },
+        },
+      },
+      {
+        kind: 'notice',
+        notice: {
+          id: 'ai-coding:waiting:copilot:abc',
+          module: 'ai-coding',
+          priority: 62,
+          leading: { kind: 'icon', glyph: 'terminal', tint: null },
+          trailing: null,
+          wide: { kind: 'agentWaiting', agent: 'GitHub Copilot', tool: null },
+          holdMs: 0,
+        },
+      },
     ];
     for (const value of cases) {
       expect(stripContentSchema.parse(value)).toEqual(value);
     }
+    expect(
+      stripContentSchema.safeParse({
+        kind: 'activity',
+        wide: true,
+        activity: {
+          id: 'ai-coding:waiting:claude:s1',
+          module: 'ai-coding',
+          priority: 62,
+          leading: null,
+          trailing: { kind: 'decision', session: '' },
+          wide: null,
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it('reads an image without a glow (older payloads) as glow null', () => {
@@ -2088,6 +2146,163 @@ describe('screen time schemas', () => {
     expect(weekScaleMs([])).toBe(60_000);
     expect(weekScaleMs(week.map((entry) => ({ ...entry, totalMs: 0 })))).toBe(60_000);
     expect(weekScaleMs(week)).toBe(600_000);
+  });
+});
+
+describe('ai coding contract', () => {
+  const NOON = 1_718_193_600_000;
+  const session = (id: string, overrides: Partial<AiSession> = {}): AiSession => ({
+    id,
+    agent: 'claude',
+    project: 'muna',
+    branch: 'main',
+    model: 'claude-sonnet-4',
+    status: 'running',
+    waiting: null,
+    task: 'Add a test for the receiver',
+    file: 'src/lib.rs',
+    startedAtMs: NOON - 600_000,
+    updatedAtMs: NOON,
+    messages: 4,
+    tokens: 12_345,
+    canFocus: true,
+    ...overrides,
+  });
+  const receiver = {
+    port: AI_CODING_DEFAULT_PORT,
+    listening: true,
+    hookUrl: `http://127.0.0.1:${String(AI_CODING_DEFAULT_PORT)}/hooks/claude`,
+    claudeHooksInstalled: false,
+  };
+
+  it('is on by default, listens on the documented port and follows Copilot CLI', () => {
+    expect(defaultAiCodingSettings()).toEqual({
+      enabled: true,
+      port: AI_CODING_DEFAULT_PORT,
+      copilotCli: true,
+      waitingNotice: true,
+    });
+    expect(readAiCodingSettings(defaultSettings())).toEqual(defaultAiCodingSettings());
+    expect(AI_CODING_SETTINGS_KEY).toBe('ai-coding');
+    expect(AI_CODING_DEFAULT_PORT).toBe(47_391);
+    expect(AI_CODING_BOUNDS.port).toEqual({ min: 1024, max: 65_535 - AI_CODING_PORT_ATTEMPTS });
+    expect(AI_CODING_RECENT_MAX).toBe(20);
+    expect(AI_CODING_RECENT_FOR_MS).toBe(86_400_000);
+    expect(AI_AGENTS).toEqual(['claude', 'copilot', 'generic']);
+  });
+
+  it('clamps the port, fills missing fields and falls back on a malformed entry', () => {
+    expect(aiCodingSettingsSchema.parse({ port: 80 })).toEqual({
+      ...defaultAiCodingSettings(),
+      port: AI_CODING_BOUNDS.port.min,
+    });
+    expect(aiCodingSettingsSchema.parse({ port: 70_000 }).port).toBe(AI_CODING_BOUNDS.port.max);
+    expect(aiCodingSettingsSchema.parse({ enabled: false, copilotCli: false })).toEqual({
+      enabled: false,
+      port: AI_CODING_DEFAULT_PORT,
+      copilotCli: false,
+      waitingNotice: true,
+    });
+    const doc = writeAiCodingSettings(defaultSettings(), {
+      enabled: true,
+      port: 50_000,
+      copilotCli: true,
+      waitingNotice: false,
+    });
+    expect(readAiCodingSettings(doc)).toEqual({
+      enabled: true,
+      port: 50_000,
+      copilotCli: true,
+      waitingNotice: false,
+    });
+    expect(doc.modules[SCREEN_TIME_SETTINGS_KEY]).toBeUndefined();
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [AI_CODING_SETTINGS_KEY]: { port: 'soon' } },
+    };
+    expect(readAiCodingSettings(broken)).toEqual(defaultAiCodingSettings());
+  });
+
+  it('round-trips the snapshot and its change event', () => {
+    const snapshot: AiCodingSnapshot = {
+      enabled: true,
+      sessions: [
+        session('claude:s1', {
+          status: 'waiting',
+          waiting: {
+            kind: 'permission',
+            tool: 'Bash',
+            detail: 'cargo test',
+            decidable: true,
+            sinceMs: NOON - 5_000,
+          },
+        }),
+        session('copilot:C:/repo', {
+          agent: 'copilot',
+          model: 'gpt-5',
+          tokens: null,
+          status: 'waiting',
+          waiting: { kind: 'input', tool: null, detail: null, decidable: false, sinceMs: NOON },
+        }),
+        session('generic:aider:7', { agent: 'generic', project: null, branch: null, file: null }),
+      ],
+      recent: [session('claude:s0', { status: 'done', updatedAtMs: NOON - 3_600_000 })],
+      receiver,
+      generatedAtMs: NOON,
+    };
+    expect(aiCodingSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+    expect(aiCodingChangedSchema.parse({ snapshot })).toEqual({ snapshot });
+    const off: AiCodingSnapshot = {
+      enabled: false,
+      sessions: [],
+      recent: [],
+      receiver: { ...receiver, listening: false },
+      generatedAtMs: NOON,
+    };
+    expect(aiCodingSnapshotSchema.parse(off)).toEqual(off);
+    expect(aiSessionSchema.safeParse({ ...session('x'), agent: 'cursor' }).success).toBe(false);
+    expect(aiSessionSchema.safeParse({ ...session('x'), status: 'paused' }).success).toBe(false);
+    expect(aiSessionSchema.safeParse({ ...session('x'), tokens: -1 }).success).toBe(false);
+    expect(aiSessionSchema.safeParse({ ...session('') }).success).toBe(false);
+    expect(
+      aiCodingSnapshotSchema.safeParse({
+        ...off,
+        recent: Array.from({ length: AI_CODING_RECENT_MAX + 1 }, (_, index) =>
+          session(`claude:${String(index)}`),
+        ),
+      }).success,
+    ).toBe(false);
+    expect(
+      aiCodingSnapshotSchema.safeParse({ ...off, receiver: { ...receiver, port: 0 } }).success,
+    ).toBe(false);
+    expectTypeOf<z.infer<typeof aiCodingSnapshotSchema>>().toEqualTypeOf<AiCodingSnapshot>();
+  });
+
+  it('accepts every command and refuses an unknown one or a blank session', () => {
+    const commands: AiCodingCommand[] = [
+      { kind: 'refresh' },
+      { kind: 'allow', session: 'claude:s1' },
+      { kind: 'deny', session: 'claude:s1' },
+      { kind: 'focus', session: 'copilot:C:/repo' },
+      { kind: 'dismiss', session: 'copilot:C:/repo' },
+      { kind: 'installClaudeHooks' },
+      { kind: 'removeClaudeHooks' },
+    ];
+    for (const command of commands) {
+      expect(aiCodingCommandSchema.parse(command)).toEqual(command);
+    }
+    expect(aiCodingCommandSchema.safeParse({ kind: 'allow', session: '' }).success).toBe(false);
+    expect(aiCodingCommandSchema.safeParse({ kind: 'approve', session: 'x' }).success).toBe(false);
+    expectTypeOf<z.infer<typeof aiCodingCommandSchema>>().toEqualTypeOf<AiCodingCommand>();
+  });
+
+  it('splits the live sessions into the ones waiting and the ones running, order kept', () => {
+    const waiting = session('claude:w', { status: 'waiting' });
+    const running = session('claude:r');
+    const later = session('copilot:r2', { agent: 'copilot' });
+    expect(waitingSessions([waiting, running, later])).toEqual([waiting]);
+    expect(runningSessions([waiting, running, later])).toEqual([running, later]);
+    expect(waitingSessions([])).toEqual([]);
   });
 });
 
