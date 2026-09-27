@@ -1409,6 +1409,79 @@
       "genericBody": "Any tool can post JSON to the hook URL with the bearer token written in Claude Code's settings file. The shape is documented in docs/modules/ai-coding.md."
     }
   },
+  "support": {
+    "title": "Support",
+    "about": "Muna {{version}} · {{os}}",
+    "back": "Back",
+    "done": "Done",
+    "help": {
+      "title": "Help",
+      "body": "Guides, shortcuts and answers, in your browser"
+    },
+    "feedback": {
+      "title": "Send feedback",
+      "body": "Opens a GitHub issue with your Windows and Muna versions filled in"
+    },
+    "diagnostics": {
+      "title": "Save diagnostics",
+      "body": "A zip on your Desktop: logs, settings without secrets and a system report",
+      "saving": "Saving to your Desktop",
+      "saved": "Saved {{name}} to your Desktop. Attach it to your issue."
+    },
+    "whatsNew": {
+      "title": "What's new",
+      "body": "Version {{version}}",
+      "onGitHub": "Release notes on GitHub",
+      "empty": {
+        "title": "No release notes in this build",
+        "body": "The notes for every version are on GitHub."
+      }
+    },
+    "repair": {
+      "title": "Repair",
+      "body": "Flyouts and the reserved space",
+      "action": "Repair",
+      "flyouts": "Volume and brightness flyouts",
+      "flyoutsBody": "Shows Windows's own flyouts again, then hides them the way the HUD is set.",
+      "flyoutsDone": "Flyouts repaired.",
+      "appBar": "Reserved space",
+      "appBarBody": "Registers the space above the notch again if windows overlap it or a gap is left behind.",
+      "appBarDone": "Reserved space repaired."
+    },
+    "rate": {
+      "title": "Rate Muna on GitHub",
+      "body": "A star helps others find it"
+    },
+    "error": {
+      "noDesktop": "Your Desktop folder cannot be found, so the bundle was not saved.",
+      "io": "The bundle could not be written. Check your Desktop folder and try again.",
+      "updater": "Updates could not be checked. Check your connection and try again.",
+      "failed": "That did not work. Try again."
+    },
+    "settings": {
+      "updates": "Updates",
+      "channel": "Update channel",
+      "channelBody": "Beta builds arrive earlier and may have rough edges.",
+      "channels": {
+        "stable": "Stable",
+        "beta": "Beta"
+      },
+      "check": "Check for updates",
+      "checkBody": "You have version {{version}}. Muna only checks when you ask.",
+      "checkAction": "Check",
+      "updateAvailable": "Version {{version}} is available on GitHub.",
+      "upToDate": "Version {{version}} is the latest.",
+      "download": "Get it",
+      "diagnostics": "Diagnostics",
+      "system": "System",
+      "bundleBody": "{{logs}} of logs, your settings without secrets and a system report, zipped to your Desktop.",
+      "save": "Save",
+      "logs": "Logs folder",
+      "logsBody": "Opens the folder Muna writes its log files to.",
+      "open": "Open",
+      "repairBody": "Use these when something the notch changed in Windows is left behind."
+    }
+  },
   "settings": {
     "title": "Muna settings",
     "version": "Version {{version}}",
