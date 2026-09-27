@@ -138,10 +138,11 @@ pub fn run() {
                 ..
             } => {
                 // A destroyed notch window must not keep the strip suspended, nor keep the
-                // system monitor or screen time publishing for a panel that is gone.
+                // system monitor, screen time or AI coding publishing for a panel that is gone.
                 exit_state.activities.forget_window(&label);
                 exit_state.modules.system_monitor.forget_window(&label);
                 exit_state.modules.screen_time.forget_window(&label);
+                exit_state.modules.ai_coding.forget_window(&label);
                 exit_state
                     .modules
                     .drop_actions
@@ -214,4 +215,7 @@ fn wire_module_sinks(
     modules
         .screen_time
         .set_sink(Arc::new(ipc::ScreenTimeEventSink::new(app.clone())));
+    modules
+        .ai_coding
+        .set_sink(Arc::new(ipc::AiCodingEventSink::new(app.clone())));
 }

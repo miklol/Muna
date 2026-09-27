@@ -4,7 +4,7 @@
 //! traits return **and** publishes the matching [`PlatformEvent`], exactly as the real
 //! implementation would. Commands sent to the fake are recorded so tests can assert on them.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -15,8 +15,8 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
-    Location, Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
-    WindowPlacement, Windowing,
+    Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemOsd,
+    SystemStats, WindowPlacement, Windowing,
 };
 use crate::types::{
     AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
@@ -157,6 +157,17 @@ struct State {
     app_descriptions: BTreeMap<PathBuf, AppDescription>,
     /// Every `describe(executable, icon_size)` the fake answered, in order.
     app_info_calls: Vec<(PathBuf, u32)>,
+    /// Process ids `Processes::is_running` answers `true` for.
+    running_pids: BTreeSet<u32>,
+    /// Scripted `Processes::main_window` answers by pid.
+    process_windows: BTreeMap<u32, WindowHandle>,
+    /// Scripted `Processes::owner_of_local_port` answers by port.
+    port_owners: BTreeMap<u16, u32>,
+    /// Every `Processes::focus(window)` so far, in order.
+    focus_calls: Vec<WindowHandle>,
+    /// When set, `Processes::focus` fails the way `SetForegroundWindow` refuses a background
+    /// process.
+    focus_refused: bool,
     sent_media_commands: Vec<(String, MediaCommand)>,
     pointer: Pointer,
     quiet: UserNotificationState,
@@ -258,6 +269,11 @@ impl Default for State {
             idle_for: Duration::ZERO,
             app_descriptions: BTreeMap::new(),
             app_info_calls: Vec::new(),
+            running_pids: BTreeSet::new(),
+            process_windows: BTreeMap::new(),
+            port_owners: BTreeMap::new(),
+            focus_calls: Vec::new(),
+            focus_refused: false,
             sent_media_commands: Vec::new(),
             pointer: Pointer::default(),
             quiet: UserNotificationState::AcceptsNotifications,
@@ -580,6 +596,54 @@ impl FakePlatform {
     /// Every `describe(executable, icon_size)` answered so far, in order.
     pub fn app_info_calls(&self) -> Vec<(PathBuf, u32)> {
         self.state.lock().app_info_calls.clone()
+    }
+
+    /// Scripts whether [`Processes::is_running`] finds `pid` alive.
+    pub fn set_process_running(&self, pid: u32, running: bool) {
+        let mut state = self.state.lock();
+        if running {
+            state.running_pids.insert(pid);
+        } else {
+            state.running_pids.remove(&pid);
+        }
+    }
+
+    /// Scripts the window [`Processes::main_window`] answers for `pid` (`None` clears it).
+    pub fn set_process_window(&self, pid: u32, window: Option<WindowHandle>) {
+        let mut state = self.state.lock();
+        match window {
+            Some(window) => {
+                state.process_windows.insert(pid, window);
+            }
+            None => {
+                state.process_windows.remove(&pid);
+            }
+        }
+    }
+
+    /// Makes [`Processes::focus`] fail, as Windows does for a process without the foreground.
+    pub fn set_focus_refused(&self, refused: bool) {
+        self.state.lock().focus_refused = refused;
+    }
+
+    /// Scripts which pid [`Processes::owner_of_local_port`] answers for `port` (`None`
+    /// clears it).
+    pub fn set_port_owner(&self, port: u16, pid: Option<u32>) {
+        let mut state = self.state.lock();
+        match pid {
+            Some(pid) => {
+                state.port_owners.insert(port, pid);
+            }
+            None => {
+                state.port_owners.remove(&port);
+            }
+        }
+    }
+
+    /// Every window [`Processes::focus`] was asked to bring forward, in order.
+    #[must_use]
+    pub fn focus_calls(&self) -> Vec<WindowHandle> {
+        self.state.lock().focus_calls.clone()
     }
 
     pub fn set_session_locked(&self, locked: bool) {
@@ -1347,6 +1411,29 @@ impl AppInfo for FakePlatform {
     }
 }
 
+impl Processes for FakePlatform {
+    fn is_running(&self, pid: u32) -> PlatformResult<bool> {
+        Ok(self.state.lock().running_pids.contains(&pid))
+    }
+
+    fn main_window(&self, pid: u32) -> PlatformResult<Option<WindowHandle>> {
+        Ok(self.state.lock().process_windows.get(&pid).copied())
+    }
+
+    fn owner_of_local_port(&self, port: u16) -> PlatformResult<Option<u32>> {
+        Ok(self.state.lock().port_owners.get(&port).copied())
+    }
+
+    fn focus(&self, window: WindowHandle) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        state.focus_calls.push(window);
+        if state.focus_refused {
+            return Err(PlatformError::AccessDenied("foreground"));
+        }
+        Ok(())
+    }
+}
+
 impl FileOps for FakePlatform {
     fn transfer(
         &self,
@@ -1529,6 +1616,10 @@ impl Platform for FakePlatform {
     }
 
     fn app_info(&self) -> &dyn AppInfo {
+        self
+    }
+
+    fn processes(&self) -> &dyn Processes {
         self
     }
 
@@ -1925,6 +2016,40 @@ mod tests {
         fake.set_app_description(exe.clone(), description.clone());
         assert_eq!(fake.app_info().describe(&exe, 64).unwrap(), description);
         assert_eq!(fake.app_info_calls(), vec![(exe.clone(), 64), (exe, 64)]);
+    }
+
+    #[test]
+    fn processes_are_scripted() {
+        let fake = FakePlatform::new();
+        assert!(!fake.processes().is_running(4242).unwrap());
+        assert_eq!(fake.processes().main_window(4242).unwrap(), None);
+
+        fake.set_process_running(4242, true);
+        fake.set_process_window(4242, Some(0x9000));
+        assert!(fake.processes().is_running(4242).unwrap());
+        assert_eq!(fake.processes().main_window(4242).unwrap(), Some(0x9000));
+
+        fake.processes().focus(0x9000).unwrap();
+        fake.set_focus_refused(true);
+        assert_eq!(
+            fake.processes().focus(0x9000),
+            Err(PlatformError::AccessDenied("foreground"))
+        );
+        assert_eq!(fake.focus_calls(), vec![0x9000, 0x9000]);
+
+        fake.set_process_running(4242, false);
+        fake.set_process_window(4242, None);
+        assert!(!fake.processes().is_running(4242).unwrap());
+        assert_eq!(fake.processes().main_window(4242).unwrap(), None);
+
+        assert_eq!(fake.processes().owner_of_local_port(50_000).unwrap(), None);
+        fake.set_port_owner(50_000, Some(4242));
+        assert_eq!(
+            fake.processes().owner_of_local_port(50_000).unwrap(),
+            Some(4242)
+        );
+        fake.set_port_owner(50_000, None);
+        assert_eq!(fake.processes().owner_of_local_port(50_000).unwrap(), None);
     }
 
     #[test]

@@ -25,8 +25,8 @@ pub use fake::{
 };
 pub use traits::{
     AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
-    Location, Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
-    WindowPlacement, Windowing,
+    Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemOsd,
+    SystemStats, WindowPlacement, Windowing,
 };
 pub use types::{
     AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,

@@ -76,6 +76,11 @@
   min-block-size: var(--size-strip-slot);
 }
 
+/* The Allow / Deny pair: wider than a slot, like the level; the slot box grows with it. */
+.muna-strip__decision {
+  block-size: var(--size-strip-slot);
+}
+
 .muna-strip__image {
   display: block;
   inline-size: var(--size-strip-slot);

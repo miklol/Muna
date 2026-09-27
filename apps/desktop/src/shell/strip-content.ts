@@ -68,6 +68,18 @@ export interface HudPresentation {
 
 export interface PresentOptions {
   readonly hud?: HudPresentation | undefined;
+  readonly decision?: DecisionPresentation | undefined;
+}
+
+/**
+ * How a `decision` slot answers (docs/modules/ai-coding.md): the shell forwards *Allow* /
+ * *Deny* to the module's command with the slot's session. Absent: the pills show but do
+ * nothing (Storybook, tests).
+ */
+export interface DecisionPresentation {
+  readonly onDecide: (session: string, allow: boolean) => void;
+  /** The session an answer is already on its way for: its pills stop taking presses. */
+  readonly pending?: string | null | undefined;
 }
 
 /** What a `level` slot controls, read from the glyph beside it (the sun means brightness). */
@@ -151,6 +163,11 @@ export const messageText = (message: StripMessage, t: Translate): string => {
         app: message.app,
         limit: formatMinutes(message.minutes, t),
       });
+    case 'agentWaiting':
+      // Agent and tool are the agent's own names; the strip shows them as written.
+      return message.tool === null
+        ? t('strip.message.agentWaiting', { agent: message.agent })
+        : t('strip.message.agentPermission', { agent: message.agent, tool: message.tool });
   }
 };
 
@@ -162,12 +179,26 @@ export interface SlotContext {
   /** Accessible name for a `level` slot ("Volume"). */
   readonly levelLabel: string;
   readonly hud?: HudPresentation | undefined;
+  /** The decision pair's labels and what pressing one does. */
+  readonly decision?: DecisionSlotContext | undefined;
 }
+
+export interface DecisionSlotContext {
+  /** Accessible name for the pair ("Allow or deny"). */
+  readonly label: string;
+  readonly allowLabel: string;
+  readonly denyLabel: string;
+  readonly presentation?: DecisionPresentation | undefined;
+}
+
+const noDecision = () => {
+  // Outside the shell (Storybook, tests) the pills have nowhere to send the answer.
+};
 
 /** Maps a contract slot to the UI vocabulary. */
 export const toSlot = (
   slot: Leading | Trailing | null,
-  { locale, receivedAt, levelLabel, hud }: SlotContext,
+  { locale, receivedAt, levelLabel, hud, decision }: SlotContext,
 ): StripSlotContent | null => {
   if (slot === null) return null;
   switch (slot.kind) {
@@ -212,6 +243,29 @@ export const toSlot = (
       return { kind: 'text', value: formatTime(slot.atMs, locale) };
     case 'count':
       return { kind: 'text', value: formatCount(slot.value, locale) };
+    case 'decision': {
+      const { session } = slot;
+      const onDecide = decision?.presentation?.onDecide;
+      return {
+        kind: 'decision',
+        label: decision?.label ?? '',
+        allowLabel: decision?.allowLabel ?? '',
+        denyLabel: decision?.denyLabel ?? '',
+        onAllow:
+          onDecide === undefined
+            ? noDecision
+            : () => {
+                onDecide(session, true);
+              },
+        onDeny:
+          onDecide === undefined
+            ? noDecision
+            : () => {
+                onDecide(session, false);
+              },
+        isDisabled: decision?.presentation?.pending === session,
+      };
+    }
   }
 };
 
@@ -249,6 +303,8 @@ const describeSlot = (
       return t('strip.describe.time', { time: formatTime(slot.atMs, locale) });
     case 'count':
       return t('strip.describe.unread', { count: slot.value });
+    case 'decision':
+      return t('strip.describe.decision');
   }
 };
 
@@ -353,6 +409,14 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
           app: item.wide.app,
           limit: formatMinutes(item.wide.minutes, t),
         });
+      case 'agentWaiting': {
+        // With the decision pair on the right the sentence says what the buttons do.
+        const { agent, tool } = item.wide;
+        if (tool === null) return t('strip.describe.agentWaiting', { agent });
+        return item.trailing?.kind === 'decision'
+          ? t('strip.describe.agentDecision', { agent, tool })
+          : t('strip.describe.agentPermission', { agent, tool });
+      }
     }
   }
   // A battery glyph beside its own percentage is one fact, not two.
@@ -364,9 +428,13 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
   return parts.length > 0 ? parts.join(', ') : t('notch.placeholder');
 };
 
+/** Whether the trailing slot asks for the wide form on its own (the decision pair needs room). */
+const slotWantsWide = (trailing: Trailing | null): boolean => trailing?.kind === 'decision';
+
 /**
  * Everything the strip renders for one piece of content. Notices always show their text;
- * an activity shows it only during the wide burst the scheduler signals with `wide`.
+ * an activity shows it only during the wide burst the scheduler signals with `wide` — unless
+ * its trailing slot is the decision pair, which keeps the wide form while it shows.
  */
 export const present = (
   content: StripContent,
@@ -375,6 +443,12 @@ export const present = (
   receivedAt: number,
   options: PresentOptions = {},
 ): StripPresentation => {
+  const decision: DecisionSlotContext = {
+    label: t('strip.describe.decision'),
+    allowLabel: t('strip.decision.allow'),
+    denyLabel: t('strip.decision.deny'),
+    presentation: options.decision,
+  };
   switch (content.kind) {
     case 'idle':
       return {
@@ -394,6 +468,7 @@ export const present = (
         receivedAt,
         levelLabel: t(levelLabelKey(notice.leading)),
         hud: options.hud,
+        decision,
       };
       return {
         itemId: notice.id,
@@ -413,6 +488,7 @@ export const present = (
         receivedAt,
         levelLabel: t(levelLabelKey(activity.leading)),
         hud: options.hud,
+        decision,
       };
       return {
         itemId: activity.id,
@@ -420,7 +496,7 @@ export const present = (
         leading: toSlot(activity.leading, context),
         trailing: toSlot(activity.trailing, context),
         text,
-        wide: content.wide && text !== null,
+        wide: (content.wide || slotWantsWide(activity.trailing)) && text !== null,
         description: describe(content, t, locale),
       };
     }
@@ -435,7 +511,9 @@ export const wantsWide = (content: StripContent): boolean => {
     case 'notice':
       return content.notice.wide !== null;
     case 'activity':
-      return content.wide && content.activity.wide !== null;
+      return (
+        (content.wide || slotWantsWide(content.activity.trailing)) && content.activity.wide !== null
+      );
   }
 };
 
