@@ -878,8 +878,13 @@ fn turning_off_stops_polling_and_drops_the_queue_but_keeps_the_token_for_next_ti
     rig.apply(CodeHostingSettings::default());
     let snapshot = rig.snapshot();
     assert!(!snapshot.enabled);
-    assert_eq!(snapshot.account, None);
+    assert_eq!(
+        snapshot.account.as_ref().map(|a| a.login.as_str()),
+        Some("octocat"),
+        "the pane still names the account and offers Disconnect"
+    );
     assert!(snapshot.pull_requests.is_empty());
+    assert_eq!(snapshot.fetched_at_ms, None);
     assert_eq!(rig.service.next_wake(), None);
     assert_eq!(
         rig.platform.secret(TOKEN_KEY).as_deref(),
@@ -889,6 +894,10 @@ fn turning_off_stops_polling_and_drops_the_queue_but_keeps_the_token_for_next_ti
     assert!(
         rig.store.get_meta(CACHE_KEY).expect("store").is_some(),
         "so does the cache"
+    );
+    assert!(
+        rig.service.plan().is_none(),
+        "an account without the switch polls nothing"
     );
 
     rig.pass(Duration::from_secs(30));
@@ -906,6 +915,22 @@ fn turning_off_stops_polling_and_drops_the_queue_but_keeps_the_token_for_next_ti
         Some(POLL.saturating_sub(Duration::from_secs(30))),
         "the next poll is due when it was"
     );
+}
+
+#[test]
+fn disconnect_while_off_forgets_the_token_so_nothing_hides_behind_the_switch() {
+    let rig = Rig::connected();
+    rig.apply(CodeHostingSettings::default());
+    let snapshot = rig.service.disconnect();
+    assert!(!snapshot.enabled);
+    assert_eq!(snapshot.account, None);
+    assert_eq!(rig.platform.secret(TOKEN_KEY), None);
+    assert_eq!(rig.store.get_meta(CACHE_KEY).expect("store"), None);
+
+    rig.enable();
+    let snapshot = rig.snapshot();
+    assert_eq!(snapshot.account, None, "back on: connect again");
+    assert!(rig.service.plan().is_none());
 }
 
 #[test]

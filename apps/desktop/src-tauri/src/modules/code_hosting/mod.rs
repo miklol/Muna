@@ -235,7 +235,8 @@ impl CodeHostingService {
     /// Applies `settings.modules["code-hosting"]` (start-up and every settings change).
     /// Turning the module on restores the cached queue for the vaulted token and polls;
     /// turning it off stops polling and drops the queue from memory — the token and the cache
-    /// stay for the next time, *Disconnect* is what forgets them.
+    /// stay for the next time, and the account stays in the snapshot so the settings pane
+    /// still names it and offers *Disconnect*, which is what forgets them.
     pub fn apply_settings(&self, settings: &Settings) {
         let next = CodeHostingSettings::from_document(settings);
         let snapshot = {
@@ -253,7 +254,6 @@ impl CodeHostingService {
                 if inner.settings.enabled {
                     self.restore(&mut inner);
                 } else {
-                    inner.account = None;
                     forget(&mut inner);
                 }
             }

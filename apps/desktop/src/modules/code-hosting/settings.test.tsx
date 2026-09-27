@@ -203,6 +203,16 @@ describe('CodeHostingSettingsPane', () => {
     expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled();
   });
 
+  it('keeps the account and Disconnect in view while the module is off', async () => {
+    ipc.getCodeHostingSnapshot.mockResolvedValue({ ...connected(), enabled: false });
+    renderPane();
+    await flush();
+    expect(screen.getByRole('switch', { name: 'Show pull requests' })).not.toBeChecked();
+    expect(screen.getByText('Connected as octocat')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Disconnect' })).toBeEnabled();
+    expect(screen.queryByLabelText('Access token')).not.toBeInTheDocument();
+  });
+
   it('opens the new-token page through Rust and disconnects through Rust', async () => {
     cacheSettings(queryClient, enabledSettings());
     ipc.getCodeHostingSnapshot.mockResolvedValue(connected());
