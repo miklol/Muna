@@ -32,6 +32,7 @@ import type {
   DropPoint,
   DropTile,
   Dropped,
+  FolderProblem,
   Glyph,
   HotkeyBinding,
   HotkeyState,
@@ -39,6 +40,12 @@ import type {
   Leading,
   MonitorLayout,
   NotchShape,
+  Note,
+  NoteContent,
+  NoteDraft,
+  NotesChanged,
+  NotesCommand,
+  NotesSnapshot,
   Notice,
   Place,
   PlacementMode,
@@ -1729,3 +1736,107 @@ export const filterPullRequests = (
       return [...pullRequests];
   }
 };
+
+/** The key of the notes module's namespace; also its module id. */
+export const NOTES_SETTINGS_KEY = 'notes';
+
+/** `Inbox.md`, the note quick capture appends to (mirrors `modules::notes::INBOX_ID`). */
+export const NOTES_INBOX_ID = 'Inbox.md';
+
+/**
+ * The largest note the editor opens, in bytes (mirrors `modules::notes::MAX_NOTE_BYTES`);
+ * bigger ones are listed and opened in their default app.
+ */
+export const NOTES_MAX_NOTE_BYTES = 2 * 1024 * 1024;
+
+/** How long the editor waits after the last keystroke before it saves, in milliseconds. */
+export const NOTES_AUTOSAVE_MS = 600;
+
+/**
+ * Mirrors `modules::notes::NotesSettings`: only the folder, `null` being the default
+ * (`%APPDATA%\Muna\notes`). Trimmed; blank is `null`. A wrong type fails the whole entry,
+ * like the Rust side.
+ */
+export const notesSettingsSchema = z.object({
+  folder: z
+    .string()
+    .nullable()
+    .default(null)
+    .transform((folder) => {
+      const trimmed = folder?.trim() ?? '';
+      return trimmed === '' ? null : trimmed;
+    }),
+});
+export type NotesSettings = z.infer<typeof notesSettingsSchema>;
+
+export const defaultNotesSettings = (): NotesSettings => notesSettingsSchema.parse({});
+
+/** Reads the notes namespace; a missing or malformed entry yields the defaults. */
+export const readNotesSettings = (settings: Settings): NotesSettings => {
+  const parsed = notesSettingsSchema.safeParse(settings.modules[NOTES_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultNotesSettings();
+};
+
+/** Returns a new document with the notes namespace replaced. */
+export const writeNotesSettings = (settings: Settings, notes: NotesSettings): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [NOTES_SETTINGS_KEY]: notes },
+});
+
+/** Why the notes folder could not be listed; `missing` is only ever a folder the user chose. */
+export const folderProblemSchema = z.enum([
+  'missing',
+  'unreadable',
+]) satisfies z.ZodType<FolderProblem>;
+
+/** One note as the list shows it: a title, an excerpt, never the body. */
+export const noteSchema = z.object({
+  id: z.string().min(1),
+  title: z.string(),
+  folder: z.string(),
+  excerpt: z.string(),
+  modifiedMs: z.number().int().min(0),
+  bytes: z.number().int().min(0),
+  pinned: z.boolean(),
+}) satisfies z.ZodType<Note>;
+
+/** A note as the editor holds it; `modifiedMs` is the baseline a save sends back. */
+export const noteContentSchema = z.object({
+  id: z.string().min(1),
+  title: z.string(),
+  body: z.string(),
+  modifiedMs: z.number().int().min(0),
+}) satisfies z.ZodType<NoteContent>;
+
+/** The argument of `commands.notesSave`. */
+export const noteDraftSchema = z.object({
+  id: z.string().min(1),
+  body: z.string(),
+  baseModifiedMs: z.number().int().min(0),
+}) satisfies z.ZodType<NoteDraft>;
+
+/** What `commands.getNotesSnapshot` returns and `events.notesChanged` carries. */
+export const notesSnapshotSchema = z.object({
+  folder: z.string(),
+  defaultFolder: z.boolean(),
+  notes: z.array(noteSchema),
+  inboxId: z.string().min(1).nullable(),
+  problem: folderProblemSchema.nullable(),
+}) satisfies z.ZodType<NotesSnapshot>;
+
+export const notesChangedSchema = z.object({
+  snapshot: notesSnapshotSchema,
+}) satisfies z.ZodType<NotesChanged>;
+
+/** The argument of `commands.notesCommand`. */
+export const notesCommandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('refresh') }),
+  z.object({ kind: z.literal('pin'), id: z.string().min(1), pinned: z.boolean() }),
+  z.object({ kind: z.literal('delete'), id: z.string().min(1) }),
+]) satisfies z.ZodType<NotesCommand>;
+
+/**
+ * The note the widget shows: the first pinned one, else the newest; `null` for an empty
+ * folder. The list arrives pinned first, newest first, so it is simply the head.
+ */
+export const widgetNote = (notes: readonly Note[]): Note | null => notes[0] ?? null;

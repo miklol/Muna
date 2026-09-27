@@ -1082,6 +1082,90 @@
       "checksFinishedBody": "When the checks on one of your pull requests pass or fail, the strip says so."
     }
   },
+  "notes": {
+    "title": "Notes",
+    "actions": {
+      "quickNote": "Write a quick note"
+    },
+    "list": "Notes",
+    "search": "Search notes",
+    "searchPlaceholder": "Search",
+    "clearSearch": "Clear the search",
+    "new": "New note",
+    "newTitle": "Title of the new note",
+    "newTitlePlaceholder": "Title, then Enter",
+    "create": "Create",
+    "cancel": "Cancel",
+    "back": "Back to the list",
+    "open": "Open {{title}}",
+    "pinned": "Pinned",
+    "pin": "Pin {{title}}",
+    "unpin": "Unpin {{title}}",
+    "more": "More for {{title}}",
+    "rename": "Rename",
+    "renameTitle": "Title",
+    "renamePlaceholder": "Title, then Enter",
+    "reveal": "Show in Explorer",
+    "openExternal": "Open in another app",
+    "delete": "Move to Recycle Bin",
+    "preview": "Preview",
+    "edit": "Edit",
+    "body": "Note text",
+    "bodyPlaceholder": "Start writing",
+    "previewEmpty": "Nothing to preview yet",
+    "edited": "Edited {{time}}",
+    "inFolder": "in {{folder}}",
+    "saving": "Saving",
+    "saved": "Saved",
+    "conflict": "This note changed in another app and was reloaded.",
+    "saveFailed": "The note could not be saved. Check the folder and try again.",
+    "count_one": "{{count}} note",
+    "count_other": "{{count}} notes",
+    "tooLarge": {
+      "title": "Too large to edit here",
+      "body": "Notes over 2 MB open in your default app instead.",
+      "action": "Open in another app"
+    },
+    "noResults": {
+      "title": "No notes match",
+      "body": "Try another word, or clear the search."
+    },
+    "empty": {
+      "title": "No notes yet",
+      "body": "Create one above, or use the quick note shortcut to jot something into Inbox."
+    },
+    "problem": {
+      "missing": {
+        "title": "The notes folder is missing",
+        "body": "{{folder}} cannot be found. Plug the drive back in, or choose another folder in Settings.",
+        "action": "Open settings"
+      },
+      "unreadable": {
+        "title": "The notes folder cannot be read",
+        "body": "Check that Muna may read {{folder}}, or choose another folder in Settings.",
+        "action": "Open settings"
+      }
+    },
+    "widget": {
+      "label": "Notes",
+      "empty": "Pin a note to keep it here",
+      "problem": "The notes folder is not available"
+    },
+    "settings": {
+      "section": "Folder",
+      "folder": "Notes folder",
+      "folderBody": "Plain Markdown files, one per note. Point it at an Obsidian vault or any folder to share notes with other apps.",
+      "defaultFolder": "Default folder",
+      "change": "Change",
+      "useDefault": "Use the default folder",
+      "openFolder": "Open folder",
+      "pickTitle": "Choose a notes folder",
+      "missing": "This folder cannot be found right now.",
+      "quickNote": "Quick note",
+      "quickNoteBody": "Opens Inbox in the notch with the cursor at the end. Set a shortcut for it under Keyboard shortcuts.",
+      "shortcuts": "Keyboard shortcuts"
+    }
+  },
   "settings": {
     "title": "Muna settings",
     "version": "Version {{version}}",
