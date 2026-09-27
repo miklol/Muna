@@ -70,6 +70,26 @@ leaves E4 a kickoff prompt rather than a branch.
   animations only), which the panel's enabled primary button exposed. Spec:
   [modules/translation](../modules/translation.md); QA:
   [checklists/translation](../qa/checklists/translation.md).
+- **M5-E6 Localization** — built on `m5-e6-localization` (base `m5-e1d-translation`):
+  `@muna/i18n` grew a locale registry (`SUPPORTED_LOCALES`, `resolveCatalogLocale`,
+  `resolveFormatLocale`, `localeStatus`, `localeDisplayName`) and strips `_`-prefixed notes
+  from the catalogs; the `ar-XB` pseudo-locale is generated from `en` at runtime (spike S3);
+  Rust reads the Windows regional format (`GetUserDefaultLocaleName`, on `SystemInfo`, faked
+  as `en-US`) into `AppInfo.regionFormat` and settings v6 adds `general.language`; the desktop
+  app resolves one setting into the catalog i18next speaks and the tag every `Intl` call
+  takes (`useLocale()`, swept across every formatter), mirrors the spoken language onto `<html
+  lang dir>`, and shows language tiles on the General pane named in their own language, drafts
+  labelled as such; both Storybooks gained a *Language* toolbar and four `PseudoRtl` stories.
+  The four catalogs (de, fr, es, pt-BR; 1574 messages each) are machine drafts with a `_review`
+  note per section, written to one voice and one terminology table per language, and
+  `i18n:check` now holds every locale to the English key set, the placeholders, the notes and
+  "no copied English" (with two documented allowlists). Deviations from the table below and
+  the kickoff: **i18next's own `{{name}}` interpolation and CLDR plural suffixes, not ICU**
+  (`03-architecture.md` corrected); a chosen language formats in that language while `system`
+  follows the Windows regional format, so the two can differ only under `system`; nothing on
+  the landing site is translated yet. Doc: [localization](../localization.md); QA:
+  [checklists/localization](../qa/checklists/localization.md) (rows 1–9 need a Windows
+  Settings pass on the maintainer's machine).
 
 ### Order
 
@@ -151,7 +171,14 @@ leaves E4 a kickoff prompt rather than a branch.
   local model — the agent session that built E1d had no provider to talk to.*
 - **S3 RTL pseudo-locale** (E6): an `ar` pseudo-locale (mirrored English) renders the existing
   RTL stories without clipping or LTR punctuation leaks. Exit: the Storybook run with zero
-  axe violations; findings become E3 rows.
+  axe violations; findings become E3 rows. *Record (E6): built as `ar-XB` — English wrapped in
+  a right-to-left override, generated from `en` at runtime, reachable by name from the
+  Storybook Language toolbar and never from the settings tiles; `applyDocumentLocale` flips
+  `<html dir>` from i18next's answer. Four `PseudoRtl` stories (the command palette, the
+  General pane, the notes and translation panels) pass axe in `storybook:ci`. The visual walk
+  is rows 10–18 of [checklists/localization](../qa/checklists/localization.md); its layout
+  findings (physical properties, unmirrored glyphs) are E3's, and E3 adds a `PseudoRtl` story
+  to every panel and pane.*
 
 ### Risks
 
@@ -161,7 +188,10 @@ leaves E4 a kickoff prompt rather than a branch.
 - Translation sends text to a third party: the endpoint is named on the consent line and in
   the pane; the key never leaves Credential Manager; nothing is logged but the chunk count.
 - Machine-drafted locales: every drafted file carries a `_review` note per section and the
-  language switcher labels them *draft*; en stays the source of truth.
+  language switcher labels them *draft*; en stays the source of truth. *As built (E6): the
+  tiles read "Machine draft, not yet reviewed by a native speaker"; `i18n:check` fails on a
+  missing note and on copied English; the voice and terminology per language are recorded in
+  [localization](../localization.md) for the reviewer.*
 - High contrast: `[data-contrast=more]` shifts tokens on the black-glass material; audit the
   strip's glyph-on-glass contrast before changing any material value.
 - Narrator: names and roles are testable; the actual reading order is a manual pass on the
@@ -171,9 +201,10 @@ leaves E4 a kickoff prompt rather than a branch.
 
 Fake-platform Rust suites per module (`tests/<module>.rs`), Vitest for reducers, panels and
 panes, contract round-trips, `ci:app` after every epic (all P1 and P2 modules on), `i18n:check`
-extended to every locale (same key set as `en`, drafts flagged, no stray English), axe in both
-Storybooks for every new story, and the QA checklists `docs/qa/checklists/{support,health,
-mirror,translation,accessibility}.md` for the manual rows.
+extended to every locale (same key set as `en`, placeholders kept, a `_review` note per
+section, no copied English — as built in E6), axe in both Storybooks for every new story, and
+the QA checklists `docs/qa/checklists/{support,health,mirror,translation,localization,
+accessibility}.md` for the manual rows.
 
 ## M5-E1 · P2 modules — agent: `muna-module-developer`
 
@@ -221,6 +252,9 @@ GitHub Pages from release.yml.
 ```
 
 ## M5-E6 · Localization — agent: `muna-docs-writer`
+
+*Built — see [Progress](#progress). The kickoff below asked for ICU; the build kept i18next's
+own interpolation, and [localization](../localization.md) is the reference.*
 
 ```text
 Set up i18next with ICU in packages/i18n; extract all strings; launch locales en, de, fr, es,

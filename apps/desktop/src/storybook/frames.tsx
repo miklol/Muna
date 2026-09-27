@@ -35,7 +35,10 @@ interface StoryLanguageProps {
  */
 function StoryLanguage({ toolbar, children }: StoryLanguageProps) {
   const chosen = useSettings()?.general.language ?? SYSTEM_LANGUAGE;
-  const { catalog, format } = resolveLocale(chosen === SYSTEM_LANGUAGE ? toolbar : chosen, undefined);
+  const { catalog, format } = resolveLocale(
+    chosen === SYSTEM_LANGUAGE ? toolbar : chosen,
+    undefined,
+  );
   useEffect(() => {
     if (i18n.language !== catalog) {
       void i18n.changeLanguage(catalog);
