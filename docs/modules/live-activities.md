@@ -80,8 +80,8 @@ Scheduler (`muna-core::activities::Scheduler`, driven through `Hub`):
 
 Default priorities (`muna-core::activities::priority`): HUD 100 · charging/battery 90 ·
 Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media playing 60 · Task due
-≤ 60 min 55 · Event upcoming ≤ 60 min 50 · Unread notifications 40 · Session lock 30 · Media
-paused 20 · CPU gauge 10 · Day bar 5.
+≤ 60 min 55 · Event upcoming ≤ 60 min 50 · Code hosting (review requested, checks finished) 45
+· Unread notifications 40 · Session lock 30 · Media paused 20 · CPU gauge 10 · Day bar 5.
 
 ## Built-in notices (Windows sources)
 
@@ -97,6 +97,7 @@ paused 20 · CPU gauge 10 · Day bar 5.
 | Pomodoro finished | Pomodoro module | bell + optional Timer Done overlay |
 | Task due | To-do module | check-circle glyph + task title; the due time in the trailing slot |
 | Event starting in 10 min | Calendar module | calendar glyph + event title; the start time in the trailing slot |
+| Review requested / checks finished on your pull request | Code hosting module ([implementation notes](code-hosting.md#implementation-notes-m4-e4)) | pull-request glyph (purple) + "Review requested · title"; check-circle green or x-circle red + "Checks passed / failed · title"; at most three per poll |
 
 ### Implementation notes (M1-E2)
 
