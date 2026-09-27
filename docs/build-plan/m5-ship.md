@@ -49,7 +49,8 @@ leaves E4 a kickoff prompt rather than a branch.
   (light on with the module on and no prompt, `NotAllowedError` with it off, light off within
   a second of a collapse) are rows 1–6 of the checklist and need the maintainer's machine.
   Spec: [modules/mirror](../modules/mirror.md); QA: [checklists/mirror](../qa/checklists/mirror.md).
-- **M5-E1d Translation** — built on `m5-e1d-translation` (PR pending, base `m5-e1c-mirror`):
+- **M5-E1d Translation** — built on `m5-e1d-translation`
+  ([#50](https://github.com/miklol/Muna/pull/50), base `m5-e1c-mirror`):
   the `Translator` trait with the `HttpTranslator` over the M4 `reqwest` client (SSE for
   OpenAI-compatible servers, NDJSON for Ollama, one `Decoder` per wire), `check_endpoint`
   (`https` anywhere, `http` only to a local or LAN host), the translate-only prompt with
