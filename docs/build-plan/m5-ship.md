@@ -15,7 +15,14 @@ leaves E4 a kickoff prompt rather than a branch.
 
 ### Progress
 
-_(filled in as epics land, newest last)_
+- **M5-E1a Support & diagnostics** — built on `m5-e1-support` (PR TBD, base `m4-close-out`): the
+  `SystemInfo` trait (Windows + fake), the support service with the Desktop bundle, the two
+  repairs as calls on the HUD and the shell, the update channel and the check-only updater
+  call, the panel and the pane. Deviations from the table below: `sysinfo` instead of
+  `RtlGetVersion` (same build, plus the edition), and **no `Repair` trait** — the repairs are
+  `HudService::repair_flyout` and `ShellManager::repair_app_bars`, wired in `ipc.rs`. Monitor
+  topology is not in the bundle yet (it is in the logs); `crashReports` stays reserved. Spec:
+  [modules/support](../modules/support.md); QA: [checklists/support](../qa/checklists/support.md).
 
 ### Order
 
@@ -64,8 +71,8 @@ _(filled in as epics land, newest last)_
 
 | Trait | Windows implementation | Epic |
 | ------- | ------------------------ | ------ |
-| `SystemInfo` | `RtlGetVersion` for the OS build, `GetAvailableCoreWebView2BrowserVersionString` for WebView2, monitors from the existing `Windowing`, the profile folder's size | E1a |
-| `Repair` | Reuses what the shell already owns: the HUD's flyout restore (`muna.exe --watchdog` path) and the AppBar de-registration (`ABM_REMOVE`) from the Reserved-strip mode, exposed as idempotent calls with a result the pane can show | E1a |
+| `SystemInfo` | **Built (E1a)**: `sysinfo` for the OS edition and build (`RtlGetVersion` gives the build without the edition), `GetAvailableCoreWebView2BrowserVersionString` for WebView2, `SHGetKnownFolderPath(FOLDERID_Desktop)` for the bundle's folder; the log size comes from the module, monitors from the shell's startup log | E1a |
+| ~~`Repair`~~ | **Not built as a trait (E1a)**: the two repairs are calls on services the shell already owns — `HudService::repair_flyout` (clear the suppression cache, show Windows's flyouts, apply the setting again) and `ShellManager::repair_app_bars` (release every app bar, reconcile) — so there was nothing platform-specific left to abstract | E1a |
 | `WebviewPermissions` | `ICoreWebView2::add_PermissionRequested` next to `set_memory_usage_target` in `windows/webview.rs`: camera for the app's own origin while `mirror.enabled`, everything else denied without a prompt (the notch window cannot show one) | E1c |
 | `Http` streaming | The M4 `reqwest` client with `text/event-stream` and NDJSON readers, cancel through a token; only inside the translation integration | E1d |
 | `Speech` | `Windows.Media.SpeechRecognition` — **deferred**; the mic button is not built in M5 | — |

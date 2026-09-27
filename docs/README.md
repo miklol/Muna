@@ -50,8 +50,10 @@ mixed DPI, elevated and UWP windows, the grid), [code-hosting](qa/checklists/cod
 (the token form, polling and backoff against a real account, the review and checks notices),
 [notes](qa/checklists/notes.md) (autosave, conflicts, the Recycle Bin, a chosen folder),
 [screen-time](qa/checklists/screen-time.md) (attribution against a manual log, idle and lock,
-limits, export, privacy) and [ai-coding](qa/checklists/ai-coding.md) (Claude Code and Copilot
-CLI sessions, the hook receiver from `curl`, the strip's allow / deny pair, the pane).
+limits, export, privacy), [ai-coding](qa/checklists/ai-coding.md) (Claude Code and Copilot
+CLI sessions, the hook receiver from `curl`, the strip's allow / deny pair, the pane) and
+[support](qa/checklists/support.md) (the diagnostics zip and what it must not hold, the
+feedback issue, the update check, both repairs against a real fault).
 
 ## Module specs
 
