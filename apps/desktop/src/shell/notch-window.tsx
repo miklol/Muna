@@ -42,6 +42,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { type DragOutHandlers, useDragOut, useDragSpike } from '../lib/drag-out';
+import { useIsPanelHeld } from '../lib/panel-hold';
 import { persistSettings, useSettings } from '../lib/settings';
 import { currentWindowLabel } from '../lib/window-label';
 import {
@@ -547,6 +548,12 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
       endDrop(dropSessionId);
     }
   }, [dropSessionId, endDrop]);
+
+  // A module holding the panel (a guided flow) pins it until the hold goes.
+  const held = useIsPanelHeld();
+  useEffect(() => {
+    machine.send({ type: 'hold', held });
+  }, [held, machine]);
 
   // Ctrl+Tab / Ctrl+Shift+Tab step through the modules while the panel is open
   // (docs/modules/notch-shell.md, "Rules").

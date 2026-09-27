@@ -9,6 +9,7 @@ import { codeHostingModule } from './code-hosting';
 import { dashboardModule } from './dashboard';
 import { dayProgressModule } from './day-progress';
 import { dropActionsModule } from './drop-actions';
+import { healthModule } from './health';
 import { hudModule } from './hud';
 import { keyboardShortcutsModule } from './keyboard-shortcuts';
 import { mediaModule } from './media';
@@ -185,6 +186,7 @@ export const modules: readonly ModuleDefinition[] = [
   notesModule,
   screenTimeModule,
   aiCodingModule,
+  healthModule,
   supportModule,
 ];
 

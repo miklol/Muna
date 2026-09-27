@@ -97,7 +97,17 @@
       "checksFailed": "Checks failed: {{title}}",
       "screenTimeLimit": "{{app}} · {{limit}} limit reached",
       "agentWaiting": "{{agent}} is waiting for you",
-      "agentPermission": "{{agent}} wants to run {{tool}}"
+      "agentPermission": "{{agent}} wants to run {{tool}}",
+      "healthBreak": "Time for a break · sitting {{duration}}",
+      "healthFlowMove": "Move",
+      "healthFlowBreathe": "Breathe",
+      "healthFlowStretch": "Stretch",
+      "healthFlowEyeRest": "Eye rest",
+      "healthFlowMoveFinished": "Nice, you moved",
+      "healthFlowBreatheFinished": "Breathing done",
+      "healthFlowStretchFinished": "Stretch done",
+      "healthFlowEyeRestFinished": "Eyes rested",
+      "healthHearing": "Loud for {{duration}} · {{percent}} %"
     },
     "decision": {
       "allow": "Allow",
@@ -142,7 +152,10 @@
       "agentWaiting": "{{agent}} is waiting for you",
       "agentPermission": "{{agent}} wants to run {{tool}}",
       "agentDecision": "{{agent}} wants to run {{tool}}, allow or deny",
-      "decision": "Allow or deny"
+      "decision": "Allow or deny",
+      "healthBreak": "Time for a break, you have been sitting {{duration}}",
+      "healthFlow": "{{flow}}, {{fact}}",
+      "healthHearing": "Loud on headphones for {{duration}} at {{percent}}"
     },
     "glyph": {
       "battery": "Battery",
@@ -176,7 +189,8 @@
       "shelf": "Shelf",
       "pullRequest": "Pull request",
       "xCircle": "Failed",
-      "terminal": "Coding agent"
+      "terminal": "Coding agent",
+      "heart": "Health"
     }
   },
   "spike": {
@@ -1407,6 +1421,164 @@
       "removed": "Hooks removed.",
       "generic": "Other agents",
       "genericBody": "Any tool can post JSON to the hook URL with the bearer token written in Claude Code's settings file. The shape is documented in docs/modules/ai-coding.md."
+    }
+  },
+  "health": {
+    "title": "Health",
+    "actions": {
+      "water": "Log a glass of water",
+      "breathe": "Start a breathing exercise"
+    },
+    "duration": {
+      "hours": "{{count}} h",
+      "minutes": "{{count}} min",
+      "hoursMinutes": "{{hours}} h {{minutes}} min"
+    },
+    "head": {
+      "sitting": "Sitting for {{duration}}",
+      "away": "Away from the desk",
+      "locked": "Locked",
+      "off": "Health is off",
+      "nextBreak": "Next break in {{duration}}",
+      "breakDue": "Time for a break",
+      "windingDown": "Winding down",
+      "settings": "Settings"
+    },
+    "today": {
+      "label": "Today",
+      "active": "Active",
+      "longestSit": "Longest sit",
+      "breaks": "Breaks",
+      "mindful": "Mindful",
+      "streak": "{{count}}-day streak"
+    },
+    "rings": {
+      "label": "Goals",
+      "breaks": "Breaks",
+      "water": "Water",
+      "mindful": "Mindful",
+      "breaksValue": "{{count}} of {{goal}} breaks",
+      "waterValue": "{{count}} of {{goal}} glasses",
+      "mindfulValue": "{{count}} of {{goal}} mindful minutes",
+      "counter": "{{count}}/{{goal}}",
+      "addWater": "Add a glass of water",
+      "removeWater": "Remove a glass of water"
+    },
+    "week": {
+      "label": "Last 7 days",
+      "today": "Today",
+      "day": "{{day}}, {{count}} of 3 goals met"
+    },
+    "flows": {
+      "label": "Take a break",
+      "start": "Start {{flow}}",
+      "move": {
+        "title": "Move",
+        "body": "3 min"
+      },
+      "breathe": {
+        "title": "Breathe"
+      },
+      "stretch": {
+        "title": "Stretch",
+        "body": "2 min"
+      },
+      "eyeRest": {
+        "title": "Eye rest",
+        "body": "20 s"
+      }
+    },
+    "break": {
+      "title": "Time for a break",
+      "body": "Sitting for {{duration}}. Pick a flow, or stand up for a moment.",
+      "snooze": "Snooze",
+      "dismiss": "Dismiss"
+    },
+    "flow": {
+      "stop": "Stop",
+      "remaining": "{{remaining}} left",
+      "ring": "{{flow}}, {{remaining}} left",
+      "move": {
+        "prompt1": "Stand up and walk a few steps",
+        "prompt2": "Roll your shoulders back, slowly",
+        "prompt3": "Shake out your arms and legs",
+        "prompt4": "Walk over to get some water",
+        "prompt5": "Look out of a window for a moment",
+        "prompt6": "Take three slow, deep breaths"
+      },
+      "breathe": {
+        "inhale": "Breathe in",
+        "hold": "Hold",
+        "exhale": "Breathe out",
+        "round": "Round {{current}} of {{total}}"
+      },
+      "stretch": {
+        "step1": "Neck: tilt your head to each side",
+        "step2": "Shoulders: roll them back five times",
+        "step3": "Wrists: circle them both ways",
+        "step4": "Chest: clasp your hands behind you and open up",
+        "step5": "Back: twist gently to each side",
+        "step6": "Hips: stand up and reach for the ceiling"
+      },
+      "eyeRest": {
+        "body": "Look at something far away, about 20 feet, until the timer ends.",
+        "hint": "Blink slowly a few times while you do."
+      }
+    },
+    "state": {
+      "offTitle": "Health is off",
+      "offBody": "Turn it on in Settings to track sitting and get break reminders.",
+      "openSettings": "Open Settings"
+    },
+    "hearing": {
+      "body": "Loud on headphones: {{percent}} % for {{duration}}. Turn it down a little."
+    },
+    "widget": {
+      "sitting": "Sitting {{duration}}",
+      "nextBreak": "Next break in {{duration}}",
+      "breakDue": "Time for a break",
+      "flow": "{{flow}} running",
+      "away": "Away from the desk",
+      "locked": "Locked",
+      "off": "Health is off",
+      "water": "{{count}} of {{goal}} glasses"
+    },
+    "settings": {
+      "sitting": "Sitting",
+      "enabled": "Track sitting and remind me to take breaks",
+      "enabledBody": "Uses keyboard and mouse activity only. Nothing leaves this PC.",
+      "breakEvery": "Remind me every",
+      "breakEveryBody": "A notice in the notch when you have sat this long; snooze gives you ten more minutes. Sets a goal of {{count}} breaks a day.",
+      "minutes": "{{count}} min",
+      "goals": "Goals",
+      "waterGoal": "Water goal",
+      "waterGoalBody": "Glasses per day. Log them from the panel or the dashboard card.",
+      "glasses_one": "{{count}} glass",
+      "glasses_other": "{{count}} glasses",
+      "breathePattern": "Breathing pattern",
+      "breathePatternBody": "Box breathing is even; relax has a long, slow exhale.",
+      "patterns": {
+        "box": "Box",
+        "relax": "Relax"
+      },
+      "evening": "Evening",
+      "windDown": "Wind down in the evening",
+      "windDownBody": "From this hour the panel shows you are winding down.",
+      "windDownHour": "From",
+      "hearing": "Hearing",
+      "hearingWarning": "Warn me about loud headphones",
+      "hearingWarningBody": "A notice when the volume stays above 85 % on headphones for ten minutes.",
+      "data": "Data",
+      "resetToday": "Reset today",
+      "resetTodayBody": "Clears today's breaks, water and mindful minutes.",
+      "resetTodayAction": "Reset",
+      "resetDone": "Today is reset.",
+      "clear": "Clear history",
+      "clearBody": "Removes every day Muna has recorded. Settings stay.",
+      "clearQuestion": "Clear the whole history?",
+      "clearConfirm": "Clear",
+      "clearDone": "History cleared.",
+      "cancel": "Cancel"
     }
   },
   "support": {

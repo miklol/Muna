@@ -46,6 +46,12 @@ export interface ShellSnapshot {
   readonly pointerNear: boolean;
   readonly pinnedByUser: boolean;
   readonly fieldFocused: boolean;
+  /**
+   * A module holds the panel open (a guided flow is running, docs/modules/health.md): like a
+   * focused field it pins without the pin button lighting up, and releases when the module
+   * says so. Esc, the ⤡ button and the hotkey still close.
+   */
+  readonly held: boolean;
   /** `true` while the window may take keyboard focus (`set_notch_focusable`). */
   readonly focusable: boolean;
   readonly timers: readonly TimerId[];
@@ -75,6 +81,8 @@ export type ShellEvent =
   | { type: 'pin'; pinned: boolean }
   /** A text field inside the panel gained or lost focus. */
   | { type: 'fieldFocus'; focused: boolean }
+  /** A module took or released its hold on the panel (`usePanelHold`). */
+  | { type: 'hold'; held: boolean }
   | { type: 'yield'; state: YieldState }
   | { type: 'timer'; id: TimerId }
   /** A drag carrying files entered the window (`DropEntered`). */
@@ -115,6 +123,7 @@ export const initialSnapshot: ShellSnapshot = {
   pointerNear: false,
   pinnedByUser: false,
   fieldFocused: false,
+  held: false,
   focusable: false,
   timers: [],
 };
@@ -238,13 +247,23 @@ class Builder {
   /**
    * Opens the panel. Auto-collapse arms itself if the pointer is already away, except when
    * opened without the pointer (the hotkey): the panel then waits for the pointer to visit
-   * and leave, Esc, a click outside or the hotkey again.
+   * and leave, Esc, a click outside or the hotkey again. A module's hold survives a close, so
+   * reopening onto a running flow pins again.
    */
   open(armGrace = true): this {
     this.cancelAllTimers();
-    const pinned = this.snapshot.pinnedByUser || this.snapshot.fieldFocused;
+    const pinned = this.snapshot.pinnedByUser || this.snapshot.fieldFocused || this.snapshot.held;
     this.set({ state: pinned ? 'pinned' : 'expanded' });
     return armGrace ? this.armHoverOut() : this;
+  }
+
+  /** From `pinned`, once one reason to pin went: stay if another remains, else relax. */
+  relaxPin(): this {
+    const { state, pinnedByUser, fieldFocused, held } = this.snapshot;
+    if (state === 'pinned' && !pinnedByUser && !fieldFocused && !held) {
+      return this.set({ state: 'expanded' }).armHoverOut();
+    }
+    return this;
   }
 
   /** From an open or revealed state: start the grace timer when the pointer is away. */
@@ -365,10 +384,21 @@ const onFieldFocus = (b: Builder, focused: boolean): Transition => {
       .build();
   }
   b.set({ fieldFocused: false }).setFocusable(false);
-  if (state === 'pinned' && !b.snapshot.pinnedByUser) {
-    return b.set({ state: 'expanded' }).armHoverOut().build();
+  return b.relaxPin().build();
+};
+
+/**
+ * A module's hold is state, not a gesture: it is recorded whatever the panel is doing, pins an
+ * open panel at once and lets `open` pin again later.
+ */
+const onHold = (b: Builder, held: boolean): Transition => {
+  b.set({ held });
+  if (held) {
+    return isOpen(b.snapshot.state)
+      ? b.set({ state: 'pinned' }).cancelAllTimers().build()
+      : b.build();
   }
-  return b.build();
+  return b.relaxPin().build();
 };
 
 const onPin = (b: Builder, pinned: boolean): Transition => {
@@ -380,10 +410,7 @@ const onPin = (b: Builder, pinned: boolean): Transition => {
   if (pinned) {
     return b.set({ state: 'pinned' }).cancelAllTimers().build();
   }
-  if (!b.snapshot.fieldFocused) {
-    return b.set({ state: 'expanded' }).armHoverOut().build();
-  }
-  return b.build();
+  return b.relaxPin().build();
 };
 
 /** One step of the machine. Pure: same snapshot + event → same transition. */
@@ -422,6 +449,8 @@ export function transition(snapshot: ShellSnapshot, event: ShellEvent): Transiti
       return onPin(b, event.pinned);
     case 'fieldFocus':
       return onFieldFocus(b, event.focused);
+    case 'hold':
+      return onHold(b, event.held);
     case 'yield':
       return onYield(b, event.state);
     case 'timer':
