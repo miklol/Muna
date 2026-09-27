@@ -200,6 +200,10 @@ pub trait Processes: Send + Sync {
     /// runs inside a terminal host, so the terminal's window is what the user sees. `None` when
     /// neither the process nor its ancestors own a window.
     fn main_window(&self, pid: u32) -> PlatformResult<Option<WindowHandle>>;
+    /// The process that owns the loopback TCP connection whose *local* port is `port` — the
+    /// client side of a request Muna just accepted, so a hook payload without a pid can still
+    /// be traced to the CLI that sent it. `None` when no connection uses the port.
+    fn owner_of_local_port(&self, port: u16) -> PlatformResult<Option<u32>>;
     /// Brings `window` to the foreground, restoring it first when minimised. Windows only lets
     /// the process that owns the foreground (or was just clicked) do this, so callers act on a
     /// click in the notch and treat a refusal as "nothing happened".

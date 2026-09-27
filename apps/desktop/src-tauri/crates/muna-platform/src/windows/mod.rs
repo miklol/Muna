@@ -411,6 +411,10 @@ impl Processes for WindowsPlatform {
         processes::main_window(pid)
     }
 
+    fn owner_of_local_port(&self, port: u16) -> PlatformResult<Option<u32>> {
+        processes::owner_of_local_port(port)
+    }
+
     fn focus(&self, window: WindowHandle) -> PlatformResult<()> {
         processes::focus(window)
     }

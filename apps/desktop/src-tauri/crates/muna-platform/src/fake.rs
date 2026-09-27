@@ -161,6 +161,8 @@ struct State {
     running_pids: BTreeSet<u32>,
     /// Scripted `Processes::main_window` answers by pid.
     process_windows: BTreeMap<u32, WindowHandle>,
+    /// Scripted `Processes::owner_of_local_port` answers by port.
+    port_owners: BTreeMap<u16, u32>,
     /// Every `Processes::focus(window)` so far, in order.
     focus_calls: Vec<WindowHandle>,
     /// When set, `Processes::focus` fails the way `SetForegroundWindow` refuses a background
@@ -269,6 +271,7 @@ impl Default for State {
             app_info_calls: Vec::new(),
             running_pids: BTreeSet::new(),
             process_windows: BTreeMap::new(),
+            port_owners: BTreeMap::new(),
             focus_calls: Vec::new(),
             focus_refused: false,
             sent_media_commands: Vec::new(),
@@ -621,6 +624,20 @@ impl FakePlatform {
     /// Makes [`Processes::focus`] fail, as Windows does for a process without the foreground.
     pub fn set_focus_refused(&self, refused: bool) {
         self.state.lock().focus_refused = refused;
+    }
+
+    /// Scripts which pid [`Processes::owner_of_local_port`] answers for `port` (`None`
+    /// clears it).
+    pub fn set_port_owner(&self, port: u16, pid: Option<u32>) {
+        let mut state = self.state.lock();
+        match pid {
+            Some(pid) => {
+                state.port_owners.insert(port, pid);
+            }
+            None => {
+                state.port_owners.remove(&port);
+            }
+        }
     }
 
     /// Every window [`Processes::focus`] was asked to bring forward, in order.
@@ -1403,6 +1420,10 @@ impl Processes for FakePlatform {
         Ok(self.state.lock().process_windows.get(&pid).copied())
     }
 
+    fn owner_of_local_port(&self, port: u16) -> PlatformResult<Option<u32>> {
+        Ok(self.state.lock().port_owners.get(&port).copied())
+    }
+
     fn focus(&self, window: WindowHandle) -> PlatformResult<()> {
         let mut state = self.state.lock();
         state.focus_calls.push(window);
@@ -2020,6 +2041,15 @@ mod tests {
         fake.set_process_window(4242, None);
         assert!(!fake.processes().is_running(4242).unwrap());
         assert_eq!(fake.processes().main_window(4242).unwrap(), None);
+
+        assert_eq!(fake.processes().owner_of_local_port(50_000).unwrap(), None);
+        fake.set_port_owner(50_000, Some(4242));
+        assert_eq!(
+            fake.processes().owner_of_local_port(50_000).unwrap(),
+            Some(4242)
+        );
+        fake.set_port_owner(50_000, None);
+        assert_eq!(fake.processes().owner_of_local_port(50_000).unwrap(), None);
     }
 
     #[test]

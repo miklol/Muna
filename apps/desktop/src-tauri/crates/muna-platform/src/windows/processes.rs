@@ -16,9 +16,13 @@
 use std::collections::BTreeMap;
 
 use windows::Win32::Foundation::{
-    CloseHandle, ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER, FILETIME, HANDLE, HWND, LPARAM,
-    STILL_ACTIVE,
+    CloseHandle, ERROR_ACCESS_DENIED, ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_PARAMETER, FILETIME,
+    HANDLE, HWND, LPARAM, NO_ERROR, STILL_ACTIVE, WIN32_ERROR,
 };
+use windows::Win32::NetworkManagement::IpHelper::{
+    GetExtendedTcpTable, MIB_TCPROW_OWNER_PID, TCP_TABLE_OWNER_PID_CONNECTIONS,
+};
+use windows::Win32::Networking::WinSock::AF_INET;
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
@@ -113,6 +117,91 @@ pub(super) fn main_window(pid: u32) -> PlatformResult<Option<WindowHandle>> {
         windows: windows()?,
     };
     Ok(main_window_in(pid, &snapshot, started_at))
+}
+
+/// `127.0.0.1` as the TCP table stores addresses (network byte order in a native `u32`).
+const LOOPBACK: u32 = u32::from_ne_bytes([127, 0, 0, 1]);
+/// Room for connections opened between the sizing call and the read.
+const TABLE_HEADROOM: usize = 4096;
+
+pub(super) fn owner_of_local_port(port: u16) -> PlatformResult<Option<u32>> {
+    let family = u32::from(AF_INET.0);
+    let mut size = 0_u32;
+    // SAFETY: a null table with `size` 0 is the documented way to ask for the size; `size` is
+    // a valid, writable `u32`.
+    #[allow(unsafe_code)]
+    let code = unsafe {
+        GetExtendedTcpTable(
+            None,
+            &raw mut size,
+            false,
+            family,
+            TCP_TABLE_OWNER_PID_CONNECTIONS,
+            0,
+        )
+    };
+    if code != NO_ERROR.0 && code != ERROR_INSUFFICIENT_BUFFER.0 {
+        return Err(table_error(code));
+    }
+    let mut buffer = vec![0_u8; usize::try_from(size).unwrap_or(0) + TABLE_HEADROOM];
+    let mut size = u32::try_from(buffer.len()).unwrap_or(u32::MAX);
+    // SAFETY: `buffer` is writable for `size` bytes and both outlive the call; the table is
+    // then read back through checked slices only.
+    #[allow(unsafe_code)]
+    let code = unsafe {
+        GetExtendedTcpTable(
+            Some(buffer.as_mut_ptr().cast()),
+            &raw mut size,
+            false,
+            family,
+            TCP_TABLE_OWNER_PID_CONNECTIONS,
+            0,
+        )
+    };
+    if code != NO_ERROR.0 {
+        return Err(table_error(code));
+    }
+    let filled = usize::try_from(size).unwrap_or(0).min(buffer.len());
+    Ok(owner_in(&buffer[..filled], port))
+}
+
+fn table_error(code: u32) -> PlatformError {
+    PlatformError::Os {
+        api: "GetExtendedTcpTable",
+        code: WIN32_ERROR(code).to_hresult().0.cast_unsigned(),
+    }
+}
+
+/// Finds the owner of the loopback connection bound to local `port` in a raw
+/// `MIB_TCPTABLE_OWNER_PID`: a `u32` count followed by that many rows of six `u32`s
+/// (state, local address, local port, remote address, remote port, owning pid). Separable
+/// for tests; never reads past the slice.
+#[must_use]
+pub(super) fn owner_in(table: &[u8], port: u16) -> Option<u32> {
+    const ROW: usize = size_of::<MIB_TCPROW_OWNER_PID>();
+    let count = usize::try_from(read_u32(table, 0)?).ok()?;
+    let rows = table.get(4..)?;
+    rows.as_chunks::<ROW>()
+        .0
+        .iter()
+        .take(count)
+        .find_map(|row| {
+            let local_addr = read_u32(row, 4)?;
+            let local_port = port_of(read_u32(row, 8)?);
+            let pid = read_u32(row, 20)?;
+            (local_addr == LOOPBACK && local_port == port && pid != 0).then_some(pid)
+        })
+}
+
+fn read_u32(bytes: &[u8], at: usize) -> Option<u32> {
+    let slice = bytes.get(at..at + 4)?;
+    Some(u32::from_ne_bytes([slice[0], slice[1], slice[2], slice[3]]))
+}
+
+/// A port as the TCP table stores it: network byte order in the low 16 bits of a `u32`.
+#[must_use]
+pub(super) fn port_of(stored: u32) -> u16 {
+    u16::from_be(u16::try_from(stored & 0xFFFF).unwrap_or(0))
 }
 
 pub(super) fn focus(window: WindowHandle) -> PlatformResult<()> {
@@ -424,6 +513,65 @@ mod tests {
         }
         assert_eq!(exe_name(&buffer), "pwsh.exe");
         assert_eq!(exe_name(&[0; 4]), "");
+    }
+
+    /// One `MIB_TCPROW_OWNER_PID` as the table lays it out.
+    fn row(local_addr: [u8; 4], local_port: u16, pid: u32) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&5_u32.to_ne_bytes()); // MIB_TCP_STATE_ESTAB
+        bytes.extend_from_slice(&local_addr);
+        bytes.extend_from_slice(&u32::from(local_port.to_be()).to_ne_bytes());
+        bytes.extend_from_slice(&[127, 0, 0, 1]);
+        bytes.extend_from_slice(&u32::from(47_391_u16.to_be()).to_ne_bytes());
+        bytes.extend_from_slice(&pid.to_ne_bytes());
+        bytes
+    }
+
+    fn table(rows: &[Vec<u8>]) -> Vec<u8> {
+        let mut bytes = u32::try_from(rows.len()).unwrap().to_ne_bytes().to_vec();
+        for row in rows {
+            bytes.extend_from_slice(row);
+        }
+        bytes
+    }
+
+    #[test]
+    fn ports_are_read_from_network_byte_order() {
+        assert_eq!(port_of(u32::from(53_176_u16.to_be())), 53_176);
+        assert_eq!(port_of(u32::from(80_u16.to_be())), 80);
+        assert_eq!(port_of(0), 0);
+    }
+
+    #[test]
+    fn the_loopback_connection_on_the_port_names_its_owner() {
+        let rows = [
+            row([192, 168, 1, 20], 53_000, 111),
+            row([127, 0, 0, 1], 53_000, 222),
+            row([127, 0, 0, 1], 53_001, 333),
+        ];
+        assert_eq!(owner_in(&table(&rows), 53_000), Some(222));
+        assert_eq!(owner_in(&table(&rows), 53_001), Some(333));
+        assert_eq!(owner_in(&table(&rows), 53_002), None);
+        // A count larger than the buffer never reads past it; a short buffer is no table.
+        let mut oversold = table(&rows[..1]);
+        oversold[..4].copy_from_slice(&9_u32.to_ne_bytes());
+        assert_eq!(owner_in(&oversold, 53_001), None);
+        assert_eq!(owner_in(&[1, 0], 53_000), None);
+        assert_eq!(owner_in(&[], 53_000), None);
+    }
+
+    #[test]
+    #[cfg_attr(
+        not(feature = "platform-tests"),
+        ignore = "opens a loopback connection and reads the live TCP table"
+    )]
+    fn a_live_loopback_connection_belongs_to_this_process() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (_server_side, _) = listener.accept().unwrap();
+        let port = client.local_addr().unwrap().port();
+        assert_eq!(owner_of_local_port(port).unwrap(), Some(std::process::id()));
+        drop(client);
     }
 
     #[test]
