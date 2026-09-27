@@ -2,6 +2,7 @@ import type { DropItem, DropPoint } from '@muna/contracts';
 import type { MessageKey } from '@muna/i18n';
 import type { ComponentType } from 'react';
 
+import { aiCodingModule } from './ai-coding';
 import { bluetoothModule } from './bluetooth';
 import { calendarModule } from './calendar';
 import { codeHostingModule } from './code-hosting';
@@ -182,6 +183,7 @@ export const modules: readonly ModuleDefinition[] = [
   codeHostingModule,
   notesModule,
   screenTimeModule,
+  aiCodingModule,
 ];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>

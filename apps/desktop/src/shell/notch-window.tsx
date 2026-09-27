@@ -81,7 +81,12 @@ import {
   targetSize,
 } from './shell-geometry';
 import { Strip } from './strip';
-import { type HudPresentation, hudNoticeShowing, wantsWide } from './strip-content';
+import {
+  type DecisionPresentation,
+  type HudPresentation,
+  hudNoticeShowing,
+  wantsWide,
+} from './strip-content';
 import {
   cancelDrop,
   cancelSnap,
@@ -135,8 +140,15 @@ const isTextField = (target: EventTarget | null): boolean =>
 /** The HUD's level track: a press or hover there drags the level instead of working the shell. */
 const LEVEL_TRACK_SELECTOR = '.muna-level-track';
 
-const isLevelTrack = (target: EventTarget | null): boolean =>
-  target instanceof Element && target.closest(LEVEL_TRACK_SELECTOR) !== null;
+/**
+ * Controls that live inside the strip and own the pointer: the HUD's level track and the
+ * decision pair. A press there answers the control, not the panel, and hovering them is not
+ * reveal intent.
+ */
+const STRIP_CONTROL_SELECTOR = `${LEVEL_TRACK_SELECTOR}, .muna-decision`;
+
+const isStripControl = (target: EventTarget | null): boolean =>
+  target instanceof Element && target.closest(STRIP_CONTROL_SELECTOR) !== null;
 
 /** Whether a wheel notch over the strip should move the volume (docs/modules/hud.md). */
 export const wheelNudgesVolume = (
@@ -306,6 +318,28 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
         return { showLevelText };
     }
   }, [hudSettings.showLevelText, hudShowing]);
+
+  // --- decision ------------------------------------------------------------------------------
+
+  // Allow / Deny on the strip answer a coding agent's held permission request
+  // (docs/modules/ai-coding.md). The pills dim while the answer travels; Rust retracts the
+  // activity once the agent has it, so nothing here needs to clear.
+  const [pendingDecision, setPendingDecision] = useState<string | null>(null);
+  const decision = useMemo<DecisionPresentation>(
+    () => ({
+      pending: pendingDecision,
+      onDecide: (session, allow) => {
+        setPendingDecision(session);
+        void commands
+          .aiCodingCommand({ kind: allow ? 'allow' : 'deny', session })
+          .catch(ignoreRefusal)
+          .finally(() => {
+            setPendingDecision((current) => (current === session ? null : current));
+          });
+      },
+    }),
+    [pendingDecision],
+  );
   const moduleBarItems = useMemo<readonly ModuleBarItem[]>(
     () =>
       orderedModules.map((module) => {
@@ -848,8 +882,8 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     const point = { x: event.clientX, y: event.clientY };
     const speedPxPerS = speed.current.observe(point, event.timeStamp);
     const box = shellRef.current === null ? null : boxOf(shellRef.current);
-    // Hovering the HUD's track is aiming at the level, not at the panel: no reveal intent.
-    const overTrack = isLevelTrack(event.target);
+    // Hovering a strip control is aiming at the control, not at the panel: no reveal intent.
+    const overTrack = isStripControl(event.target);
     machine.send({
       type: 'pointer',
       inside: !overTrack && box !== null && contains(box, point),
@@ -864,8 +898,8 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
-    if (isLevelTrack(event.target)) {
-      // The track owns the press: it starts a drag, not the panel.
+    if (isStripControl(event.target)) {
+      // The control owns the press: a drag on the track or an answer on a pill, not the panel.
       return;
     }
     const box = shellRef.current === null ? null : boxOf(shellRef.current);
@@ -1079,7 +1113,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                   exit={contentExit}
                   transition={contentTransition}
                 >
-                  <Strip content={content} receivedAt={contentAt} hud={hud} />
+                  <Strip content={content} receivedAt={contentAt} hud={hud} decision={decision} />
                 </motion.div>
               )}
             </AnimatePresence>

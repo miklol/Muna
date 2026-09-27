@@ -1,0 +1,292 @@
+/*
+ * AI coding panel (docs/modules/ai-coding.md "Panel"): the counts and the refresh button above
+ * the live sessions; each row a terminal glyph with a status dot, the project and its chips,
+ * what the agent does or waits for, and the meta line, with the decision pair or the
+ * show / dismiss buttons on the right; then the sessions that finished today. Composes tokens
+ * only; the primitives bring their own styles.
+ *
+ * Budget: the panel body has 284 px at most. The header takes one icon-button height; the list
+ * and *Recent* scroll together inside the rest.
+ */
+
+.ai-coding-panel {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.ai-coding-sessions {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.ai-coding-sessions__head {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  min-block-size: var(--size-icon-button);
+  padding-inline-start: var(--space-1);
+}
+
+.ai-coding-sessions__scroll {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.ai-coding-sessions__list,
+.ai-coding-recent__list {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A live session: the glyph, three lines of text, the actions. */
+.ai-coding-row {
+  display: flex;
+  flex: none;
+  gap: var(--space-3);
+  align-items: center;
+  min-block-size: var(--size-hit-effective);
+  padding: var(--space-1);
+  border-radius: var(--radius-control);
+}
+
+.ai-coding-row:hover {
+  background: var(--surface-1);
+}
+
+/* The terminal glyph with the status dot at its corner: green working, orange stopped for you. */
+.ai-coding-row__glyph {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--radius-thumb);
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+
+.ai-coding-row__dot {
+  position: absolute;
+  inset-block-end: -1px;
+  inset-inline-end: -1px;
+  inline-size: 9px;
+  block-size: 9px;
+  border: 2px solid var(--panel-bottom);
+  border-radius: var(--radius-thumb);
+  background: var(--text-3);
+}
+
+.ai-coding-row__dot[data-tint='green'] {
+  background: var(--accent-green);
+}
+
+.ai-coding-row__dot[data-tint='orange'] {
+  background: var(--accent-orange);
+}
+
+.ai-coding-row[data-status='done'] .ai-coding-row__glyph {
+  color: var(--text-2);
+}
+
+.ai-coding-row__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 1px;
+  min-inline-size: 0;
+}
+
+.ai-coding-row__title {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.ai-coding-row__title > :first-child {
+  flex: 0 1 auto;
+}
+
+.ai-coding-row__title > .muna-chip {
+  flex: none;
+}
+
+/* The model name is the longest chip; it yields before the project does. */
+.ai-coding-row__title > .ai-coding-row__model {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+}
+
+.ai-coding-row__line {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  min-inline-size: 0;
+}
+
+.ai-coding-row__task {
+  flex: 0 1 auto;
+}
+
+.ai-coding-row__task[data-waiting] {
+  color: var(--accent-orange);
+}
+
+/* The command or the file, in the terminal's own face (the notes panel sets the same stack). */
+.ai-coding-row__detail {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+.ai-coding-row__actions {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+/* Finished sessions: one caption line each, the dismiss button on the right. */
+.ai-coding-recent {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ai-coding-recent__label {
+  margin: 0;
+  padding-inline: var(--space-1);
+}
+
+.ai-coding-recent__row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-control);
+}
+
+.ai-coding-recent__row:hover {
+  background: var(--surface-1);
+}
+
+.ai-coding-recent__project {
+  flex: 0 1 auto;
+}
+
+.ai-coding-recent__row > :nth-child(2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.ai-coding-note {
+  flex: none;
+  margin: 0;
+  padding-inline: var(--space-1);
+}
+
+/* Empty states share the panel's centring. */
+.ai-coding-empty {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/*
+ * Dashboard card body (docs/modules/dashboard.md "Widgets"): how many agents run and wait,
+ * then the first projects; a wide card adds what each does.
+ */
+.ai-coding-widget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.ai-coding-widget[data-empty] {
+  flex-direction: row;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--text-2);
+}
+
+.ai-coding-widget__glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-coding-widget__glyph > svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.ai-coding-widget__note {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.ai-coding-widget__count {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  margin: 0;
+}
+
+.ai-coding-widget__count[data-waiting] {
+  color: var(--accent-orange);
+}
+
+.ai-coding-widget__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-coding-widget__row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  min-inline-size: 0;
+}
+
+.ai-coding-widget__project {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.ai-coding-widget__state {
+  flex: 0 1 auto;
+  max-inline-size: 50%;
+}
+
+.ai-coding-widget__state[data-waiting] {
+  color: var(--accent-orange);
+}
