@@ -35,7 +35,10 @@ last path is kept only to render the icon. Pieces, in the order a switch flows:
   with wrapping arithmetic) and `AppInfo::describe(path, px)` — the version resource's
   `FileDescription` (what Task Manager shows) picked through `\VarFileInfo\Translation`, and
   the shell icon through the shelf's `IShellItemImageFactory` renderer, so the plan's
-  `SHGetFileInfoW` row did not materialise. `FakePlatform` scripts all three.
+  `SHGetFileInfoW` row did not materialise. The icon is best effort: when the shell's shared
+  thumbnail cache refuses an extraction, the answer still carries the name and the icon is
+  tried again once its entry leaves the module's bounded icon cache. `FakePlatform` scripts
+  all three.
 - **Storage** (`muna-core`, migration 5): `usage_apps` keyed by exe with the display name, the
   last path and the user's choices (category override, excluded, daily limit), and
   `usage_sessions (exe, started_at, ended_at)`. The open span is a row moved forward at every
