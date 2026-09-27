@@ -79,9 +79,11 @@ Scheduler (`muna-core::activities::Scheduler`, driven through `Hub`):
    silently.
 
 Default priorities (`muna-core::activities::priority`): HUD 100 · charging/battery 90 ·
-Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media playing 60 · Task due
-≤ 60 min 55 · Event upcoming ≤ 60 min 50 · Code hosting (review requested, checks finished) 45
-· Unread notifications 40 · Session lock 30 · Media paused 20 · CPU gauge 10 · Day bar 5.
+Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Health flow running 64 ·
+Media playing 60 · Task due ≤ 60 min 55 · Event upcoming ≤ 60 min 50 · Code hosting (review
+requested, checks finished) 45 · Health notices (break due, flow done, loud headphones) 44 ·
+Screen time limit 42 · Unread notifications 40 · Session lock 30 · Media paused 20 · CPU gauge
+10 · Day bar 5.
 
 ## Built-in notices (Windows sources)
 
@@ -154,6 +156,13 @@ Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media pla
   ([notifications → Implementation notes](notifications.md#implementation-notes-m3-e5)). Both
   are switches in Settings › Notifications; the Focus Assist notice in the table above is not
   raised yet.
+- The Health module publishes `health:flow` (Timer glyph, the countdown in the trailing slot,
+  the flow's name wide) at *Health flow* (64) while a guided flow runs, and raises
+  `health:break` (heart glyph, *Time for a break · sitting 52 min*, held 8 s),
+  `health:flow-finished` (heart, *Nice, you moved* / *Breathing done* / *Stretch done* / *Eyes
+  rested*) and `health:hearing` (volume glyph, *Loud for 10 min · 90 %*) at *Health* (44)
+  ([health → Implementation notes](health.md#implementation-notes-m5-e1b)). The break
+  reminder waits while a fullscreen app or a presentation is in front.
 
 ## Settings (pane: Live Activities)
 

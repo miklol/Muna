@@ -14,6 +14,7 @@ import {
   GitPullRequest,
   HardDrive,
   Headphones,
+  Heart,
   Hourglass,
   Inbox,
   Lock,
@@ -83,6 +84,7 @@ export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   pullRequest: 'strip.glyph.pullRequest',
   xCircle: 'strip.glyph.xCircle',
   terminal: 'strip.glyph.terminal',
+  heart: 'strip.glyph.heart',
 };
 
 /**
@@ -155,5 +157,7 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <CircleX {...glyphProps} />;
     case 'terminal':
       return <Terminal {...glyphProps} />;
+    case 'heart':
+      return <Heart {...glyphProps} />;
   }
 };

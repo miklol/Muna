@@ -92,6 +92,69 @@ describe('strip content mapping', () => {
     expect(messageText({ kind: 'agentWaiting', agent: 'GitHub Copilot', tool: null }, t)).toBe(
       'GitHub Copilot is waiting for you',
     );
+    expect(messageText({ kind: 'healthBreak', minutes: 50 }, t)).toBe(
+      'Time for a break · sitting 50 min',
+    );
+    expect(messageText({ kind: 'healthFlow', flow: 'move' }, t)).toBe('Move');
+    expect(messageText({ kind: 'healthFlow', flow: 'eyeRest' }, t)).toBe('Eye rest');
+    expect(messageText({ kind: 'healthFlowFinished', flow: 'breathe' }, t)).toBe('Breathing done');
+    expect(messageText({ kind: 'healthHearing', percent: 90, minutes: 10 }, t)).toBe(
+      'Loud for 10 min · 90 %',
+    );
+  });
+
+  it('describes the health reminder, a running flow with its countdown and the hearing warning', () => {
+    const notice = (wide: StripMessage, glyph: 'heart' | 'volumeHigh') =>
+      present(
+        {
+          kind: 'notice',
+          notice: {
+            id: 'health:break',
+            module: 'health',
+            priority: 44,
+            leading: { kind: 'icon', glyph, tint: 'pink' },
+            trailing: null,
+            wide,
+            holdMs: 8000,
+          },
+        },
+        t,
+        'en',
+        0,
+      );
+    expect(notice({ kind: 'healthBreak', minutes: 75 }, 'heart')).toMatchObject({
+      text: 'Time for a break · sitting 1 h 15 min',
+      wide: true,
+      description: 'Time for a break, you have been sitting 1 h 15 min',
+    });
+    expect(notice({ kind: 'healthHearing', percent: 90, minutes: 10 }, 'volumeHigh')).toMatchObject(
+      {
+        text: 'Loud for 10 min · 90 %',
+        description: 'Loud on headphones for 10 min at 90%',
+      },
+    );
+    expect(notice({ kind: 'healthFlowFinished', flow: 'stretch' }, 'heart')).toMatchObject({
+      text: 'Stretch done',
+      description: 'Stretch done',
+    });
+    const flow = present(
+      {
+        kind: 'activity',
+        activity: {
+          id: 'health:flow',
+          module: 'health',
+          priority: 64,
+          leading: { kind: 'icon', glyph: 'timer', tint: 'green' },
+          trailing: { kind: 'timer', remainingMs: 120_000, totalMs: 180_000, running: true },
+          wide: { kind: 'healthFlow', flow: 'move' },
+        },
+        wide: true,
+      },
+      t,
+      'en',
+      0,
+    );
+    expect(flow).toMatchObject({ text: 'Move', description: 'Move, 2:00 left' });
   });
 
   it('keeps a waiting agent wide while the decision pair shows, and wires the pills to the session', () => {

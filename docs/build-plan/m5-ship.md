@@ -23,6 +23,17 @@ leaves E4 a kickoff prompt rather than a branch.
   `HudService::repair_flyout` and `ShellManager::repair_app_bars`, wired in `ipc.rs`. Monitor
   topology is not in the bundle yet (it is in the logs); `crashReports` stays reserved. Spec:
   [modules/support](../modules/support.md); QA: [checklists/support](../qa/checklists/support.md).
+- **M5-E1b Health** — built on `m5-e1b-health` ([#48](https://github.com/miklol/Muna/pull/48),
+  base `m5-e1-support`): the pure tracker
+  (sits, absences, lock and sleep, the interval with snooze, dismiss and the fullscreen
+  deferral, the four flows, the hearing clock), the `health_days` store, the service with its
+  30 s tick only while at the desk, the panel with the first **held (pinned) panel flows**
+  through the shell's new `usePanelHold`, the widget and the pane. Deviations from the table
+  below: a `breathePattern` setting (`'box' | 'relax'`), `clearHistory` as a seventh
+  command, the flow activity at **64** and the notices at **44** (not 45) so a flow shows
+  over playing media but under a starting event, the eye rest in-panel rather than an
+  overlay, and the breaks goal derived from the interval. Spec:
+  [modules/health](../modules/health.md); QA: [checklists/health](../qa/checklists/health.md).
 
 ### Order
 
@@ -48,10 +59,12 @@ leaves E4 a kickoff prompt rather than a branch.
   target: 'help' | 'feedback' | 'rate' | 'releaseNotes' })` building the URL in Rust; event
   `SupportChanged`.
 - **Health**: `settings.modules.health = { enabled, breakEveryMin (50), waterGoal (8),
-  windDownHour?, hearingWarning }`; `get_health_snapshot` (sitting since, today's counters,
-  weekday dots, the running flow), `health_command({ kind: 'startFlow' | 'stopFlow' |
-  'water' | 'snooze' | 'dismiss' | 'reset' })`, `HealthChanged`; strip content `health:break`
-  notice and `health:flow` activity (timer glyph, priority 45) while a flow runs.
+  windDownHour?, hearingWarning, breathePattern ('box') }`; `get_health_snapshot` (sitting
+  since, today's counters, weekday dots, the running flow), `health_command({ kind:
+  'startFlow' | 'stopFlow' | 'water' | 'snooze' | 'dismiss' | 'reset' | 'clearHistory' })`,
+  `HealthChanged`; strip content `health:break` notice (44) and `health:flow` activity (timer
+  glyph, priority 64) while a flow runs. *As built in E1b; the plan said priority 45 and no
+  `breathePattern` or `clearHistory`.*
 - **Mirror**: `settings.modules.mirror = { enabled: false, flip: true, deviceId?: string }`; no
   snapshot — the panel calls `getUserMedia` itself; Rust only decides the permission (below)
   and exposes `mirror_watch(on)` so the shell can lift the low memory target while the
