@@ -40,6 +40,10 @@ pub mod priority {
     /// so it outranks scheduled content while it works, under the pomodoro they set running.
     pub const DROP_JOB: u8 = 68;
     pub const EVENT_STARTING: u8 = 65;
+    /// A coding agent waiting for the user's permission (docs/modules/ai-coding.md): the
+    /// user's own task is blocked until they answer, so it outranks playing media, but a
+    /// calendar event that is starting still wins.
+    pub const AGENT_WAITING: u8 = 62;
     pub const MEDIA_PLAYING: u8 = 60;
     /// A task due within the hour (docs/modules/todo.md); under playing media so an hour of
     /// lead time never hijacks the now-playing strip.
@@ -133,6 +137,8 @@ pub enum Glyph {
     PullRequest,
     /// A circle with a cross (docs/modules/code-hosting.md): checks failed on a pull request.
     XCircle,
+    /// A terminal prompt (docs/modules/ai-coding.md): a coding agent's session.
+    Terminal,
 }
 
 /// The leading (left) slot of the strip.
@@ -219,6 +225,12 @@ pub enum Trailing {
     /// A small whole number the UI formats for the locale (unread notifications).
     Count {
         value: u32,
+    },
+    /// *Allow* and *Deny* for a coding agent's permission prompt (docs/modules/ai-coding.md);
+    /// the UI answers through the module's command with `session`. The strip keeps its wide
+    /// form while this slot shows so both buttons have room.
+    Decision {
+        session: String,
     },
 }
 
@@ -319,6 +331,14 @@ pub enum StripMessage {
     ScreenTimeLimit {
         app: String,
         minutes: u32,
+    },
+    /// A coding agent stopped for the user (docs/modules/ai-coding.md). With a `tool` it is
+    /// asking permission to run it ("Claude Code wants to run Bash"); without one it is
+    /// waiting for input ("Claude Code is waiting for you"). Both fields are the agent's own
+    /// names and are never logged.
+    AgentWaiting {
+        agent: String,
+        tool: Option<String>,
     },
 }
 
