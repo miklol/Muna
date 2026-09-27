@@ -1,0 +1,420 @@
+/*
+ * Screen time panel (docs/modules/screen-time.md; docs/reference/ui-observations.md "Screen
+ * Time"): head chips and the week toggle above two columns — the donut, its legend and the
+ * session facts on the left, the now card and the app ranking on the right — or the week as
+ * stacked bars. An app's details replace both columns. Composes tokens only; the primitives
+ * bring their own styles.
+ *
+ * Budget: the panel body has 284 px at most. The head is one chip row (28 px); the donut (84)
+ * plus eight legend rows (8 × 13 + gaps) and the two facts rows (2 × 13) fill the left column
+ * exactly; on the right the now card (40) leaves about 190 px for the ranking, which scrolls
+ * inside it.
+ */
+
+.stime-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  block-size: 100%;
+  min-block-size: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.stime-head {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+}
+
+.stime-head__spacer {
+  flex: 1 1 auto;
+}
+
+.stime-today {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-3);
+  min-block-size: 0;
+}
+
+/* Left column: the donut, the legend and the facts, sized so eight categories still fit. */
+.stime-insights {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: center;
+  inline-size: 152px;
+}
+
+.stime-legend,
+.stime-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  inline-size: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The facts sit at the foot of the column when the legend is short. */
+.stime-facts {
+  margin-block-start: auto;
+}
+
+.stime-facts dd {
+  margin: 0;
+}
+
+.stime-legend__row {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.stime-legend__dot {
+  flex: none;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--radius-thumb);
+}
+
+.stime-legend__name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.stime-legend__value {
+  flex: none;
+}
+
+/* Right column. */
+.stime-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.stime-now {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+}
+
+.stime-now__glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  color: var(--text-2);
+}
+
+.stime-now[data-tracking='active'] .stime-now__glyph {
+  color: var(--text-1);
+}
+
+.stime-now__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.stime-app-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--text-2);
+}
+
+/* The ranking: one button per app, the bar under its name, scrolling inside the column. */
+.stime-ranking {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.stime-ranking__empty {
+  padding-inline: var(--space-2);
+}
+
+.stime-app {
+  flex: none;
+}
+
+.stime-app__button {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  inline-size: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  text-align: start;
+  outline: none;
+  cursor: default;
+  transition: background-color var(--muna-motion-press);
+}
+
+.stime-app__button[data-hovered] {
+  background: var(--surface-2);
+}
+
+.stime-app__button[data-pressed] {
+  background: var(--surface-3);
+}
+
+.stime-app__button[data-focus-visible] {
+  outline: var(--focus-ring);
+  outline-offset: calc(-1 * var(--focus-ring-offset));
+}
+
+.stime-app__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.stime-app__line {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  justify-content: space-between;
+  min-inline-size: 0;
+}
+
+.stime-app__line > .muna-text:first-of-type {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.stime-app__line > .muna-text:last-of-type {
+  flex: none;
+  white-space: nowrap;
+}
+
+.stime-app__bar {
+  inline-size: 100%;
+}
+
+/* The week: seven columns, bars from the baseline, initials under them. */
+.stime-week {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 0;
+  padding-inline: var(--space-2);
+}
+
+.stime-week__average {
+  flex: none;
+}
+
+.stime-week__bars {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-3);
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stime-week__day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: stretch;
+  justify-content: flex-end;
+  min-block-size: 0;
+}
+
+.stime-week__bar {
+  display: flex;
+  flex: none;
+  flex-direction: column-reverse;
+  min-block-size: 2px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.stime-week__segment {
+  flex: 1 1 0;
+  min-block-size: 0;
+}
+
+.stime-week__axis {
+  flex: none;
+  text-align: center;
+}
+
+/* One app's details in place of the columns. */
+.stime-detail {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 0;
+}
+
+.stime-detail__head {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+}
+
+.stime-detail__title {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.stime-detail__title > * {
+  margin: 0;
+}
+
+.stime-detail__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-block-size: 0;
+  padding-inline: var(--space-2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.stime-detail__group {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
+}
+
+.stime-detail__group > p {
+  margin: 0;
+}
+
+/* The exclude action and its explanation share a row so the details fit without scrolling. */
+.stime-detail__group--row {
+  flex-direction: row;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.stime-detail__group--row > p {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.stime-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.stime-empty {
+  flex: 1 1 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stime-app__button {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .stime-app__button {
+  transition: none;
+}
+
+/*
+ * Dashboard card body (docs/modules/dashboard.md "Widgets"): a small donut beside today's
+ * total and what is in front; the wide card adds the leading apps.
+ */
+.stime-widget {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  block-size: 100%;
+  min-inline-size: 0;
+}
+
+.stime-widget__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.stime-widget__now {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.stime-widget__apps {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stime-widget__app {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  min-inline-size: 0;
+}
+
+.stime-widget[data-empty] {
+  gap: var(--space-2);
+}
+
+.stime-widget__glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  color: var(--text-3);
+}
