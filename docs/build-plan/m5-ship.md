@@ -34,6 +34,21 @@ leaves E4 a kickoff prompt rather than a branch.
   over playing media but under a starting event, the eye rest in-panel rather than an
   overlay, and the breaks goal derived from the interval. Spec:
   [modules/health](../modules/health.md); QA: [checklists/health](../qa/checklists/health.md).
+- **M5-E1c Mirror** — built on `m5-e1c-mirror` ([#49](https://github.com/miklol/Muna/pull/49),
+  base `m5-e1b-health`): the pure
+  `PermissionPolicy` in `muna-platform` (camera for the app's own origin while the module is
+  on, everything else denied, decisions not saved to the profile) behind WebView2's
+  `PermissionRequested` on both webviews, `MirrorService` with `mirror_watch` →
+  `Hold::MirrorPreview`, `useCameraStream` (opens on mount, stops on unmount, collapse,
+  window hide and camera change, falls back from a missing camera, names the failures), the
+  panel with the mirror chip, the zoom cycle and *Next camera*, the widget and the pane. The
+  stories drive a painted canvas stream; no test or story opens a real camera. Deviations
+  from the tables below: **no `WebviewPermissions` trait** (a function of the webview the
+  shell already holds, nothing left to fake), and a `deviceLabel` beside `deviceId` so the
+  pane can name the chosen camera. **Spike S1 is not yet observed**: the three manual rows
+  (light on with the module on and no prompt, `NotAllowedError` with it off, light off within
+  a second of a collapse) are rows 1–6 of the checklist and need the maintainer's machine.
+  Spec: [modules/mirror](../modules/mirror.md); QA: [checklists/mirror](../qa/checklists/mirror.md).
 
 ### Order
 
@@ -65,10 +80,11 @@ leaves E4 a kickoff prompt rather than a branch.
   `HealthChanged`; strip content `health:break` notice (44) and `health:flow` activity (timer
   glyph, priority 64) while a flow runs. *As built in E1b; the plan said priority 45 and no
   `breathePattern` or `clearHistory`.*
-- **Mirror**: `settings.modules.mirror = { enabled: false, flip: true, deviceId?: string }`; no
-  snapshot — the panel calls `getUserMedia` itself; Rust only decides the permission (below)
-  and exposes `mirror_watch(on)` so the shell can lift the low memory target while the
-  preview runs. Streams stop on collapse, unmount and window hide.
+- **Mirror**: `settings.modules.mirror = { enabled: false, flip: true, deviceId: null,
+  deviceLabel: null }`; no snapshot — the panel calls `getUserMedia` itself; Rust only decides
+  the permission (below) and exposes `mirror_watch(watching)` so the shell can lift the low
+  memory target while the preview runs. Streams stop on collapse, unmount and window hide.
+  *As built in E1c; the plan had no `deviceLabel`.*
 - **Translation**: `settings.modules.translation = { enabled: false, provider: 'openai' |
   'ollama', endpoint, model, source: 'auto' | tag, target: tag }`; commands
   `translation_set_key(key)` / `translation_clear_key()` (Credential Manager, entry
@@ -86,7 +102,7 @@ leaves E4 a kickoff prompt rather than a branch.
 | ------- | ------------------------ | ------ |
 | `SystemInfo` | **Built (E1a)**: `sysinfo` for the OS edition and build (`RtlGetVersion` gives the build without the edition), `GetAvailableCoreWebView2BrowserVersionString` for WebView2, `SHGetKnownFolderPath(FOLDERID_Desktop)` for the bundle's folder; the log size comes from the module, monitors from the shell's startup log | E1a |
 | ~~`Repair`~~ | **Not built as a trait (E1a)**: the two repairs are calls on services the shell already owns — `HudService::repair_flyout` (clear the suppression cache, show Windows's flyouts, apply the setting again) and `ShellManager::repair_app_bars` (release every app bar, reconcile) — so there was nothing platform-specific left to abstract | E1a |
-| `WebviewPermissions` | `ICoreWebView2::add_PermissionRequested` next to `set_memory_usage_target` in `windows/webview.rs`: camera for the app's own origin while `mirror.enabled`, everything else denied without a prompt (the notch window cannot show one) | E1c |
+| ~~`WebviewPermissions`~~ | **Not built as a trait (E1c)**: `PermissionPolicy` (pure, in `muna-platform::permissions`) answers `ICoreWebView2::add_PermissionRequested` next to `set_memory_usage_target` in `windows/webview.rs` — camera for the app's own origin while `mirror.enabled`, everything else denied without a prompt, nothing saved to the profile; the shell installs it on both webviews. Like the memory target it is a function of the webview the shell already holds, so there was nothing to fake | E1c |
 | `Http` streaming | The M4 `reqwest` client with `text/event-stream` and NDJSON readers, cancel through a token; only inside the translation integration | E1d |
 | `Speech` | `Windows.Media.SpeechRecognition` — **deferred**; the mic button is not built in M5 | — |
 
@@ -97,7 +113,12 @@ leaves E4 a kickoff prompt rather than a branch.
   camera light comes on; with mirror off it rejects with `NotAllowedError`; stopping the tracks
   on collapse turns the light off within a second. Exit: the three observations logged in a
   manual run; otherwise the module ships panel-only with the permission granted at the
-  settings window and the widget deferred.
+  settings window and the widget deferred. *Record (E1c): the handler and the policy are
+  built and unit-tested against the `webview2-com` surface (`PermissionRequested`, `SetState`,
+  `SetSavesInProfile`), and the module ships with both the panel and the widget; the three
+  observations themselves are rows 1–6 of
+  [checklists/mirror](../qa/checklists/mirror.md) and are still to be logged on a machine
+  with a camera — the agent session that built E1c never opened one.*
 - **S2 Streaming with cancel** (before E1d): a fake provider in `tests/translation.rs` streams
   five chunks and a cancel after the second leaves no further `TranslationChunk`; live against
   LM Studio or Ollama on the maintainer's machine. Exit: the test and one manual run.

@@ -1581,6 +1581,65 @@
       "cancel": "Cancel"
     }
   },
+  "mirror": {
+    "title": "Mirror",
+    "head": {
+      "off": "Mirror is off",
+      "starting": "Starting the camera",
+      "defaultCamera": "Camera",
+      "settings": "Settings"
+    },
+    "preview": {
+      "label": "Camera preview",
+      "flip": "Mirror the image",
+      "zoom": "Zoom {{zoom}}",
+      "zoomLevel": "{{zoom}}×",
+      "switchCamera": "Next camera",
+      "starting": "Starting the camera"
+    },
+    "state": {
+      "offTitle": "Mirror is off",
+      "offBody": "Turn it on in Settings to check your camera before a call. Muna opens the camera only while this panel is on screen.",
+      "openSettings": "Open Settings",
+      "retry": "Try again",
+      "denied": {
+        "title": "Camera access was refused",
+        "body": "Windows or another setting blocked the camera. Check Settings › Privacy › Camera, then try again."
+      },
+      "notFound": {
+        "title": "No camera found",
+        "body": "Connect a camera, or pick another one in the module's settings."
+      },
+      "busy": {
+        "title": "The camera is in use",
+        "body": "Another app has the camera. Close it there, then try again."
+      },
+      "unsupported": {
+        "title": "Camera preview is not available",
+        "body": "This window cannot open a camera. Update the WebView2 runtime from Windows Update and try again."
+      },
+      "failed": {
+        "title": "The camera did not start",
+        "body": "Something went wrong opening it. Try again."
+      }
+    },
+    "widget": {
+      "off": "Mirror is off",
+      "offBody": "Turn it on in Settings",
+      "error": "The camera did not start"
+    },
+    "settings": {
+      "camera": "Camera",
+      "enabled": "Use the camera",
+      "enabledBody": "Off by default. Muna opens the camera only while the Mirror panel or widget is on screen, never in the background; the camera light shows when it is in use.",
+      "flip": "Mirror the image",
+      "flipBody": "Shows you the way a mirror would. Turn it off to see what others see.",
+      "device": "Chosen camera",
+      "deviceDefault": "The system default. Switch cameras from the panel.",
+      "deviceChosen": "{{label}}. Switch cameras from the panel.",
+      "useDefault": "Use default"
+    }
+  },
   "support": {
     "title": "Support",
     "about": "Muna {{version}} · {{os}}",

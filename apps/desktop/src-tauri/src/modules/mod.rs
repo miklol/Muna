@@ -20,6 +20,7 @@ pub mod hud;
 pub mod keyboard_shortcuts;
 pub mod live_activities;
 pub mod media;
+pub mod mirror;
 pub mod notes;
 pub mod notifications;
 pub mod pomodoro;
@@ -106,6 +107,7 @@ pub struct ModuleServices {
     pub screen_time: Arc<screen_time::ScreenTimeService>,
     pub ai_coding: Arc<ai_coding::AiCodingService>,
     pub health: Arc<health::HealthService>,
+    pub mirror: Arc<mirror::MirrorService>,
     pub support: Arc<support::SupportService>,
 }
 
@@ -212,6 +214,7 @@ impl ModuleServices {
                 Arc::clone(clock),
                 Arc::new(health::LocalZone),
             )),
+            mirror: Arc::new(mirror::MirrorService::new()),
             support: Arc::new(support::SupportService::new(
                 Arc::clone(platform),
                 Arc::clone(clock),
@@ -291,6 +294,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         ))),
         Box::new(ai_coding::AiCodingModule(Arc::clone(&services.ai_coding))),
         Box::new(health::HealthModule(Arc::clone(&services.health))),
+        Box::new(mirror::MirrorModule(Arc::clone(&services.mirror))),
         Box::new(support::SupportModule(Arc::clone(&services.support))),
     ]
 }

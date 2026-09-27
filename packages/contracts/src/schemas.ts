@@ -2390,6 +2390,65 @@ export const healthGoalsMet = (
   Number(day.water >= goals.water) +
   Number(day.mindfulSeconds >= goals.mindfulSeconds);
 
+/** The key of the Mirror module's namespace; also its module id. */
+export const MIRROR_SETTINGS_KEY = 'mirror';
+
+/** The longest camera id and label kept (`modules::mirror::settings`). */
+export const MIRROR_BOUNDS = {
+  deviceId: { max: 256 },
+  deviceLabel: { max: 128 },
+} as const;
+
+/** The zoom steps the panel's chip cycles through; never persisted. */
+export const MIRROR_ZOOM_STEPS = [1, 1.5, 2] as const;
+
+/** A trimmed device field; empty or oversized becomes `null`, like the Rust clamp. */
+const boundedDeviceField = (max: number) =>
+  z
+    .string()
+    .nullable()
+    .default(null)
+    .transform((value) => {
+      const trimmed = value?.trim() ?? '';
+      // Code points, like the Rust `chars().count()`.
+      return trimmed.length > 0 && Array.from(trimmed).length <= max ? trimmed : null;
+    });
+
+/**
+ * Mirrors `modules::mirror::MirrorSettings`: defaults for missing fields, device fields trimmed
+ * and bounded, a label without an id dropped, a wrong type fails the whole entry.
+ */
+export const mirrorSettingsSchema = z
+  .object({
+    /** The only switch that unlocks the camera; off by default. */
+    enabled: z.boolean().default(false),
+    /** Show the preview as a mirror. */
+    flip: z.boolean().default(true),
+    /** `MediaDeviceInfo.deviceId` of the chosen camera; `null` is the system default. */
+    deviceId: boundedDeviceField(MIRROR_BOUNDS.deviceId.max),
+    /** `MediaDeviceInfo.label` captured when the camera was chosen. */
+    deviceLabel: boundedDeviceField(MIRROR_BOUNDS.deviceLabel.max),
+  })
+  .transform((value) => ({
+    ...value,
+    deviceLabel: value.deviceId === null ? null : value.deviceLabel,
+  }));
+export type MirrorSettings = z.infer<typeof mirrorSettingsSchema>;
+
+export const defaultMirrorSettings = (): MirrorSettings => mirrorSettingsSchema.parse({});
+
+/** Reads the Mirror namespace; a missing or malformed entry yields the defaults, like Rust. */
+export const readMirrorSettings = (settings: Settings): MirrorSettings => {
+  const parsed = mirrorSettingsSchema.safeParse(settings.modules[MIRROR_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultMirrorSettings();
+};
+
+/** Returns a new document with the Mirror namespace replaced. */
+export const writeMirrorSettings = (settings: Settings, mirror: MirrorSettings): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [MIRROR_SETTINGS_KEY]: mirror },
+});
+
 /** The key of the Support module's namespace; also its module id. */
 export const SUPPORT_SETTINGS_KEY = 'support';
 
