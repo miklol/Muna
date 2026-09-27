@@ -9,6 +9,7 @@ pub mod activities;
 pub mod artwork;
 pub mod clock;
 pub mod drops;
+pub mod health;
 pub mod settings;
 pub mod shelf;
 pub mod shell_settings;
@@ -19,12 +20,13 @@ pub mod usage;
 pub mod wire;
 
 pub use activities::{
-    Activity, ActivityState, DropActionKind, Glyph, Hub, Leading, Notice, PomodoroPhase, Scheduler,
-    StripContent, StripMessage, StripSink, Tint, Trailing, Waker,
+    Activity, ActivityState, DropActionKind, Glyph, HealthFlow, Hub, Leading, Notice,
+    PomodoroPhase, Scheduler, StripContent, StripMessage, StripSink, Tint, Trailing, Waker,
 };
 pub use artwork::{ArtCache, Artwork, ArtworkError};
 pub use clock::{Clock, FakeClock, SystemClock};
 pub use drops::{DropSession, DropSessionId, DropSessions, SelfDrag};
+pub use health::HealthDayRecord;
 pub use settings::{
     GeneralSettings, JsonValue, ReducedMotion, Settings, SettingsError, SettingsStore,
 };

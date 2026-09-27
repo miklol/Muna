@@ -101,6 +101,20 @@ const MIGRATIONS: &[&str] = &[
     );
     CREATE INDEX usage_sessions_span ON usage_sessions (started_at, ended_at);
     CREATE INDEX usage_sessions_exe ON usage_sessions (exe, started_at);",
+    // M5-E1b: Health (docs/modules/health.md). One row per local day, keyed by the day's start
+    // in Unix milliseconds, holding the counters the rings and the weekday dots read: time
+    // spent at the desk, the longest sit, breaks taken (natural or a guided Move/Stretch),
+    // glasses of water logged, seconds of paced breathing and flows finished. No timestamps
+    // of individual events and nothing about what the user was doing.
+    "CREATE TABLE health_days (
+        day_start INTEGER PRIMARY KEY,
+        active_ms INTEGER NOT NULL DEFAULT 0,
+        longest_sit_ms INTEGER NOT NULL DEFAULT 0,
+        breaks INTEGER NOT NULL DEFAULT 0,
+        water INTEGER NOT NULL DEFAULT 0,
+        mindful_seconds INTEGER NOT NULL DEFAULT 0,
+        flows INTEGER NOT NULL DEFAULT 0
+    );",
 ];
 
 /// One pomodoro phase that ran, as logged by the module. Times are Unix milliseconds.

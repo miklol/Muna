@@ -15,6 +15,7 @@ pub mod code_hosting;
 pub mod dashboard;
 pub mod day_progress;
 pub mod drop_actions;
+pub mod health;
 pub mod hud;
 pub mod keyboard_shortcuts;
 pub mod live_activities;
@@ -104,6 +105,7 @@ pub struct ModuleServices {
     pub notes: Arc<notes::NotesService>,
     pub screen_time: Arc<screen_time::ScreenTimeService>,
     pub ai_coding: Arc<ai_coding::AiCodingService>,
+    pub health: Arc<health::HealthService>,
     pub support: Arc<support::SupportService>,
 }
 
@@ -121,18 +123,7 @@ impl ModuleServices {
     ) -> Self {
         let art_cache = profile_dir
             .map(|dir| ArtCache::new(dir.join("cache").join("art"), media::ART_CACHE_ENTRIES));
-        let shelf = Arc::new(shelf::ShelfService::new(
-            Arc::clone(platform),
-            Arc::clone(store),
-            Arc::clone(clock),
-            profile_dir.map(|dir| dir.join("shelf")),
-        ));
-        let drop_actions = Arc::new(drop_actions::DropActionsService::new(
-            Arc::clone(platform),
-            Arc::clone(hub),
-        ));
-        // The *Shelf* tile hands its items over through the core trait (ADR-0004).
-        drop_actions.set_shelf(Arc::clone(&shelf) as Arc<dyn muna_core::ShelfIntake>);
+        let (shelf, drop_actions) = drop_targets(platform, hub, profile_dir, store, clock);
         Self {
             media: Arc::new(media::MediaService::new(
                 Arc::clone(platform),
@@ -214,6 +205,13 @@ impl ModuleServices {
                     ai_coding::AiCodingPaths::default()
                 },
             )),
+            health: Arc::new(health::HealthService::new(
+                Arc::clone(platform),
+                Arc::clone(hub),
+                Arc::clone(store),
+                Arc::clone(clock),
+                Arc::new(health::LocalZone),
+            )),
             support: Arc::new(support::SupportService::new(
                 Arc::clone(platform),
                 Arc::clone(clock),
@@ -221,6 +219,32 @@ impl ModuleServices {
             )),
         }
     }
+}
+
+/// The Shelf and the Drop actions, wired together: the *Shelf* tile hands its items over
+/// through the core trait (ADR-0004), so neither module imports the other.
+fn drop_targets(
+    platform: &Arc<dyn Platform>,
+    hub: &Arc<Hub>,
+    profile_dir: Option<&Path>,
+    store: &Arc<Store>,
+    clock: &Arc<dyn Clock>,
+) -> (
+    Arc<shelf::ShelfService>,
+    Arc<drop_actions::DropActionsService>,
+) {
+    let shelf = Arc::new(shelf::ShelfService::new(
+        Arc::clone(platform),
+        Arc::clone(store),
+        Arc::clone(clock),
+        profile_dir.map(|dir| dir.join("shelf")),
+    ));
+    let drop_actions = Arc::new(drop_actions::DropActionsService::new(
+        Arc::clone(platform),
+        Arc::clone(hub),
+    ));
+    drop_actions.set_shelf(Arc::clone(&shelf) as Arc<dyn muna_core::ShelfIntake>);
+    (shelf, drop_actions)
 }
 
 /// Every backend in this build, in start order.
@@ -266,6 +290,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
             &services.screen_time,
         ))),
         Box::new(ai_coding::AiCodingModule(Arc::clone(&services.ai_coding))),
+        Box::new(health::HealthModule(Arc::clone(&services.health))),
         Box::new(support::SupportModule(Arc::clone(&services.support))),
     ]
 }
