@@ -33,6 +33,9 @@ import type {
   SnapZoneRef,
   SourceSetting,
   StripContent,
+  SupportCommand,
+  SupportOutcome,
+  SupportSnapshot,
 } from './bindings';
 import {
   AI_AGENTS,
@@ -96,6 +99,7 @@ import {
   SNAP_ZONES,
   SNOOZE_MINUTES_CHOICES,
   STRIP_HEIGHT_PX,
+  SUPPORT_SETTINGS_KEY,
   SYSTEM_MONITOR_BOUNDS,
   SYSTEM_MONITOR_PERIODS,
   SYSTEM_MONITOR_SETTINGS_KEY,
@@ -135,6 +139,7 @@ import {
   defaultScreenTimeSettings,
   defaultSettings,
   defaultShelfSettings,
+  defaultSupportSettings,
   defaultSystemMonitorSettings,
   defaultTodoSettings,
   defaultWeatherSettings,
@@ -153,6 +158,7 @@ import {
   dropTilesPerRow,
   droppedSchema,
   filterPullRequests,
+  formatBytes,
   hotkeyBindingSchema,
   isSnoozeMinutes,
   limitProgress,
@@ -181,6 +187,7 @@ import {
   readPomodoroSettings,
   readScreenTimeSettings,
   readShelfSettings,
+  readSupportSettings,
   readSystemMonitorSettings,
   readTodoSettings,
   readWeatherSettings,
@@ -206,6 +213,12 @@ import {
   snapZoneRefSchema,
   snapZoneSchema,
   stripContentSchema,
+  supportChangedSchema,
+  supportCommandSchema,
+  supportLinkSchema,
+  supportOutcomeSchema,
+  supportSettingsSchema,
+  supportSnapshotSchema,
   waitingSessions,
   weekScaleMs,
   widgetNote,
@@ -224,6 +237,7 @@ import {
   writePomodoroSettings,
   writeScreenTimeSettings,
   writeShelfSettings,
+  writeSupportSettings,
   writeSystemMonitorSettings,
   writeTodoSettings,
   writeWeatherSettings,
@@ -2303,6 +2317,97 @@ describe('ai coding contract', () => {
     expect(waitingSessions([waiting, running, later])).toEqual([waiting]);
     expect(runningSessions([waiting, running, later])).toEqual([running, later]);
     expect(waitingSessions([])).toEqual([]);
+  });
+});
+
+describe('support schemas', () => {
+  const AT = Date.UTC(2026, 8, 27, 10, 30);
+
+  it('defaults the namespace, round-trips it and refuses a wrong type', () => {
+    expect(defaultSupportSettings()).toEqual({ channel: 'stable', crashReports: false });
+    expect(readSupportSettings(defaultSettings())).toEqual(defaultSupportSettings());
+    expect(supportSettingsSchema.parse({ channel: 'beta' })).toEqual({
+      channel: 'beta',
+      crashReports: false,
+    });
+    const doc = writeSupportSettings(defaultSettings(), { channel: 'beta', crashReports: false });
+    expect(readSupportSettings(doc)).toEqual({ channel: 'beta', crashReports: false });
+    expect(doc.modules[SUPPORT_SETTINGS_KEY]).toEqual({ channel: 'beta', crashReports: false });
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [SUPPORT_SETTINGS_KEY]: { channel: 'nightly' } },
+    };
+    expect(readSupportSettings(broken)).toEqual(defaultSupportSettings());
+  });
+
+  it('round-trips the snapshot, its change event, the commands and the outcomes', () => {
+    const snapshot: SupportSnapshot = {
+      version: '1.2.3',
+      channel: 'stable',
+      system: { os: 'Windows 11 Pro (build 26200)', webview2: '140.0.3485.54' },
+      profileDir: 'C:\\Users\\me\\AppData\\Roaming\\Muna',
+      logsBytes: 348_160,
+      lastBundle: {
+        path: 'C:\\Users\\me\\Desktop\\muna-diagnostics-20260927-1030.zip',
+        entries: 5,
+        atMs: AT,
+      },
+      changelog: false,
+    };
+    expect(supportSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+    expect(supportChangedSchema.parse({ snapshot })).toEqual({ snapshot });
+    const bare: SupportSnapshot = {
+      ...snapshot,
+      system: { os: 'unknown', webview2: null },
+      profileDir: null,
+      logsBytes: 0,
+      lastBundle: null,
+      changelog: true,
+    };
+    expect(supportSnapshotSchema.parse(bare)).toEqual(bare);
+    expect(supportSnapshotSchema.safeParse({ ...bare, version: '' }).success).toBe(false);
+    expect(supportSnapshotSchema.safeParse({ ...bare, logsBytes: -1 }).success).toBe(false);
+    expect(supportSnapshotSchema.safeParse({ ...bare, channel: 'nightly' }).success).toBe(false);
+    expectTypeOf<z.infer<typeof supportSnapshotSchema>>().toEqualTypeOf<SupportSnapshot>();
+
+    const commands: SupportCommand[] = [
+      { kind: 'diagnostics' },
+      { kind: 'repairFlyouts' },
+      { kind: 'repairAppBar' },
+      { kind: 'openLogs' },
+      { kind: 'checkUpdates' },
+    ];
+    for (const command of commands) {
+      expect(supportCommandSchema.parse(command)).toEqual(command);
+    }
+    expect(supportCommandSchema.safeParse({ kind: 'installUpdate' }).success).toBe(false);
+    expectTypeOf<z.infer<typeof supportCommandSchema>>().toEqualTypeOf<SupportCommand>();
+
+    const outcomes: SupportOutcome[] = [
+      { kind: 'done' },
+      { kind: 'bundle', path: 'C:\\Users\\me\\Desktop\\x.zip', entries: 2, atMs: AT },
+      { kind: 'update', available: true, version: '1.3.0', notes: 'Fixes' },
+      { kind: 'update', available: false, version: null, notes: null },
+    ];
+    for (const outcome of outcomes) {
+      expect(supportOutcomeSchema.parse(outcome)).toEqual(outcome);
+    }
+    expect(supportOutcomeSchema.safeParse({ kind: 'bundle', path: '' }).success).toBe(false);
+
+    for (const link of ['help', 'feedback', 'rate', 'releaseNotes'] as const) {
+      expect(supportLinkSchema.parse(link)).toBe(link);
+    }
+    expect(supportLinkSchema.safeParse('donate').success).toBe(false);
+  });
+
+  it('formats byte counts for the logs row', () => {
+    expect(formatBytes(0, 'en-US')).toBe('0 B');
+    expect(formatBytes(512, 'en-US')).toBe('512 B');
+    expect(formatBytes(1024, 'en-US')).toBe('1 KB');
+    expect(formatBytes(348_160, 'en-US')).toBe('340 KB');
+    expect(formatBytes(1024 * 1024, 'en-US')).toBe('1 MB');
+    expect(formatBytes(5.25 * 1024 * 1024, 'en-US')).toBe('5.3 MB');
+    expect(formatBytes(1_258_291, 'de-DE')).toBe('1,2 MB');
   });
 });
 

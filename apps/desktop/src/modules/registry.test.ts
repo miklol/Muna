@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { dropModuleOf, findModule, modules, snapModuleOf } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf, window snap, code hosting, notes, screen time and AI coding (M4)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf, window snap, code hosting, notes, screen time and AI coding (M4), then support (M5)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
@@ -24,6 +24,7 @@ describe('module registry', () => {
       'notes',
       'screen-time',
       'ai-coding',
+      'support',
     ]);
     expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
     expect(findModule('dashboard')?.settings).toBeDefined();
@@ -70,6 +71,10 @@ describe('module registry', () => {
     expect(findModule('ai-coding')?.titleKey).toBe('aiCoding.title');
     expect(findModule('ai-coding')?.settings).toBeDefined();
     expect(findModule('ai-coding')?.panel).toBeDefined();
+    expect(findModule('support')?.titleKey).toBe('support.title');
+    expect(findModule('support')?.settings).toBeDefined();
+    expect(findModule('support')?.panel).toBeDefined();
+    expect(findModule('support')?.widget).toBeUndefined();
   });
 
   it('gives the HUD a settings pane but no panel: it lives in the strip', () => {

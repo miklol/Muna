@@ -163,6 +163,7 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | Updater | `tauri-plugin-updater` (minisign `TAURI_SIGNING_PRIVATE_KEY`, static `latest.json`) for NSIS; App Installer / Store for MSIX | Separate channels |
 | Signing | Azure Artifact Signing (Basic ≈ $9.99/mo) or SignPath Foundation (OSS) | Verify eligibility in M0 |
 | WebView2 | `downloadBootstrapper` in `tauri.conf.json`; Evergreen runtime present on Win10 22H2+/Win11 | Offline installer option documented |
+| System report (Support) | `sysinfo` `long_os_version` + `kernel_version` for the edition and build (`Windows 11 Pro (build 26200)`), `GetAvailableCoreWebView2BrowserVersionString` for the WebView2 runtime, `SHGetKnownFolderPath(FOLDERID_Desktop)` for the bundle's folder | **Built** (M5-E1a) as the `SystemInfo` trait; `RtlGetVersion` was planned but gives the build without the edition |
 
 ## Crates & packages
 

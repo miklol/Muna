@@ -16,7 +16,7 @@ use crate::types::{
     AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
     BluetoothRadioState, BrightnessMonitor, DragOutcome, DragPayload, ForegroundWindow,
     GeoPosition, MediaCommand, MediaSession, MonitorInfo, Notification, NotificationAccess,
-    NotificationDelivery, OsdState, Rect, SystemSample, Thumbnail, TransferMode,
+    NotificationDelivery, OsdState, Rect, SystemDescription, SystemSample, Thumbnail, TransferMode,
     UserNotificationState, WindowHandle,
 };
 
@@ -210,6 +210,18 @@ pub trait Processes: Send + Sync {
     fn focus(&self, window: WindowHandle) -> PlatformResult<()>;
 }
 
+/// The machine, for Support & diagnostics (docs/modules/support.md): the OS build and the
+/// `WebView2` runtime a bug report needs, and the Desktop folder the diagnostics bundle is
+/// written to. Read once per bundle; nothing here is watched.
+pub trait SystemInfo: Send + Sync {
+    /// The OS edition and build, and the `WebView2` runtime version when one is installed.
+    /// Never fails for want of a runtime: that is reported as `webview2: None`.
+    fn describe(&self) -> PlatformResult<SystemDescription>;
+    /// The user's Desktop folder (`FOLDERID_Desktop`, which follows a `OneDrive` redirection);
+    /// [`crate::PlatformError::NotFound`] when the shell has none.
+    fn desktop_dir(&self) -> PlatformResult<PathBuf>;
+}
+
 /// Native affinities of the notch windows (ADR-0002). The windows themselves are created by
 /// Tauri; these calls adjust what Tauri does not expose. Every method is cheap and may be
 /// called from any thread: positioning uses `SWP_ASYNCWINDOWPOS` so a caller never blocks on
@@ -370,6 +382,7 @@ pub trait Platform: Send + Sync {
     fn foreground(&self) -> &dyn Foreground;
     fn app_info(&self) -> &dyn AppInfo;
     fn processes(&self) -> &dyn Processes;
+    fn system_info(&self) -> &dyn SystemInfo;
     fn windowing(&self) -> &dyn Windowing;
     fn app_bar(&self) -> &dyn AppBar;
     fn autostart(&self) -> &dyn Autostart;
