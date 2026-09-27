@@ -255,3 +255,41 @@ settings panes, contract schema round-trips, `ci:app` idle budget after each epi
 and M4 modules on), the QA checklists `docs/qa/checklists/{drop-actions,shelf,window-snap,
 code-hosting}.md` for the hardware and application rows, and the module story harness as
 the first M4-E6 deliverable so every new module ships with stories.
+
+## Stack and merge order
+
+Every M4 epic landed as one PR stacked on the previous one so each could be reviewed against
+its own diff; the run sits on the M3 close-out because nothing has merged since M1:
+
+| PR | Epic | Base |
+| --- | ------ | ------ |
+| [#38](https://github.com/miklol/Muna/pull/38) | M4-E6 Keyboard shortcuts (+ module story harness) | `m3-close-out` (#37) |
+| [#39](https://github.com/miklol/Muna/pull/39) | M4-E1 Drop actions | #38 |
+| [#40](https://github.com/miklol/Muna/pull/40) | M4-E2 Shelf | #39 |
+| [#41](https://github.com/miklol/Muna/pull/41) | M4-E3 Window snap | #40 |
+| [#42](https://github.com/miklol/Muna/pull/42) | M4-E4 Code hosting (GitHub, token) | #41 |
+| [#43](https://github.com/miklol/Muna/pull/43) | M4-E7 Notes | #42 |
+| [#44](https://github.com/miklol/Muna/pull/44) | M4-E8 Screen time | #43 |
+| [#45](https://github.com/miklol/Muna/pull/45) | M4-E5 AI coding status | #44 |
+
+Merge from the bottom of the M2 stack upwards (#22 → … → #37 → #38 → … → #45), retargeting
+each PR to `main` as its base merges — GitHub does this on its own when the base branch is
+deleted. Every PR passes the parity commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`,
+`ci:app`, the docs checks); the hosted checks have not run because the GitHub Actions budget
+is exhausted ("an Actions budget is preventing further use" on every job). When it is
+restored, `gh run rerun --failed <run id>` on each PR is enough.
+
+What the parity runs caught that the unit suites could not, for the record: a shell ↔ UI
+ready loop and a leaking morph sampler (M2-E4), and in M4-E5 a startup deadlock between the
+ai-coding poll and the main thread over a window of Muna's own process, plus the Copilot
+CLI's one-turn-per-response log. Each fix has a regression test; the deadlock's is a live
+platform test.
+
+Carry-overs (listed against the M4 exit criteria in
+[07-roadmap → M4](../07-roadmap.md#m4--power-tools-4-weeks)): the manual hardware and
+application rows of the four checklists (Explorer, Chrome, Outlook, Teams, a 100 % + 150 %
+monitor pair, the 24 h GitHub soak); an `IDropTarget` of Muna's own so Outlook's virtual-file
+attachments drop; the GitHub device flow, GitLab, Bitbucket and Jira; Cursor and Codex
+adapters and a two-phase ai-coding poll; the Storybook module states for the M3 modules
+(harness in place since #38); the Windows 10 columns of every checklist; and the M0–M3
+carry-overs that still stand.
