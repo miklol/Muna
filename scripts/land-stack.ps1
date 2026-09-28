@@ -53,11 +53,30 @@ $PSNativeCommandUseErrorActionPreference = $false
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 
+function Write-Step { param([string]$Text) Write-Host "[land] $Text" }
+
+function Invoke-Retry {
+  # Network calls to GitHub fail transiently; retry with a flat backoff before giving up.
+  param([scriptblock]$Action, [string]$What, [int]$Attempts = 6)
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    try { return & $Action }
+    catch {
+      if ($attempt -eq $Attempts) { throw }
+      Write-Step "$What failed ($($_.Exception.Message.Split("`n")[0])); retry $attempt of $Attempts in 30 s"
+      Start-Sleep -Seconds 30
+    }
+  }
+}
+
 function Invoke-Gh {
-  param([string[]]$GhArgs)
-  $out = & gh @GhArgs
-  if ($LASTEXITCODE -ne 0) { throw "gh $($GhArgs -join ' ') failed ($LASTEXITCODE)" }
-  return $out
+  param([string[]]$GhArgs, [switch]$NoRetry)
+  $call = {
+    $out = & gh @GhArgs
+    if ($LASTEXITCODE -ne 0) { throw "gh $($GhArgs -join ' ') failed ($LASTEXITCODE)" }
+    return $out
+  }
+  if ($NoRetry) { return & $call }
+  return Invoke-Retry -Action $call -What "gh $($GhArgs[0..1] -join ' ')"
 }
 
 function Invoke-Git {
@@ -67,7 +86,11 @@ function Invoke-Git {
   return $out
 }
 
-function Write-Step { param([string]$Text) Write-Host "[land] $Text" }
+function Invoke-Fetch {
+  param([string[]]$Refspecs)
+  $fetchArgs = @('fetch', '--quiet', '--prune', 'origin') + @($Refspecs | Where-Object { $_ })
+  Invoke-Retry -What 'git fetch' -Action { Invoke-Git $fetchArgs | Out-Null }
+}
 
 $repo = (Invoke-Gh @('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner')).Trim()
 
@@ -109,7 +132,7 @@ foreach ($pr in $chain) {
 }
 if ($Plan) { return }
 
-Invoke-Git @('fetch', '--quiet', 'origin') | Out-Null
+Invoke-Fetch
 
 # --- Scratch worktree helpers ----------------------------------------------------------------
 $scratch = Join-Path ([IO.Path]::GetTempPath()) ("muna-land-" + [guid]::NewGuid().ToString('n').Substring(0, 8))
@@ -232,10 +255,26 @@ function Push-Rebased {
   Write-Step "rebasing #$($Child.number) $($Child.headRefName) onto origin/main"
   $tip = Invoke-RebaseOnto -HeadRef "origin/$($Child.headRefName)" -UpstreamRef $UpstreamRef -OntoRef 'origin/main'
   if (-not $tip) { throw "Resolve the conflicts on $($Child.headRefName) by hand, push, then rerun with -Bottom $($Child.number)." }
-  Invoke-Git @('push', '--quiet', "--force-with-lease=refs/heads/$($Child.headRefName):$($Child.headRefOid)",
-    'origin', "${tip}:refs/heads/$($Child.headRefName)") | Out-Null
+  $branch = $Child.headRefName
+  Invoke-Retry -What "git push $branch" -Action {
+    # A push whose response was lost has already moved the remote; that counts as done.
+    $remote = ((Invoke-Git @('ls-remote', 'origin', "refs/heads/$branch")) -split '\s+')[0]
+    if ($remote -eq $tip) { return }
+    Invoke-Git @('push', '--quiet', "--force-with-lease=refs/heads/${branch}:$($Child.headRefOid)",
+      'origin', "${tip}:refs/heads/$branch") | Out-Null
+  }
   $Child.headRefOid = $tip
   Start-Sleep -Seconds 20 # let GitHub register the new head before its checks are read
+}
+
+function Merge-Pr {
+  param([object]$Pr)
+  Invoke-Retry -What "merge #$($Pr.number)" -Action {
+    $state = (Invoke-Gh @('pr', 'view', $Pr.number, '--json', 'state', '--jq', '.state') -NoRetry).Trim()
+    if ($state -eq 'MERGED') { return }
+    Invoke-Gh @('pr', 'merge', $Pr.number, '--squash', '--subject', "$($Pr.title) (#$($Pr.number))",
+      '--match-head-commit', $Pr.headRefOid) -NoRetry | Out-Null
+  }
 }
 
 function Remove-RemoteBranch {
@@ -246,8 +285,7 @@ function Remove-RemoteBranch {
 
 try {
   if ($RebaseOnto) {
-    Invoke-Git @('fetch', '--quiet', 'origin', "+refs/pull/$RebaseOnto/head:refs/remotes/origin/land-stack-parent") | Out-Null
-    Invoke-Git @('fetch', '--quiet', 'origin', 'main') | Out-Null
+    Invoke-Fetch -Refspecs @("+refs/pull/$RebaseOnto/head:refs/remotes/origin/land-stack-parent", '+refs/heads/main:refs/remotes/origin/main')
     Push-Rebased -Child $chain[0] -UpstreamRef 'origin/land-stack-parent'
     Invoke-Git @('update-ref', '-d', 'refs/remotes/origin/land-stack-parent') -AllowFailure | Out-Null
   }
@@ -267,14 +305,13 @@ try {
     $upstreamSha = if ($child) { (Invoke-Git @('merge-base', "origin/$($pr.headRefName)", "origin/$($child.headRefName)")).Trim() } else { $null }
 
     Write-Step "merging #$($pr.number): $($pr.title)"
-    Invoke-Gh @('pr', 'merge', $pr.number, '--squash', '--subject', "$($pr.title) (#$($pr.number))",
-      '--match-head-commit', $pr.headRefOid) | Out-Null
+    Merge-Pr -Pr $pr
 
     if ($child) {
       $childBase = (Invoke-Gh @('pr', 'view', $child.number, '--json', 'baseRefName', '--jq', '.baseRefName')).Trim()
       if ($childBase -ne 'main') { Invoke-Gh @('pr', 'edit', $child.number, '--base', 'main') | Out-Null }
       Remove-RemoteBranch -Name $pr.headRefName
-      Invoke-Git @('fetch', '--quiet', '--prune', 'origin') | Out-Null
+      Invoke-Fetch
       Push-Rebased -Child $child -UpstreamRef $upstreamSha
     }
     else {
