@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use muna_core::{Settings, SettingsError, StripContent};
 use muna_lib::ipc::{IpcError, default_bindings_path, export_bindings};
-use muna_lib::paths::profile_dir;
+use muna_lib::paths::{legacy_profile_dir, migrate_legacy_profile, profile_dir};
 use muna_lib::state::AppState;
 use muna_platform::FakePlatform;
 
@@ -62,6 +62,44 @@ fn open_creates_the_profile_and_persists_defaults() {
 }
 
 #[test]
-fn profile_dir_ends_with_muna() {
-    assert_eq!(profile_dir().file_name().unwrap(), "Muna");
+fn profile_dir_sits_under_the_publisher_not_the_install_dir() {
+    let dir = profile_dir();
+    assert_eq!(dir.file_name().unwrap(), "Muna");
+    assert_eq!(dir.parent().unwrap().file_name().unwrap(), "miklol");
+    // `%LOCALAPPDATA%\Muna` is where the per-user NSIS installer puts muna.exe.
+    assert_ne!(dir, legacy_profile_dir());
+    assert_eq!(legacy_profile_dir().file_name().unwrap(), "Muna");
+}
+
+#[test]
+fn legacy_profile_moves_once_and_leaves_the_install_dir_alone() {
+    let root = tempfile::tempdir().unwrap();
+    let from = root.path().join("Muna");
+    let to = root.path().join("miklol").join("Muna");
+    std::fs::create_dir_all(from.join("logs")).unwrap();
+    std::fs::write(from.join("settings.json"), "{}").unwrap();
+    std::fs::write(from.join("muna.db"), b"db").unwrap();
+    std::fs::write(from.join("muna.exe"), b"bin").unwrap();
+
+    let moved = migrate_legacy_profile(&from, &to).unwrap();
+    assert_eq!(moved.len(), 3);
+    assert!(to.join("settings.json").exists() && to.join("muna.db").exists());
+    assert!(to.join("logs").is_dir());
+    // The binary the installer put there is none of our business.
+    assert!(from.join("muna.exe").exists());
+    assert!(!from.join("settings.json").exists());
+
+    // A second run finds a populated target and leaves everything alone.
+    std::fs::write(from.join("settings.json"), "{\"stale\":true}").unwrap();
+    assert!(migrate_legacy_profile(&from, &to).unwrap().is_empty());
+    assert_eq!(
+        std::fs::read_to_string(to.join("settings.json")).unwrap(),
+        "{}"
+    );
+
+    // Nothing to migrate is not an error and creates nothing.
+    let empty = root.path().join("nothing");
+    let fresh = root.path().join("fresh");
+    assert!(migrate_legacy_profile(&empty, &fresh).unwrap().is_empty());
+    assert!(!fresh.exists());
 }

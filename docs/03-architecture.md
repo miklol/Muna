@@ -164,13 +164,16 @@ unit tests with a fake platform.
   the boundary — specta-typescript rejects them — so use `u32`/`f64`, or strings for ids and
   timestamps; free-form JSON (per-module settings) goes through the `JsonValue` mirror type.
   Doc comments on exported Rust types become the TypeScript doc comments: keep them user-facing.
-- **Settings**: single versioned JSON (`%LOCALAPPDATA%\Muna\settings.json`, written atomically),
-  zod schema shared via `contracts`; per-module namespaces under `settings.modules.<id>`, each
-  parsed by its own module with defaults for a missing or malformed entry and unknown keys
-  ignored (Rust `MediaSettings::from_document` and the zod `mediaSettingsSchema` are the
-  reference pair); live updates via `settings-changed`.
+- **Settings**: single versioned JSON (`%LOCALAPPDATA%\miklol\Muna\settings.json`, written
+  atomically), zod schema shared via `contracts`; per-module namespaces under
+  `settings.modules.<id>`, each parsed by its own module with defaults for a missing or
+  malformed entry and unknown keys ignored (Rust `MediaSettings::from_document` and the zod
+  `mediaSettingsSchema` are the reference pair); live updates via `settings-changed`.
 - **Secrets**: Windows Credential Manager (`CredWriteW`) under `Muna/<integration>`.
-- **Logging**: `tracing` → rolling files in `%LOCALAPPDATA%\Muna\logs`, redaction filter.
+- **Logging**: `tracing` → rolling files in `%LOCALAPPDATA%\miklol\Muna\logs`, redaction
+  filter. The profile sits under the publisher segment because the per-user NSIS installer
+  owns `%LOCALAPPDATA%\Muna` as the install directory (Tauri offers no override); a legacy
+  profile found there is moved once on start-up (`paths::migrate_legacy_profile`).
 - **Errors**: never modal; inline empty/error states + notices; diagnostics bundle.
 - **i18n**: `i18next` + ICU; keys per module; English first.
 - **Accessibility**: React Aria Components for primitives (toggle, slider, tabs, listbox);
