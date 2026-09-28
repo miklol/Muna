@@ -116,7 +116,7 @@ leaves E4 a kickoff prompt rather than a branch.
 - **M5-E2 Fidelity pass** — built on `m5-e2-fidelity` (PR pending, base
   `m5-e3-accessibility`): the [audit](../qa/fidelity-audit-2026-09-28.md) (mechanical sweeps,
   Storybook contact sheets and probes, the running app) ranked 2 blocking, 12 should and 10
-  nit findings, then found 5 more while fixing. What it turned up was one class of defect:
+  nit findings, then found 6 more while fixing. What it turned up was one class of defect:
   the shell sizes a panel to its content (190–360), so every module that relied on the body
   being 284 px — `flex: 1 1 0` rows, `block-size: 100%` boxes, lists with no bound — got
   nothing (the dashboard's grid was 0 px tall in every build) or grew past the maximum and

@@ -94,7 +94,8 @@ Bounding the panels above made the content-height `PanelFrame` show the same cla
 in five more modules: their scrolling lists had `flex: 0 1 auto; min-block-size: 0` and no
 bound, which was enough under a fixed-height frame and is nothing under a content-sized one.
 The surface then clipped the overflow, and axe sampled the hidden rows against the story
-background (`color-contrast` on the notes and AI coding *Long content* stories). All fixed in
+background (`color-contrast` on the notes and AI coding *Long content* stories). Giving the
+dashboard its rows then showed what its narrow cards do at the minimum width. All fixed in
 the same PR.
 
 | # | Surface | Finding | Decision |
@@ -104,9 +105,10 @@ the same PR.
 | F3 | Shelf panel | The grid's `--shelf-grid-max` was 220 but the status line is 28 tall (its buttons), not the 20 the budget assumed; body 292. In the app 279 with fewer rows. | `--shelf-grid-max: 212px`; the file's budget comment corrected. |
 | F4 | Support panel | Six 44 px rows plus the version line make 289; the changelog view 331; with the outcome line the running app measured 365 — over the maximum, so the shell clamped it and the surface clipped the last row and the outcome line. | List and changelog scroll inside `--support-scroll: 220px` (five rows), leaving room for the head or version line and the outcome line. |
 | F5 | Weather panel at 720 | The six chips wrap to two rows at the minimum width (they fit in one from about 760), so the body is 294; fine in the app at 1000 (266). | A container query under 760 px tightens the chip rows and the strip cells: 282. |
+| F6 | Dashboard widgets at 720 | Once the grid had rows, the narrow cards (142 px of body at the minimum width) ellipsised the system gauges (*Memory*, *15.9 GB*), the pomodoro status (*Running*), a task's due beside its title and the day widget's *Starts at 9:00 AM*. Fine from about 860 px. | The card body is a size container; under 180 px the system gauges stack ring over text, the pomodoro row closes its gaps, a task keeps its title (the due goes to screen readers and the red moves to the title), the day rows wrap whole. |
 
 The "Observed on spec" list above stands for every surface except the height of these five
-at 720 px, which the earlier frame could not show.
+at 720 px and the narrow dashboard cards, which the earlier frame could not show.
 
 ## Contract clarified
 
