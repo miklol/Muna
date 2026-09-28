@@ -495,7 +495,7 @@
     },
     "off": {
       "title": "Weather is off",
-      "body": "Turn it on in settings to see the forecast. Muna then asks Open-Meteo for it every quarter hour.",
+      "body": "Turn it on in Settings to see the forecast. Muna then asks Open-Meteo for it every quarter hour.",
       "action": "Open settings"
     },
     "locating": {
@@ -504,8 +504,8 @@
     },
     "chooseCity": {
       "title": "Choose a city",
-      "denied": "Windows is not sharing your location with Muna. Pick a city in settings, or allow location for desktop apps and try again.",
-      "unavailable": "This PC has no location source. Pick a city in settings.",
+      "denied": "Windows is not sharing your location with Muna. Pick a city in Settings, or allow location for desktop apps and try again.",
+      "unavailable": "This PC has no location source. Pick a city in Settings.",
       "failed": "Your location could not be found just now. Muna will try again shortly.",
       "action": "Choose a city",
       "retry": "Try again"
@@ -1529,7 +1529,7 @@
     "state": {
       "offTitle": "Health is off",
       "offBody": "Turn it on in Settings to track sitting and get break reminders.",
-      "openSettings": "Open Settings"
+      "openSettings": "Open settings"
     },
     "hearing": {
       "body": "Loud on headphones: {{percent}} % for {{duration}}. Turn it down a little."
@@ -1601,7 +1601,7 @@
     "state": {
       "offTitle": "Mirror is off",
       "offBody": "Turn it on in Settings to check your camera before a call. Muna opens the camera only while this panel is on screen.",
-      "openSettings": "Open Settings",
+      "openSettings": "Open settings",
       "retry": "Try again",
       "denied": {
         "title": "Camera access was refused",
@@ -1679,7 +1679,7 @@
     "state": {
       "offTitle": "Translation is off",
       "offBody": "Turn it on in Settings to translate text with your own provider. Nothing is sent anywhere until you do.",
-      "openSettings": "Open Settings"
+      "openSettings": "Open settings"
     },
     "error": {
       "disabled": "Turn translation on in Settings first.",
@@ -1871,7 +1871,7 @@
       "modeOverlay": "Overlay",
       "modeReserved": "Reserved",
       "stripHeight": "Strip height",
-      "stripHeightBody": "Compact 26 px, Default 32 px, Comfortable 38 px.",
+      "stripHeightBody": "26, 32 or 38 px tall.",
       "stripCompact": "Compact",
       "stripDefault": "Default",
       "stripComfortable": "Comfortable"
@@ -1896,7 +1896,7 @@
       "enabled": "Show the notch on this screen",
       "enabledBody": "Off parks the notch for this screen only.",
       "emptyTitle": "No screens found",
-      "emptyBody": "Connect a screen and reopen settings.",
+      "emptyBody": "Connect a screen and reopen Settings.",
       "error": "Screens could not be listed."
     },
     "appearance": {

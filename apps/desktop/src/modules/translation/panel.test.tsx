@@ -183,7 +183,7 @@ describe('TranslationPanel', () => {
     await flush();
     expect(screen.getByText('Translation is off')).toBeInTheDocument();
     expect(screen.queryByLabelText('Text to translate')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
     expect(ipc.openSettings).toHaveBeenCalledTimes(1);
     expect(ipc.translate).not.toHaveBeenCalled();
   });
