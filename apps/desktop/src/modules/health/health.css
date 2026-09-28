@@ -218,17 +218,24 @@
 }
 
 .health-week__initial {
-  font-size: 10px;
-  line-height: 12px;
+  font-size: var(--text-caption2);
+  line-height: var(--text-caption2--line-height);
   color: var(--text-3);
 }
 
-/* Right column: the reminder (when it is up) and the four flow cards. */
+/*
+ * Right column: the reminder (when it is up) and the four flow cards. It is a size container so
+ * the cards can read its width: two full cards (150 px each) fit beside the 20 px play glyph in
+ * the app's 1000 px panel; under 308 px — the 720 px minimum — the cards keep the 2 × 2 shape
+ * and the height budget by dropping the play glyph and a size of glyph, so the name gets 60 px
+ * instead of 26 and never ellipsises.
+ */
 .health-flows {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-inline-size: 0;
+  container-type: inline-size;
 }
 
 .health-break {
@@ -256,9 +263,12 @@
   gap: var(--space-1);
 }
 
+/* As many cards per row as keep each at least `--health-card-min` wide. */
 .health-cards {
+  --health-card-min: 150px;
+
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--health-card-min), 1fr));
   gap: var(--space-2);
   margin: 0;
   padding: 0;
@@ -417,7 +427,7 @@
   content: counter(step);
   flex: none;
   inline-size: 16px;
-  font-size: 11px;
+  font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
   color: var(--text-3);
 }
@@ -461,7 +471,6 @@
     color-mix(in oklab, var(--accent-purple) 18%, transparent) 70%,
     transparent 100%
   );
-  will-change: transform;
 }
 
 .health-breathe__word {
@@ -516,4 +525,29 @@
 
 .health-widget__water {
   flex: none;
+}
+
+@container (inline-size < 308px) {
+  .health-cards {
+    --health-card-min: 100px;
+  }
+
+  .health-card__glyph {
+    inline-size: 24px;
+    block-size: 24px;
+  }
+
+  .health-card__play {
+    display: none;
+  }
+
+  /* The reminder's buttons drop under its text instead of squeezing it into three lines. */
+  .health-break {
+    flex-wrap: wrap;
+  }
+
+  .health-break__actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
 }

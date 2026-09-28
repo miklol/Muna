@@ -15,6 +15,7 @@ import {
   EmptyState,
   formatCountdown,
   IconButton,
+  paced,
   reducedMotionTransition,
   Ring,
   Text,
@@ -495,8 +496,9 @@ interface BreathCircleProps {
 /**
  * The breathing circle: grows over the inhale, rests on the hold, shrinks over the exhale. The
  * animation's length is the phase's length from the pattern (4, 7 or 8 s) — pacing the user
- * is the content here, not a UI transition — so it is the one place a duration is not a
- * preset. Under reduced motion the circle sits still and the words carry the rhythm.
+ * is the content here, not a UI transition — so it runs on the `paced` tween from the motion
+ * package, which owns the curve. Under reduced motion the circle sits still and the words
+ * carry the rhythm.
  */
 function BreathCircle({ flow, elapsedMs }: BreathCircleProps) {
   const { t } = useTranslation();
@@ -513,11 +515,7 @@ function BreathCircle({ flow, elapsedMs }: BreathCircleProps) {
           className="health-breathe__circle"
           initial={false}
           animate={{ scale: reduceMotion ? 1 : target }}
-          transition={
-            reduceMotion
-              ? reducedMotionTransition
-              : { duration: Math.max(0.1, leftInPhaseMs / SECOND_MS), ease: 'easeInOut' }
-          }
+          transition={reduceMotion ? reducedMotionTransition : paced(leftInPhaseMs)}
         />
         <Text as="span" variant="title3" className="health-breathe__word" aria-live="polite">
           {t(breathPhaseKey[phase.kind])}
