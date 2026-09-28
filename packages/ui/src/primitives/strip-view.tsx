@@ -93,9 +93,15 @@ export interface StripViewProps {
   wide?: boolean;
   /**
    * What assistive technology reads for the current content (the text, or a description of
-   * the slots when there is none). Announced through a polite live region.
+   * the slots when there is none). Announced through a polite live region while `announce`
+   * is on; otherwise the text stays readable in the region without interrupting.
    */
   description: string;
+  /**
+   * Whether a change of `description` is announced (Settings → Appearance → Announce
+   * notices). Off by default: a track change every few minutes is noise for most listeners.
+   */
+  announce?: boolean;
   className?: string;
 }
 
@@ -296,6 +302,7 @@ export function StripView({
   text,
   wide = false,
   description,
+  announce = false,
   className,
 }: StripViewProps) {
   const reduceMotion = useReduceMotion();
@@ -343,7 +350,11 @@ export function StripView({
             </motion.span>
           )}
         </AnimatePresence>
-        <span role="status" className="muna-strip__description">
+        <span
+          role="status"
+          aria-live={announce ? 'polite' : 'off'}
+          className="muna-strip__description"
+        >
           {description}
         </span>
       </span>

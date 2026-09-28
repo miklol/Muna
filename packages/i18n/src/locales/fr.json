@@ -1939,9 +1939,13 @@
         "yellow": "Jaune",
         "pink": "Rose"
       },
-      "motion": "Animations",
+      "accessibility": "Accessibilité",
       "reduceMotion": "Réduire les animations",
-      "reduceMotionBody": "Remplace les ressorts par de courts fondus. Muna suit aussi le réglage Windows des effets d'animation."
+      "reduceMotionBody": "Remplace les ressorts par de courts fondus. Muna suit aussi le réglage Windows des effets d'animation.",
+      "increaseContrast": "Augmenter le contraste",
+      "increaseContrastBody": "Des filets et un texte secondaire plus marqués sur le verre noir. Muna suit aussi les thèmes de contraste de Windows.",
+      "announceNotices": "Annoncer les avis",
+      "announceNoticesBody": "Les lecteurs d’écran lisent chaque nouvel avis, comme un changement de piste ou un appareil connecté, dès qu’il apparaît."
     },
     "modules": {
       "body": "Désactivez un module pour le masquer de l'encoche. Organisez la barre des modules avec les flèches.",

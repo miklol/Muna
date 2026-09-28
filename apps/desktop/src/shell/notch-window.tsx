@@ -1120,7 +1120,13 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                   exit={contentExit}
                   transition={contentTransition}
                 >
-                  <Strip content={content} receivedAt={contentAt} hud={hud} decision={decision} />
+                  <Strip
+                    content={content}
+                    receivedAt={contentAt}
+                    hud={hud}
+                    decision={decision}
+                    announce={settings?.general.announceNotices ?? false}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>

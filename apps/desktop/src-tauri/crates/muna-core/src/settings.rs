@@ -17,7 +17,7 @@ use thiserror::Error;
 
 use crate::shell_settings::ShellSettings;
 
-pub const CURRENT_VERSION: u32 = 6;
+pub const CURRENT_VERSION: u32 = 7;
 
 /// Settings → General → Language: follow the Windows display language (v6).
 pub const SYSTEM_LANGUAGE: &str = "system";
@@ -50,6 +50,18 @@ pub enum ReducedMotion {
     Off,
 }
 
+/// Settings → Appearance → Increase contrast (v7): the UI mirrors `more` as
+/// `data-contrast="more"` on `<html>`, where the design tokens step hairlines and secondary
+/// text up (docs/05-design-system.md "Accessibility"). `system` follows Windows contrast
+/// themes through `prefers-contrast` alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
+pub enum Contrast {
+    #[default]
+    System,
+    More,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GeneralSettings {
@@ -62,6 +74,12 @@ pub struct GeneralSettings {
     /// UI language: `system` or a catalog tag (`de`, `pt-BR`); the UI resolves it, so an
     /// unknown tag (a catalog that was dropped) behaves like `system` (v6).
     pub language: String,
+    /// Settings → Appearance → Increase contrast (v7).
+    pub contrast: Contrast,
+    /// Settings → Appearance → Announce notices: the strip's notices are a polite live region
+    /// for screen readers; off (the default) keeps the text readable without announcing every
+    /// track change (v7).
+    pub announce_notices: bool,
 }
 
 impl Default for GeneralSettings {
@@ -72,6 +90,8 @@ impl Default for GeneralSettings {
             accent: "blue".into(),
             onboarded: false,
             language: SYSTEM_LANGUAGE.into(),
+            contrast: Contrast::System,
+            announce_notices: false,
         }
     }
 }
@@ -195,6 +215,18 @@ fn migrate(value: &mut Value, from: u32) {
                     general
                         .entry("language")
                         .or_insert_with(|| Value::String(SYSTEM_LANGUAGE.into()));
+                }
+            }
+            // v7 (M5-E3): the accessibility switches. Older files followed Windows for
+            // contrast and never announced notices, so both keep their behaviour.
+            6 => {
+                if let Some(general) = value.get_mut("general").and_then(Value::as_object_mut) {
+                    general
+                        .entry("contrast")
+                        .or_insert_with(|| Value::String("system".into()));
+                    general
+                        .entry("announceNotices")
+                        .or_insert_with(|| Value::Bool(false));
                 }
             }
             _ => unreachable!("migration from version {version} is not defined"),
@@ -374,7 +406,7 @@ mod tests {
     fn version_five_files_follow_windows_for_the_language_and_keep_the_rest() {
         let json = r#"{"version":5,"general":{"launchAtLogin":true,"reducedMotion":"on","accent":"pink","onboarded":true},"shell":{"hideFromCaptures":false,"defaults":{"enabled":true,"mode":"overlay","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{},"moduleOrder":[],"disabledModules":[]},"modules":{"keyboard-shortcuts":{"bindings":{"shell.togglePanel":"alt+f1"}}}}"#;
         let settings = Settings::from_json(json).unwrap();
-        assert_eq!(settings.version, 6);
+        assert_eq!(settings.version, CURRENT_VERSION);
         assert_eq!(settings.general.language, SYSTEM_LANGUAGE);
         assert_eq!(settings.general.accent, "pink");
         assert!(settings.general.onboarded);
@@ -382,6 +414,29 @@ mod tests {
             settings.modules[KEYBOARD_SHORTCUTS_KEY],
             serde_json::json!({ "bindings": { TOGGLE_PANEL_ACTION: "alt+f1" } })
         );
+    }
+
+    #[test]
+    fn version_six_files_follow_windows_for_contrast_and_stay_quiet() {
+        let json = r#"{"version":6,"general":{"launchAtLogin":true,"reducedMotion":"on","accent":"cyan","onboarded":true,"language":"de"},"shell":{"hideFromCaptures":false,"defaults":{"enabled":true,"mode":"overlay","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{},"moduleOrder":[],"disabledModules":[]},"modules":{}}"#;
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(settings.version, 7);
+        assert_eq!(settings.general.contrast, Contrast::System);
+        assert!(!settings.general.announce_notices);
+        assert_eq!(settings.general.language, "de");
+        assert_eq!(settings.general.reduced_motion, ReducedMotion::On);
+    }
+
+    #[test]
+    fn the_accessibility_switches_survive_a_round_trip_unchanged() {
+        let mut settings = Settings::default();
+        settings.general.contrast = Contrast::More;
+        settings.general.announce_notices = true;
+        let json = settings.to_json().unwrap();
+        assert!(json.contains(r#""contrast": "more""#));
+        let loaded = Settings::from_json(&json).unwrap();
+        assert_eq!(loaded.general.contrast, Contrast::More);
+        assert!(loaded.general.announce_notices);
     }
 
     #[test]
