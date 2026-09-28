@@ -140,7 +140,7 @@ describe('MirrorPanel', () => {
     await flush();
     expect(screen.getByRole('heading', { name: 'Mirror is off' })).toBeInTheDocument();
     expect(screen.getByText(/Turn it on in Settings to check your camera/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
     expect(ipc.openSettings).toHaveBeenCalledTimes(1);
     expect(media.getUserMedia).not.toHaveBeenCalled();
     expect(screen.queryByLabelText('Camera preview')).not.toBeInTheDocument();
