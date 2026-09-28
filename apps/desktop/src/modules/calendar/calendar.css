@@ -97,8 +97,10 @@
   border-radius: var(--radius-control);
 }
 
-.calendar-event:hover {
-  background: var(--surface-1);
+@media (hover: hover) {
+  .calendar-event:hover {
+    background: var(--surface-1);
+  }
 }
 
 .calendar-event__bar {

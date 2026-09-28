@@ -87,8 +87,10 @@
     opacity var(--muna-motion-toggle);
 }
 
-.shelf-tile:hover {
-  background: var(--surface-1);
+@media (hover: hover) {
+  .shelf-tile:hover {
+    background: var(--surface-1);
+  }
 }
 
 .shelf-tile[data-selected] {

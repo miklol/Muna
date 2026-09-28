@@ -100,10 +100,15 @@
 }
 
 /* Thumb-state rules last: `:has()` on the track outranks the single-class rules above. */
-.muna-slider:hover .muna-slider__knob,
 .muna-slider__track:has(.muna-slider__thumb[data-focused]) .muna-slider__knob,
 .muna-slider__track:has(.muna-slider__thumb[data-dragging]) .muna-slider__knob {
   opacity: 1;
+}
+
+@media (hover: hover) {
+  .muna-slider:hover .muna-slider__knob {
+    opacity: 1;
+  }
 }
 
 .muna-slider__track:has(.muna-slider__thumb[data-focus-visible]) .muna-slider__knob {

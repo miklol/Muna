@@ -94,8 +94,10 @@
   border-radius: var(--radius-control);
 }
 
-.todo-row:hover {
-  background: var(--surface-1);
+@media (hover: hover) {
+  .todo-row:hover {
+    background: var(--surface-1);
+  }
 }
 
 .todo-row__check {
