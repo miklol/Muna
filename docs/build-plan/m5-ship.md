@@ -386,7 +386,20 @@ based on #27) proposes gating the start-up row on release builds and reporting i
 builds, the rule `bundle:check` already applies to the exe size, with a release-candidate check
 by hand until a job builds a release binary; the alternatives — a release or `perf`-profile
 build in the `app` job, or a larger runner — need a workflow edit. The landing resumes from
-PR #27 once one of them is in place. Every PR passes the parity
+PR #27 once one of them is in place. A third run, #59's own, measured the same code at 906 ms
+(browser process at 112 ms), so the identical debug binary spans 906 → 1474 → 1976 ms on the
+runner. The pause paid for a second finding: the stack head's `rust` check, the first hosted run
+of the platform tests for anything above #35 (the M3–M5 PRs never ran `rust` on CI — their
+`changes` job died with the budget), failed one test on every run:
+`windows::notifications::tests::access_status_answers_without_identity`, because
+`NotificationChanged` refuses an identity-less build with `E_ACCESSDENIED` on Windows Server
+2025 where Windows 11 answers `ERROR_NOT_FOUND`. The module already polled on any `watch`
+error; the platform layer now treats both codes as the documented polling fallback (#36,
+`9a88843`, `rust` green on the runner; the module spec and the platform table carry the second
+code). The lesson for the QA pyramid ([09 → Test pyramid](../09-testing-qa.md)): the
+`platform-tests` feature runs on the hosted runner through `--all-features`, and the runner is
+a Server SKU without a consenting user, so a platform test must accept every answer the OS can
+give rather than the one measured on a developer's machine. Every PR passes the parity
 commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`, `ci:app`, the docs checks); until the
 repository went public the hosted checks had not run because the GitHub Actions budget was
 exhausted ("The job was not started because an Actions budget is preventing further use" on
