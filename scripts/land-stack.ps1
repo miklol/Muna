@@ -13,6 +13,12 @@
        commits `--onto origin/main` in a scratch worktree and force-push it with a lease — the
        push starts the child's CI run, which step 1 then waits for.
 
+  "The child's own commits" are those after its merge base with the parent's tip *as it was
+  before this script rebased the parent* (the force-push in step 3 moves `origin/<parent>` to
+  rewritten commits, so `merge-base origin/<parent> origin/<child>` would fall back to `main`
+  and replay the whole stack). The script therefore remembers every branch tip at start-up and
+  computes each merge base from that snapshot.
+
   Nothing in your working tree is touched; local branches are left where they were (fetch and
   reset them afterwards). `-Simulate` replays the whole landing locally (rebase + squash) and
   reports whether every rebase is clean, without merging or pushing anything.
@@ -27,7 +33,13 @@
   Local dry run in a scratch worktree; prints one row per PR and whether the rebase was clean.
 .PARAMETER RebaseOnto
   Recovery after an interrupted run: the number of the already merged parent PR when the bottom
-  PR's branch still carries its parent's commits. The script rebases the bottom PR first.
+  PR's branch still carries its parent's commits. The parent's tip from before the script
+  rebased it is read from the PR's last force-push event (or its final head when it was never
+  rebased), and the bottom PR is rebased first.
+.PARAMETER UpstreamSha
+  Recovery override: the commit up to which the bottom PR's history already landed on `main`
+  (the parent's original tip). Use it when -RebaseOnto cannot work it out, for example from a
+  stale local copy of the parent branch.
 .PARAMETER RequireApproval
   Refuse to merge a PR whose review decision is not APPROVED.
 .PARAMETER CheckTimeoutMinutes
@@ -36,6 +48,7 @@
   .\scripts\land-stack.ps1 -Plan
   .\scripts\land-stack.ps1 -Simulate
   .\scripts\land-stack.ps1 -Bottom 22 -Top 27
+  .\scripts\land-stack.ps1 -Bottom 25 -RebaseOnto 24
 #>
 [CmdletBinding()]
 param(
@@ -44,6 +57,7 @@ param(
   [switch]$Plan,
   [switch]$Simulate,
   [int]$RebaseOnto,
+  [string]$UpstreamSha,
   [switch]$RequireApproval,
   [int]$CheckTimeoutMinutes = 60
 )
@@ -97,6 +111,11 @@ $repo = (Invoke-Gh @('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWi
 # --- Chain discovery -------------------------------------------------------------------------
 $open = Invoke-Gh @('pr', 'list', '--state', 'open', '--limit', '200', '--json',
   'number,title,headRefName,baseRefName,headRefOid,isDraft') | ConvertFrom-Json
+foreach ($pr in $open) {
+  # The tip before this run touches the branch; merge bases are computed from it, never from
+  # `origin/<branch>`, which a rebase in this run moves to rewritten commits.
+  $pr | Add-Member -NotePropertyName originalOid -NotePropertyValue $pr.headRefOid
+}
 $byBase = @{}
 foreach ($pr in $open) {
   if (-not $byBase.ContainsKey($pr.baseRefName)) { $byBase[$pr.baseRefName] = @() }
@@ -160,6 +179,45 @@ function Invoke-RebaseOnto {
   return $tip
 }
 
+function Get-UpstreamSha {
+  # The commit up to which $Child's history belongs to $Parent: the merge base of the child's
+  # branch with the parent's tip as it was when this run started.
+  param([object]$Parent, [object]$Child)
+  return (Invoke-Git @('merge-base', $Parent.originalOid, "origin/$($Child.headRefName)")).Trim()
+}
+
+function Get-MergedParentTip {
+  # For -RebaseOnto: the tip of an already merged parent PR from before it was rebased by an
+  # earlier run, so that the bottom PR's own commits can be told apart from the parent's.
+  param([int]$Number, [string]$ChildRef)
+  $query = 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){' +
+    'pullRequest(number:$number){state headRefOid timelineItems(itemTypes:[HEAD_REF_FORCE_PUSHED_EVENT],last:1){' +
+    'nodes{... on HeadRefForcePushedEvent{beforeCommit{oid}}}}}}}'
+  $owner, $name = $repo -split '/'
+  $info = Invoke-Gh @('api', 'graphql', '-f', "query=$query", '-F', "owner=$owner", '-F', "name=$name",
+    '-F', "number=$Number", '--jq', '.data.repository.pullRequest') | ConvertFrom-Json
+  if ($info.state -ne 'MERGED') { throw "#$Number is $($info.state), not merged; -RebaseOnto expects the landed parent." }
+  # A candidate is right when the child shares history with it beyond what it shares with main;
+  # the rebased tip of the parent only shares main's history with the child and is rejected.
+  $mainBase = (Invoke-Git @('merge-base', 'origin/main', $ChildRef)).Trim()
+  $candidates = @($info.headRefOid) + @($info.timelineItems.nodes | ForEach-Object { $_.beforeCommit.oid })
+  foreach ($sha in $candidates) {
+    if (-not $sha) { continue }
+    Invoke-Git @('cat-file', '-e', "$sha^{commit}") -AllowFailure | Out-Null
+    if ($LASTEXITCODE -ne 0) { Invoke-Fetch -Refspecs @($sha) }
+    $base = (Invoke-Git @('merge-base', $sha, $ChildRef) -AllowFailure)
+    if ($base -and $base.Trim() -ne $mainBase) { return $sha }
+  }
+  throw "Cannot tell where #$Number's history ends inside $ChildRef; rerun with -UpstreamSha <parent tip before its rebase>."
+}
+
+# Where the bottom PR's own commits start: main, unless an interrupted run left it carrying
+# its already merged parent's commits.
+$bottomUpstream = 'origin/main'
+if ($UpstreamSha) { $bottomUpstream = $UpstreamSha }
+elseif ($RebaseOnto) { $bottomUpstream = Get-MergedParentTip -Number $RebaseOnto -ChildRef "origin/$($chain[0].headRefName)" }
+if ($bottomUpstream -ne 'origin/main') { Write-Step "#$($chain[0].number) own commits start after $($bottomUpstream.Substring(0, 10))" }
+
 # --- Simulation ------------------------------------------------------------------------------
 if ($Simulate) {
   $simBranch = 'land-stack-simulated-main'
@@ -168,8 +226,10 @@ if ($Simulate) {
     Invoke-Git @('branch', '-D', $simBranch) -AllowFailure | Out-Null
     Invoke-Git @('worktree', 'add', '--quiet', '-b', $simBranch, $simDir, 'origin/main') | Out-Null
     $rows = @()
-    foreach ($pr in $chain) {
-      $tip = Invoke-RebaseOnto -HeadRef "origin/$($pr.headRefName)" -UpstreamRef "origin/$($pr.baseRefName)" -OntoRef $simBranch
+    for ($j = 0; $j -lt $chain.Count; $j++) {
+      $pr = $chain[$j]
+      $upstream = if ($j -eq 0) { $bottomUpstream } else { Get-UpstreamSha -Parent $chain[$j - 1] -Child $pr }
+      $tip = Invoke-RebaseOnto -HeadRef "origin/$($pr.headRefName)" -UpstreamRef $upstream -OntoRef $simBranch
       if (-not $tip) {
         $rows += [pscustomobject]@{ pr = $pr.number; head = $pr.headRefName; commits = '-'; rebase = 'CONFLICT' }
         break
@@ -284,11 +344,7 @@ function Remove-RemoteBranch {
 }
 
 try {
-  if ($RebaseOnto) {
-    Invoke-Fetch -Refspecs @("+refs/pull/$RebaseOnto/head:refs/remotes/origin/land-stack-parent", '+refs/heads/main:refs/remotes/origin/main')
-    Push-Rebased -Child $chain[0] -UpstreamRef 'origin/land-stack-parent'
-    Invoke-Git @('update-ref', '-d', 'refs/remotes/origin/land-stack-parent') -AllowFailure | Out-Null
-  }
+  if ($bottomUpstream -ne 'origin/main') { Push-Rebased -Child $chain[0] -UpstreamRef $bottomUpstream }
 
   for ($index = 0; $index -lt $chain.Count; $index++) {
     $pr = $chain[$index]
@@ -301,8 +357,9 @@ try {
 
     Wait-Checks -Number $pr.number
     Wait-Mergeable -Number $pr.number
-    # The child's merge base with its parent must be read before the parent's branch goes away.
-    $upstreamSha = if ($child) { (Invoke-Git @('merge-base', "origin/$($pr.headRefName)", "origin/$($child.headRefName)")).Trim() } else { $null }
+    # Read from the parent's original tip (not origin/<parent>, which this run may have rebased)
+    # and before the parent's branch goes away.
+    $upstreamSha = if ($child) { Get-UpstreamSha -Parent $pr -Child $child } else { $null }
 
     Write-Step "merging #$($pr.number): $($pr.title)"
     Merge-Pr -Pr $pr
