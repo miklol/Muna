@@ -47,7 +47,7 @@ const meta = {
     ipc: widgetServices,
   } satisfies MunaStoryParameters & { layout: string },
   render: () => (
-    <PanelFrame title="Dashboard" height={360}>
+    <PanelFrame title="Dashboard">
       <DashboardPanel />
     </PanelFrame>
   ),
