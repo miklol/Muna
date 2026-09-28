@@ -13,7 +13,7 @@ exports[`design tokens > matches the documented token list (change docs/05-desig
   "--hairline-strong: rgb(255 255 255 / 0.18)",
   "--text-1: rgb(255 255 255 / 1)",
   "--text-2: rgb(255 255 255 / 0.6)",
-  "--text-3: rgb(255 255 255 / 0.4)",
+  "--text-3: rgb(255 255 255 / 0.46)",
   "--accent-blue: #0a84ff",
   "--accent-cyan: #64d2ff",
   "--accent-green: #30d158",

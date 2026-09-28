@@ -20,7 +20,9 @@
   --hairline-strong: rgb(255 255 255 / 0.18);
   --text-1: rgb(255 255 255 / 1);
   --text-2: rgb(255 255 255 / 0.6);
-  --text-3: rgb(255 255 255 / 0.4);
+  /* 0.46, not 0.40: white at 40 % is 3.7:1 on `--panel-bottom`; 46 % is 4.6:1 (AA) and keeps the
+     1 / 0.6 / 0.46 hierarchy. */
+  --text-3: rgb(255 255 255 / 0.46);
   --accent-blue: #0a84ff;
   --accent-cyan: #64d2ff;
   --accent-green: #30d158;
@@ -182,7 +184,8 @@
   --hairline-strong: rgb(0 0 0 / 0.18);
   --text-1: #1d1d1f;
   --text-2: rgb(0 0 0 / 0.6);
-  --text-3: rgb(0 0 0 / 0.4);
+  /* Black needs more alpha than white for the same contrast: 0.55 is 4.7:1 on `--bg`. */
+  --text-3: rgb(0 0 0 / 0.55);
   --accent-blue: #007aff;
   --accent-green: #34c759;
   --accent-orange: #ff9500;
@@ -198,7 +201,7 @@
   [data-theme='light'] {
     --hairline: rgb(0 0 0 / 0.24);
     --text-2: rgb(0 0 0 / 0.72);
-    --text-3: rgb(0 0 0 / 0.56);
+    --text-3: rgb(0 0 0 / 0.64);
     --text-destructive: #9b1c14;
   }
 }
@@ -206,7 +209,7 @@
 [data-theme='light'][data-contrast='more'] {
   --hairline: rgb(0 0 0 / 0.24);
   --text-2: rgb(0 0 0 / 0.72);
-  --text-3: rgb(0 0 0 / 0.56);
+  --text-3: rgb(0 0 0 / 0.64);
   --text-destructive: #9b1c14;
 }
 
