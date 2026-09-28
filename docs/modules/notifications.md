@@ -45,10 +45,11 @@ Action Center); notice in strip on arrival (optional, respecting Focus Assist).
   `windows/notifications.rs`; the fake scripts arrivals, removals, access answers and focus
   changes so `tests/notifications.rs` (33 cases) runs without Windows. Every listener call
   blocks on the OS and runs on the blocking pool. `watch` subscribes `NotificationChanged` and
-  answers `Push`; without package identity the subscription fails with `ERROR_NOT_FOUND`
-  (measured in M0) and it answers `Polling`, so **the unpackaged build is not hidden as the
-  spec said** — it works, re-reading the Action Center once a second, and Settings ›
-  Notifications says so (*Checked every second*). The listener keeps the projections it has
+  answers `Push`; without package identity the subscription is refused — `ERROR_NOT_FOUND` on
+  Windows 11 (measured in M0), `E_ACCESSDENIED` on Windows Server 2025 (measured on the hosted
+  CI runner) — and it answers `Polling`, so **the unpackaged build is not hidden as the spec
+  said** — it works, re-reading the Action Center once a second, and Settings › Notifications
+  says so (*Checked every second*). The listener keeps the projections it has
   made by id (a toast's sender and text never change; a replacement is a new id), so a poll
   costs one `GetNotificationsAsync` and an `Id` read per toast — the `ci:app` smoke measured
   the idle tree at 0.55 % of one core with the cache against 0.97 % projecting every toast
