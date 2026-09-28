@@ -14,13 +14,15 @@ export interface StripProps {
   hud?: HudPresentation | undefined;
   /** Where a decision pair sends *Allow* / *Deny*; absent: the pills do nothing. */
   decision?: DecisionPresentation | undefined;
+  /** Settings → Appearance → Announce notices: read each new notice through the live region. */
+  announce?: boolean;
 }
 
 /**
  * The closed strip (docs/05-design-system.md "Per-surface notes"): the contract's slots mapped
  * to `StripView`'s vocabulary, localised for the window's language.
  */
-export function Strip({ content, receivedAt, hud, decision }: StripProps) {
+export function Strip({ content, receivedAt, hud, decision, announce = false }: StripProps) {
   const { t } = useTranslation();
   const locale = useLocale();
   const presentation = useMemo(
@@ -37,6 +39,7 @@ export function Strip({ content, receivedAt, hud, decision }: StripProps) {
       text={presentation.text}
       wide={presentation.wide}
       description={presentation.description}
+      announce={announce}
       className="h-full"
     />
   );

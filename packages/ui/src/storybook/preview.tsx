@@ -47,25 +47,47 @@ export const munaGlobalTypes: NonNullable<Preview['globalTypes']> = {
       dynamicTitle: true,
     },
   },
+  contrast: {
+    description: 'Settings → Appearance → Increase contrast',
+    toolbar: {
+      title: 'Contrast',
+      icon: 'contrast',
+      items: [
+        { value: 'system', title: 'Standard contrast' },
+        { value: 'more', title: 'Increase contrast' },
+      ],
+      dynamicTitle: true,
+    },
+  },
 };
 
 export const munaInitialGlobals: NonNullable<Preview['initialGlobals']> = {
   backgrounds: { value: 'panel' },
   reduceMotion: 'off',
   direction: 'ltr',
+  contrast: 'system',
 };
 
 /**
  * Every story runs inside the same provider the app windows use, so pure-CSS states get their
- * `--muna-motion-*` easings and the toolbar switch mirrors the app setting.
+ * `--muna-motion-*` easings and the toolbar switches mirror the app settings: Reduce motion
+ * through the provider, Increase contrast as `data-contrast` on `<html>` (where the app puts
+ * it), so the token overrides apply to the story and to anything portalled out of it.
  */
-export const withMunaGlobals: Decorator = (Story, context) => (
-  <MunaMotionProvider reduceMotion={context.globals.reduceMotion === 'on'}>
-    <div dir={context.globals.direction === 'rtl' ? 'rtl' : 'ltr'}>
-      <Story />
-    </div>
-  </MunaMotionProvider>
-);
+export const withMunaGlobals: Decorator = (Story, context) => {
+  if (context.globals.contrast === 'more') {
+    document.documentElement.dataset.contrast = 'more';
+  } else {
+    delete document.documentElement.dataset.contrast;
+  }
+  return (
+    <MunaMotionProvider reduceMotion={context.globals.reduceMotion === 'on'}>
+      <div dir={context.globals.direction === 'rtl' ? 'rtl' : 'ltr'}>
+        <Story />
+      </div>
+    </MunaMotionProvider>
+  );
+};
 
 /**
  * Empties React Aria's live announcer before a story renders. A focused button that toggles

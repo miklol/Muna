@@ -1911,9 +1911,13 @@
         "yellow": "Yellow",
         "pink": "Pink"
       },
-      "motion": "Motion",
+      "accessibility": "Accessibility",
       "reduceMotion": "Reduce motion",
-      "reduceMotionBody": "Replaces springs with quick fades. Muna also follows the Windows animation effects setting."
+      "reduceMotionBody": "Replaces springs with quick fades. Muna also follows the Windows animation effects setting.",
+      "increaseContrast": "Increase contrast",
+      "increaseContrastBody": "Stronger hairlines and secondary text on the black glass. Muna also follows Windows contrast themes.",
+      "announceNotices": "Announce notices",
+      "announceNoticesBody": "Screen readers read a new notice, such as a track change or a connected device, as it appears."
     },
     "modules": {
       "body": "Switch a module off to hide it from the notch. Arrange the module bar with the arrows.",
