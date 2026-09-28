@@ -106,9 +106,14 @@ pub fn run() {
             if let Some(shell) = &state.shell {
                 shell.start(app.handle());
             }
-            // Strip content flows hub → event; the module backends publish into the hub.
+            // Strip content flows hub → event; the module backends publish into the hub, and
+            // the media module additionally reports its state through typed events.
             activities::start(app.handle(), &state.activities);
-            let started = modules::start_all(&state.module_ctx());
+            state
+                .modules
+                .media
+                .set_sink(Arc::new(ipc::MediaEventSink::new(app.handle().clone())));
+            let started = modules::start_all(&state.module_ctx(), &state.modules);
             tracing::info!(modules = ?started, "modules running");
             let launch_at_login = state.settings.lock().general.launch_at_login;
             state.sync_autostart(app.handle(), launch_at_login);

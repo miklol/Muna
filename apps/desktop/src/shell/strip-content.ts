@@ -2,7 +2,7 @@ import type { Leading, StripContent, StripMessage, Trailing } from '@muna/contra
 import { formatCountdown, type StripSlotContent } from '@muna/ui/primitives';
 import type { useTranslation } from 'react-i18next';
 
-import { glyphLabelKey, stripGlyph } from './strip-glyphs';
+import { glyphLabelKey, stripGlyph, waveformGlyph } from './strip-glyphs';
 
 /** The typed `t` from `useTranslation()`; keys are checked against the English catalog. */
 export type Translate = ReturnType<typeof useTranslation>['t'];
@@ -40,6 +40,10 @@ export const messageText = (message: StripMessage, t: Translate): string => {
       return t('strip.message.bluetoothDisconnected', { name: message.name });
     case 'timerFinished':
       return t('strip.message.timerFinished', { label: message.label });
+    case 'nowPlaying':
+      return message.artist === ''
+        ? t('strip.message.nowPlayingNoArtist', { title: message.title })
+        : t('strip.message.nowPlaying', { title: message.title, artist: message.artist });
   }
 };
 
@@ -73,6 +77,8 @@ export const toSlot = (
       };
     case 'progress':
       return { kind: 'progress', percent: slot.percent };
+    case 'waveform':
+      return { kind: 'icon', icon: waveformGlyph() };
   }
 };
 
@@ -101,6 +107,8 @@ const describeSlot = (
       });
     case 'progress':
       return t('strip.describe.progress', { percent: formatPercent(slot.percent, locale) });
+    case 'waveform':
+      return t(slot.playing ? 'strip.describe.waveform' : 'strip.describe.waveformPaused');
   }
 };
 
@@ -137,6 +145,18 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
       case 'bluetoothDisconnected':
       case 'timerFinished':
         return message;
+      case 'nowPlaying': {
+        // A play glyph on the right means the session is paused (docs/modules/media.md).
+        const spoken =
+          item.wide.artist === ''
+            ? t('strip.describe.nowPlayingNoArtist', { title: item.wide.title })
+            : t('strip.describe.nowPlaying', {
+                title: item.wide.title,
+                artist: item.wide.artist,
+              });
+        const paused = item.trailing?.kind === 'icon' && item.trailing.glyph === 'play';
+        return paused ? t('strip.describe.nowPaused', { message: spoken }) : spoken;
+      }
     }
   }
   // A battery glyph beside its own percentage is one fact, not two.

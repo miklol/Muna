@@ -8,6 +8,10 @@ publish.workspace = true
 repository.workspace = true
 
 [dependencies]
+# Album art: decode PNG/JPEG thumbnails, downscale to ≤ 512 px, extract a palette. No default
+# features (no gif/webp/tiff decoders, no rayon).
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 parking_lot.workspace = true
 rusqlite = { version = "0.40", features = ["bundled"] }
 serde.workspace = true

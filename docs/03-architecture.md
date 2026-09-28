@@ -125,6 +125,12 @@ pub trait ModuleBackend: Send + Sync {
 Tauri runtime and returns. `capabilities` is a slice of `Surface`s rather than a struct of
 booleans so the registry can list, filter and render them without a growing flag set.
 
+A module whose state the IPC commands must reach directly (media transport, pinning) keeps a
+long-lived service object in `ModuleServices` on `AppState`; the registry hands the backend an
+`Arc` of it (`backends(&services)`), and the commands in `ipc.rs` call the same object. The
+service reports to a small sink trait (`MediaSink`) that the shell bridges to typed events, so
+the module stays free of Tauri and its tests drive it with the fake platform (landed in M2-E1).
+
 ```ts
 // src/modules/<id>/index.ts
 export const module: ModuleFrontend<State, Settings> = {

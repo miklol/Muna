@@ -70,6 +70,7 @@ pub enum Glyph {
     Bell,
     Music,
     Moon,
+    Play,
 }
 
 /// The leading (left) slot of the strip.
@@ -132,6 +133,11 @@ pub enum Trailing {
     Progress {
         percent: u8,
     },
+    /// Audio bars beside album art (docs/modules/media.md, strip form). `playing` animates
+    /// them; paused bars rest at a low level.
+    Waveform {
+        playing: bool,
+    },
 }
 
 /// One line of text for the wide form. Built-in notices carry their *facts* rather than a
@@ -160,6 +166,12 @@ pub enum StripMessage {
     },
     TimerFinished {
         label: String,
+    },
+    /// A track change; both fields are content and never logged. The UI lays them out as
+    /// title and artist (marquee only when they overflow).
+    NowPlaying {
+        title: String,
+        artist: String,
     },
 }
 

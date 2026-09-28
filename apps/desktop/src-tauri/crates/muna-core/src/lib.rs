@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 pub mod activities;
+pub mod artwork;
 pub mod clock;
 pub mod settings;
 pub mod shell_settings;
@@ -15,6 +16,7 @@ pub use activities::{
     Activity, ActivityState, Glyph, Hub, Leading, Notice, Scheduler, StripContent, StripMessage,
     StripSink, Tint, Trailing, Waker,
 };
+pub use artwork::{ArtCache, Artwork, ArtworkError};
 pub use clock::{Clock, FakeClock, SystemClock};
 pub use settings::{
     GeneralSettings, JsonValue, ReducedMotion, Settings, SettingsError, SettingsStore,

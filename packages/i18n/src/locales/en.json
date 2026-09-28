@@ -20,7 +20,9 @@
       "batteryLow": "Low battery",
       "bluetoothConnected": "{{name}} connected",
       "bluetoothDisconnected": "{{name}} disconnected",
-      "timerFinished": "{{label}} finished"
+      "timerFinished": "{{label}} finished",
+      "nowPlaying": "{{title}} · {{artist}}",
+      "nowPlayingNoArtist": "{{title}}"
     },
     "describe": {
       "battery": "Battery {{percent}}",
@@ -30,7 +32,12 @@
       "timer": "{{remaining}} left",
       "timerPaused": "{{remaining}} left, paused",
       "progress": "{{percent}} done",
-      "image": "Artwork"
+      "image": "Artwork",
+      "nowPlaying": "Now playing {{title}} by {{artist}}",
+      "nowPlayingNoArtist": "Now playing {{title}}",
+      "nowPaused": "Paused, {{message}}",
+      "waveform": "Playing",
+      "waveformPaused": "Paused"
     },
     "glyph": {
       "battery": "Battery",
@@ -42,7 +49,8 @@
       "timer": "Timer",
       "bell": "Notification",
       "music": "Music",
-      "moon": "Focus assist"
+      "moon": "Focus assist",
+      "play": "Paused"
     }
   },
   "spike": {

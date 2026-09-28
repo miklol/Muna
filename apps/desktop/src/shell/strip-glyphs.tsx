@@ -1,6 +1,7 @@
 import type { Glyph } from '@muna/contracts';
 import type { MessageKey } from '@muna/i18n';
 import {
+  AudioLines,
   Battery,
   BatteryCharging,
   Bell,
@@ -10,6 +11,7 @@ import {
   LockOpen,
   Moon,
   Music,
+  Play,
   Timer,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -37,7 +39,14 @@ export const glyphLabelKey: Readonly<Record<Glyph, MessageKey>> = {
   bell: 'strip.glyph.bell',
   music: 'strip.glyph.music',
   moon: 'strip.glyph.moon',
+  play: 'strip.glyph.play',
 };
+
+/**
+ * Stands in for the media module's audio bars until the animated primitive lands with the
+ * media UI (docs/build-plan/m2-media-hud.md, E2). Static so it costs nothing while playing.
+ */
+export const waveformGlyph = (): ReactNode => <AudioLines {...glyphProps} />;
 
 /**
  * The contract's closed glyph set drawn with Lucide. Exhaustive on purpose: adding a `Glyph`
@@ -65,5 +74,7 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <Music {...glyphProps} />;
     case 'moon':
       return <Moon {...glyphProps} />;
+    case 'play':
+      return <Play {...glyphProps} />;
   }
 };

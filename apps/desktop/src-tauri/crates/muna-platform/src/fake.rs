@@ -14,7 +14,7 @@ use crate::traits::{
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, ForegroundWindow, MediaCommand,
-    MediaSession, MonitorInfo, PowerSource, Rect, UserNotificationState, WindowHandle,
+    MediaSession, MonitorInfo, PowerSource, Rect, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -43,6 +43,9 @@ struct Pointer {
 #[derive(Debug)]
 struct State {
     sessions: Vec<MediaSession>,
+    /// Scripted artwork per `source_app_id`.
+    thumbnails: Vec<(String, Thumbnail)>,
+    media_refreshes: usize,
     audio_devices: Vec<AudioDevice>,
     volume: u8,
     muted: bool,
@@ -66,6 +69,8 @@ impl Default for State {
     fn default() -> Self {
         Self {
             sessions: Vec::new(),
+            thumbnails: Vec::new(),
+            media_refreshes: 0,
             audio_devices: vec![AudioDevice {
                 id: "fake-speakers".into(),
                 name: "Speakers (fake)".into(),
@@ -146,6 +151,50 @@ impl FakePlatform {
             state.sessions.clone()
         };
         self.publish(PlatformEvent::MediaSessionsChanged(sessions));
+    }
+
+    /// Removes a session (the app closed) and notifies subscribers.
+    pub fn remove_media_session(&self, source_app_id: &str) {
+        let sessions = {
+            let mut state = self.state.lock();
+            state.sessions.retain(|s| s.source_app_id != source_app_id);
+            state.thumbnails.retain(|(app, _)| app != source_app_id);
+            state.sessions.clone()
+        };
+        self.publish(PlatformEvent::MediaSessionsChanged(sessions));
+    }
+
+    /// Scripts the artwork of a known session: stores the bytes, bumps the session's
+    /// `art_version` and republishes, exactly as the real implementation does when a late
+    /// thumbnail lands. Ignored for unknown sessions.
+    pub fn set_media_thumbnail(&self, source_app_id: &str, bytes: Vec<u8>, content_type: &str) {
+        let sessions = {
+            let mut state = self.state.lock();
+            let Some(session) = state
+                .sessions
+                .iter_mut()
+                .find(|s| s.source_app_id == source_app_id)
+            else {
+                return;
+            };
+            session.art_version += 1;
+            state.thumbnails.retain(|(app, _)| app != source_app_id);
+            state.thumbnails.push((
+                source_app_id.to_owned(),
+                Thumbnail {
+                    bytes,
+                    content_type: content_type.to_owned(),
+                },
+            ));
+            state.sessions.clone()
+        };
+        self.publish(PlatformEvent::MediaSessionsChanged(sessions));
+    }
+
+    /// How many times [`Media::refresh`] was called.
+    #[must_use]
+    pub fn media_refreshes(&self) -> usize {
+        self.state.lock().media_refreshes
     }
 
     pub fn set_volume_state(&self, percent: u8, muted: bool) {
@@ -374,6 +423,24 @@ impl Media for FakePlatform {
         Ok(self.state.lock().sessions.clone())
     }
 
+    fn thumbnail(&self, source_app_id: &str) -> PlatformResult<Option<Thumbnail>> {
+        let state = self.state.lock();
+        if !state
+            .sessions
+            .iter()
+            .any(|s| s.source_app_id == source_app_id)
+        {
+            return Err(PlatformError::NotFound(format!(
+                "media session {source_app_id}"
+            )));
+        }
+        Ok(state
+            .thumbnails
+            .iter()
+            .find(|(app, _)| app == source_app_id)
+            .map(|(_, thumbnail)| thumbnail.clone()))
+    }
+
     fn send(&self, source_app_id: &str, command: MediaCommand) -> PlatformResult<()> {
         let mut state = self.state.lock();
         if !state
@@ -388,6 +455,11 @@ impl Media for FakePlatform {
         state
             .sent_media_commands
             .push((source_app_id.to_owned(), command));
+        Ok(())
+    }
+
+    fn refresh(&self) -> PlatformResult<()> {
+        self.state.lock().media_refreshes += 1;
         Ok(())
     }
 }
@@ -521,14 +593,41 @@ mod tests {
 
     fn session(app: &str, title: &str) -> MediaSession {
         MediaSession {
-            source_app_id: app.into(),
-            title: title.into(),
             artist: "Artist".into(),
-            album: None,
             status: PlaybackStatus::Playing,
             position_ms: Some(0),
             duration_ms: Some(180_000),
+            ..MediaSession::new(app, title)
         }
+    }
+
+    #[test]
+    fn thumbnails_are_scripted_per_session_and_bump_the_art_version() {
+        let fake = FakePlatform::new();
+        fake.push_media_session(session("Spotify.exe", "Song"));
+        assert_eq!(fake.media().thumbnail("Spotify.exe").unwrap(), None);
+        assert!(matches!(
+            fake.media().thumbnail("Nope.exe"),
+            Err(PlatformError::NotFound(_))
+        ));
+
+        let mut rx = fake.subscribe();
+        fake.set_media_thumbnail("Spotify.exe", vec![1, 2, 3], "image/png");
+        let art = fake.media().thumbnail("Spotify.exe").unwrap().unwrap();
+        assert_eq!(art.bytes, vec![1, 2, 3]);
+        assert_eq!(art.content_type, "image/png");
+        match rx.try_recv().unwrap() {
+            PlatformEvent::MediaSessionsChanged(sessions) => {
+                assert_eq!(sessions[0].art_version, 1);
+            }
+            other => panic!("unexpected event {other:?}"),
+        }
+
+        fake.remove_media_session("Spotify.exe");
+        assert!(fake.media().sessions().unwrap().is_empty());
+        assert_eq!(fake.media_refreshes(), 0);
+        fake.media().refresh().unwrap();
+        assert_eq!(fake.media_refreshes(), 1);
     }
 
     #[test]
