@@ -1,12 +1,15 @@
 /*
  * Mirror panel (docs/modules/mirror.md): the camera named in the head with the controls beside
  * it, then the live picture — a 16:9 frame with continuous corners that the video covers. The
- * frame is bounded by the panel body (284 px at most, minus the 28 px head and the gap), so it
- * lands around 240 px tall and 427 px wide, centred. Composes tokens only; the primitives
- * bring their own styles.
+ * panel's height follows its content (190–360), so the frame sets its own height: the 284 px
+ * body the shell allows at most, minus this panel's 8 px padding, the 28 px head and the 12 px
+ * gap, which is 236 px (`--mirror-frame`) and 420 px wide at 16:9, centred. Composes tokens
+ * only; the primitives bring their own styles.
  */
 
 .mirror-panel {
+  --mirror-frame: 236px;
+
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -46,11 +49,12 @@
 
 .mirror-frame {
   position: relative;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   align-self: center;
   aspect-ratio: 16 / 9;
   inline-size: auto;
   max-inline-size: 100%;
+  block-size: var(--mirror-frame);
   min-block-size: 0;
   overflow: hidden;
   background: var(--surface-2);
@@ -71,7 +75,7 @@
   block-size: 100%;
   object-fit: cover;
   transform-origin: center;
-  background: #000;
+  background: var(--notch-black);
 }
 
 .mirror-state {
