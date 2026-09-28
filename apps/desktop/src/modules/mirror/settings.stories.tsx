@@ -54,3 +54,8 @@ export const TurningOn: Story = {
 export const RTL: Story = {
   globals: { direction: 'rtl' },
 };
+
+/** The mirrored-English pseudo-locale (ar-XB): longer strings, right-to-left layout. */
+export const PseudoRtl: Story = {
+  globals: { locale: 'ar-XB' },
+};
