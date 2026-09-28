@@ -1941,12 +1941,13 @@
         "pink": "Rosa"
       },
       "accessibility": "Accesibilidad",
+      "accessibilityBody": "Muna también sigue los ajustes de Windows de efectos de animación y temas de contraste.",
       "reduceMotion": "Reducir el movimiento",
-      "reduceMotionBody": "Sustituye los resortes por fundidos rápidos. Muna también sigue el ajuste de efectos de animación de Windows.",
+      "reduceMotionBody": "Fundidos rápidos en lugar de resortes.",
       "increaseContrast": "Aumentar el contraste",
-      "increaseContrastBody": "Líneas y texto secundario más marcados sobre el cristal negro. Muna también sigue los temas de contraste de Windows.",
+      "increaseContrastBody": "Líneas y texto secundario más marcados sobre el cristal negro.",
       "announceNotices": "Anunciar avisos",
-      "announceNoticesBody": "Los lectores de pantalla leen cada aviso nuevo, como un cambio de pista o un dispositivo conectado, en cuanto aparece."
+      "announceNoticesBody": "Los lectores de pantalla leen cada aviso nuevo en cuanto aparece."
     },
     "modules": {
       "body": "Desactiva un módulo para ocultarlo del notch. Ordena la barra de módulos con las flechas.",

@@ -1941,12 +1941,13 @@
         "pink": "Pink"
       },
       "accessibility": "Barrierefreiheit",
+      "accessibilityBody": "Muna folgt außerdem den Windows-Einstellungen für Animationseffekte und Kontrastdesigns.",
       "reduceMotion": "Bewegung reduzieren",
-      "reduceMotionBody": "Ersetzt Federanimationen durch kurze Überblendungen. Muna folgt außerdem der Windows-Einstellung für Animationseffekte.",
+      "reduceMotionBody": "Kurze Überblendungen statt Federanimationen.",
       "increaseContrast": "Kontrast erhöhen",
-      "increaseContrastBody": "Kräftigere Trennlinien und Sekundärtext auf dem schwarzen Glas. Muna folgt außerdem den Windows-Kontrastdesigns.",
+      "increaseContrastBody": "Kräftigere Trennlinien und Sekundärtext auf dem schwarzen Glas.",
       "announceNotices": "Hinweise ansagen",
-      "announceNoticesBody": "Screenreader lesen einen neuen Hinweis vor, etwa einen Titelwechsel oder ein verbundenes Gerät, sobald er erscheint."
+      "announceNoticesBody": "Screenreader lesen jeden neuen Hinweis vor, sobald er erscheint."
     },
     "modules": {
       "body": "Schalte ein Modul aus, um es aus der Notch auszublenden. Ordne die Modulleiste mit den Pfeilen.",
