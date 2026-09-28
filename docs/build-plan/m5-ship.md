@@ -349,14 +349,26 @@ close-out because nothing has merged since M1:
 | [#53](https://github.com/miklol/Muna/pull/53) | M5-E2 Fidelity pass | #52 |
 | [#56](https://github.com/miklol/Muna/pull/56) | M5-E5 Landing site | #53 |
 | [#57](https://github.com/miklol/Muna/pull/57) | M5 close-out (this document, the roadmap, the risk register) | #56 |
+| LAND_PR | `scripts/land-stack.ps1` and the landing procedure below | #57 |
 
-Merge from the bottom of the M2 stack upwards (#22 → … → #46 → #47 → … → #56 → #57),
-retargeting each PR to `main` as its base merges — GitHub does this on its own
-when the base branch is deleted. Every PR passes the parity commands locally (`pnpm -w ci`,
-`ci:rust`, `ci:deps`, `ci:app`, the docs checks); the hosted checks have not run because the
-GitHub Actions budget is exhausted ("The job was not started because an Actions budget is
-preventing further use" on every job, #57 included). When it is restored, `gh run rerun
---failed <run id>` on each PR is enough. `#54` and `#55` are Dependabot's and independent.
+Merge from the bottom of the M2 stack upwards (#22 → … → #46 → #47 → … → #56 → #57 → the
+script's PR) with `scripts/land-stack.ps1`: it squash-merges one PR with the title as the
+subject, retargets its child to `main`, deletes the parent's branch, rebases only the child's
+own commits onto `main` in a scratch worktree, force-pushes it with a lease and waits for the
+child's checks before the next merge. The rebase is not optional: a squash rewrites the
+parent's history, so a child that is merely retargeted still carries the parent's commits and
+GitHub shows them as conflicts — the landing simulation of 2026-09-28 (`land-stack.ps1
+-Simulate`) merged #24 onto a squashed #22 without the rebase and hit 11 conflicted files,
+then replayed all 33 PRs with the rebase: every one clean, no PR branched from anything but
+its parent's final tip, and the simulated `main` ended with exactly the tree of #57. Every PR
+passes the parity commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`, `ci:app`, the docs
+checks); the hosted checks have not run because the GitHub Actions budget is exhausted ("The
+job was not started because an Actions budget is preventing further use" on every job, #57
+included). When it is restored, the script reruns each never-started run once and stops on
+anything else; each PR's rebase push starts its own run, so the landing costs one full CI run
+per PR (about 35). `#54` and `#55` are Dependabot's and independent — #55 touches every
+`package.json` and `pnpm-lock.yaml` the stack also changes, so land the stack first and let
+Dependabot rebase.
 
 What the milestone's own passes caught that the unit suites could not, for the record: the
 fidelity audit found that the shell sizes a panel to its content, so every module that assumed
