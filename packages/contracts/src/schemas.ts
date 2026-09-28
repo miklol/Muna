@@ -296,3 +296,48 @@ export const writeMediaSettings = (settings: Settings, media: MediaSettings): Se
   ...settings,
   modules: { ...settings.modules, [MEDIA_SETTINGS_KEY]: media },
 });
+
+/** The key of the HUD module's namespace; also its module id. */
+export const HUD_SETTINGS_KEY = 'hud';
+
+/** What the wheel does over the collapsed strip (docs/modules/hud.md "Interaction"). */
+export const scrollOnStripSchema = z.enum(['panel', 'volume']);
+export type ScrollOnStrip = z.infer<typeof scrollOnStripSchema>;
+
+/** Mirrors `modules::hud::HudSettings`: every field has a default so a partial entry reads. */
+export const hudSettingsSchema = z.object({
+  /** Hide the Windows volume/brightness flyout while Muna runs. */
+  replaceSystemFlyout: z.boolean().default(true),
+  /** `panel` opens the panel (volume only while the HUD shows); `volume` always nudges. */
+  scrollOnStrip: scrollOnStripSchema.default('panel'),
+  /** Show the percentage beside the level track. */
+  showLevelText: z.boolean().default(false),
+});
+export type HudSettings = z.infer<typeof hudSettingsSchema>;
+
+export const defaultHudSettings = (): HudSettings => hudSettingsSchema.parse({});
+
+/** Reads the HUD namespace; a missing or malformed entry yields the defaults, like Rust. */
+export const readHudSettings = (settings: Settings): HudSettings => {
+  const parsed = hudSettingsSchema.safeParse(settings.modules[HUD_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultHudSettings();
+};
+
+/** Returns a new document with the HUD namespace replaced. */
+export const writeHudSettings = (settings: Settings, hud: HudSettings): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [HUD_SETTINGS_KEY]: hud },
+});
+
+/**
+ * The HUD's notice ids (docs/modules/hud.md "Contract"); the shell recognises them to route
+ * wheel and drag on the strip to the platform.
+ */
+export const HUD_NOTICE_IDS = {
+  volume: 'hud:volume',
+  mic: 'hud:mic',
+  brightness: 'hud:brightness',
+} as const;
+
+/** Volume change for one wheel notch, in percent (mirrors `modules::hud::VOLUME_STEP`). */
+export const HUD_VOLUME_STEP = 2;

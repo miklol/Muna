@@ -30,4 +30,17 @@ describe('Slider', () => {
     const root = screen.getByRole('slider').closest('.muna-slider');
     expect(root).toHaveStyle({ '--muna-tint': 'var(--accent-orange)' });
   });
+
+  it('paints a plain fill without a tint and marks a mute on the root', () => {
+    const { rerender } = render(<Slider aria-label="Volume" value={45} fill="plain" />);
+    const root = screen.getByRole('slider').closest<HTMLElement>('.muna-slider')!;
+    expect(root).toHaveClass('muna-slider--plain');
+    expect(root.style.getPropertyValue('--muna-tint')).toBe('');
+    expect(root).not.toHaveAttribute('data-muted');
+
+    rerender(<Slider aria-label="Volume" value={45} fill="plain" muted />);
+    expect(root).toHaveAttribute('data-muted', 'true');
+    // The value is still the level: what assistive technology reads does not change on mute.
+    expect(screen.getByRole('slider', { name: 'Volume' })).toHaveValue('45');
+  });
 });

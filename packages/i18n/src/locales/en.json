@@ -102,6 +102,35 @@
       "visualiserOff": "Off"
     }
   },
+  "hud": {
+    "title": "Volume and brightness",
+    "volume": "Volume",
+    "brightness": "Brightness",
+    "settings": {
+      "flyout": "Windows flyout",
+      "replaceSystemFlyout": "Replace system flyout",
+      "replaceSystemFlyoutBody": "Hides the Windows volume and brightness pop-up while Muna runs. If Muna stops unexpectedly, the pop-up comes back within two seconds.",
+      "flyoutState": "Status",
+      "flyoutSuppressed": "Hidden while Muna runs",
+      "flyoutNative": "Windows pop-up showing",
+      "flyoutUnavailable": "Not found yet. It appears after the first volume key press.",
+      "strip": "Strip",
+      "scrollOnStrip": "Scroll on strip",
+      "scrollOnStripBody": "What the mouse wheel does over the closed strip. Volume works there whenever the level is showing.",
+      "scrollPanel": "Open panel",
+      "scrollVolume": "Change volume",
+      "showLevelText": "Show level text",
+      "showLevelTextBody": "Shows the percentage beside the level track.",
+      "levels": "Levels",
+      "mute": "Mute",
+      "muteBody": "Silences the default output. Turning the volume up unmutes.",
+      "micMute": "Mute microphone",
+      "micMuteBody": "Mutes the default microphone for every app.",
+      "brightness": "Brightness",
+      "brightnessBody": "Each display that can be adjusted. Displays without DDC/CI are not listed.",
+      "brightnessEmpty": "No adjustable display was found."
+    }
+  },
   "settings": {
     "title": "Muna settings",
     "version": "Version {{version}}",

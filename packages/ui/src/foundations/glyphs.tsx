@@ -109,3 +109,29 @@ export const AlertGlyph = () => (
     <path d="M8 5v3.5M8 11h.01" />
   </svg>
 );
+
+/** Speaker body shared by the volume glyphs (docs/modules/hud.md: speaker with 0–3 waves). */
+const speaker = 'M2.5 6.2h2.2L8 3.5v9L4.7 9.8H2.5z';
+
+export const VolumeGlyph = ({ waves = 0 }: { waves?: 0 | 1 | 2 | 3 }) => (
+  <svg {...base}>
+    <path d={speaker} />
+    {waves >= 1 && <path d="M10.2 6.5a2.2 2.2 0 0 1 0 3" />}
+    {waves >= 2 && <path d="M11.8 5a4.4 4.4 0 0 1 0 6" />}
+    {waves >= 3 && <path d="M13.3 3.6a6.5 6.5 0 0 1 0 8.8" />}
+  </svg>
+);
+
+export const VolumeMutedGlyph = () => (
+  <svg {...base}>
+    <path d={speaker} />
+    <path d="M10.5 6.5l3 3M13.5 6.5l-3 3" />
+  </svg>
+);
+
+export const SunGlyph = () => (
+  <svg {...base}>
+    <circle cx="8" cy="8" r="2.6" />
+    <path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1" />
+  </svg>
+);

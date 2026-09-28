@@ -1,9 +1,10 @@
 import { AnimatePresence, motion, type Transition } from 'motion/react';
 import type { CSSProperties, ReactNode } from 'react';
 
-import { contentExitTransition, contentRecipe } from '../motion/presets';
+import { contentExitTransition, contentRecipe, glyphCrossfadeTransition } from '../motion/presets';
 import { useMotionPreset, useReduceMotion } from '../motion/reduced-motion';
 import { BatteryGlyph } from './battery-glyph';
+import { LevelTrack } from './level-track';
 import { Ring } from './ring';
 import { cx, type Tint, tintStyle } from './shared';
 import './strip-view.css';
@@ -16,7 +17,16 @@ import { Waveform } from './waveform';
  * contract's `Leading`/`Trailing` to it (glyphs become icons, facts become text).
  */
 export type StripSlotContent =
-  | { kind: 'icon'; icon: ReactNode; tint?: Tint }
+  | {
+      kind: 'icon';
+      icon: ReactNode;
+      tint?: Tint;
+      /**
+       * Identity of the glyph. When it changes under the same item the old and new glyph
+       * crossfade (the HUD's speaker waves); without it the icon swaps in place.
+       */
+      id?: string;
+    }
   | {
       kind: 'image';
       src: string;
@@ -35,7 +45,22 @@ export type StripSlotContent =
     }
   | { kind: 'progress'; percent: number }
   /** Four audio bars; they move only while `playing`. */
-  | { kind: 'waveform'; playing: boolean };
+  | { kind: 'waveform'; playing: boolean }
+  /**
+   * The HUD level (docs/modules/hud.md "Visual"): a 96 × 6 track that appears with `reveal`
+   * and is draggable while it shows.
+   */
+  | {
+      kind: 'level';
+      percent: number;
+      muted: boolean;
+      /** Names the control for assistive technology ("Volume"). */
+      label: string;
+      /** Formatted value beside the track, or `null` to show the track alone. */
+      valueText?: string | null | undefined;
+      onChange?: ((percent: number) => void) | undefined;
+      onChangeEnd?: ((percent: number) => void) | undefined;
+    };
 
 export interface StripViewProps {
   /** Names the region ("Notch strip"). */
@@ -80,6 +105,8 @@ const slotKey = (content: StripSlotContent | null | undefined): string => {
       return 'progress';
     case 'waveform':
       return 'waveform';
+    case 'level':
+      return 'level';
   }
 };
 
@@ -87,18 +114,43 @@ const slotKey = (content: StripSlotContent | null | undefined): string => {
 const artTintStyle = (tint: string): CSSProperties =>
   ({ '--muna-art-tint': tint }) as CSSProperties;
 
+interface IconProps {
+  icon: ReactNode;
+  tint: Tint | undefined;
+}
+
+function Icon({ icon, tint }: IconProps) {
+  return (
+    <span
+      className={cx('muna-strip__icon', tint !== undefined && 'muna-strip__icon--tinted')}
+      style={tint === undefined ? undefined : tintStyle(tint)}
+    >
+      {icon}
+    </span>
+  );
+}
+
 function SlotContent({ content }: { content: StripSlotContent }) {
   switch (content.kind) {
     case 'icon':
+      if (content.id === undefined) {
+        return <Icon icon={content.icon} tint={content.tint} />;
+      }
+      // A glyph with identity: swaps crossfade (docs/06-motion-spec.md "HUD", 100 ms) and
+      // nothing moves, so a run of key presses reads as one glyph updating.
       return (
-        <span
-          className={cx(
-            'muna-strip__icon',
-            content.tint !== undefined && 'muna-strip__icon--tinted',
-          )}
-          style={content.tint === undefined ? undefined : tintStyle(content.tint)}
-        >
-          {content.icon}
+        <span className="muna-strip__glyph">
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.span
+              key={content.id}
+              className="muna-strip__glyph-frame"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: glyphCrossfadeTransition }}
+              exit={{ opacity: 0, transition: glyphCrossfadeTransition }}
+            >
+              <Icon icon={content.icon} tint={content.tint} />
+            </motion.span>
+          </AnimatePresence>
         </span>
       );
     case 'image': {
@@ -142,6 +194,18 @@ function SlotContent({ content }: { content: StripSlotContent }) {
       );
     case 'waveform':
       return <Waveform playing={content.playing} size={stripSlotLayout.size} />;
+    case 'level':
+      return (
+        <LevelTrack
+          aria-label={content.label}
+          percent={content.percent}
+          muted={content.muted}
+          valueText={content.valueText ?? null}
+          onChange={content.onChange}
+          onChangeEnd={content.onChangeEnd}
+          className="muna-strip__level"
+        />
+      );
   }
 }
 
@@ -150,6 +214,8 @@ interface SlotProps {
   content: StripSlotContent | null | undefined;
   itemId: string | null;
   enter: Transition;
+  /** What the HUD level track appears with (`reveal`, docs/06-motion-spec.md "HUD"). */
+  reveal: Transition;
   exit: Transition;
   reduceMotion: boolean;
 }
@@ -157,11 +223,13 @@ interface SlotProps {
 /**
  * One slot. Content enters by sliding from the strip's centre (`notice`, with its overshoot:
  * something arrived) and leaves the same way (`collapse`, no bounce), masked by the slot box.
+ * The HUD level is the exception: it appears with `reveal` — a control coming up, not news.
  */
-function Slot({ side, content, itemId, enter, exit, reduceMotion }: SlotProps) {
+function Slot({ side, content, itemId, enter, reveal, exit, reduceMotion }: SlotProps) {
   // Toward the centre: the leading slot's content starts to its right, the trailing to its left.
   const offset = side === 'leading' ? stripSlotOffsetPx : -stripSlotOffsetPx;
   const hidden = reduceMotion ? { opacity: 0, x: 0 } : { opacity: 0, x: offset };
+  const arrive = content?.kind === 'level' ? reveal : enter;
   return (
     <span className="muna-strip__slot" data-slot={side}>
       <AnimatePresence mode="popLayout" initial={false}>
@@ -170,7 +238,7 @@ function Slot({ side, content, itemId, enter, exit, reduceMotion }: SlotProps) {
             key={`${itemId ?? ''}:${slotKey(content)}`}
             className="muna-strip__slot-content"
             initial={hidden}
-            animate={{ opacity: 1, x: 0, transition: enter }}
+            animate={{ opacity: 1, x: 0, transition: arrive }}
             exit={{ ...hidden, transition: exit }}
           >
             <SlotContent content={content} />
@@ -200,6 +268,7 @@ export function StripView({
 }: StripViewProps) {
   const reduceMotion = useReduceMotion();
   const arrive = useMotionPreset('notice');
+  const reveal = useMotionPreset('reveal');
   const leave = useMotionPreset('collapse');
   const contentEnter = useMotionPreset('content');
   const showText = wide && text !== null && text !== undefined && text !== '';
@@ -216,6 +285,7 @@ export function StripView({
         content={leading}
         itemId={itemId}
         enter={arrive}
+        reveal={reveal}
         exit={leave}
         reduceMotion={reduceMotion}
       />
@@ -250,6 +320,7 @@ export function StripView({
         content={trailing}
         itemId={itemId}
         enter={arrive}
+        reveal={reveal}
         exit={leave}
         reduceMotion={reduceMotion}
       />

@@ -53,12 +53,17 @@ playing". Storybook stories for all states; Vitest for scrub math and marquee ga
 
 ## M2-E3 · HUD — agent: `muna-shell-engineer`
 
-**Progress:** PR A (backend) landed — Core Audio volume/mute and microphone mute, WMI + DDC/CI
-brightness with the capability probe, flyout keeper and `--watchdog` process, the `hud` module
-with its six commands and `HudStateChanged` event, glyph and `level` vocabulary in the strip
-(see [hud → Implementation notes (M2-E3 PR A)](../modules/hud.md#implementation-notes-m2-e3-pr-a)).
+**Progress:** landed in two PRs. PR A (backend) — Core Audio volume/mute and microphone mute,
+WMI + DDC/CI brightness with the capability probe, flyout keeper and `--watchdog` process, the
+`hud` module with its six commands and `HudStateChanged` event, glyph and `level` vocabulary in
+the strip (see [hud → Implementation notes (M2-E3 PR A)](../modules/hud.md#implementation-notes-m2-e3-pr-a)).
 The hold is the motion spec's 1.5 s; the module spec's earlier 1 200 ms was corrected. PR B
-(strip `LevelTrack`, scroll-on-strip, HUD settings pane, QA checklist and recordings) follows.
+(strip UI) — `LevelTrack` primitive and `level` slot in `StripView`, glyph crossfade,
+scroll-on-strip volume and track drag in the shell, the *Volume and brightness* settings pane,
+and the manual checklist ([hud → Implementation notes (M2-E3 PR B)](../modules/hud.md#implementation-notes-m2-e3-pr-b),
+[qa/checklists/hud](../qa/checklists/hud.md)). Deviations: glyph crossfade instead of a path
+morph; brightness drag targets the single adjustable display; Win10 and external DDC/CI
+unverified in the lab.
 
 ```text
 Implement docs/modules/hud.md. Read docs/04-windows-platform-apis.md#hud-volume-brightness-

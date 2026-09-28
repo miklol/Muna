@@ -8,8 +8,12 @@ export type {
   ActivityState,
   AppInfo,
   Artwork,
+  BrightnessKind,
+  BrightnessMonitor,
   GeneralSettings,
   Glyph,
+  HudState,
+  HudStateChanged,
   IpcError,
   JsonValue,
   Leading,
@@ -26,6 +30,7 @@ export type {
   MorphRequested,
   NotchShape,
   Notice,
+  OsdState,
   PlacementMode,
   PlaybackStatus,
   Rect,
@@ -47,6 +52,7 @@ export type {
   StripMessage,
   Tint,
   Trailing,
+  VolumeLevel,
   YieldState,
 } from './bindings';
 export * from './result';

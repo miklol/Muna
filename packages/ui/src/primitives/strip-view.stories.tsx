@@ -3,7 +3,14 @@ import { motion } from 'motion/react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Button } from 'react-aria-components';
 
-import { BellGlyph, MusicGlyph, TimerGlyph } from '../foundations/glyphs';
+import {
+  BellGlyph,
+  MusicGlyph,
+  SunGlyph,
+  TimerGlyph,
+  VolumeGlyph,
+  VolumeMutedGlyph,
+} from '../foundations/glyphs';
 import { timings } from '../motion/presets';
 import { useMotionPreset } from '../motion/reduced-motion';
 import { notchRadii } from '../shape/notch-path';
@@ -139,6 +146,98 @@ export const NowPlaying: Story = {
     },
     trailing: { kind: 'progress', percent: 38 },
     description: 'Playing Nothing else matters by Metallica',
+  },
+  render: framed,
+};
+
+const volumeWaves = (percent: number): 0 | 1 | 2 | 3 =>
+  percent === 0 ? 0 : percent <= 33 ? 1 : percent <= 66 ? 2 : 3;
+
+/** The HUD in the strip: speaker glyph leading, the draggable level track trailing. */
+function Hud({ showValue }: { showValue: boolean }) {
+  const [percent, setPercent] = useState(45);
+  const [muted, setMuted] = useState(false);
+  const glyphId = muted ? 'volumeMuted' : `volume${String(volumeWaves(percent))}`;
+  return (
+    <div style={{ display: 'grid', gap: 'var(--space-4)', justifyItems: 'center' }}>
+      <Frame>
+        <StripView
+          aria-label="Notch strip"
+          itemId="hud:volume"
+          kind="notice"
+          leading={{
+            kind: 'icon',
+            id: glyphId,
+            icon: muted ? <VolumeMutedGlyph /> : <VolumeGlyph waves={volumeWaves(percent)} />,
+          }}
+          trailing={{
+            kind: 'level',
+            percent,
+            muted,
+            label: 'Volume',
+            valueText: showValue ? `${String(Math.round(percent))}%` : null,
+            onChange: (value) => {
+              setPercent(value);
+              if (muted && value > percent) setMuted(false);
+            },
+          }}
+          description={`${muted ? 'Muted' : 'Volume'}, ${String(Math.round(percent))}%`}
+        />
+      </Frame>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+        <Button
+          className="muna-chip muna-chip--selectable"
+          onPress={() => {
+            setPercent((value) => Math.max(0, value - 10));
+          }}
+        >
+          <span className="muna-chip__label">−10</span>
+        </Button>
+        <Button
+          className="muna-chip muna-chip--selectable"
+          onPress={() => {
+            setPercent((value) => Math.min(100, value + 10));
+          }}
+        >
+          <span className="muna-chip__label">+10</span>
+        </Button>
+        <Button
+          className="muna-chip muna-chip--selectable"
+          onPress={() => {
+            setMuted((value) => !value);
+          }}
+        >
+          <span className="muna-chip__label">{muted ? 'Unmute' : 'Mute'}</span>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * HUD (docs/06-motion-spec.md "HUD"): the track appears with `reveal`, the fill follows with
+ * `interactive`, the glyph crossfades as the waves change and a mute drains the fill with
+ * `collapse`. Drag the track; press the chips for key-sized steps.
+ */
+export const VolumeHud: Story = {
+  args: { itemId: 'hud:volume', kind: 'notice', description: 'Volume, 45%' },
+  render: () => <Hud showValue={false} />,
+};
+
+/** *Show level text* on: the percentage beside the track. */
+export const VolumeHudWithValue: Story = {
+  args: { itemId: 'hud:volume', kind: 'notice', description: 'Volume, 45%' },
+  render: () => <Hud showValue />,
+};
+
+/** Brightness: the sun glyph and the same track. */
+export const BrightnessHud: Story = {
+  args: {
+    itemId: 'hud:brightness',
+    kind: 'notice',
+    leading: { kind: 'icon', icon: <SunGlyph />, id: 'sun' },
+    trailing: { kind: 'level', percent: 70, muted: false, label: 'Brightness' },
+    description: 'Brightness, 70%',
   },
   render: framed,
 };
