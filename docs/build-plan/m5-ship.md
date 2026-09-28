@@ -113,8 +113,9 @@ leaves E4 a kickoff prompt rather than a branch.
   [05-design-system → Accessibility](../05-design-system.md#accessibility); QA:
   [checklists/accessibility](../qa/checklists/accessibility.md) (rows 1–19 need Narrator, a
   contrast theme and a touch screen on the maintainer's machine).
-- **M5-E2 Fidelity pass** — built on `m5-e2-fidelity` (PR pending, base
-  `m5-e3-accessibility`): the [audit](../qa/fidelity-audit-2026-09-28.md) (mechanical sweeps,
+- **M5-E2 Fidelity pass** — built on `m5-e2-fidelity`
+  ([#53](https://github.com/miklol/Muna/pull/53), base `m5-e3-accessibility`): the
+  [audit](../qa/fidelity-audit-2026-09-28.md) (mechanical sweeps,
   Storybook contact sheets and probes, the running app) ranked 2 blocking, 12 should and 10
   nit findings, then found 6 more while fixing. What it turned up was one class of defect:
   the shell sizes a panel to its content (190–360), so every module that relied on the body
