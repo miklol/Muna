@@ -89,6 +89,8 @@ queue cached for an offline start. Pieces, in the order a poll flows:
   footnote: *Updated 10:05* or the poll's sentence; a failed poll keeps the last rows. Off, or
   without an account, an empty state points at Settings. No timer in the panel: the clock is
   Rust's.
+- **Height budget**: the rows scroll inside 219 px between the chips and the footnote, so the
+  footnote stays in view however long the queue.
 - **Widget** (`widget.tsx`): *N waiting for your review* and the first three titles; a wide
   card adds `repo #number`; one line for off, unconnected and nothing waiting.
 - **Settings pane** (`settings.tsx`): what leaves the PC and where the token is kept, *Show

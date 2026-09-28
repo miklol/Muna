@@ -16,6 +16,7 @@ click-through, focus), **it never slows the machine** (budgets), and **it feels 
 | Platform integration | `cargo test --features platform-tests -- --ignored` | Real SMTC/Core Audio/Bluetooth on a self-hosted lab machine | Nightly |
 | Performance | `scripts/perf` (CDP metrics + PDH counters) | Idle CPU, RSS, fps during morph, start time | Nightly + release |
 | Manual QA | `docs/qa/checklists/*.md` | Yield scenarios, multi-monitor, OSD, installers | Milestone close |
+| Fidelity audit | `docs/qa/fidelity-audit-*.md` — mechanical sweeps, Storybook contact sheets and probes at the shell's panel size, the running app | Every surface against 05, 06 and the reference observations; blocking and should findings fixed in the same PR | Milestone close (M5-E2, then each release) |
 
 ## Determinism rules
 

@@ -179,13 +179,19 @@
 
 .day-widget__row {
   display: flex;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
   align-items: baseline;
   justify-content: space-between;
   min-inline-size: 0;
 }
 
+/* The value keeps its line; a label that no longer fits beside it moves whole, not by word. */
+.day-widget__row > * {
+  white-space: nowrap;
+}
+
 .day-widget__value {
   flex: none;
-  white-space: nowrap;
+  margin-inline-start: auto;
 }

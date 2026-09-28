@@ -88,6 +88,8 @@ Items live in Rust, the panel sees ids. Pieces, in the order an item flows:
   `AnimatePresence` on the `layout` spring and sit still under reduced motion. Missing files
   keep their name with an unlinked glyph and *File not found*; the empty state is the dashed
   zone with *Nothing on the Shelf yet* and how to fill it.
+- **Height budget**: the grid scrolls inside 212 px — two rows of tiles — under the toolbar
+  and the status line, so the panel never asks the shell for more than 360 px.
 - **Settings pane**: *Copy files into Shelf storage*, *Remove items after* (never, 1, 7 or 30
   days; a hand-edited value shows as *N days*), the item count and a destructive *Clear the
   Shelf*. Namespace `settings.modules.shelf = { copyIntoStorage, expiryDays }`, validated on

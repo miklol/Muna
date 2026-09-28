@@ -1,12 +1,18 @@
 /*
  * Translation panel (docs/modules/translation.md): the language pair in the head, the text to
  * translate, the answer under it, and a footer that names where the text goes and carries
- * *Translate*. The two text boxes share the body height equally; each scrolls inside itself.
- * The language picker takes the panel over: a search field, then the list scrolling under it.
- * Composes tokens only; the primitives bring their own styles.
+ * *Translate*. The panel's height follows its content (190–360), so the two text boxes set
+ * their own height: the 284 px body the shell allows at most, minus this panel's 8 px padding,
+ * the 28 px head, the 28 px foot and three 8 px gaps, shared equally — 98 px each
+ * (`--translation-box`); each scrolls inside itself. The language picker takes the panel
+ * over: a search field, then the list scrolling under it, bounded the same way. Composes
+ * tokens only; the primitives bring their own styles.
  */
 
 .translation-panel {
+  --translation-box: 98px;
+  --translation-list: 204px;
+
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -39,26 +45,33 @@
   flex: 1 1 auto;
 }
 
-/* A language button keeps to one line and yields before the settings button does. */
+/*
+ * A language button keeps to one line and yields before the settings button does; 14em holds
+ * "Portuguese (Brazil)" and "Chinese (Traditional)" whole, and two of them still leave the head
+ * 220 px of air at the 720 px minimum.
+ */
 .translation-pair__language {
   flex: 0 1 auto;
   min-inline-size: 0;
-  max-inline-size: 11em;
+  max-inline-size: 14em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.translation-source {
-  flex: 1 1 0;
+.translation-panel .translation-source {
+  flex: 0 1 auto;
+  block-size: var(--translation-box);
   min-block-size: 0;
 }
 
 /* The answer sits in a box like the source's, in the same type, and scrolls when it is long. */
 .translation-output {
-  flex: 1 1 0;
+  flex: 0 1 auto;
+  block-size: var(--translation-box);
   min-block-size: 0;
   padding: var(--space-2);
+  box-sizing: border-box;
   overflow-y: auto;
   background: var(--surface-1);
   border-radius: var(--radius-control);
@@ -114,6 +127,7 @@
   margin: 0;
   padding: 0;
   min-block-size: 0;
+  max-block-size: var(--translation-list);
   overflow-y: auto;
   list-style: none;
   scrollbar-width: thin;

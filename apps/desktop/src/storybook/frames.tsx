@@ -5,7 +5,7 @@ import { NotchSurface, Text } from '@muna/ui/primitives';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fn } from 'storybook/test';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { I18nextProvider, useTranslation } from 'react-i18next';
 
 import { i18n } from '../lib/i18n';
@@ -14,6 +14,7 @@ import { createQueryClient } from '../lib/query-client';
 import { cacheSettings, useSettings } from '../lib/settings';
 import { SettingsEditorProvider } from '../settings/settings-editor';
 import { Panel } from '../shell/panel';
+import { shellSizes } from '../shell/shell-geometry';
 
 // The settings window's own stylesheet (swatches, key caps): `settings-app.tsx` imports it in
 // the app, and pane stories render without that shell.
@@ -76,22 +77,59 @@ export function StoryProviders({ settings, language = 'en', children }: StoryPro
 export interface PanelFrameProps {
   /** The panel header; a module's `titleKey` resolved by the story. */
   title: string;
-  /** Panel size in CSS pixels; the shell's expanded island by default. */
+  /**
+   * Panel size in CSS pixels. The defaults are what the shell lays out — `clamp(720, monitor −
+   * 80, 1000)` wide and the content's own height clamped to 190–360 (`shell-geometry`) — so a
+   * story shows the layout the app shows, and content the shell would clip is clipped here too.
+   */
   width?: number;
   height?: number;
   children: ReactNode;
 }
 
+const clampPanelHeight = (natural: number): number =>
+  Math.min(shellSizes.panelMaxHeight, Math.max(shellSizes.panelMinHeight, natural));
+
 /**
- * A module body as the notch shows it: the black-glass island at its expanded size with the
- * shell's `Panel` header (pin and collapse are recorded by Storybook's `fn()`, nothing moves).
+ * A module body as the notch shows it: the black-glass island at the shell's panel size with
+ * the shell's `Panel` header (pin and collapse are recorded by Storybook's `fn()`, nothing
+ * moves). Like `NotchWindow`, it measures the panel's natural height and sizes the surface to
+ * it, because the surface's shape is positioned and takes no height from its content.
  */
-export function PanelFrame({ title, width = 420, height = 320, children }: PanelFrameProps) {
+export function PanelFrame({
+  title,
+  width = shellSizes.panelMinWidth,
+  height,
+  children,
+}: PanelFrameProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [natural, setNatural] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const node = panelRef.current;
+    if (node === null || height !== undefined) {
+      return;
+    }
+    if (typeof ResizeObserver === 'undefined') {
+      setNatural(node.offsetHeight);
+      return;
+    }
+    const observer = new ResizeObserver((entries) => {
+      const box = entries[0]?.borderBoxSize[0];
+      setNatural(box !== undefined ? box.blockSize : node.offsetHeight);
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [height]);
+  const resolved = height ?? clampPanelHeight(natural ?? shellSizes.panelMinHeight);
   return (
-    <NotchSurface shape="island" state="expanded" style={{ width, height }}>
-      <Panel title={title} pinned={false} onPinChange={fn()} onCollapse={fn()}>
-        {children}
-      </Panel>
+    <NotchSurface shape="island" state="expanded" style={{ width, height: resolved }}>
+      <div ref={panelRef} className="w-full">
+        <Panel title={title} pinned={false} onPinChange={fn()} onCollapse={fn()}>
+          {children}
+        </Panel>
+      </div>
     </NotchSurface>
   );
 }

@@ -210,3 +210,29 @@
 .todo-widget__row[data-overdue] .todo-widget__due {
   color: var(--text-destructive);
 }
+
+/*
+ * A narrow dashboard card at the minimum panel width (under 180 px of card body) has room for
+ * the title or the due, not both: the title stays whole, the due is left to screen readers and
+ * an overdue task carries the red on its title instead.
+ */
+@container (inline-size < 180px) {
+  .todo-widget__row {
+    position: relative;
+  }
+
+  .todo-widget__due {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .todo-widget__row[data-overdue] .todo-widget__title {
+    color: var(--text-destructive);
+  }
+}

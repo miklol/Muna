@@ -29,7 +29,7 @@ export function SystemMonitorWidget({ span }: WidgetProps) {
   const gauges = buildGauges(snapshot, peak, { t, locale }).slice(0, WIDGET_GAUGES[span]);
 
   return (
-    <ul className="sysmon-widget" aria-label={t('systemMonitor.title')}>
+    <ul className="sysmon-widget" data-span={span} aria-label={t('systemMonitor.title')}>
       {gauges.map((gauge) => (
         <li key={gauge.id} className="sysmon-widget__gauge" data-gauge={gauge.id}>
           <Ring

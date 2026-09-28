@@ -66,6 +66,10 @@ and regional settings, the switch in both windows, the pseudo-locale walk — sp
 [accessibility](qa/checklists/accessibility.md) (Narrator through the strip, a panel and the
 settings window, a Windows contrast theme, touch hit areas, the two Appearance switches).
 
+`qa/fidelity-audit-2026-09-28.md` — the M5-E2 [fidelity audit](qa/fidelity-audit-2026-09-28.md):
+every surface against the design system, the motion spec and the reference observations,
+with the findings ranked, the decisions taken and the panel-height contract it clarified.
+
 ## Module specs
 
 [`modules/README.md`](modules/README.md) indexes all 26 specs (shell, live activities, media,
