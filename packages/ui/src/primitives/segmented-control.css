@@ -1,10 +1,17 @@
 /*
  * SegmentedControl primitive — height 28, segment padding 0 12 on a `--surface-1` track; the
  * selected segment's `--surface-3` pill glides with the `toggle` spring (Motion layoutId).
+ *
+ * The track is an inline grid with one `1fr` column per segment: every column is as wide as
+ * the widest label, so equal segments never truncate a label the control has room for. (An
+ * inline-flex track sized to the sum of the labels and then shared equally would ellipsise the
+ * widest one.) A track given an inline-size by its parent still shares it equally.
  */
 
 .muna-segmented {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   align-items: stretch;
   gap: 2px;
   block-size: var(--size-segmented-height);
@@ -22,7 +29,6 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  flex: 1 1 0;
   min-inline-size: 0;
   padding: 0 var(--space-3);
   border: 0;
