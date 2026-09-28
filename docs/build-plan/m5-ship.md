@@ -349,10 +349,10 @@ close-out because nothing has merged since M1:
 | [#53](https://github.com/miklol/Muna/pull/53) | M5-E2 Fidelity pass | #52 |
 | [#56](https://github.com/miklol/Muna/pull/56) | M5-E5 Landing site | #53 |
 | [#57](https://github.com/miklol/Muna/pull/57) | M5 close-out (this document, the roadmap, the risk register) | #56 |
-| LAND_PR | `scripts/land-stack.ps1` and the landing procedure below | #57 |
+| [#58](https://github.com/miklol/Muna/pull/58) | `scripts/land-stack.ps1` and the landing procedure below | #57 |
 
-Merge from the bottom of the M2 stack upwards (#22 → … → #46 → #47 → … → #56 → #57 → the
-script's PR) with `scripts/land-stack.ps1`: it squash-merges one PR with the title as the
+Merge from the bottom of the M2 stack upwards (#22 → … → #46 → #47 → … → #56 → #57 → #58)
+with `scripts/land-stack.ps1`: it squash-merges one PR with the title as the
 subject, retargets its child to `main`, deletes the parent's branch, rebases only the child's
 own commits onto `main` in a scratch worktree, force-pushes it with a lease and waits for the
 child's checks before the next merge. The rebase is not optional: a squash rewrites the
