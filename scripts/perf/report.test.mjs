@@ -175,6 +175,30 @@ describe('plans and budgets', () => {
     expect(breach.failed).toEqual(['privateWorkingSetMb', 'morphFpsMin']);
     expect(breach.checks.find((c) => c.metric === 'startupMs')?.status).toBe('pass');
   });
+
+  it('gates the start-up on release builds only and reports it for a debug build', () => {
+    const slow = {
+      startupMs: 1976,
+      idleCpuPercent: 0.073,
+      privateWorkingSetMb: 30,
+      morphFpsMin: null,
+    };
+    const release = evaluate(slow, planFor('smoke'), budgets, 'release');
+    expect(release.pass).toBe(false);
+    expect(release.failed).toEqual(['startupMs']);
+
+    const debug = evaluate(slow, planFor('smoke'), budgets, 'debug');
+    expect(debug.pass).toBe(true);
+    expect(debug.failed).toEqual([]);
+    expect(debug.checks.find((c) => c.metric === 'startupMs')?.status).toBe('informational-over');
+    expect(
+      evaluate({ ...slow, startupMs: 1474 }, planFor('smoke'), budgets, 'debug').checks[0].status,
+    ).toBe('informational');
+
+    // CPU and memory of a debug build are upper bounds and still gate.
+    const hot = evaluate({ ...slow, idleCpuPercent: 0.4 }, planFor('smoke'), budgets, 'debug');
+    expect(hot.failed).toEqual(['idleCpuPercent']);
+  });
 });
 
 describe('reports', () => {
@@ -214,7 +238,7 @@ describe('reports', () => {
     const markdown = renderMarkdown(report);
     expect(markdown.startsWith('### Perf smoke — pass')).toBe(true);
     expect(markdown).toContain(
-      '| Cold start to first strip paint | 521 ms | ≤ 1500 ms | — | pass |',
+      '| Cold start to first strip paint | 521 ms | ≤ 1500 ms | — | reported (debug build) |',
     );
     expect(markdown).toContain('| Slowest strip ↔ panel morph | — | ≥ 58 fps | — | nightly |');
     expect(markdown).toContain('idle memory trim not observed');
@@ -237,7 +261,7 @@ describe('reports', () => {
     const markdown = renderMarkdown(report);
     expect(markdown).toContain('first launch of this binary 4157 ms (not gated)');
     expect(markdown).toContain(
-      '| Cold start to first strip paint | 521 ms | ≤ 1500 ms | — | pass |',
+      '| Cold start to first strip paint | 521 ms | ≤ 1500 ms | — | reported (debug build) |',
     );
 
     const without = buildReport({ mode: 'smoke', plan: planFor('smoke'), exe, host, results });
@@ -331,9 +355,24 @@ describe('reports', () => {
     });
     const markdown = renderMarkdown(worse, baseline);
     expect(markdown.startsWith('### Perf smoke — fail')).toBe(true);
-    expect(markdown).toContain('| 1700 ms | ≤ 1500 ms | +1179 ms | **fail** |');
+    expect(markdown).toContain(
+      '| 1700 ms | ≤ 1500 ms | +1179 ms | **over budget**, reported (debug build) |',
+    );
     expect(markdown).toContain('| 121 MB | ≤ 120 MB | +2.8 MB | **fail** |');
     expect(markdown).toContain('baseline: earlier');
+    expect(worse.evaluation.failed).toEqual(['privateWorkingSetMb']);
+
+    const release = buildReport({
+      mode: 'smoke',
+      plan,
+      exe: { ...exe, path: 'apps/desktop/src-tauri/target/release/muna.exe', profile: 'release' },
+      host,
+      results: { ...results, startupMs: 1700 },
+    });
+    expect(release.evaluation.failed).toEqual(['startupMs']);
+    expect(renderMarkdown(release, baseline)).toContain(
+      '| 1700 ms | ≤ 1500 ms | +1179 ms | **fail** |',
+    );
   });
 
   it('renders a failed run with its error and the marker', () => {

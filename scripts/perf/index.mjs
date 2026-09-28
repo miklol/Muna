@@ -162,7 +162,7 @@ async function main() {
     }
     if (exe.profile === 'debug') {
       notes.push(
-        'Debug build (unoptimised Rust): startup and CPU are upper bounds for the release build.',
+        'Debug build (unoptimised Rust): the start-up is reported against its budget and gates on release builds only, like the exe size in `bundle:check`; idle CPU and memory are upper bounds for the release build and gate as usual.',
       );
     }
 

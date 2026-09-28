@@ -198,7 +198,7 @@ satisfied.
 | Design tokens | Vitest snapshot of `tokens.css` | Snapshot changes only with a docs change in the same PR | `web` |
 | i18n | `scripts/i18n-check.mjs` | No missing/unused keys in `en`; other locales may lag | `web` |
 | Shell scenarios | Playwright S1–S14 | All pass on Windows Server 2022 image; 1 automatic retry allowed for Playwright only | `app` |
-| Perf smoke | `scripts/perf --smoke` | Startup < 1.5 s, idle CPU ≤ 0.3 %, RSS ≤ 120 MB (PRD budgets) | `app` |
+| Perf smoke | `scripts/perf --smoke` | Startup < 1.5 s (gates release builds; reported for the debug build the job makes), idle CPU ≤ 0.3 %, RSS ≤ 120 MB (PRD budgets) | `app` |
 | Bundle size | `scripts/bundle-size.mjs` | Frontend JS ≤ 1.2 MB gzipped; exe ≤ 12 MB; MSIX ≤ 20 MB | `app`, `release` |
 | Licences | `cargo deny check licenses`, `license-checker-rseidelsohn` | Allow: MIT, Apache-2.0, BSD-2/3, ISC, MPL-2.0, Zlib, Unicode-3.0, CC0-1.0, OFL-1.1 (fonts). Deny: GPL, AGPL, LGPL, SSPL, BUSL, unknown | `deps` |
 | Vulnerabilities | `cargo deny check advisories`, `pnpm audit --prod` | No high/critical without a documented exception in `deny.toml` / `.pnpm-audit.json` with an expiry date | `deps`, nightly |
@@ -217,7 +217,21 @@ budgets. Gates are never lowered to unblock a PR.
   idle CPU and keeps sampling memory until the shell's idle trim has settled (90 s), and the
   job posts the markdown as a PR comment (edited in place through its
   `<!-- muna-perf-report -->` marker; skipped on fork PRs). Breaching a PRD budget fails the
-  check. The comment's delta column fills in when the run is given `--baseline <json>`; the
+  check, with one rule for the build profile: the 1.5 s start-up budget describes the shipped
+  build, so the harness gates it only when the measured binary is a `release` build and
+  reports the debug build's start-up next to the budget (flagged when it is above it), the
+  way `bundle:check` treats the debug exe. Idle CPU and memory of the debug build are upper
+  bounds for the release build and gate on every profile. The reason is measured, not
+  assumed: on the 4-vCPU `windows-latest` runner (software rendering, 1024×768) the same
+  debug binary started in 1976 ms and then 1474 ms on consecutive runs of 2026-09-28, with
+  668 ms of the faster run spent before the WebView2 browser process existed and the rest in
+  Chromium's boot and the page — a gate that noise crosses in either direction by a third of
+  the budget measures the runner, not the PR. Until a job builds a release binary (the
+  nightly target state below, or a `perf` job) the start-up budget is checked by hand on the
+  release candidate ([10](10-release-distribution.md#release-checklist)), and the reported
+  number plus the "WebView2 browser process created … ms after the app" detail is what a
+  reviewer reads for start-up regressions in the app's own code. The comment's delta column
+  fills in when the run is given `--baseline <json>`; the
   automatic delta against the last `main` run is not wired yet (the `perf-smoke.json` artifact
   of every run is kept so it can be).
 - **Nightly**: `perf:full` — the harness's full plan from
