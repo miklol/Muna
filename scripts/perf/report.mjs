@@ -259,6 +259,9 @@ export function renderMarkdown(report, baseline = null) {
     if (measurements.sinceMainMs !== null && measurements.sinceMainMs !== undefined) {
       details.push(`first paint ${measurements.sinceMainMs} ms after \`main\``);
     }
+    if (measurements.firstLaunchMs !== null && measurements.firstLaunchMs !== undefined) {
+      details.push(`first launch of this binary ${measurements.firstLaunchMs} ms (not gated)`);
+    }
     if (measurements.idleCpuRawPercent !== null && measurements.idleCpuRawPercent !== undefined) {
       details.push(`idle CPU ${round(measurements.idleCpuRawPercent, 2)} % of one core`);
     }
@@ -300,6 +303,7 @@ export function buildReport({ mode, plan, exe, host, results, notes = [], genera
   const morphs = morphSummary(results.morphs ?? []);
   const measurements = {
     startupMs: results.startupMs ?? null,
+    firstLaunchMs: results.firstLaunchMs ?? null,
     sinceMainMs: results.sinceMainMs ?? null,
     idleCpuPercent: round(results.cpu?.normalised ?? null, 4),
     idleCpuRawPercent: round(results.cpu?.raw ?? null, 3),

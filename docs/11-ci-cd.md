@@ -211,7 +211,9 @@ budgets. Gates are never lowered to unblock a PR.
 ## Performance gates
 
 - **PR (`app`)**: `pnpm -w perf:smoke -- --out perf-smoke.json --markdown perf-smoke.md`
-  starts the debug build the job just made, measures cold start, waits 5 s, samples 30 s of
+  starts the debug build the job just made once to take the first-launch number (the OS's
+  one-time cost for a binary it has not seen; reported, not gated), restarts it on the same
+  profile and measures cold start, waits 5 s, samples 30 s of
   idle CPU and keeps sampling memory until the shell's idle trim has settled (90 s), and the
   job posts the markdown as a PR comment (edited in place through its
   `<!-- muna-perf-report -->` marker; skipped on fork PRs). Breaching a PRD budget fails the

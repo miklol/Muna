@@ -237,13 +237,15 @@ export class App {
     });
   }
 
-  async stop() {
+  /** Stops the process; the profile directory goes too unless `keepProfile` (for a relaunch). */
+  async stop({ keepProfile = false } = {}) {
     if (!this.exited) {
       this.#child.kill();
       for (let i = 0; i < 50 && !this.exited; i += 1) await sleep(100);
     }
     // WebView2 children notice the host is gone within a moment; then the profile can go.
     await sleep(500);
+    if (keepProfile) return;
     try {
       rmSync(this.#profile, { recursive: true, force: true });
     } catch {

@@ -222,6 +222,28 @@ describe('reports', () => {
     expect(markdown.trimEnd().endsWith('<!-- muna-perf-report -->')).toBe(true);
   });
 
+  it('reports the first launch of a new binary as a detail without gating it', () => {
+    const report = buildReport({
+      mode: 'smoke',
+      plan: planFor('smoke'),
+      exe,
+      host,
+      results: { ...results, firstLaunchMs: 4157 },
+    });
+    expect(report.measurements.firstLaunchMs).toBe(4157);
+    expect(report.evaluation.pass).toBe(true);
+    expect(report.evaluation.checks.map((c) => c.metric)).not.toContain('firstLaunchMs');
+    const markdown = renderMarkdown(report);
+    expect(markdown).toContain('first launch of this binary 4157 ms (not gated)');
+    expect(markdown).toContain(
+      '| Cold start to first strip paint | 521 ms | ≤ 1500 ms | — | pass |',
+    );
+
+    const without = buildReport({ mode: 'smoke', plan: planFor('smoke'), exe, host, results });
+    expect(without.measurements.firstLaunchMs).toBeNull();
+    expect(renderMarkdown(without)).not.toContain('first launch of this binary');
+  });
+
   it('reports the trimmed idle memory and keeps the pre-trim number in the details', () => {
     const report = buildReport({
       mode: 'smoke',

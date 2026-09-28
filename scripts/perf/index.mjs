@@ -31,6 +31,21 @@ const baseline = options.has('baseline')
 const log = (message) => console.log(`[perf] ${message}`);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Waits until the WebView2 and watchdog processes of a stopped instance are gone, so a
+ * relaunch on the same profile starts its own browser process instead of attaching to one
+ * that is on its way out. The probe still lists a dead root's children by parent pid.
+ */
+async function waitForTreeExit(probe, pid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const alive = (await probe.tree(pid)).filter((p) => p.name !== 'unknown');
+    if (alive.length === 0) return;
+    await sleep(250);
+  }
+  log('processes of the first launch are still exiting; continuing');
+}
+
 function write(report) {
   const markdown = renderMarkdown(report, baseline);
   const out = options.get('out');
@@ -79,8 +94,24 @@ async function main() {
   let app = null;
   const notes = [];
   try {
+    // The first launch of a binary the OS has not seen pays a one-time cost (file cache,
+    // Defender's scan) that a user meets once per install or update; report it on its own
+    // (docs/08 R20) and gate the next launch of the same binary and profile, which is every
+    // other start.
+    const first = new App(exe.path, {
+      log: verbose ? (line) => console.log(`  ${line}`) : undefined,
+    });
+    const firstReady = await first.waitForReady('notch', 30_000);
+    const firstLaunchMs = firstReady.atMs;
+    log(`first launch of this binary: shell ready after ${firstLaunchMs} ms; restarting`);
+    await first.stop({ keepProfile: true });
+    await waitForTreeExit(probe, first.pid, 10_000);
+
     // Cold start: process creation → the shell's first painted strip (`shell ready`).
-    app = new App(exe.path, { log: verbose ? (line) => console.log(`  ${line}`) : undefined });
+    app = new App(exe.path, {
+      profile: first.profile,
+      log: verbose ? (line) => console.log(`  ${line}`) : undefined,
+    });
     const ready = await app.waitForReady('notch', 30_000);
     const startupMs = ready.atMs;
     log(`shell ready after ${startupMs} ms (${ready.sinceStartMs} ms after main)`);
@@ -132,7 +163,7 @@ async function main() {
       plan,
       exe: { path: path.relative(repoRoot, exe.path), profile: exe.profile },
       host,
-      results: { startupMs, sinceMainMs: ready.sinceStartMs, ...idle, morphs },
+      results: { firstLaunchMs, startupMs, sinceMainMs: ready.sinceStartMs, ...idle, morphs },
       notes,
     });
     write(report);

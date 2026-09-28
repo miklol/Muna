@@ -103,8 +103,13 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    closed and nothing from the developer's profile leaks in. The single-instance plugin means a
    running Muna makes the run fail fast ("exited before the shell was ready").
 2. **Cold start**: wall time from process spawn to the shell's `shell ready label="notch"` log
-   line (the notch's first painted frame) → assert ≤ 1.5 s. The in-process
-   `since_start_ms` is reported as a detail.
+   line (the notch's first painted frame) → assert ≤ 1.5 s. The harness launches the binary
+   twice: the first launch of a binary the OS has not seen pays a one-time cost (file cache,
+   Defender's scan — what a user meets once per install or update, [risk R20](08-risk-register.md))
+   and is reported as `firstLaunchMs` without a gate; the process is stopped, its WebView2 and
+   watchdog processes are waited out, and the next launch on the same profile — every other
+   start a user makes — is the gated `startupMs`. The in-process `since_start_ms` is reported
+   as a detail.
 3. Park the cursor away from the notch. Warm up (smoke 5 s, full 30 s), then sample **idle CPU**
    as the delta of `TotalProcessorTime` over every process of the tree (`muna.exe`, the OSD
    watchdog, the WebView2 browser, renderer and utility processes) over the window (smoke
