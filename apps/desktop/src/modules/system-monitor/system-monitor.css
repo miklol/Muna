@@ -131,7 +131,11 @@
 
 /*
  * Dashboard card body (docs/modules/dashboard.md "Widgets": System stats mini): two gauges
- * side by side on a narrow card, four on a wide one, each a small ring with its number.
+ * side by side on a narrow card, four on a wide one, each a small ring with its number. Under
+ * 86 px of gauge — two gauges in less than 180 px of card body, four in less than 368, which
+ * is a panel under about 860 px — a gauge stacks its ring over the text so the label and the
+ * value keep their full width: 32 + 2 + 29 = 63 of the 68 px body. The queries resolve
+ * against the card body, which the dashboard makes a size container.
  */
 .sysmon-widget {
   display: grid;
@@ -159,4 +163,30 @@
   flex-direction: column;
   gap: 1px;
   min-inline-size: 0;
+}
+
+@container (inline-size < 180px) {
+  .sysmon-widget[data-span='1'] .sysmon-widget__gauge {
+    flex-direction: column;
+    gap: 2px;
+    text-align: center;
+  }
+
+  .sysmon-widget[data-span='1'] .sysmon-widget__text {
+    flex: none;
+    inline-size: 100%;
+  }
+}
+
+@container (inline-size < 368px) {
+  .sysmon-widget[data-span='2'] .sysmon-widget__gauge {
+    flex-direction: column;
+    gap: 2px;
+    text-align: center;
+  }
+
+  .sysmon-widget[data-span='2'] .sysmon-widget__text {
+    flex: none;
+    inline-size: 100%;
+  }
 }

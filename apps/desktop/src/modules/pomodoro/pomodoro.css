@@ -115,3 +115,11 @@
 .pomodoro-widget__play {
   flex: none;
 }
+
+/* A narrow dashboard card at the minimum panel width: 142 px for a 56 px ring, the text and a
+   28 px button, so the gaps close up and *Running* keeps its letters. */
+@container (inline-size < 180px) {
+  .pomodoro-widget {
+    gap: var(--space-1);
+  }
+}
