@@ -4,11 +4,16 @@
  * the list with the title, its actions, the text area or the preview, and the save state under
  * it. Composes tokens only; the primitives bring their own styles.
  *
- * Budget: the panel body has 284 px at most. The header takes one icon-button height, the
- * status line one caption; the rows or the text area take the rest and scroll inside it.
+ * Budget: the panel's height follows its content (190–360), so the rows, the text area and the
+ * preview bound themselves: the 284 px body the shell allows at most, minus this panel's 8 px
+ * padding, the 28 px head, the 13 px count or status line and two 8 px gaps, is 219 px
+ * (`--notes-scroll`); each scrolls inside it. The editor takes all of it so a note has room to
+ * write in.
  */
 
 .notes-panel {
+  --notes-scroll: 219px;
+
   display: flex;
   flex-direction: column;
   block-size: 100%;
@@ -44,6 +49,7 @@
   flex: 0 1 auto;
   flex-direction: column;
   min-block-size: 0;
+  max-block-size: var(--notes-scroll);
   margin: 0;
   padding: 0;
   overflow-y: auto;
@@ -91,8 +97,9 @@
   align-items: center;
 }
 
-.notes-editor__body {
-  flex: 1 1 auto;
+.notes-editor .notes-editor__body {
+  flex: 0 1 auto;
+  block-size: var(--notes-scroll);
   min-block-size: 0;
 }
 
@@ -109,10 +116,12 @@
 
 /* The light Markdown preview: the type scale's steps, nothing decorated beyond the tokens. */
 .notes-editor__preview {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-block-size: 0;
+  max-block-size: var(--notes-scroll);
   padding: var(--space-2) var(--space-3);
   overflow-y: auto;
+  box-sizing: border-box;
   font-size: var(--text-body);
   line-height: var(--text-body--line-height);
   color: var(--text-1);
