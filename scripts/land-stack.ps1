@@ -179,34 +179,53 @@ function Invoke-RebaseOnto {
   return $tip
 }
 
-function Get-UpstreamSha {
-  # The commit up to which $Child's history belongs to $Parent: the merge base of the child's
-  # branch with the parent's tip as it was when this run started.
-  param([object]$Parent, [object]$Child)
-  return (Invoke-Git @('merge-base', $Parent.originalOid, "origin/$($Child.headRefName)")).Trim()
+function Test-Ancestor {
+  param([string]$Commit, [string]$Descendant)
+  Invoke-Git @('cat-file', '-e', "$Commit^{commit}") -AllowFailure | Out-Null
+  if ($LASTEXITCODE -ne 0) { Invoke-Fetch -Refspecs @($Commit) } # GitHub serves any pushed sha
+  Invoke-Git @('merge-base', '--is-ancestor', $Commit, $Descendant) -AllowFailure | Out-Null
+  return $LASTEXITCODE -eq 0
 }
 
-function Get-MergedParentTip {
-  # For -RebaseOnto: the tip of an already merged parent PR from before it was rebased by an
-  # earlier run, so that the bottom PR's own commits can be told apart from the parent's.
-  param([int]$Number, [string]$ChildRef)
+function Get-PrHistory {
+  # A PR's state, current head and the tips its branch had before each force-push, newest first.
+  param([int]$Number)
   $query = 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){' +
-    'pullRequest(number:$number){state headRefOid timelineItems(itemTypes:[HEAD_REF_FORCE_PUSHED_EVENT],last:1){' +
+    'pullRequest(number:$number){state headRefOid timelineItems(itemTypes:[HEAD_REF_FORCE_PUSHED_EVENT],last:20){' +
     'nodes{... on HeadRefForcePushedEvent{beforeCommit{oid}}}}}}}'
   $owner, $name = $repo -split '/'
   $info = Invoke-Gh @('api', 'graphql', '-f', "query=$query", '-F', "owner=$owner", '-F', "name=$name",
     '-F', "number=$Number", '--jq', '.data.repository.pullRequest') | ConvertFrom-Json
-  if ($info.state -ne 'MERGED') { throw "#$Number is $($info.state), not merged; -RebaseOnto expects the landed parent." }
-  # A candidate is right when the child shares history with it beyond what it shares with main;
-  # the rebased tip of the parent only shares main's history with the child and is rejected.
-  $mainBase = (Invoke-Git @('merge-base', 'origin/main', $ChildRef)).Trim()
-  $candidates = @($info.headRefOid) + @($info.timelineItems.nodes | ForEach-Object { $_.beforeCommit.oid })
-  foreach ($sha in $candidates) {
-    if (-not $sha) { continue }
-    Invoke-Git @('cat-file', '-e', "$sha^{commit}") -AllowFailure | Out-Null
-    if ($LASTEXITCODE -ne 0) { Invoke-Fetch -Refspecs @($sha) }
-    $base = (Invoke-Git @('merge-base', $sha, $ChildRef) -AllowFailure)
-    if ($base -and $base.Trim() -ne $mainBase) { return $sha }
+  $before = @($info.timelineItems.nodes | ForEach-Object { $_.beforeCommit.oid } | Where-Object { $_ })
+  [array]::Reverse($before)
+  return @{ state = $info.state; head = $info.headRefOid; before = $before }
+}
+
+function Get-UpstreamSha {
+  # The commit up to which $Child's history belongs to $Parent. Normally the parent's tip as it
+  # was when this run started, which the child was branched from. When an earlier run already
+  # rebased the parent, that tip shares only main's history with the child, and the tip the
+  # parent had before its force-push is the one the child still carries.
+  param([object]$Parent, [object]$Child)
+  $childRef = "origin/$($Child.headRefName)"
+  if (Test-Ancestor -Commit $Parent.originalOid -Descendant $childRef) { return $Parent.originalOid }
+  foreach ($sha in (Get-PrHistory -Number $Parent.number).before) {
+    if (Test-Ancestor -Commit $sha -Descendant $childRef) {
+      Write-Step "#$($Child.number) still carries #$($Parent.number) as of $($sha.Substring(0, 10)) (before its rebase)"
+      return $sha
+    }
+  }
+  throw "Cannot tell where #$($Parent.number)'s history ends inside $childRef; rebase #$($Child.number) by hand and rerun with -Bottom $($Child.number)."
+}
+
+function Get-MergedParentTip {
+  # For -RebaseOnto: the tip of an already merged parent PR that the bottom PR still carries —
+  # its final head when it was never rebased, else the tip it had before its force-push.
+  param([int]$Number, [string]$ChildRef)
+  $history = Get-PrHistory -Number $Number
+  if ($history.state -ne 'MERGED') { throw "#$Number is $($history.state), not merged; -RebaseOnto expects the landed parent." }
+  foreach ($sha in @($history.head) + $history.before) {
+    if (Test-Ancestor -Commit $sha -Descendant $ChildRef) { return $sha }
   }
   throw "Cannot tell where #$Number's history ends inside $ChildRef; rerun with -UpstreamSha <parent tip before its rebase>."
 }
@@ -241,9 +260,15 @@ if ($Simulate) {
     }
     $rows | Format-Table -AutoSize | Out-Host
     $last = $chain[$rows.Count - 1]
-    $same = (Invoke-Git @('rev-parse', "$simBranch^{tree}")).Trim() -eq (Invoke-Git @('rev-parse', "origin/$($last.headRefName)^{tree}")).Trim()
-    Write-Step "simulated main matches the tree of #$($last.number): $same"
-    if ($rows.rebase -contains 'CONFLICT' -or -not $same) { exit 1 }
+    # The simulated main normally ends with exactly the top PR's tree. A difference is expected
+    # when a lower PR received a fix during the landing (the fix reaches the top through main).
+    $drift = @(Invoke-Git @('diff', '--stat', "origin/$($last.headRefName)", $simBranch))
+    if ($drift.Count -eq 0) { Write-Step "simulated main matches the tree of #$($last.number)" }
+    else {
+      Write-Step "simulated main differs from the tree of #$($last.number):"
+      $drift | ForEach-Object { Write-Host "  $_" }
+    }
+    if ($rows.rebase -contains 'CONFLICT') { exit 1 }
   }
   finally {
     if (Test-Path $simDir) { Invoke-Git @('worktree', 'remove', '--force', $simDir) -AllowFailure | Out-Null }
