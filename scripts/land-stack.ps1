@@ -186,7 +186,7 @@ function Get-BudgetRun {
 function Wait-Checks {
   param([int]$Number)
   $deadline = (Get-Date).AddMinutes($CheckTimeoutMinutes)
-  $rerunDone = $false
+  $rerunAt = $null
   while ((Get-Date) -lt $deadline) {
     $raw = & gh pr checks $Number --json name,bucket,link 2>$null
     if ($LASTEXITCODE -ne 0 -and -not $raw) { Start-Sleep -Seconds 30; continue } # no checks reported yet
@@ -195,13 +195,14 @@ function Wait-Checks {
     $pending = @($checks | Where-Object { $_.bucket -eq 'pending' })
     if ($failed.Count -gt 0) {
       $budgetRun = Get-BudgetRun -Failed $failed
-      if ($budgetRun -and -not $rerunDone) {
+      if ($budgetRun -and -not $rerunAt) {
         Write-Step "#$Number run $budgetRun never started (Actions budget); rerunning it once"
         Invoke-Gh @('run', 'rerun', '--failed', $budgetRun) | Out-Null
-        $rerunDone = $true
-        Start-Sleep -Seconds 60
+        $rerunAt = Get-Date
+        Start-Sleep -Seconds 30
         continue
       }
+      if ($budgetRun -and ((Get-Date) - $rerunAt).TotalMinutes -lt 3) { Start-Sleep -Seconds 20; continue } # GitHub still resetting the rerun jobs
       if ($budgetRun) {
         throw "The GitHub Actions budget is still exhausted. Raise it (Settings > Billing > Budgets and alerts) or wait for the billing cycle, then rerun with -Bottom $Number."
       }
