@@ -21,7 +21,6 @@ body {
   font-feature-settings: var(--font-features);
   overflow: hidden;
   user-select: none;
-  -webkit-font-smoothing: antialiased;
 }
 
 /* The settings window follows the Windows theme; `data-theme='light'` defines `--bg`. */

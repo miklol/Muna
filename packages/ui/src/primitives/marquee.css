@@ -18,7 +18,6 @@
 
 .muna-marquee__track {
   display: inline-flex;
-  will-change: transform;
 }
 
 .muna-marquee__copy {
