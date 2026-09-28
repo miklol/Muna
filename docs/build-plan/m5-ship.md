@@ -133,6 +133,24 @@ leaves E4 a kickoff prompt rather than a branch.
   explicit 236 px frame. Doc: [05 › Spacing & sizing](../05-design-system.md#spacing--sizing)
   (the *Panel body* row), [06 › Timings](../06-motion-spec.md#timings-non-spring) (*Paced
   content*), each module doc's height budget.
+- **M5-E5 Landing site** — built on `m5-e5-site` (PR to follow, base `m5-e2-fidelity`):
+  `apps/site` is one static page (Vite, `base: './'` so the same build serves a project page,
+  a custom domain and `vite preview`; plain CSS over the `@muna/ui` tokens, no Tailwind) with
+  a hero whose notch is the app's own `NotchSurface`, `StripView`, `PanelChrome` and
+  `ModuleBar` driven by the shell's hover choreography (hover intent → reveal → rest → open,
+  grace on leave, pin, Escape, keyboard focus handoff) and the motion presets — the demo
+  pauses its live pieces when scrolled out of view or the tab is hidden and scales below
+  760 px; a module catalog generated from `src/content/catalog.ts`, which a test parses
+  against [02-feature-catalog](../02-feature-catalog.md) (ids, names and tiers must match,
+  summaries must be the site's own, P3 rows are hidden); downloads (MSIX recommended, NSIS,
+  requirements, the SmartScreen note, how updates arrive); an eight-question FAQ; the
+  privacy section. Own artwork only (favicon, wordmark, a fictional album cover); no third-
+  party marks; English only by design. Deviations from the kickoff: the deploy is not wired —
+  agents do not add workflows, so the `site.yml` of
+  [11-ci-cd → Workflows](../11-ci-cd.md#workflows) (build `pnpm --filter @muna/site build`,
+  publish `apps/site/dist` to Pages) is the maintainer's; there is no screenshot gallery yet
+  because the polished surfaces are best shown by the live demo and the release engineer's
+  recordings.
 
 ### Order
 
@@ -291,6 +309,9 @@ in CI, uninstall verification (OSD restored, AppBar removed). Dry-run a v0.9.0-b
 ```
 
 ## M5-E5 · Landing site — agent: `muna-ui-engineer` + `muna-docs-writer`
+
+*Built — see [Progress](#progress). The kickoff below said "deploy from release.yml"; the
+build only produces `apps/site/dist`, and the Pages workflow is the maintainer's to add.*
 
 ```text
 Build apps/site (Vite + React, shares packages/ui tokens): hero with an interactive notch demo
