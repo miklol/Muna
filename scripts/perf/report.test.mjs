@@ -15,6 +15,7 @@ import {
   percentile,
   planFor,
   renderMarkdown,
+  startupBreakdown,
 } from './report.mjs';
 
 const READY =
@@ -242,6 +243,45 @@ describe('reports', () => {
     const without = buildReport({ mode: 'smoke', plan: planFor('smoke'), exe, host, results });
     expect(without.measurements.firstLaunchMs).toBeNull();
     expect(renderMarkdown(without)).not.toContain('first launch of this binary');
+  });
+
+  it('dates the WebView2 browser and first renderer from the process tree and lists them as details', () => {
+    const tree = [
+      { pid: 100, name: 'muna.exe', kind: 'muna', startedAtMs: 1_000 },
+      { pid: 101, name: 'msedgewebview2.exe', kind: 'browser', startedAtMs: 1_412 },
+      { pid: 102, name: 'msedgewebview2.exe', kind: 'crashpad', startedAtMs: 1_430 },
+      { pid: 103, name: 'msedgewebview2.exe', kind: 'renderer', startedAtMs: 1_690 },
+      { pid: 104, name: 'msedgewebview2.exe', kind: 'renderer', startedAtMs: 1_655 },
+      { pid: 105, name: 'msedgewebview2.exe', kind: 'utility:network', startedAtMs: null },
+    ];
+    expect(startupBreakdown(tree, 100)).toEqual({
+      webviewBrowserAtMs: 412,
+      firstRendererAtMs: 655,
+    });
+    expect(startupBreakdown(tree.slice(0, 1), 100)).toEqual({
+      webviewBrowserAtMs: null,
+      firstRendererAtMs: null,
+    });
+    expect(startupBreakdown(tree, 999)).toEqual({
+      webviewBrowserAtMs: null,
+      firstRendererAtMs: null,
+    });
+
+    const report = buildReport({
+      mode: 'smoke',
+      plan: planFor('smoke'),
+      exe,
+      host,
+      results: { ...results, ...startupBreakdown(tree, 100) },
+    });
+    expect(report.measurements).toMatchObject({ webviewBrowserAtMs: 412, firstRendererAtMs: 655 });
+    expect(report.evaluation.checks.map((c) => c.metric)).not.toContain('webviewBrowserAtMs');
+    const markdown = renderMarkdown(report);
+    expect(markdown).toContain('WebView2 browser process created 412 ms after the app');
+    expect(markdown).toContain('first renderer 655 ms after the app');
+    expect(
+      renderMarkdown(buildReport({ mode: 'smoke', plan: planFor('smoke'), exe, host, results })),
+    ).not.toContain('WebView2 browser process');
   });
 
   it('reports the trimmed idle memory and keeps the pre-trim number in the details', () => {

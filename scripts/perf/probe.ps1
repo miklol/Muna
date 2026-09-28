@@ -6,7 +6,9 @@
   sets, the notch windows and the cursor can be sampled without paying a PowerShell start-up
   per sample. Commands (one per line) and their JSON answers:
     host                       logical processors, OS, physical primary screen size, memory
-    tree <pid>                 the process and all its descendants
+    tree <pid>                 the process and all its descendants with their kind (app,
+                               browser, renderer, gpu-process, utility:<service>, crashpad)
+                               and creation time as Unix milliseconds
     sample <pid,pid,...>       cpuMs (user+kernel), workingSetMb and privateWorkingSetMb per pid
     windows                    every top-level window of class MunaNotch with its physical rect
     cursor <x> <y>             SetCursorPos in physical pixels
@@ -31,8 +33,21 @@ public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
 # Per-monitor-v2 so every coordinate is a physical pixel.
 [void][MunaPerf.Native]::SetProcessDpiAwarenessContext([IntPtr](-4))
 
+function Get-ProcessKind([string]$Name, [string]$CommandLine) {
+  if ($Name -notlike 'msedgewebview2*') { return ($Name -replace '\.exe$', '') }
+  if ($CommandLine -match '--type=([a-z-]+)') {
+    $type = $Matches[1]
+    if ($type -eq 'crashpad-handler') { return 'crashpad' }
+    if ($type -eq 'utility' -and $CommandLine -match '--utility-sub-type=([a-z_]+)\.') {
+      return "utility:$($Matches[1])"
+    }
+    return $type
+  }
+  return 'browser'
+}
+
 function Get-Tree([int]$RootPid) {
-  $all = Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name
+  $all = Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, CommandLine, CreationDate
   $queue = New-Object System.Collections.Generic.Queue[int]
   $queue.Enqueue($RootPid)
   $list = New-Object System.Collections.Generic.List[object]
@@ -40,7 +55,11 @@ function Get-Tree([int]$RootPid) {
     $current = $queue.Dequeue()
     $row = $all | Where-Object { [int]$_.ProcessId -eq $current } | Select-Object -First 1
     $name = if ($null -ne $row) { $row.Name } else { 'unknown' }
-    $list.Add([pscustomobject]@{ pid = $current; name = $name })
+    $kind = if ($null -ne $row) { Get-ProcessKind $row.Name ([string]$row.CommandLine) } else { 'unknown' }
+    $startedAtMs = if ($null -ne $row -and $null -ne $row.CreationDate) {
+      [DateTimeOffset]::new([DateTime]$row.CreationDate).ToUnixTimeMilliseconds()
+    } else { $null }
+    $list.Add([pscustomobject]@{ pid = $current; name = $name; kind = $kind; startedAtMs = $startedAtMs })
     foreach ($child in $all | Where-Object { [int]$_.ParentProcessId -eq $current -and [int]$_.ProcessId -ne $current }) {
       $queue.Enqueue([int]$child.ProcessId)
     }

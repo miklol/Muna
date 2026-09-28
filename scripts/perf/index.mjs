@@ -11,7 +11,7 @@ import path from 'node:path';
 
 import { isWindows, parseArgs, repoRoot } from '../lib.mjs';
 import { App, Probe, defaultExe, driveMorphs, measureIdle } from './harness.mjs';
-import { buildReport, failedReport, planFor, renderMarkdown } from './report.mjs';
+import { buildReport, failedReport, planFor, renderMarkdown, startupBreakdown } from './report.mjs';
 
 const { flags, options } = parseArgs();
 const mode = flags.has('full') ? 'full' : 'smoke';
@@ -115,6 +115,14 @@ async function main() {
     const ready = await app.waitForReady('notch', 30_000);
     const startupMs = ready.atMs;
     log(`shell ready after ${startupMs} ms (${ready.sinceStartMs} ms after main)`);
+    // Where the start went: the tree right after the first paint dates the WebView2 browser
+    // process (everything before it is the app's own start-up) and the first renderer.
+    const breakdown = startupBreakdown(await probe.tree(app.pid), app.pid);
+    if (breakdown.webviewBrowserAtMs !== null) {
+      log(
+        `WebView2 browser process created ${breakdown.webviewBrowserAtMs} ms after the app, first renderer ${breakdown.firstRendererAtMs ?? '—'} ms`,
+      );
+    }
 
     log(`warming up ${plan.warmupSeconds} s…`);
     await sleep(plan.warmupSeconds * 1000);
@@ -163,7 +171,14 @@ async function main() {
       plan,
       exe: { path: path.relative(repoRoot, exe.path), profile: exe.profile },
       host,
-      results: { firstLaunchMs, startupMs, sinceMainMs: ready.sinceStartMs, ...idle, morphs },
+      results: {
+        firstLaunchMs,
+        startupMs,
+        sinceMainMs: ready.sinceStartMs,
+        ...breakdown,
+        ...idle,
+        morphs,
+      },
       notes,
     });
     write(report);

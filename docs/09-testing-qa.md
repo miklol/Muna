@@ -109,7 +109,10 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    and is reported as `firstLaunchMs` without a gate; the process is stopped, its WebView2 and
    watchdog processes are waited out, and the next launch on the same profile — every other
    start a user makes — is the gated `startupMs`. The in-process `since_start_ms` is reported
-   as a detail.
+   as a detail, and so is where the start went: the process tree captured at the first paint
+   dates the WebView2 browser process (everything before it is the app's own start-up —
+   platform watchers, profile, plugins) and the first renderer, both in ms after the app
+   process was created.
 3. Park the cursor away from the notch. Warm up (smoke 5 s, full 30 s), then sample **idle CPU**
    as the delta of `TotalProcessorTime` over every process of the tree (`muna.exe`, the OSD
    watchdog, the WebView2 browser, renderer and utility processes) over the window (smoke

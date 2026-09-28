@@ -259,6 +259,14 @@ export function renderMarkdown(report, baseline = null) {
     if (measurements.sinceMainMs !== null && measurements.sinceMainMs !== undefined) {
       details.push(`first paint ${measurements.sinceMainMs} ms after \`main\``);
     }
+    if (measurements.webviewBrowserAtMs !== null && measurements.webviewBrowserAtMs !== undefined) {
+      details.push(
+        `WebView2 browser process created ${measurements.webviewBrowserAtMs} ms after the app`,
+      );
+    }
+    if (measurements.firstRendererAtMs !== null && measurements.firstRendererAtMs !== undefined) {
+      details.push(`first renderer ${measurements.firstRendererAtMs} ms after the app`);
+    }
     if (measurements.firstLaunchMs !== null && measurements.firstLaunchMs !== undefined) {
       details.push(`first launch of this binary ${measurements.firstLaunchMs} ms (not gated)`);
     }
@@ -297,6 +305,26 @@ export function renderMarkdown(report, baseline = null) {
   return lines.join('\n');
 }
 
+/**
+ * Where the cold start went, from the process tree captured right after `shell ready`:
+ * creation times of the WebView2 browser process and of the first renderer, in ms after the
+ * app process itself was created. `null` when the tree does not show the process (the app
+ * ran without WebView2, or the probe could not read creation times).
+ */
+export function startupBreakdown(tree, appPid) {
+  const app = tree.find((p) => p.pid === appPid);
+  if (!app || typeof app.startedAtMs !== 'number') {
+    return { webviewBrowserAtMs: null, firstRendererAtMs: null };
+  }
+  const firstOf = (kind) => {
+    const times = tree
+      .filter((p) => p.kind === kind && typeof p.startedAtMs === 'number')
+      .map((p) => p.startedAtMs - app.startedAtMs);
+    return times.length > 0 ? Math.max(0, Math.min(...times)) : null;
+  };
+  return { webviewBrowserAtMs: firstOf('browser'), firstRendererAtMs: firstOf('renderer') };
+}
+
 /** Assembles the JSON report from raw results; `null` fields mean "not measured". */
 export function buildReport({ mode, plan, exe, host, results, notes = [], generatedAt }) {
   const memory = memorySummary(results.memorySamples ?? []);
@@ -305,6 +333,8 @@ export function buildReport({ mode, plan, exe, host, results, notes = [], genera
     startupMs: results.startupMs ?? null,
     firstLaunchMs: results.firstLaunchMs ?? null,
     sinceMainMs: results.sinceMainMs ?? null,
+    webviewBrowserAtMs: results.webviewBrowserAtMs ?? null,
+    firstRendererAtMs: results.firstRendererAtMs ?? null,
     idleCpuPercent: round(results.cpu?.normalised ?? null, 4),
     idleCpuRawPercent: round(results.cpu?.raw ?? null, 3),
     privateWorkingSetMb: memory ? round(memory.idle, 1) : null,
