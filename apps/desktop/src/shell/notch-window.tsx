@@ -61,6 +61,7 @@ import {
   type GeometryInput,
   moduleBarOffsetY,
   moduleBarSize,
+  shellSizes,
   showsPanel,
   targetOffsetY,
   targetSize,
@@ -194,7 +195,6 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   useShellLayoutSubscription();
   const reduceMotion = useReduceMotion();
 
-  const layout: Layout = layoutFromShell ?? fallbackLayout;
   const [snapshot, machine] = useShellMachine();
   const { state } = snapshot;
 
@@ -281,6 +281,38 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const speed = useRef(new SpeedTracker());
   const sampler = useRef(new MorphSampler());
   const lastPublished = useRef<ShapeRect[]>([]);
+
+  // The window's own client width is a second bound on the panel: on a narrow work area or at
+  // 200 % zoom the root can be smaller than the monitor-derived `panelMaxWidth`, and nothing
+  // may paint past its edge. Zero (not laid out yet, jsdom) means "unknown", never "0 px".
+  const [rootWidth, setRootWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (root === null) {
+      return;
+    }
+    const measure = () => {
+      const width = root.clientWidth;
+      setRootWidth(width > 0 ? width : null);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+  const shellLayout: Layout = layoutFromShell ?? fallbackLayout;
+  const layout: Layout = useMemo(
+    () =>
+      rootWidth === null
+        ? shellLayout
+        : { ...shellLayout, panelMaxWidth: Math.min(shellLayout.panelMaxWidth, rootWidth) },
+    [rootWidth, shellLayout],
+  );
 
   const [panelContentHeight, setPanelContentHeight] = useState<number | null>(null);
   const [lastMorph, setLastMorph] = useState<MorphReport | null>(null);
@@ -418,11 +450,12 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     (forState: ShellState, input: GeometryInput): Box => {
       const root = rootRef.current;
       const centreX = root === null ? 0 : root.clientWidth / 2;
+      const bar = moduleBarSize(input);
       return anchoredBox(
         centreX,
         layout.stripTopOffset + moduleBarOffsetY(forState, input),
-        moduleBarSize.width,
-        moduleBarSize.height,
+        bar.width,
+        bar.height,
       );
     },
     [layout.stripTopOffset],
@@ -676,7 +709,11 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                 <motion.div
                   key="panel"
                   ref={panelRef}
-                  className="w-full origin-top"
+                  // A flex column capped at the panel's max height: the chrome shrinks to fit
+                  // and its body scrolls, so tall content (200 % zoom, long lists) is reachable
+                  // instead of clipped by the silhouette.
+                  className="flex w-full origin-top flex-col"
+                  style={{ maxHeight: shellSizes.panelMaxHeight }}
                   initial={
                     reduceMotion ? contentRecipe.reducedEnterFrom : contentRecipe.enterFromLarge
                   }
@@ -698,8 +735,12 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                       <motion.div
                         key={activeModule?.id ?? 'empty'}
                         className="size-full origin-top"
+                        // The body spans the whole panel, well past the 320 × 160 blur limit
+                        // (docs/06-motion-spec.md "Content transition recipe"): opacity + scale only.
                         initial={
-                          reduceMotion ? contentRecipe.reducedEnterFrom : contentRecipe.enterFrom
+                          reduceMotion
+                            ? contentRecipe.reducedEnterFrom
+                            : contentRecipe.enterFromLarge
                         }
                         animate={
                           reduceMotion ? contentRecipe.reducedVisible : contentRecipe.visible
@@ -708,7 +749,11 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
                         transition={moduleBodyTransition}
                       >
                         {panelBody ??
-                          (ActivePanel === undefined ? <PanelEmptyState /> : <ActivePanel />)}
+                          (ActivePanel === undefined ? (
+                            <PanelEmptyState reason={modules.length > 0 ? 'disabled' : 'none'} />
+                          ) : (
+                            <ActivePanel />
+                          ))}
                       </motion.div>
                     </AnimatePresence>
                   </Panel>
@@ -737,7 +782,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
               key="module-bar"
               data-testid="module-bar"
               className="absolute left-1/2"
-              style={shellStyle}
+              style={{ ...shellStyle, width: moduleBarSize(geometry).width }}
               initial={{ y: moduleBarOffsetY(snapshot.previous, geometry) }}
               animate={{ y: moduleBarOffsetY(state, geometry) }}
               transition={transition}

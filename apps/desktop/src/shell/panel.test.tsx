@@ -43,6 +43,27 @@ describe('Panel', () => {
     renderPanel();
     expect(screen.getByText('Nothing to show yet')).toBeInTheDocument();
     expect(screen.getByText('Modules appear here as they are added.')).toBeInTheDocument();
+    // A build with no modules offers no action: there is nothing to turn on.
+    expect(screen.queryByRole('button', { name: 'Open settings' })).toBeNull();
+  });
+
+  it('offers to open Settings when every module is turned off, and reports a failure inline', async () => {
+    const user = userEvent.setup();
+    const openSettings = vi.fn<() => Promise<void>>().mockRejectedValue(new Error('no window'));
+    renderPanel({
+      children: <PanelEmptyState reason="disabled" openSettings={openSettings} />,
+    });
+    expect(screen.getByText('All modules are turned off')).toBeInTheDocument();
+    expect(screen.getByText('Turn a module on in Settings to see it here.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Open settings' }));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to open Settings. Use the tray icon instead.',
+    );
+    // A second try clears the message before asking again.
+    openSettings.mockResolvedValue(undefined);
+    await user.click(screen.getByRole('button', { name: 'Open settings' }));
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('places subtitle, chips and footer in the chrome slots', () => {

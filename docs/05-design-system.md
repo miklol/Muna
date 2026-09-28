@@ -49,7 +49,7 @@ Notch surfaces are dark regardless of OS theme. The Settings window gets both th
 | `--hairline-strong` | `rgb(255 255 255 / 0.18)` | Focused input border |
 | `--text-1` | `rgb(255 255 255 / 1)` | Primary |
 | `--text-2` | `rgb(255 255 255 / 0.60)` | Secondary |
-| `--text-3` | `rgb(255 255 255 / 0.40)` | Tertiary, placeholders, disabled |
+| `--text-3` | `rgb(255 255 255 / 0.40)` | Disabled glyphs and labels, decorative marks — never text a user must read (3.7:1) |
 | `--accent-blue` | `#0A84FF` | Links, selection, focus ring |
 | `--accent-cyan` | `#64D2FF` | Media, waveform |
 | `--accent-green` | `#30D158` | Success, connected, health move |
@@ -70,8 +70,9 @@ Light-theme Settings window: neutrals invert (`--bg #F5F5F7`, `--surface-1 rgb(0
 `--text-1 #1D1D1F`, `--text-2 rgb(0 0 0 / .6)`, `--hairline rgb(0 0 0 / .1)`); accents use the
 light-appearance variants (`#007AFF`, `#34C759`, `#FF9500`, `#FF3B30`, `#AF52DE`, `#32ADE6`).
 
-Contrast: `--text-2` on `--panel-bottom` ≈ 7.5:1, `--text-3` ≈ 4.6:1 — both pass AA for body
-text; `--text-3` is never used below 12 px. Under `prefers-contrast: more` (Windows "Contrast
+Contrast: `--text-2` on `--panel-bottom` is 7.33:1 and passes AA for body text; `--text-3` is
+3.71:1 and does not. A 12 px minimum does not exempt text from the 4.5:1 requirement; see
+the known gap under [Accessibility](#accessibility). Under `prefers-contrast: more` (Windows "Contrast
 themes" / high-contrast) the tokens shift: `--hairline` → 0.24, `--text-2` → 0.72, `--text-3` →
 0.56, and the strip gains a 1 px `--hairline` outline so the black shape stays visible on dark
 wallpapers.
@@ -83,7 +84,7 @@ wallpapers.
 | **Strip** | `background: var(--notch-black)`; no border; bottom corners only |
 | **Panel** | `background: linear-gradient(180deg, var(--panel-top), var(--panel-bottom))`; `box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06)` (top catch-light); 1 px `--hairline` border except the top edge; outer shadow is the layered `--shadow-panel` (below), painted by us (Tauri `shadow:false`) inside a 20 px transparent window margin |
 | **Island** (floating shape) | Panel material plus all four corners; 1 px hairline all round |
-| **Module bar** | `--surface-2` on `--notch-black`, radius 20, hairline |
+| **Module bar** | `--surface-2` painted over `--notch-black` (the pill floats on a transparent window, so the black base is part of the material), radius 20, hairline; no wider than the panel bound or the viewport |
 | **Card** | `--surface-1`, radius 12, no border; hover → `--surface-2` |
 | **Popover** (device picker, menus) | `#141416` at 96 %, radius 14, hairline, `--shadow-popover` |
 | **Scrim** | `--scrim`, no blur |
@@ -174,8 +175,8 @@ module via specta.
 | Island (collapsed) | 120 × 36 pill, 6–8 px top offset; hover reveal 160 × 40; expanded ≤ 380 × 340 |
 | Peek | 6 px tall, same width |
 | Wide strip | up to 420 wide during wide form |
-| Panel | width `clamp(720, monitor − 80, 1000)`; height by content, min 190, max 360 |
-| Panel padding | 16 all round (keeps card corners concentric); header 44 tall |
+| Panel | width `min(1000, monitor − 80)` (Rust supplies the bound; the UI also caps to its own window width, so a narrow work area or 200 % zoom gets a panel that fits rather than one clipped at 720); height by content, min 190, max 360, body scrolls beyond that |
+| Panel padding | 16 all round (keeps card corners concentric); header ≥ 44 tall (grows when a long title wraps) |
 | Module bar | 640 × 40, 12 px gap below panel; icons 20, gap 8, active pill 32 × 32 |
 | Icon button | 28 circle, icon 16; large 36 circle, icon 20 |
 | Chip | height 24, padding 0 10, icon 12, text 12/600 |
@@ -219,9 +220,11 @@ layouts hold.
 
 Rules: max two weights per surface; **prefer 600 over 700** (Inter Bold looks heavy at UI
 sizes; 700 is reserved for `--text-display`); secondary text is `--text-2`, never a smaller
-size at full white; truncate with ellipsis at one line for names, two lines for bodies
-(`text-wrap: pretty`, `-webkit-line-clamp: 2`); sentence case everywhere; no all-caps labels
-except 10 px ring labels (`letter-spacing: .06em`).
+size at full white; truncate with ellipsis at one line for names in lists and two lines for
+bodies (`text-wrap: pretty`, `-webkit-line-clamp: 2`) — but a truncated value must stay
+reachable somewhere (tooltip, detail view), and the panel title and subtitle wrap instead of
+truncating because nothing else shows them in full; sentence case everywhere; no all-caps
+labels except 10 px ring labels (`letter-spacing: .06em`).
 
 ### Iconography
 
@@ -282,7 +285,9 @@ Pure-CSS state changes (hover tint, press scale, chip select) transition with th
   "camera"). Text in the wide form is `--text-footnote` 600, white, one line, marquee only if
   overflowing after 1.5 s hover.
 - **HUD**: glyph 16 leading, 96 × 6 track, value optional as `--text-caption` tabular.
-- **Panel header**: title `--text-callout` left; right rail of 28 px icon buttons with 4 px gap;
+- **Panel header**: title `--text-callout` left, wrapping when long; chips beside it while
+  there is room, otherwise chips and rail wrap to a second row; right rail of 28 px icon
+  buttons with 8 px gap (their 36 px hit areas stay disjoint);
   ⤡ collapse is always the right-most.
 - **Dashboard widgets**: S 1×1 (156 × 120), M 2×1, L 2×2 on a 12 px gap grid; header row
   12/600 `--text-2` + icon 14; values `--text-title3`.
@@ -299,11 +304,14 @@ follows layout; Esc always collapses/closes; `prefers-contrast: more` **or** the
 [motion spec](06-motion-spec.md); no information conveyed by colour alone (rings carry labels;
 status has icon + text).
 
-Known gap, measured in M0-E4: `--text-3` (white at 40 %) is **3.7:1** on `--panel-bottom`,
-below the 4.5:1 rule above; 4.5:1 needs ≥ 46 %. Open for design review — either raise the
-token (0.46 keeps the hierarchy: 1 / 0.6 / 0.46) or restrict `--text-3` to non-essential,
-≥ 18 px text and record the exception here. Until decided, the Storybook "Tones" story opts
-out of axe's `color-contrast` rule for that line only.
+Resolved (M1 follow-up, 2026-09-28): `--text-3` (white at 40 %) is **3.7:1** on
+`--panel-bottom` and no single alpha passes 4.5:1 on every surface and appearance — 46 %
+fails on `--surface-3`/`--surface-4` and on the light Settings base
+([colour matrix](reference/glass-ui-research.md#deeper-compositing-measurements)). The
+token therefore keeps its value and loses its text role: `Text tone="tertiary"` and search
+placeholders render `--text-2` (7.3:1), and `--text-3` is reserved for disabled glyphs and
+decorative marks. The Storybook "Tones" story no longer disables axe's `color-contrast`
+rule; `storybook:ci` runs it unrestricted on every story.
 
 Screen readers: the collapsed strip and live activities are one `role="status"` region with
 `aria-live="polite"` so a track change or "AirPods connected" is announced without stealing

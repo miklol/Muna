@@ -46,8 +46,10 @@
   outline: none;
 }
 
+/* Placeholders are read, so they use the readable secondary tone at full opacity. */
 .muna-search__input::placeholder {
-  color: var(--text-3);
+  color: var(--text-2);
+  opacity: 1;
 }
 
 /* WebView2 draws its own clear affordance; the primitive owns that. */

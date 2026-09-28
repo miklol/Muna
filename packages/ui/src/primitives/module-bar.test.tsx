@@ -165,6 +165,24 @@ describe('ModuleBar', () => {
     await user.click(screen.getByRole('button', { name: 'More modules' }));
     expect(screen.getByRole('tab', { name: 'm0' })).toBeInTheDocument();
     expect(tabs()).toHaveLength(15);
+    // The active tab is on another page: the first tab here joins the tab order so the page
+    // is reachable from the keyboard, not only through the pager.
+    expect(screen.getByRole('tab', { name: 'm0' })).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('tab', { name: 'm1' })).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('fits fewer slots when the measured width is narrower', () => {
+    // 320 px: (320 − 8 + 8) / 40 = 8 slots, i.e. 7 tabs + pager once 9 or more modules exist.
+    expect(moduleBarCapacity(320)).toBe(8);
+    expect(
+      moduleBarPage(
+        Array.from({ length: 9 }, (_, i) => i),
+        0,
+        moduleBarCapacity(320),
+      ),
+    ).toMatchObject({ pages: 2, visible: [0, 1, 2, 3, 4, 5, 6] });
+    // Never below one slot, whatever the measurement says.
+    expect(moduleBarCapacity(10)).toBe(1);
   });
 });
 

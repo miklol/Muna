@@ -44,23 +44,14 @@ export const TypeScale: Story = {
   ),
 };
 
+/** Every tone passes 4.5:1 on the panel; `--text-3` is not a text tone (disabled glyphs only). */
 export const Tones: Story = {
-  parameters: {
-    a11y: {
-      config: {
-        // `--text-3` (white 40 %) sits at 3.7:1 on the panel; docs/05 reserves it for ≥ 12 px
-        // secondary labels and raises it to 56 % in the increased-contrast theme. Tracked for
-        // design review; the other tones pass.
-        rules: [{ id: 'color-contrast', enabled: false }],
-      },
-    },
-  },
   render: () => (
     <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
       <Text tone="primary">Primary — titles and values</Text>
       <Text tone="secondary">Secondary — labels and metadata</Text>
       <Text tone="tertiary" variant="footnote">
-        Tertiary — footnotes only, never below 12 px
+        Tertiary — footnotes and hints, same readable tone
       </Text>
     </div>
   ),

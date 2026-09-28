@@ -7,11 +7,11 @@ import { Text } from './text';
 export interface PanelChromeProps extends Omit<ComponentPropsWithoutRef<'section'>, 'title'> {
   /** Module title, `--text-callout`; also the dialog's accessible name. */
   title: ReactNode;
-  /** One line under the title, `--text-footnote` in `--text-2` ("Sitting for 4 min"). */
+  /** Supporting text under the title, `--text-footnote` in `--text-2`; wraps when long. */
   subtitle?: ReactNode;
-  /** Context chips after the title (`Chip`s). */
+  /** Context chips after the title (`Chip`s); they wrap onto their own row when short of room. */
   chips?: ReactNode;
-  /** Right rail of 28 px icon buttons at 4 px gaps; ⤡ collapse is always the right-most. */
+  /** Right rail of 28 px icon buttons at 8 px gaps; ⤡ collapse is always the right-most. */
   rail?: ReactNode;
   /** Optional row under the body (pager dots, a hint, secondary actions). */
   footer?: ReactNode;
@@ -21,9 +21,10 @@ export interface PanelChromeProps extends Omit<ComponentPropsWithoutRef<'section
 /**
  * Expanded-panel chrome (docs/05-design-system.md "Panel", "Panel header";
  * docs/reference/ui-observations.md §2): 16 px padding all round so card corners stay
- * concentric, a 44 px header — title and subtitle left, chips beside them, the icon rail right —
- * then the body slot and an optional footer. A non-modal dialog labelled by its title; nothing
- * inside traps focus.
+ * concentric, a header at least 44 px tall — title and subtitle left, the icon rail right,
+ * chips beside the title or on a row of their own — then the body slot and an optional
+ * footer. Titles wrap rather than truncate: a module name the user cannot read is worse than a
+ * taller header. A non-modal dialog labelled by its title; nothing inside traps focus.
  */
 export function PanelChrome({
   title,
@@ -46,11 +47,11 @@ export function PanelChrome({
     >
       <header className="muna-panel__header">
         <div className="muna-panel__heading">
-          <Text as="h1" id={titleId} variant="callout" truncate={1} className="muna-panel__title">
+          <Text as="h1" id={titleId} variant="callout" className="muna-panel__title">
             {title}
           </Text>
           {subtitle !== undefined && (
-            <Text as="p" variant="footnote" tone="secondary" truncate={1}>
+            <Text as="p" variant="footnote" tone="secondary" className="muna-panel__subtitle">
               {subtitle}
             </Text>
           )}
