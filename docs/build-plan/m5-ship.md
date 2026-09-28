@@ -333,7 +333,61 @@ pt-BR (machine-draft + review notes); RTL smoke test with ar pseudo-locale; date
 formatting via Intl with the user's Windows locale.
 ```
 
+## Stack and merge order
+
+Every agent-buildable M5 epic landed as one PR stacked on the previous one, on the M4
+close-out because nothing has merged since M1:
+
+| PR | Epic | Base |
+| --- | ------ | ------ |
+| [#47](https://github.com/miklol/Muna/pull/47) | M5-E1a Support & diagnostics | `m4-close-out` (#46) |
+| [#48](https://github.com/miklol/Muna/pull/48) | M5-E1b Health | #47 |
+| [#49](https://github.com/miklol/Muna/pull/49) | M5-E1c Mirror | #48 |
+| [#50](https://github.com/miklol/Muna/pull/50) | M5-E1d Translation | #49 |
+| [#51](https://github.com/miklol/Muna/pull/51) | M5-E6 Localization | #50 |
+| [#52](https://github.com/miklol/Muna/pull/52) | M5-E3 Accessibility | #51 |
+| [#53](https://github.com/miklol/Muna/pull/53) | M5-E2 Fidelity pass | #52 |
+| [#56](https://github.com/miklol/Muna/pull/56) | M5-E5 Landing site | #53 |
+| M5_CLOSE_PR | M5 close-out (this document, the roadmap, the risk register) | #56 |
+
+Merge from the bottom of the M2 stack upwards (#22 → … → #46 → #47 → … → #56 → the
+close-out), retargeting each PR to `main` as its base merges — GitHub does this on its own
+when the base branch is deleted. Every PR passes the parity commands locally (`pnpm -w ci`,
+`ci:rust`, `ci:deps`, `ci:app`, the docs checks); the hosted checks have not run because the
+GitHub Actions budget is exhausted ("The job was not started because an Actions budget is
+preventing further use" on every job, #56 included). When it is restored, `gh run rerun
+--failed <run id>` on each PR is enough. `#54` and `#55` are Dependabot's and independent.
+
+What the milestone's own passes caught that the unit suites could not, for the record: the
+fidelity audit found that the shell sizes a panel to its content, so every module that assumed
+a 284 px body (`flex: 1 1 0` rows, `block-size: 100%`, unbounded lists) rendered 0 px tall or
+clipped — the dashboard's grid had been 0 px in every build (#53, with the desktop `PanelFrame`
+so the Storybook axe run catches the class from now on); the accessibility audit raised
+`--text-3` to 4.6:1 and found the 44 px touch targets missing (#52); the RTL walk of the
+`ar-XB` pseudo-locale found physical properties and unmirrored glyphs (#51 → #52); the site's
+catalog test found no drift, which is the point of having it (#56).
+
+Carry-overs (listed against the M5 exit criteria in
+[07-roadmap → M5](../07-roadmap.md#m5--polish-p2-tail--10-4-weeks)): the whole of **E4** with
+the maintainer's secrets and workflows (signing route I11 since M0, the updater feed,
+`site.yml` for the Pages deploy); the 14-day nightly perf window and the 7-day soak on three
+machines, which need the budget and the hardware; the manual rows of the six M5 checklists
+(mirror's spike S1 light-on / light-off rows, translation's live run against a real endpoint,
+the Windows Settings language pass, Narrator and the contrast themes on a touch screen);
+native-speaker review of the four machine-drafted locales; a screenshot gallery on the site
+once the release engineer records the polished surfaces; the Windows 10 columns of every
+checklist; the perf smoke's first-launch reading (2124 ms straight after a build, 716 ms on
+the next launch — risk R20, for QA to split into two reported numbers rather than one); the
+WebView2 minimum-version message of risk R15; and the M0–M4 carry-overs that still stand.
+
 ## 1.0 gate
 
 All exit criteria in docs/07-roadmap.md#m5 checked, risk register reviewed, CHANGELOG written,
 tag `v1.0.0`.
+
+*Status at the close-out (2026-09-28):* every P0–P2 module of the
+[feature catalog](../02-feature-catalog.md) is built, documented and stacked; the
+[risk register](../08-risk-register.md#m5-close-review-2026-09-28) carries its milestone-close
+review; the three exit criteria are annotated in the roadmap with what is built and what
+waits for the maintainer. The `CHANGELOG.md` is release-please's once `RELEASE_AUTOMATION` is
+on, and the tag follows the E4 dry run, so the gate itself is the maintainer's to close.
