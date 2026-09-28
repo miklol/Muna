@@ -133,7 +133,8 @@ leaves E4 a kickoff prompt rather than a branch.
   explicit 236 px frame. Doc: [05 › Spacing & sizing](../05-design-system.md#spacing--sizing)
   (the *Panel body* row), [06 › Timings](../06-motion-spec.md#timings-non-spring) (*Paced
   content*), each module doc's height budget.
-- **M5-E5 Landing site** — built on `m5-e5-site` (PR to follow, base `m5-e2-fidelity`):
+- **M5-E5 Landing site** — built on `m5-e5-site`
+  ([#56](https://github.com/miklol/Muna/pull/56), base `m5-e2-fidelity`):
   `apps/site` is one static page (Vite, `base: './'` so the same build serves a project page,
   a custom domain and `vite preview`; plain CSS over the `@muna/ui` tokens, no Tailwind) with
   a hero whose notch is the app's own `NotchSurface`, `StripView`, `PanelChrome` and
