@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   glyphCrossfadeTransition,
+  paced,
+  pacedEase,
+  pacedMinMs,
   reducedMotionTransition,
   shellSpringNames,
   snapZoneRecipe,
@@ -139,5 +142,18 @@ describe('reduced motion and timings', () => {
     expect(staggerDelayS(40)).toBeCloseTo(0.21);
     expect(staggerDelayS(-3)).toBe(0);
     expect(tileStaggerRecipe.enterFrom).toEqual({ opacity: 0, y: 8, scale: 0.94 });
+  });
+});
+
+describe('paced', () => {
+  it('takes its length from the content and its curve from the package', () => {
+    expect(paced(4000)).toEqual({ duration: 4, ease: [0.42, 0, 0.58, 1] });
+    expect(paced(4000).ease).toEqual([...pacedEase]);
+  });
+
+  it('never goes below the minimum so a nearly-over phase still eases', () => {
+    expect(paced(0).duration).toBeCloseTo(pacedMinMs / 1000);
+    expect(paced(-50).duration).toBeCloseTo(pacedMinMs / 1000);
+    expect(paced(pacedMinMs + 1).duration).toBeCloseTo((pacedMinMs + 1) / 1000);
   });
 });
