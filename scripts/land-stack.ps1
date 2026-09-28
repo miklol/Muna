@@ -139,7 +139,7 @@ function Invoke-RebaseOnto {
 
 # --- Simulation ------------------------------------------------------------------------------
 if ($Simulate) {
-  $simBranch = 'land-stack/simulated-main'
+  $simBranch = 'land-stack-simulated-main'
   $simDir = "$scratch-main"
   try {
     Invoke-Git @('branch', '-D', $simBranch) -AllowFailure | Out-Null
@@ -234,6 +234,13 @@ function Push-Rebased {
   Invoke-Git @('push', '--quiet', "--force-with-lease=refs/heads/$($Child.headRefName):$($Child.headRefOid)",
     'origin', "${tip}:refs/heads/$($Child.headRefName)") | Out-Null
   $Child.headRefOid = $tip
+  Start-Sleep -Seconds 20 # let GitHub register the new head before its checks are read
+}
+
+function Remove-RemoteBranch {
+  # The repository may delete head branches on merge by itself; a missing ref is not an error.
+  param([string]$Name)
+  & gh api -X DELETE "repos/$repo/git/refs/heads/$Name" 2>$null | Out-Null
 }
 
 try {
@@ -263,13 +270,14 @@ try {
       '--match-head-commit', $pr.headRefOid) | Out-Null
 
     if ($child) {
-      Invoke-Gh @('pr', 'edit', $child.number, '--base', 'main') | Out-Null
-      Invoke-Gh @('api', '-X', 'DELETE', "repos/$repo/git/refs/heads/$($pr.headRefName)") | Out-Null
+      $childBase = (Invoke-Gh @('pr', 'view', $child.number, '--json', 'baseRefName', '--jq', '.baseRefName')).Trim()
+      if ($childBase -ne 'main') { Invoke-Gh @('pr', 'edit', $child.number, '--base', 'main') | Out-Null }
+      Remove-RemoteBranch -Name $pr.headRefName
       Invoke-Git @('fetch', '--quiet', '--prune', 'origin') | Out-Null
       Push-Rebased -Child $child -UpstreamRef $upstreamSha
     }
     else {
-      Invoke-Gh @('api', '-X', 'DELETE', "repos/$repo/git/refs/heads/$($pr.headRefName)") | Out-Null
+      Remove-RemoteBranch -Name $pr.headRefName
     }
   }
   Write-Step "landed $($chain.Count) PRs; run 'git fetch --prune' and reset any stale local branches."
