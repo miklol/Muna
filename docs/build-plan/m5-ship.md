@@ -92,8 +92,9 @@ leaves E4 a kickoff prompt rather than a branch.
   [checklists/localization](../qa/checklists/localization.md) (rows 1–9 need a Windows
   Settings pass on the maintainer's machine).
 - **M5-E3 Accessibility** — built on `m5-e3-accessibility`
-  ([#52](https://github.com/miklol/Muna/pull/52), base `m5-e6-localization`): settings v7 adds `general.contrast` and `general.announceNotices`
-  (Settings → Appearance → *Accessibility*; both follow Windows and stay quiet by default),
+  ([#52](https://github.com/miklol/Muna/pull/52), base `m5-e6-localization`): settings v7
+  adds `general.contrast` and `general.announceNotices` (Settings → Appearance →
+  *Accessibility*; both follow Windows and stay quiet by default),
   mirrored as `data-contrast` on `<html>` and as the strip's `aria-live` (`off` → `polite`);
   `--size-hit-effective` is 44 px under `(pointer: coarse)` and the four controls that were
   only as tall as they look (toggle, checkbox, chip, segmented control) extend their hit area
