@@ -61,6 +61,8 @@ Pieces, in the order the data flows:
   network ring draws the current total against the busiest moment seen in the session, never
   against less than 128 KiB/s, since a rate has no natural maximum. Byte counts use binary
   divisors under `Intl` decimal labels ("15.9 GB" here is "15.9 GB" in Explorer).
+- **Width and height**: the tiles auto-fit at 173 px — two columns at the 720 px minimum panel
+  width, three from about 870 px — so no value ellipsises; the body stays under 284 px.
 - **Settings** (`settings.modules["system-monitor"]`, zod mirror in `@muna/contracts`): show
   CPU in the strip (off) and processes shown 0–10 (default 5; 0 hides the table and skips the
   process walk).

@@ -180,6 +180,7 @@ module via specta.
 | Wide strip | up to 420 wide during wide form |
 | Panel | width `clamp(720, monitor − 80, 1000)`; height by content, min 190, max 360 |
 | Panel padding | 16 all round (keeps card corners concentric); header 44 tall |
+| Panel body | what is left: 284 at most (360 − 2 × 16 − 44). Content-sized — a module declares the height of anything that must scroll or fill (a list's `max-block-size`, a grid's rows, a frame's height); `flex: 1 1 0` and `block-size: 100%` resolve to nothing here |
 | Module bar | 640 × 40, 12 px gap below panel; icons 20, gap 8, active pill 32 × 32 |
 | Icon button | 28 circle, icon 16; large 36 circle, icon 20 |
 | Chip | height 24, padding 0 10, icon 12, text 12/600 |

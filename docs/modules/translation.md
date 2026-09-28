@@ -103,7 +103,10 @@ and model, whether a key is saved, whether the provider needs one, and how many 
 
 Panel (`translation`), a notch widget with the language pair, the settings pane, and the
 command-palette action `translation.translate` (*Translate text*), which opens the panel with
-the source box focused.
+the source box focused. The panel is content-sized: the source and output boxes are 98 px
+tall each, the language list scrolls inside 204 px and a language button is at most 14 em
+wide, so the panel fills the shell's 360 px at the 720 px minimum width and no language name
+truncates.
 
 ### Deferred
 

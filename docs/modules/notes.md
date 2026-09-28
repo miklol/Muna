@@ -87,6 +87,9 @@ Pieces, in the order a keystroke flows:
   character — "appends to Inbox" in the spec is the cursor at the end, not a Rust-side
   append, so the user sees what is already there. A folder problem replaces the list with an
   empty state that names the folder and opens Settings.
+- **Height budget**: the rows scroll inside 219 px and the editor's text area is 219 px tall
+  (the preview at most that), so the list and the editor both land on the shell's 360 px
+  maximum with the count and the status line in view.
 - **Markdown-lite preview** (`markdown-lite.tsx`): a line-oriented reading of headings,
   paragraphs, bullet, numbered and task lists (a glyph, never a control — the file is the
   truth), quotes, fenced code, rules, with inline code, bold, italic and links. Output is
