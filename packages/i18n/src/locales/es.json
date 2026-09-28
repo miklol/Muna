@@ -1,0 +1,2037 @@
+{
+  "app": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "name": "Muna"
+  },
+  "notch": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "placeholder": "Muna se está ejecutando.",
+    "strip": "Franja del notch",
+    "modules": "Módulos",
+    "moreModules": "Más módulos",
+    "pin": "Mantener el panel abierto",
+    "unpin": "Dejar que el panel se cierre solo",
+    "collapse": "Contraer a la franja",
+    "empty": {
+      "title": "Nada que mostrar todavía",
+      "body": "Los módulos aparecen aquí a medida que se añaden."
+    }
+  },
+  "strip": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "message": {
+      "batteryLow": "Batería baja",
+      "bluetoothConnected": "{{name}} conectado",
+      "bluetoothDisconnected": "{{name}} desconectado",
+      "deviceBatteryLow": "Batería de {{name}} baja",
+      "timerFinished": "{{label}} terminado",
+      "nowPlaying": "{{title}} · {{artist}}",
+      "nowPlayingNoArtist": "{{title}}",
+      "pomodoroWork": "Concentración",
+      "pomodoroShortBreak": "Descanso corto",
+      "pomodoroLongBreak": "Descanso largo",
+      "pomodoroWorkFinished": "Concentración terminada",
+      "pomodoroShortBreakFinished": "Descanso corto terminado",
+      "pomodoroLongBreakFinished": "Descanso largo terminado",
+      "eventUntitled": "Evento sin título",
+      "notification": "{{app}} · {{title}}",
+      "notificationUntitled": "Notificación",
+      "dropRunning": {
+        "share_one": "Compartiendo {{count}} elemento",
+        "share_other": "Compartiendo {{count}} elementos",
+        "copy_one": "Copiando {{count}} elemento",
+        "copy_other": "Copiando {{count}} elementos",
+        "move_one": "Moviendo {{count}} elemento",
+        "move_other": "Moviendo {{count}} elementos",
+        "open_one": "Abriendo {{count}} elemento",
+        "open_other": "Abriendo {{count}} elementos",
+        "openWith_one": "Abriendo {{count}} elemento",
+        "openWith_other": "Abriendo {{count}} elementos",
+        "zip_one": "Comprimiendo {{count}} elemento",
+        "zip_other": "Comprimiendo {{count}} elementos",
+        "unzip_one": "Extrayendo {{count}} archivo comprimido",
+        "unzip_other": "Extrayendo {{count}} archivos comprimidos",
+        "reveal_one": "Mostrando {{count}} elemento",
+        "reveal_other": "Mostrando {{count}} elementos",
+        "trash_one": "Eliminando {{count}} elemento",
+        "trash_other": "Eliminando {{count}} elementos",
+        "eject": "Expulsando la unidad",
+        "shelf_one": "Añadiendo {{count}} elemento al Estante",
+        "shelf_other": "Añadiendo {{count}} elementos al Estante"
+      },
+      "dropFinished": {
+        "share_one": "{{count}} elemento compartido",
+        "share_other": "{{count}} elementos compartidos",
+        "copy_one": "{{count}} elemento copiado",
+        "copy_other": "{{count}} elementos copiados",
+        "move_one": "{{count}} elemento movido",
+        "move_other": "{{count}} elementos movidos",
+        "open_one": "{{count}} elemento abierto",
+        "open_other": "{{count}} elementos abiertos",
+        "openWith_one": "{{count}} elemento abierto",
+        "openWith_other": "{{count}} elementos abiertos",
+        "zip_one": "{{count}} elemento comprimido",
+        "zip_other": "{{count}} elementos comprimidos",
+        "unzip_one": "{{count}} archivo comprimido extraído",
+        "unzip_other": "{{count}} archivos comprimidos extraídos",
+        "reveal_one": "Mostrando {{count}} elemento en el Explorador de archivos",
+        "reveal_other": "Mostrando {{count}} elementos en el Explorador de archivos",
+        "trash_one": "{{count}} elemento movido a la papelera de reciclaje",
+        "trash_other": "{{count}} elementos movidos a la papelera de reciclaje",
+        "eject": "Unidad expulsada",
+        "shelf_one": "{{count}} elemento añadido al Estante",
+        "shelf_other": "{{count}} elementos añadidos al Estante"
+      },
+      "dropFailed": {
+        "share": "No se pudo compartir",
+        "copy": "No se pudo copiar",
+        "move": "No se pudo mover",
+        "open": "No se pudo abrir",
+        "openWith": "No se pudo abrir",
+        "zip": "No se pudo comprimir",
+        "unzip": "No se pudo extraer",
+        "reveal": "No se pudo mostrar en el Explorador de archivos",
+        "trash": "No se pudo eliminar",
+        "eject": "No se pudo expulsar la unidad",
+        "shelf": "No se pudo añadir al Estante"
+      },
+      "reviewRequested": "Revisión solicitada: {{title}}",
+      "checksPassed": "Comprobaciones superadas: {{title}}",
+      "checksFailed": "Comprobaciones fallidas: {{title}}",
+      "screenTimeLimit": "{{app}} · límite de {{limit}} alcanzado",
+      "agentWaiting": "{{agent}} te está esperando",
+      "agentPermission": "{{agent}} quiere ejecutar {{tool}}",
+      "healthBreak": "Hora de un descanso · {{duration}} sentado",
+      "healthFlowMove": "Moverse",
+      "healthFlowBreathe": "Respirar",
+      "healthFlowStretch": "Estirarse",
+      "healthFlowEyeRest": "Descansar la vista",
+      "healthFlowMoveFinished": "Bien, te has movido",
+      "healthFlowBreatheFinished": "Respiración terminada",
+      "healthFlowStretchFinished": "Estiramiento terminado",
+      "healthFlowEyeRestFinished": "Vista descansada",
+      "healthHearing": "Volumen alto durante {{duration}} · {{percent}} %"
+    },
+    "decision": {
+      "allow": "Permitir",
+      "deny": "Denegar"
+    },
+    "duration": {
+      "hours": "{{count}} h",
+      "minutes": "{{count}} min",
+      "hoursMinutes": "{{hours}} h {{minutes}} min"
+    },
+    "describe": {
+      "battery": "Batería {{percent}}",
+      "charging": "Cargando, {{percent}}",
+      "batteryLow": "Batería baja, {{percent}}",
+      "bluetoothBattery": "{{message}}, batería {{percent}}",
+      "deviceBatteryLow": "Batería de {{name}} baja, {{percent}}",
+      "timer": "Quedan {{remaining}}",
+      "timerPaused": "Quedan {{remaining}}, en pausa",
+      "progress": "{{percent}} completado",
+      "image": "Carátula",
+      "nowPlaying": "Reproduciendo {{title}} de {{artist}}",
+      "nowPlayingNoArtist": "Reproduciendo {{title}}",
+      "nowPaused": "En pausa, {{message}}",
+      "waveform": "Reproduciendo",
+      "waveformPaused": "En pausa",
+      "time": "a las {{time}}",
+      "taskDue": "{{title}} vence",
+      "taskDueAt": "{{title}} vence {{fact}}",
+      "event": "A continuación, {{title}}",
+      "eventAt": "A continuación, {{title}} {{fact}}",
+      "eventStartingSoon": "{{title}} empieza en diez minutos",
+      "unread_one": "{{count}} sin leer",
+      "unread_other": "{{count}} sin leer",
+      "notificationArrived": "Nuevo de {{app}}: {{title}}",
+      "notificationLatest": "Sin leer de {{app}}: {{title}}",
+      "notificationUnread_one": "{{count}} sin leer, la última de {{app}}: {{title}}",
+      "notificationUnread_other": "{{count}} sin leer, la última de {{app}}: {{title}}",
+      "reviewRequested": "Se solicita tu revisión en {{title}}",
+      "checksPassed": "Comprobaciones superadas en {{title}}",
+      "checksFailed": "Comprobaciones fallidas en {{title}}",
+      "screenTimeLimit": "{{app}} ha alcanzado su límite diario de {{limit}}",
+      "agentWaiting": "{{agent}} te está esperando",
+      "agentPermission": "{{agent}} quiere ejecutar {{tool}}",
+      "agentDecision": "{{agent}} quiere ejecutar {{tool}}, permitir o denegar",
+      "decision": "Permitir o denegar",
+      "healthBreak": "Hora de un descanso, llevas {{duration}} sentado",
+      "healthFlow": "{{flow}}, {{fact}}",
+      "healthHearing": "Volumen alto en los auriculares durante {{duration}} al {{percent}}"
+    },
+    "glyph": {
+      "battery": "Batería",
+      "batteryCharging": "Cargando",
+      "bluetooth": "Bluetooth",
+      "headphones": "Auriculares",
+      "lock": "Bloqueado",
+      "unlock": "Desbloqueado",
+      "timer": "Temporizador",
+      "bell": "Notificación",
+      "music": "Música",
+      "moon": "Asistente de concentración",
+      "play": "En pausa",
+      "volume": "Volumen",
+      "volumeLow": "Volumen",
+      "volumeMedium": "Volumen",
+      "volumeHigh": "Volumen",
+      "volumeMuted": "Silenciado",
+      "sun": "Brillo",
+      "mic": "Micrófono activado",
+      "micMuted": "Micrófono silenciado",
+      "checkCircle": "Tarea",
+      "cpu": "Procesador",
+      "hourglass": "Jornada laboral",
+      "calendar": "Calendario",
+      "folder": "Carpeta",
+      "archive": "Archivo comprimido",
+      "share": "Compartir",
+      "trash": "Papelera de reciclaje",
+      "drive": "Unidad",
+      "shelf": "Estante",
+      "pullRequest": "Pull request",
+      "xCircle": "Error",
+      "terminal": "Agente de programación",
+      "heart": "Salud"
+    }
+  },
+  "spike": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "label": "Ventana de prueba de Muna",
+    "strip": "Franja",
+    "panel": "Panel",
+    "hint": "Pulsa Ctrl+Alt+M para transformar, Ctrl+Alt+P para aparcar y Ctrl+Alt+C para ocultar de las capturas."
+  },
+  "media": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Multimedia",
+    "actions": {
+      "playPause": "Reproducir o pausar"
+    },
+    "empty": {
+      "title": "Nada en reproducción",
+      "body": "Reproduce algo en Spotify, un navegador u otra aplicación y aparecerá aquí."
+    },
+    "unknownTitle": "Título desconocido",
+    "position": "Posición de reproducción",
+    "transport": "Controles de reproducción",
+    "play": "Reproducir",
+    "pause": "Pausar",
+    "next": "Siguiente pista",
+    "previous": "Pista anterior",
+    "shuffle": "Aleatorio",
+    "repeat": "Repetir",
+    "repeatOne": "Repetir una pista",
+    "apps": "Aplicaciones con contenido multimedia",
+    "showApp": "Mostrar {{app}}",
+    "settings": {
+      "source": "Origen",
+      "preferredApp": "Aplicación preferida",
+      "preferredAppBody": "Automático sigue a la aplicación que esté reproduciendo. Elegir una aplicación mantiene el notch en ella mientras tenga algo que mostrar.",
+      "auto": "Automático",
+      "refresh": "Sesiones",
+      "refreshBody": "Volver a preguntar a Windows por las aplicaciones que reproducen, si alguna parece atascada.",
+      "refreshAction": "Actualizar",
+      "look": "Aspecto",
+      "adaptiveColours": "Colores adaptativos",
+      "adaptiveColoursBody": "Tiñe la franja y el panel con colores de la carátula.",
+      "visualiser": "Visualizador",
+      "visualiserBody": "Barras de audio junto a la carátula mientras suena la música.",
+      "visualiserBars": "Barras",
+      "visualiserOff": "Desactivado"
+    }
+  },
+  "hud": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Volumen y brillo",
+    "volume": "Volumen",
+    "brightness": "Brillo",
+    "settings": {
+      "flyout": "Control flotante de Windows",
+      "replaceSystemFlyout": "Sustituir el control flotante del sistema",
+      "replaceSystemFlyoutBody": "Oculta la ventana emergente de volumen y brillo de Windows mientras Muna se ejecuta. Si Muna se detiene de forma inesperada, la ventana vuelve en menos de dos segundos.",
+      "flyoutState": "Estado",
+      "flyoutSuppressed": "Oculta mientras Muna se ejecuta",
+      "flyoutNative": "Ventana emergente de Windows visible",
+      "flyoutUnavailable": "Todavía no se ha encontrado. Aparece tras la primera pulsación de una tecla de volumen.",
+      "strip": "Franja",
+      "scrollOnStrip": "Desplazamiento en la franja",
+      "scrollOnStripBody": "Qué hace la rueda del ratón sobre la franja cerrada. El volumen funciona ahí siempre que el nivel esté visible.",
+      "scrollPanel": "Abrir el panel",
+      "scrollVolume": "Cambiar el volumen",
+      "showLevelText": "Mostrar el nivel en texto",
+      "showLevelTextBody": "Muestra el porcentaje junto a la barra de nivel.",
+      "levels": "Niveles",
+      "mute": "Silenciar",
+      "muteBody": "Silencia la salida predeterminada. Subir el volumen quita el silencio.",
+      "micMute": "Silenciar el micrófono",
+      "micMuteBody": "Silencia el micrófono predeterminado para todas las aplicaciones.",
+      "brightness": "Brillo",
+      "brightnessBody": "Cada pantalla que se puede ajustar. Las pantallas sin DDC/CI no aparecen.",
+      "brightnessEmpty": "No se encontró ninguna pantalla ajustable."
+    }
+  },
+  "pomodoro": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Pomodoro",
+    "actions": {
+      "toggle": "Iniciar o pausar el temporizador"
+    },
+    "widget": {
+      "running": "En marcha",
+      "paused": "En pausa"
+    },
+    "phase": {
+      "work": "Concentración",
+      "shortBreak": "Descanso corto",
+      "longBreak": "Descanso largo"
+    },
+    "presets": "Fase",
+    "start": "Iniciar",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "reset": "Restablecer",
+    "skip": "Omitir",
+    "remaining": "Quedan {{remaining}}",
+    "ring": "{{phase}}, quedan {{remaining}}",
+    "ringPaused": "{{phase}}, quedan {{remaining}}, en pausa",
+    "ringIdle": "{{phase}}, {{total}}",
+    "cycle": "{{done}} de {{total}} fases de concentración antes del descanso largo",
+    "sessionsToday_zero": "Ninguna sesión hoy",
+    "sessionsToday_one": "1 sesión hoy",
+    "sessionsToday_other": "{{count}} sesiones hoy",
+    "finished": "{{phase}} terminada",
+    "finishedAsleep": "{{phase}} terminada mientras el PC estaba suspendido",
+    "settings": {
+      "lengths": "Duraciones",
+      "workMinutes": "Concentración",
+      "shortBreakMinutes": "Descanso corto",
+      "longBreakMinutes": "Descanso largo",
+      "minutes": "{{count}} min",
+      "cycle": "Ciclo",
+      "longBreakEvery": "Descanso largo después de",
+      "longBreakEveryBody": "Cuántas fases de concentración forman un ciclo. El descanso tras la última es el largo.",
+      "phases": "{{count}} fases",
+      "flow": "Secuencia",
+      "autoStartNext": "Iniciar la siguiente fase automáticamente",
+      "autoStartNextBody": "Los descansos y las fases de concentración se suceden sin tocar nada. Una duración cambiada se aplica a la siguiente fase que empiece."
+    }
+  },
+  "todo": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Tareas",
+    "actions": {
+      "quickAdd": "Añadir una tarea"
+    },
+    "widget": {
+      "empty": "Nada pendiente",
+      "more_one": "{{count}} más",
+      "more_other": "{{count}} más"
+    },
+    "inbox": "Tareas",
+    "lists": "Lista",
+    "add": "Añadir una tarea",
+    "dueIn": "Vence {{due}}",
+    "due": {
+      "today": "Hoy",
+      "tomorrow": "Mañana",
+      "yesterday": "Ayer",
+      "dayAt": "{{day}}, {{time}}",
+      "overdueSuffix": ", atrasada"
+    },
+    "moveToTrash": "Mover {{title}} a la papelera",
+    "clearCompleted": "Quitar las completadas",
+    "trash": "Papelera",
+    "restore": "Restaurar {{title}}",
+    "emptyTrash": "Vaciar la papelera",
+    "retention_one": "Las tareas eliminadas se quitan después de 1 día",
+    "retention_other": "Las tareas eliminadas se quitan después de {{count}} días",
+    "empty": "Escribe una tarea arriba y pulsa Intro",
+    "emptyBody": "Añade una fecha en palabras, como «mañana 15:00», para fijar cuándo vence.",
+    "trashEmpty": "Nada en la papelera",
+    "trashEmptyBody_one": "Una tarea que muevas a la papelera se queda aquí 1 día y se puede restaurar.",
+    "trashEmptyBody_other": "Una tarea que muevas a la papelera se queda aquí {{count}} días y se puede restaurar.",
+    "settings": {
+      "trash": "Papelera",
+      "retentionDays": "Conservar las tareas eliminadas durante",
+      "retentionDaysBody": "Pasado ese tiempo, las tareas de la papelera se quitan para siempre.",
+      "days_one": "1 día",
+      "days_other": "{{count}} días",
+      "strip": "Franja",
+      "showDueInStrip": "Mostrar la próxima tarea que vence en la franja",
+      "showDueInStripBody": "Aparece una hora antes de que venza una tarea con hora y se queda 15 minutos después. Las tareas de todo el día nunca se muestran.",
+      "dueNotices": "Anunciar una tarea cuando vence",
+      "dueNoticesBody": "Un aviso breve en la franja a la hora de vencimiento.",
+      "lists": "Listas",
+      "listsBody": "Cada tarea vive en una sola lista. Eliminar una lista mueve sus tareas a la papelera.",
+      "defaultList": "Predeterminada",
+      "deleteList": "Eliminar la lista {{name}}",
+      "newList": "Nueva lista",
+      "newListPlaceholder": "Nombre y luego Intro"
+    }
+  },
+  "systemMonitor": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Sistema",
+    "cpu": "CPU",
+    "memory": "Memoria",
+    "storage": "Almacenamiento",
+    "network": "Red",
+    "battery": "Batería",
+    "freeDisk": "Espacio libre",
+    "pending": "—",
+    "waiting": "Leyendo…",
+    "cores_one": "{{count}} núcleo",
+    "cores_other": "{{count}} núcleos",
+    "ofTotal": "de {{total}}",
+    "networkDetail": "↓ {{down}} ↑ {{up}}",
+    "charging": "Cargando",
+    "notCharging": "Sin cargar",
+    "noBattery": "Sin batería",
+    "gaugeValue": "{{label}}: {{value}}",
+    "processes": "Procesos principales",
+    "processName": "Nombre",
+    "processCpu": "CPU",
+    "processMemory": "Memoria",
+    "instances_one": "{{count}} proceso",
+    "instances_other": "{{count}} procesos",
+    "instancesShort": "×{{count}}",
+    "settings": {
+      "strip": "Franja",
+      "showCpuInStrip": "Mostrar la CPU en la franja",
+      "showCpuInStripBody": "Un pequeño indicador del procesador en la franja contraída, actualizado cada 10 segundos. Sin él, no se mide nada mientras el panel está cerrado.",
+      "panel": "Panel",
+      "processCount": "Procesos mostrados",
+      "processCountBody": "Los procesos más activos, primero los de mayor CPU. Elige Ninguno para ocultar la lista y omitir el recorrido de procesos.",
+      "processRows_zero": "Ninguno",
+      "processRows_one": "{{count}} proceso",
+      "processRows_other": "{{count}} procesos"
+    }
+  },
+  "bluetooth": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Bluetooth",
+    "widget": {
+      "none": "No hay dispositivos conectados",
+      "more_one": "{{count}} más",
+      "more_other": "{{count}} más"
+    },
+    "radio": "Bluetooth",
+    "radioOn": "Activado",
+    "radioOff": "Desactivado",
+    "radioUnavailable": "No hay radio Bluetooth",
+    "radioBody": "Desactiva la radio para detener todos los dispositivos a la vez.",
+    "devices": "Dispositivos",
+    "connected": "Conectado",
+    "connectedBattery": "Conectado · {{percent}}",
+    "disconnected": "No conectado",
+    "connect": "Conectar",
+    "connecting": "Conectando…",
+    "disconnect": "Desconectar",
+    "disconnectDevice": "Desconectar {{name}}",
+    "disconnecting": "Desconectando…",
+    "kind": {
+      "headphones": "Auriculares",
+      "speaker": "Altavoz",
+      "phone": "Teléfono",
+      "mouse": "Ratón",
+      "keyboard": "Teclado",
+      "controller": "Mando",
+      "other": "Dispositivo"
+    },
+    "error": {
+      "unsupported": "No compatible con este dispositivo",
+      "notFound": "Este dispositivo ya no está emparejado",
+      "accessDenied": "Windows no lo ha permitido",
+      "os": "Algo ha fallado; inténtalo de nuevo"
+    },
+    "empty": {
+      "title": "No hay dispositivos emparejados",
+      "body": "Empareja un dispositivo en la configuración de Windows y aparecerá aquí."
+    },
+    "off": {
+      "title": "El Bluetooth está desactivado",
+      "body": "Actívalo para ver tus dispositivos."
+    },
+    "unavailable": {
+      "title": "El Bluetooth no está disponible",
+      "body": "Este PC no tiene radio Bluetooth, o Windows no deja que Muna la use."
+    },
+    "settings": {
+      "notices": "Avisos",
+      "lowBatteryNotices": "Avisos de batería baja",
+      "lowBatteryNoticesBody": "Anuncia un dispositivo conectado en la franja cuando su batería llega al 20 % y de nuevo al 10 %.",
+      "devices": "Dispositivos en el panel",
+      "devicesBody": "Los dispositivos emparejados que ocultes siguen emparejados; solo salen de la lista.",
+      "noDevices": "No hay dispositivos emparejados que mostrar.",
+      "showDevice": "Mostrar en el panel"
+    }
+  },
+  "weather": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Clima",
+    "currentLocation": "Ubicación actual",
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando…",
+    "updated": "Actualizado {{time}}",
+    "now": "Ahora",
+    "today": "Hoy",
+    "hourly": "Próximas horas",
+    "daily": "Próximos días",
+    "feelsLike": "Sensación {{value}}",
+    "high": "Máx {{value}}",
+    "low": "Mín {{value}}",
+    "humidity": "Humedad",
+    "wind": "Viento",
+    "uv": "UV",
+    "pressure": "Presión",
+    "hpa": "{{value}} hPa",
+    "sunrise": "Amanecer",
+    "sunset": "Atardecer",
+    "chance": "{{value}} de probabilidad de lluvia",
+    "condition": {
+      "clear": "Despejado",
+      "mainlyClear": "Mayormente despejado",
+      "partlyCloudy": "Parcialmente nublado",
+      "overcast": "Cubierto",
+      "fog": "Niebla",
+      "drizzle": "Llovizna",
+      "rain": "Lluvia",
+      "snow": "Nieve",
+      "showers": "Chubascos",
+      "snowShowers": "Chubascos de nieve",
+      "thunderstorm": "Tormenta",
+      "unknown": "Clima"
+    },
+    "off": {
+      "title": "El clima está desactivado",
+      "body": "Actívalo en los ajustes para ver el pronóstico. Muna se lo pide entonces a Open-Meteo cada cuarto de hora.",
+      "action": "Abrir ajustes"
+    },
+    "locating": {
+      "title": "Buscando tu ubicación",
+      "body": "Windows está averiguando dónde estás."
+    },
+    "chooseCity": {
+      "title": "Elige una ciudad",
+      "denied": "Windows no comparte tu ubicación con Muna. Elige una ciudad en los ajustes, o permite la ubicación para aplicaciones de escritorio e inténtalo de nuevo.",
+      "unavailable": "Este PC no tiene una fuente de ubicación. Elige una ciudad en los ajustes.",
+      "failed": "No se pudo encontrar tu ubicación ahora mismo. Muna lo intentará de nuevo en breve.",
+      "action": "Elegir una ciudad",
+      "retry": "Intentar de nuevo"
+    },
+    "loading": "Cargando el pronóstico",
+    "error": {
+      "offline": {
+        "title": "Parece que estás sin conexión",
+        "body": "El pronóstico se actualizará cuando vuelvas a estar en línea."
+      },
+      "provider": {
+        "title": "El servicio meteorológico tiene problemas",
+        "body": "Muna lo intentará de nuevo en breve."
+      },
+      "retry": "Intentar de nuevo"
+    },
+    "settings": {
+      "section": "Pronóstico",
+      "privacy": "El clima está desactivado hasta que lo actives. Cuando está activo, Muna solo envía coordenadas redondeadas a Open-Meteo, un servicio de pronóstico gratuito sin cuenta, y guarda el último pronóstico en este PC.",
+      "show": "Mostrar el clima",
+      "showBody": "Obtiene un pronóstico cada cuarto de hora mientras Muna está en ejecución.",
+      "location": "Ubicación",
+      "useCurrent": "Ubicación actual",
+      "useCity": "Ciudad",
+      "locationBody": "Ubicación actual consulta a Windows una sola vez y redondea la respuesta a un kilómetro aproximadamente.",
+      "search": "Buscar una ciudad",
+      "searchPlaceholder": "Nombre de la ciudad",
+      "searching": "Buscando…",
+      "noResults": "Ningún lugar coincide. Prueba con la ciudad grande más cercana.",
+      "searchOff": "Activa el clima para buscar una ciudad.",
+      "searchOffline": "La búsqueda necesita conexión.",
+      "searchFailed": "La búsqueda de lugares no responde; inténtalo de nuevo en breve.",
+      "place": "Ciudad elegida",
+      "noPlace": "Ninguna todavía",
+      "choosePlace": "Usar {{name}}",
+      "units": "Unidades",
+      "metric": "°C, km/h",
+      "imperial": "°F, mph"
+    }
+  },
+  "calendar": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Calendario",
+    "month": "Mes",
+    "agenda": "Agenda",
+    "today": "Hoy",
+    "previousMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente",
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando",
+    "offline": "Sin conexión",
+    "attention": "Algunos calendarios necesitan atención",
+    "allDay": "Todo el día",
+    "untitled": "Evento sin título",
+    "join": "Unirse",
+    "joinNamed": "Unirse a {{title}}",
+    "open": "Abrir",
+    "openNamed": "Abrir {{title}}",
+    "noEvents": "Nada este día.",
+    "outsideWindow": "Solo se cargan los sesenta días alrededor de hoy.",
+    "eventCount_one": "{{count}} evento",
+    "eventCount_other": "{{count}} eventos",
+    "empty": {
+      "title": "Aún no hay calendarios",
+      "body": "Añade un enlace de calendario en Ajustes y tus eventos se mostrarán aquí, y en la franja antes de empezar.",
+      "action": "Abrir ajustes"
+    },
+    "widget": {
+      "label": "Próximos eventos",
+      "nothingAhead": "Nada por delante"
+    },
+    "settings": {
+      "section": "Calendarios",
+      "privacy": "Muna descarga cada enlace de calendario desde este PC con la frecuencia de abajo. Los enlaces se quedan en el Administrador de credenciales de Windows y nunca aparecen en el archivo de ajustes ni en una exportación.",
+      "add": "Añadir un calendario",
+      "addBody": "Pega el enlace ICS o webcal que tu app de calendario ofrece en compartir, publicar o suscribirse.",
+      "name": "Nombre",
+      "namePlaceholder": "Trabajo",
+      "address": "Enlace",
+      "addressPlaceholder": "webcal://…",
+      "color": "Color",
+      "colors": {
+        "blue": "Azul",
+        "cyan": "Cian",
+        "green": "Verde",
+        "orange": "Naranja",
+        "red": "Rojo",
+        "purple": "Morado",
+        "yellow": "Amarillo",
+        "pink": "Rosa"
+      },
+      "addAction": "Añadir",
+      "adding": "Añadiendo…",
+      "added": "Se ha añadido {{name}}. Sus eventos llegarán en un momento.",
+      "nameMissing": "Dale un nombre al calendario.",
+      "addFailed": {
+        "malformed": "Eso no es un enlace web.",
+        "scheme": "Solo funcionan los enlaces https y webcal.",
+        "credentials": "Quita el nombre de usuario y la contraseña del enlace.",
+        "vault": "Windows no pudo guardar el enlace. Inténtalo de nuevo.",
+        "failed": "Eso no ha funcionado. Inténtalo de nuevo."
+      },
+      "show": "Mostrar {{name}}",
+      "remove": "Quitar {{name}}",
+      "events_one": "{{count}} evento",
+      "events_other": "{{count}} eventos",
+      "status": {
+        "off": "Desactivado",
+        "idle": "Aún no descargado",
+        "fetching": "Actualizando",
+        "ok": "Actualizado {{time}}",
+        "offline": "Sin conexión",
+        "offlineCached": "Sin conexión, mostrando los eventos de {{time}}",
+        "refused": "El enlace fue rechazado. Puede haber caducado; añade el calendario de nuevo.",
+        "invalid": "El enlace no devolvió un calendario.",
+        "missingLink": "El enlace falta en este PC. Quita el calendario y añádelo de nuevo."
+      },
+      "refresh": "Actualización",
+      "refreshEvery": "Actualizar cada",
+      "refreshBody": "Con qué frecuencia se descarga cada enlace de calendario mientras Muna está en marcha.",
+      "minutes": "{{count}} min",
+      "strip": "Franja",
+      "showNextInStrip": "Mostrar el próximo evento en la franja",
+      "showNextInStripBody": "Un evento dentro de la próxima hora ocupa la franja con una cuenta atrás y se antepone a la música diez minutos antes de empezar.",
+      "notices": "Anunciar los eventos diez minutos antes",
+      "noticesBody": "Un aviso breve en la franja con el título del evento."
+    }
+  },
+  "notifications": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Notificaciones",
+    "list": "Notificaciones por app",
+    "unread_one": "{{count}} sin leer",
+    "unread_other": "{{count}} sin leer",
+    "focusOn": "Concentración activada",
+    "focusOnBody": "Los avisos esperan mientras hay una sesión de concentración. Abre los ajustes de concentración de Windows.",
+    "clearAll": "Borrar todo",
+    "clearing": "Borrando…",
+    "justNow": "Ahora mismo",
+    "untitled": "Notificación",
+    "unreadMark": "Sin leer",
+    "open": "Abrir",
+    "openNamed": "Abrir {{title}}",
+    "dismiss": "Descartar",
+    "dismissNamed": "Descartar {{title}}",
+    "count_one": "{{count}} notificación",
+    "count_other": "{{count}} notificaciones",
+    "mute": "Silenciar {{app}}",
+    "unmute": "Dejar de silenciar {{app}}",
+    "muted": "Silenciada",
+    "clearApp": "Borrar {{app}}",
+    "error": {
+      "notFound": "Windows no pudo abrirla; puede que la notificación ya no exista",
+      "accessDenied": "Windows no lo ha permitido",
+      "unsupported": "No disponible en este Windows",
+      "os": "Algo ha fallado; inténtalo de nuevo"
+    },
+    "empty": {
+      "title": "No hay notificaciones",
+      "body": "Las nuevas aparecen aquí a medida que llegan."
+    },
+    "unspecified": {
+      "title": "Deja que Muna muestre tus notificaciones",
+      "body": "Windows lo pregunta una vez. Las notificaciones se quedan en este PC y nunca se registran.",
+      "action": "Permitir",
+      "asking": "Preguntando a Windows…"
+    },
+    "denied": {
+      "title": "Las notificaciones están desactivadas para Muna",
+      "body": "Actívalas en Configuración › Privacidad › Notificaciones y vuelve a comprobarlo.",
+      "action": "Abrir la Configuración de Windows",
+      "recheck": "Comprobar de nuevo"
+    },
+    "unavailable": {
+      "title": "Las notificaciones no están disponibles",
+      "body": "Este Windows no tiene un escucha de notificaciones que las apps puedan leer."
+    },
+    "settings": {
+      "access": "Acceso",
+      "accessLabel": "Lectura de las notificaciones de Windows",
+      "accessState": {
+        "allowed": "Permitida. Muna lee el Centro de actividades solo en este PC.",
+        "denied": "Desactivada en la Configuración de Windows.",
+        "unspecified": "Aún no se le ha preguntado a Windows.",
+        "unavailable": "No disponible en este Windows."
+      },
+      "windowsSettings": "Configuración de Windows",
+      "delivery": "Entrega",
+      "deliveryPush": "Instantánea",
+      "deliveryPolling": "Comprobada cada segundo",
+      "deliveryPollingBody": "Esta compilación no tiene identidad de paquete, así que Windows no puede avisar a Muna cuando algo cambia. La compilación de la Store se entera de los cambios al instante.",
+      "strip": "Franja",
+      "arrivalNotices": "Anunciar notificaciones nuevas",
+      "arrivalNoticesBody": "Un aviso breve en la franja con el remitente y el título, retenido mientras Windows indica que estás ocupado o hay una sesión de concentración.",
+      "showUnreadInStrip": "Mostrar las no leídas en la franja",
+      "showUnreadInStripBody": "El último remitente y el recuento de no leídas se quedan en la franja hasta que abres el panel.",
+      "mutedApps": "Apps silenciadas",
+      "mutedAppsBody": "Las apps silenciadas se quedan en el panel, pero nunca se anuncian ni se cuentan. Silencia una desde su fila en el panel.",
+      "noMutedApps": "No hay apps silenciadas.",
+      "unmute": "Dejar de silenciar"
+    }
+  },
+  "dayProgress": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Día",
+    "today": "Hoy",
+    "stats": "Hoy de un vistazo",
+    "completion": "Completadas",
+    "completionValue": "{{done}} de {{total}}",
+    "completionNone": "Aún no hay tareas con hora",
+    "completionLabel": "Tareas completadas hoy",
+    "workingDay": "Jornada laboral",
+    "workingDayLabel": "Parte de la jornada laboral que ha pasado",
+    "workingDayValue": "{{percent}} transcurrido",
+    "startsAt": "Empieza a las {{time}}",
+    "over": "Terminada por hoy",
+    "tasks_one": "{{count}} tarea que vence",
+    "tasks_other": "{{count}} tareas que vencen",
+    "focusSessions_one": "{{count}} sesión de concentración",
+    "focusSessions_other": "{{count}} sesiones de concentración",
+    "bedtime": "Hora de dormir",
+    "bedtimeUnset": "Sin definir",
+    "timeline": "Cronología",
+    "now": "Ahora",
+    "focus": "Concentración",
+    "focusPaused": "Concentración, en pausa",
+    "focusUntil": "hasta las {{time}}",
+    "taskDone": "Hecha",
+    "taskOpen": "Vence",
+    "gap": "Tramo largo — {{duration}} libres",
+    "gapBody": "Nada planeado entre las {{start}} y las {{end}}.",
+    "addTask": "Añadir una tarea",
+    "empty": {
+      "title": "Aún no hay nada en la cronología",
+      "body": "Da a una tarea una hora de vencimiento hoy, o inicia una sesión de concentración, y aparecerá aquí."
+    },
+    "duration": {
+      "hours": "{{count}} h",
+      "minutes": "{{count}} min",
+      "hoursMinutes": "{{hours}} h {{minutes}} min"
+    },
+    "settings": {
+      "hours": "Horario laboral",
+      "hoursBody": "El tramo que cubren la barra del día y la pista de tiempo libre.",
+      "start": "Inicio",
+      "end": "Fin",
+      "bedtime": "Hora de dormir",
+      "showBedtime": "Mostrar una marca de hora de dormir",
+      "showBedtimeBody": "Termina la cronología con la hora de dormir que elijas.",
+      "bedtimeAt": "Hora de dormir",
+      "strip": "Franja",
+      "showDayInStrip": "Mostrar la barra del día en la franja",
+      "showDayInStripBody": "Una pequeña barra de la jornada laboral en la franja plegada, solo durante el horario laboral.",
+      "sources": "Cronología",
+      "showTasks": "Tareas que vencen hoy",
+      "showTasksBody": "Tareas con hora de vencimiento hoy, del módulo de tareas.",
+      "showFocusSessions": "Sesiones de concentración",
+      "showFocusSessionsBody": "La fase pomodoro en marcha y el recuento de hoy."
+    }
+  },
+  "dashboard": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Panel de control",
+    "grid": "Widgets",
+    "widget": "Widget {{name}}",
+    "summary_one": "{{count}} widget",
+    "summary_other": "{{count}} widgets",
+    "edit": "Editar la disposición",
+    "done": "Terminar la edición",
+    "hint": "Arrastra un widget sobre otro para intercambiarlos, o usa sus flechas",
+    "open": "Abrir {{name}}",
+    "arrange": "Organizar {{name}}",
+    "moveLeft": "Mover {{name}} a la izquierda",
+    "moveRight": "Mover {{name}} a la derecha",
+    "wider": "Ensanchar {{name}}",
+    "narrower": "Estrechar {{name}}",
+    "remove": "Quitar {{name}}",
+    "addTitle": "Añadir un widget",
+    "add": "Añadir {{name}}",
+    "empty": {
+      "title": "No hay widgets en la cuadrícula",
+      "body": "Elige Editar la disposición para añadir las tarjetas que quieras ver."
+    },
+    "settings": {
+      "layout": "Disposición",
+      "layoutBody": "Organiza la cuadrícula desde el propio panel de control: elige Editar la disposición en el panel.",
+      "widgets": "Widgets en la cuadrícula",
+      "cells": "{{used}} de {{total}} celdas en uso",
+      "count_one": "{{count}} widget",
+      "count_other": "{{count}} widgets",
+      "reset": "Restablecer la disposición",
+      "resetBody": "Devuelve cada widget a su lugar y tamaño predeterminados.",
+      "resetAction": "Restablecer"
+    }
+  },
+  "shortcuts": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Atajos de teclado",
+    "group": {
+      "shell": "Notch"
+    },
+    "actions": {
+      "togglePanel": "Mostrar u ocultar el notch",
+      "palette": "Abrir la paleta de comandos",
+      "snooze": "Posponer el notch",
+      "nextModule": "Módulo siguiente",
+      "previousModule": "Módulo anterior",
+      "openModule": "Abrir el módulo {{n}}"
+    },
+    "palette": {
+      "title": "Comandos",
+      "search": "Buscar comandos",
+      "placeholder": "Escribe un comando",
+      "clear": "Borrar búsqueda",
+      "empty": "No hay comandos que coincidan"
+    },
+    "recorder": {
+      "label": "Atajo para {{action}}",
+      "unset": "Sin definir",
+      "prompt": "Pulsa un atajo",
+      "clear": "Borrar el atajo de {{action}}"
+    },
+    "state": {
+      "inUse": "En uso por otra app",
+      "invalid": "No es un atajo válido",
+      "needsModifier": "Añade Ctrl, Alt o Win",
+      "unsupported": "Esa tecla no se puede asignar",
+      "taken": "Ya lo usa {{action}}"
+    },
+    "snoozeMinutes": "{{minutes}} min",
+    "settings": {
+      "shellBody": "Los atajos globales funcionan en cualquier app. Pulsa el atajo de una fila para cambiarlo; Retroceso lo borra y Esc lo conserva.",
+      "openModule": "Abrir un módulo por número",
+      "openModuleBody": "Los números siguen el orden de la barra, de izquierda a derecha.",
+      "options": "Opciones",
+      "onlyWhileHovering": "Solo al pasar el puntero",
+      "onlyWhileHoveringBody": "Los atajos solo actúan mientras el puntero está sobre el notch.",
+      "snooze": "Posponer durante",
+      "snoozeBody": "Cuánto tiempo se mantiene apartado el notch tras {{chord}}."
+    }
+  },
+  "dropActions": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Acciones al soltar",
+    "row_one": "Suelta {{count}} elemento sobre una acción",
+    "row_other": "Suelta {{count}} elementos sobre una acción",
+    "tiles": {
+      "nearbyShare": "Uso compartido en proximidad",
+      "nearbyShareBody": "Hoja de compartir",
+      "shelf": "Estante",
+      "shelfBody": "Guardar para luego",
+      "copyTo": "Copiar a",
+      "moveTo": "Mover a",
+      "chooseFolder": "Elegir una carpeta",
+      "openWith": "Abrir con",
+      "openWithBody": "Elegir una app",
+      "zip": "Comprimir",
+      "zipBody": "Un solo archivo",
+      "unzip": "Descomprimir",
+      "unzipBody": "Extraer archivos",
+      "reveal": "Mostrar en el Explorador",
+      "revealBody": "Seleccionar los archivos",
+      "trash": "Papelera de reciclaje",
+      "trashBody": "Deshacer en el Explorador",
+      "eject": "Expulsar",
+      "ejectBody": "Quitar la unidad",
+      "copyHere": "Copiar aquí",
+      "moveHere": "Mover aquí",
+      "divider": "Separador",
+      "dividerBody": "Un hueco entre mosaicos",
+      "more": "Más",
+      "moreBody_one": "{{count}} mosaico más",
+      "moreBody_other": "{{count}} mosaicos más"
+    },
+    "settings": {
+      "general": "Soltar",
+      "enabled": "Mostrar acciones cuando se arrastran archivos sobre el notch",
+      "enabledBody": "Desactivado deja el notch en paz durante un arrastre.",
+      "expandNotch": "Expandir el notch",
+      "expandNotchBody": "Amplía la fila a ocho mosaicos.",
+      "tiles": "Mosaicos",
+      "tilesBody": "La fila en orden, de izquierda a derecha. Los mosaicos ocultos se quedan aquí para poder volver.",
+      "show": "Mostrar {{name}}",
+      "moveUp": "Subir {{name}}",
+      "moveDown": "Bajar {{name}}",
+      "remove": "Quitar {{name}}",
+      "addDivider": "Añadir un separador",
+      "addDividerBody": "Un hueco que separa grupos de mosaicos.",
+      "add": "Añadir",
+      "folders": "Carpetas",
+      "foldersBody": "Cada carpeta se convierte en un mosaico que copia o mueve dentro los archivos soltados.",
+      "foldersEmpty": "Aún no hay carpetas. Añade una para copiar o mover archivos dentro con un solo gesto.",
+      "addFolder": "Añadir una carpeta",
+      "addFolderBody_one": "Hasta {{count}} carpeta.",
+      "addFolderBody_other": "Hasta {{count}} carpetas.",
+      "addFolderFull": "Quita una carpeta para añadir otra.",
+      "choose": "Elegir…",
+      "pickFolderTitle": "Elige una carpeta para los archivos soltados",
+      "mode": "Qué hace un arrastre con los archivos en {{name}}",
+      "copy": "Copiar",
+      "move": "Mover",
+      "activity": "En curso",
+      "activityBody": "Archivos que se están comprimiendo o descomprimiendo ahora mismo.",
+      "cancel": "Cancelar",
+      "cancelJob": "Cancelar {{name}}"
+    },
+    "job": {
+      "share_one": "Compartiendo {{count}} elemento",
+      "share_other": "Compartiendo {{count}} elementos",
+      "copy_one": "Copiando {{count}} elemento",
+      "copy_other": "Copiando {{count}} elementos",
+      "move_one": "Moviendo {{count}} elemento",
+      "move_other": "Moviendo {{count}} elementos",
+      "open_one": "Abriendo {{count}} elemento",
+      "open_other": "Abriendo {{count}} elementos",
+      "openWith_one": "Abriendo {{count}} elemento",
+      "openWith_other": "Abriendo {{count}} elementos",
+      "zip_one": "Comprimiendo {{count}} elemento",
+      "zip_other": "Comprimiendo {{count}} elementos",
+      "unzip_one": "Descomprimiendo {{count}} archivo",
+      "unzip_other": "Descomprimiendo {{count}} archivos",
+      "reveal_one": "Mostrando {{count}} elemento",
+      "reveal_other": "Mostrando {{count}} elementos",
+      "trash_one": "Enviando {{count}} elemento a la papelera",
+      "trash_other": "Enviando {{count}} elementos a la papelera",
+      "eject": "Expulsando la unidad",
+      "shelf_one": "Añadiendo {{count}} elemento al Estante",
+      "shelf_other": "Añadiendo {{count}} elementos al Estante",
+      "percent": "{{percent}} %",
+      "done": "Hecho",
+      "failed": "Error"
+    }
+  },
+  "shelf": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Estante",
+    "items_one": "{{count}} elemento",
+    "items_other": "{{count}} elementos",
+    "selected_one": "{{count}} de {{total}} seleccionado",
+    "selected_other": "{{count}} de {{total}} seleccionados",
+    "paste": "Pega texto o un enlace y pulsa Intro",
+    "selectAll": "Seleccionar todo",
+    "clearSelection": "Borrar la selección",
+    "copyAll": "Copiar todo al portapapeles",
+    "copySelected_one": "Copiar {{count}} elemento al portapapeles",
+    "copySelected_other": "Copiar {{count}} elementos al portapapeles",
+    "copiedNotice": "Copiado al portapapeles",
+    "removeSelected_one": "Quitar {{count}} elemento",
+    "removeSelected_other": "Quitar {{count}} elementos",
+    "clear": "Vaciar el Estante",
+    "reveal": "Mostrar en el Explorador",
+    "removeMissing_one": "Quitar {{count}} ausente",
+    "removeMissing_other": "Quitar {{count}} ausentes",
+    "missing": "Archivo no encontrado",
+    "copied": "Copia en el almacenamiento del Estante",
+    "folder": "Carpeta",
+    "file": "Archivo",
+    "empty": "Aún no hay nada en el Estante",
+    "emptyBody": "Suelta archivos en el notch y elige Estante, o pega texto arriba. Arrastra elementos a cualquier app.",
+    "settings": {
+      "storage": "Almacenamiento",
+      "copyIntoStorage": "Copiar archivos al almacenamiento del Estante",
+      "copyIntoStorageBody": "Los elementos siguen funcionando después de mover o eliminar el original. Las copias se van con el elemento.",
+      "expiry": "Quitar elementos después de",
+      "expiryBody": "Los elementos más antiguos salen del Estante por sí solos.",
+      "never": "Nunca",
+      "days_one": "1 día",
+      "days_other": "{{count}} días",
+      "items": "Elementos",
+      "count": "En el Estante",
+      "clear": "Vaciar el Estante",
+      "clearBody": "Quita todos los elementos. Las copias del almacenamiento del Estante se eliminan; los archivos originales no se tocan.",
+      "clearAction": "Vaciar"
+    }
+  },
+  "windowSnap": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Ajuste de ventanas",
+    "zones": "Zonas de ajuste",
+    "zone": {
+      "topLeft": "Arriba a la izquierda",
+      "bottomLeft": "Abajo a la izquierda",
+      "leftHalf": "Mitad izquierda",
+      "maximize": "Maximizar",
+      "rightHalf": "Mitad derecha",
+      "topRight": "Arriba a la derecha",
+      "bottomRight": "Abajo a la derecha",
+      "leftThird": "Tercio izquierdo",
+      "centerThird": "Tercio central",
+      "rightThird": "Tercio derecho",
+      "cell": "Celda {{row}}, {{col}}"
+    },
+    "settings": {
+      "zones": "Zonas",
+      "zonesBody": "Arrastra cualquier ventana al notch y suéltala sobre una zona. Hasta {{max}} zonas en total, celdas de la cuadrícula incluidas.",
+      "chosen": "Zonas en uso",
+      "count": "{{count}} de {{max}}",
+      "grid": "Cuadrícula",
+      "gridBody": "Celdas iguales con un hueco entre ellas. Las celdas cuentan para el límite de zonas y aparecen después de las zonas.",
+      "gridEnabled": "Mostrar una cuadrícula",
+      "rows": "Filas",
+      "cols": "Columnas",
+      "gap": "Hueco",
+      "px": "{{value}} px"
+    }
+  },
+  "codeHosting": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Alojamiento de código",
+    "queue": "Pull requests",
+    "actions": {
+      "refresh": "Actualizar la cola de revisión"
+    },
+    "filter": {
+      "label": "Mostrar",
+      "toReview": "Por revisar",
+      "mine": "Mías",
+      "all": "Todas"
+    },
+    "provider": {
+      "gitHub": "GitHub"
+    },
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando",
+    "updated": "Actualizado {{time}}",
+    "open": "Abrir {{title}} en {{provider}}",
+    "draft": "Borrador",
+    "pullRequest": "{{repo}} #{{number}}",
+    "byAuthor": "de {{author}}",
+    "changes": "+{{additions}} −{{deletions}}",
+    "files_one": "{{count}} archivo",
+    "files_other": "{{count}} archivos",
+    "checks": {
+      "none": "Sin comprobaciones",
+      "pending": "Comprobaciones en curso",
+      "success": "Comprobaciones superadas",
+      "failure": "Comprobaciones fallidas"
+    },
+    "review": {
+      "reviewRequired": "Revisión necesaria",
+      "approved": "Aprobada",
+      "changesRequested": "Cambios solicitados"
+    },
+    "count_one": "{{count}} pull request",
+    "count_other": "{{count}} pull requests",
+    "error": {
+      "offline": "Sin conexión, mostrando la cola de {{time}}",
+      "offlineNoCache": "Sin conexión. La cola aparecerá cuando vuelva la conexión.",
+      "unauthorized": "GitHub ya no acepta el token. Conéctate de nuevo en Ajustes.",
+      "rateLimited": "GitHub ha pedido una pausa. La cola se actualizará dentro de un rato.",
+      "provider": "GitHub respondió algo inesperado. Muna lo intentará de nuevo dentro de un rato."
+    },
+    "empty": {
+      "off": {
+        "title": "El alojamiento de código está desactivado",
+        "body": "Actívalo en Ajustes y conecta una cuenta de GitHub para ver las pull requests que te esperan.",
+        "action": "Abrir ajustes"
+      },
+      "connect": {
+        "title": "Ninguna cuenta conectada",
+        "body": "Conecta una cuenta de GitHub en Ajustes con un token que pueda leer tus repositorios.",
+        "action": "Abrir ajustes"
+      },
+      "toReview": {
+        "title": "Nada por revisar",
+        "body": "Las pull requests que piden tu revisión aparecen aquí en un par de minutos."
+      },
+      "mine": {
+        "title": "No tienes pull requests abiertas",
+        "body": "Tus propias pull requests abiertas y sus comprobaciones aparecen aquí."
+      },
+      "all": {
+        "title": "No hay pull requests abiertas",
+        "body": "Las pull requests que piden tu revisión, y las tuyas, aparecen aquí."
+      }
+    },
+    "widget": {
+      "label": "Cola de revisión",
+      "waiting_one": "{{count}} espera tu revisión",
+      "waiting_other": "{{count}} esperan tu revisión",
+      "none": "Nada por revisar",
+      "off": "El alojamiento de código está desactivado",
+      "connect": "Conecta una cuenta de GitHub en Ajustes"
+    },
+    "settings": {
+      "section": "GitHub",
+      "privacy": "Muna pide a api.github.com las pull requests abiertas que te mencionan cada dos minutos mientras está en marcha. El token se queda en el Administrador de credenciales de Windows y nunca aparece en el archivo de ajustes, en una exportación ni en el registro.",
+      "enabled": "Mostrar pull requests",
+      "enabledBody": "Lista las pull requests que esperan tu revisión y las tuyas, con sus comprobaciones.",
+      "connect": "Conectar una cuenta de GitHub",
+      "connectBody": "Pega un token de acceso personal que pueda leer los repositorios que revisas. Los tokens de granularidad fina necesitan acceso de lectura a Pull requests y Metadata.",
+      "token": "Token de acceso",
+      "tokenPlaceholder": "github_pat_… o ghp_…",
+      "createToken": "Crear un token",
+      "connectAction": "Conectar",
+      "connecting": "Comprobando el token…",
+      "connected": "Conectado como {{login}}",
+      "connectedBody": "Sesión iniciada en {{provider}}. Desconecta para olvidar el token y la cola.",
+      "disconnect": "Desconectar",
+      "connectFailed": {
+        "disabled": "Activa primero el alojamiento de código.",
+        "empty": "Pega primero un token.",
+        "malformed": "Eso no parece un token. Pégalo sin espacios ni comillas.",
+        "offline": "No se pudo contactar con GitHub. Revisa la conexión e inténtalo de nuevo.",
+        "unauthorized": "GitHub rechazó el token. Comprueba que pueda leer tus repositorios y que no haya caducado.",
+        "rateLimited": "GitHub ha pedido una pausa. Inténtalo de nuevo en unos minutos.",
+        "provider": "GitHub respondió algo inesperado. Inténtalo de nuevo.",
+        "vault": "Windows no pudo guardar el token. Inténtalo de nuevo.",
+        "failed": "Eso no ha funcionado. Inténtalo de nuevo."
+      },
+      "notices": "Franja",
+      "reviewRequested": "Anunciar solicitudes de revisión",
+      "reviewRequestedBody": "Una pull request que acaba de pedir tu revisión se muestra un momento en la franja.",
+      "checksFinished": "Anunciar comprobaciones terminadas",
+      "checksFinishedBody": "Cuando las comprobaciones de una de tus pull requests se superan o fallan, la franja lo dice."
+    }
+  },
+  "notes": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Notas",
+    "actions": {
+      "quickNote": "Escribir una nota rápida"
+    },
+    "list": "Notas",
+    "search": "Buscar notas",
+    "searchPlaceholder": "Buscar",
+    "clearSearch": "Borrar la búsqueda",
+    "new": "Nueva nota",
+    "newTitle": "Título de la nueva nota",
+    "newTitlePlaceholder": "Título, luego Intro",
+    "create": "Crear",
+    "cancel": "Cancelar",
+    "back": "Volver a la lista",
+    "open": "Abrir {{title}}",
+    "pinned": "Fijadas",
+    "pin": "Fijar {{title}}",
+    "unpin": "Soltar {{title}}",
+    "more": "Más para {{title}}",
+    "rename": "Cambiar nombre",
+    "renameTitle": "Título",
+    "renamePlaceholder": "Título, luego Intro",
+    "reveal": "Mostrar en el Explorador",
+    "openExternal": "Abrir en otra aplicación",
+    "delete": "Mover a la Papelera de reciclaje",
+    "preview": "Vista previa",
+    "edit": "Editar",
+    "body": "Texto de la nota",
+    "bodyPlaceholder": "Empieza a escribir",
+    "previewEmpty": "Todavía no hay nada que previsualizar",
+    "edited": "Editada {{time}}",
+    "inFolder": "en {{folder}}",
+    "saving": "Guardando",
+    "saved": "Guardada",
+    "conflict": "Esta nota cambió en otra aplicación y se volvió a cargar.",
+    "saveFailed": "No se pudo guardar la nota. Revisa la carpeta e inténtalo de nuevo.",
+    "count_one": "{{count}} nota",
+    "count_other": "{{count}} notas",
+    "tooLarge": {
+      "title": "Demasiado grande para editarla aquí",
+      "body": "Las notas de más de 2 MB se abren en tu aplicación predeterminada.",
+      "action": "Abrir en otra aplicación"
+    },
+    "noResults": {
+      "title": "Ninguna nota coincide",
+      "body": "Prueba con otra palabra o borra la búsqueda."
+    },
+    "empty": {
+      "title": "Todavía no hay notas",
+      "body": "Crea una arriba o usa el atajo de nota rápida para apuntar algo en la Bandeja de entrada."
+    },
+    "problem": {
+      "missing": {
+        "title": "Falta la carpeta de notas",
+        "body": "No se encuentra {{folder}}. Vuelve a conectar la unidad o elige otra carpeta en Ajustes.",
+        "action": "Abrir ajustes"
+      },
+      "unreadable": {
+        "title": "No se puede leer la carpeta de notas",
+        "body": "Comprueba que Muna puede leer {{folder}} o elige otra carpeta en Ajustes.",
+        "action": "Abrir ajustes"
+      }
+    },
+    "widget": {
+      "label": "Notas",
+      "empty": "Fija una nota para conservarla aquí",
+      "problem": "La carpeta de notas no está disponible"
+    },
+    "settings": {
+      "section": "Carpeta",
+      "folder": "Carpeta de notas",
+      "folderBody": "Archivos Markdown sencillos, uno por nota. Apúntala a una bóveda de Obsidian o a cualquier carpeta para compartir notas con otras aplicaciones.",
+      "defaultFolder": "Carpeta predeterminada",
+      "change": "Cambiar",
+      "useDefault": "Usar la carpeta predeterminada",
+      "openFolder": "Abrir carpeta",
+      "pickTitle": "Elige una carpeta de notas",
+      "missing": "Esta carpeta no se encuentra ahora mismo.",
+      "quickNote": "Nota rápida",
+      "quickNoteBody": "Abre la Bandeja de entrada en la Notch con el cursor al final. Asígnale un atajo en Atajos de teclado.",
+      "shortcuts": "Atajos de teclado"
+    }
+  },
+  "screenTime": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Tiempo de pantalla",
+    "total": "{{duration}} hoy",
+    "switches_one": "{{count}} cambio",
+    "switches_other": "{{count}} cambios",
+    "duration": {
+      "hoursMinutes": "{{hours}} h {{minutes}} min",
+      "hours": "{{hours}} h",
+      "minutes": "{{minutes}} min",
+      "seconds": "{{seconds}} s",
+      "none": "0 min"
+    },
+    "now": {
+      "label": "Ahora",
+      "since": "desde las {{time}}",
+      "idle": "Ausente",
+      "idleBody": "El tiempo deja de contar hasta que vuelvas.",
+      "locked": "Bloqueado",
+      "lockedBody": "El tiempo deja de contar hasta que desbloquees.",
+      "off": "El tiempo de pantalla está desactivado",
+      "offBody": "Actívalo en Ajustes para empezar a contar.",
+      "nothing": "Nada todavía",
+      "nothingBody": "Cambia a otra app para empezar el recuento."
+    },
+    "insights": {
+      "label": "Datos",
+      "average": "Sesión media",
+      "longest": "Sesión más larga",
+      "categories": "Categorías",
+      "settings": "Ajustes"
+    },
+    "donut": {
+      "describe": "{{duration}} hoy en {{count}} categorías"
+    },
+    "category": {
+      "browsing": "Navegación",
+      "development": "Desarrollo",
+      "communication": "Comunicación",
+      "media": "Multimedia",
+      "games": "Juegos",
+      "productivity": "Productividad",
+      "system": "Sistema",
+      "other": "Otros"
+    },
+    "apps": {
+      "label": "Apps",
+      "row": "{{name}}, {{duration}}",
+      "rowLimit": "{{name}}, {{duration}} de un límite de {{limit}}",
+      "sessions_one": "{{count}} sesión",
+      "sessions_other": "{{count}} sesiones",
+      "limitReached": "Límite alcanzado",
+      "empty": "Aún no hay apps hoy"
+    },
+    "detail": {
+      "back": "Volver a hoy",
+      "longest": "Más larga {{duration}}",
+      "category": "Categoría",
+      "limit": "Límite diario",
+      "limitNone": "Ninguno",
+      "limitBody": "El notch te avisa una vez cuando la app lo supera hoy.",
+      "exclude": "Excluir esta app",
+      "excludeBody": "Olvida su historial y deja de contarla. Puedes incluirla de nuevo en Ajustes."
+    },
+    "week": {
+      "label": "Últimos 7 días",
+      "day": "{{day}}, {{duration}}",
+      "today": "Hoy",
+      "average": "Media diaria {{duration}}"
+    },
+    "layout": {
+      "week": "Semana"
+    },
+    "widget": {
+      "label": "Tiempo de pantalla",
+      "off": "Desactivado",
+      "empty": "Nada todavía"
+    },
+    "error": {
+      "unknown": "Esa app ya no está en el historial.",
+      "io": "No se pudo escribir el archivo. Elige otra carpeta e inténtalo de nuevo.",
+      "failed": "Eso no ha funcionado. Inténtalo de nuevo."
+    },
+    "settings": {
+      "section": "Recuento",
+      "enabled": "Contar el tiempo de pantalla",
+      "enabledBody": "Qué app está al frente y durante cuánto tiempo. Los títulos de las ventanas nunca se leen; nada sale de este PC.",
+      "idle": "Pausar después de",
+      "idleBody": "El tiempo deja de contar tras este periodo sin pulsar teclas ni mover el ratón.",
+      "idleMinutes_one": "{{count}} minuto",
+      "idleMinutes_other": "{{count}} minutos",
+      "dayReset": "El día empieza a las",
+      "dayResetBody": "El tiempo después de medianoche cuenta para el día anterior hasta esta hora.",
+      "excluded": "Apps excluidas",
+      "excludedBody": "Nunca se cuentan. Incluye una de nuevo y contará a partir de ahora.",
+      "excludedEmpty": "No hay apps excluidas. Excluye una desde sus detalles en el panel.",
+      "include": "Incluir {{name}}",
+      "includeShort": "Incluir",
+      "data": "Datos",
+      "export": "Exportar CSV",
+      "exportBody": "Cada periodo registrado con su app y su categoría, en una carpeta que elijas.",
+      "exportTitle": "Elige una carpeta para la exportación",
+      "exported": "Guardado en {{path}}",
+      "clear": "Borrar el historial",
+      "clearBody": "Elimina cada periodo registrado. Las categorías, los límites y las apps excluidas se conservan.",
+      "clearQuestion": "¿Eliminar todo el historial de tiempo de pantalla?",
+      "clearConfirm": "Borrar",
+      "cancel": "Cancelar"
+    }
+  },
+  "aiCoding": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Programación con IA",
+    "agent": {
+      "claude": "Claude Code",
+      "copilot": "GitHub Copilot",
+      "generic": "Agente de programación"
+    },
+    "status": {
+      "running": "En marcha",
+      "waiting": "Esperando",
+      "done": "Hecho"
+    },
+    "waiting": {
+      "permission": "Quiere ejecutar {{tool}}",
+      "permissionNoTool": "Quiere tu permiso",
+      "input": "Esperando tu instrucción",
+      "idle": "Inactivo desde hace un rato"
+    },
+    "duration": {
+      "hoursMinutes": "{{hours}} h {{minutes}} min",
+      "hours": "{{hours}} h",
+      "minutes": "{{minutes}} min",
+      "seconds": "{{seconds}} s"
+    },
+    "header": {
+      "active_one": "{{count}} activo",
+      "active_other": "{{count}} activos",
+      "waiting_one": "{{count}} esperando",
+      "waiting_other": "{{count}} esperando",
+      "refresh": "Actualizar",
+      "settings": "Ajustes de programación con IA"
+    },
+    "row": {
+      "cli": "CLI",
+      "noProject": "Sin carpeta",
+      "describe": "{{agent}}, {{project}}, {{status}}",
+      "messages_one": "{{count}} msj.",
+      "messages_other": "{{count}} msjs.",
+      "tokens": "{{count}} tok.",
+      "running": "en marcha desde hace {{duration}}",
+      "waitingFor": "esperando desde hace {{duration}}",
+      "allow": "Permitir",
+      "deny": "Denegar",
+      "show": "Mostrar",
+      "showLabel": "Traer al frente la terminal de {{project}}",
+      "dismiss": "Descartar",
+      "dismissLabel": "Descartar {{project}}",
+      "decided": "Respuesta enviada"
+    },
+    "recent": {
+      "label": "Recientes",
+      "finished": "Terminado {{time}}"
+    },
+    "sessions": "Sesiones",
+    "empty": {
+      "off": {
+        "title": "La programación con IA está desactivada",
+        "body": "Actívala en Ajustes para ver aquí tus agentes de programación.",
+        "action": "Abrir ajustes"
+      },
+      "none": {
+        "title": "No hay agentes en marcha",
+        "body": "Inicia Claude Code o GitHub Copilot CLI en una terminal y su sesión aparecerá aquí."
+      },
+      "hooks": {
+        "title": "No hay agentes en marcha",
+        "body": "Las sesiones de Copilot CLI aparecen por sí solas. Para Claude Code, instala sus hooks en Ajustes.",
+        "action": "Abrir ajustes"
+      }
+    },
+    "widget": {
+      "label": "Programación con IA",
+      "off": "Desactivado",
+      "empty": "Sin agentes",
+      "running_one": "{{count}} en marcha",
+      "running_other": "{{count}} en marcha",
+      "waiting_one": "{{count}} esperando",
+      "waiting_other": "{{count}} esperando"
+    },
+    "error": {
+      "unknown": "Esa sesión ha terminado.",
+      "notWaiting": "Esa sesión ya no está esperando.",
+      "noProfile": "No hay carpeta de perfil de usuario donde escribir los hooks.",
+      "hooksFile": "No se pudo cambiar el archivo de ajustes de Claude Code. Comprueba que sea JSON válido e inténtalo de nuevo.",
+      "io": "No se pudo escribir el archivo. Inténtalo de nuevo.",
+      "failed": "Eso no ha funcionado. Inténtalo de nuevo."
+    },
+    "settings": {
+      "section": "Agentes",
+      "privacy": "Las sesiones se leen de los propios archivos de los agentes en este PC y los hooks llegan solo por 127.0.0.1. Las instrucciones se quedan en el panel; nada se registra ni se envía a ninguna parte.",
+      "enabled": "Vigilar los agentes de programación",
+      "enabledBody": "Muestra las sesiones de Claude Code y GitHub Copilot CLI en el panel y avisa cuando una te espera.",
+      "copilotCli": "GitHub Copilot CLI",
+      "copilotCliBody": "Sigue las sesiones desde su carpeta session-state. Nada que instalar.",
+      "waitingNotice": "Anunciar agentes en espera",
+      "waitingNoticeBody": "La franja avisa cuando un agente se detiene por ti, con Permitir y Denegar cuando ofrece una decisión.",
+      "receiver": "Receptor de hooks",
+      "receiverBody": "Los agentes envían sus hooks a Muna por loopback. El panel lo necesita para Claude Code y otros agentes; Copilot CLI funciona sin él.",
+      "port": "Puerto",
+      "portBody": "Entre {{min}} y {{max}}. Cuando el puerto está ocupado, se prueban los diez siguientes y el activo se muestra abajo.",
+      "listening": "Escuchando en el puerto {{port}}",
+      "notListening": "Sin escuchar",
+      "notListeningBody": "El módulo está desactivado o no se pudo enlazar el puerto.",
+      "hookUrl": "URL de hooks",
+      "hookUrlBody": "Donde publica Claude Code. Otros agentes usan la misma dirección con /hooks/generic.",
+      "claude": "Hooks de Claude Code",
+      "claudeInstalledBody": "Escritos en el archivo de ajustes de Claude Code. Las sesiones iniciadas después envían sus eventos aquí.",
+      "claudeMissingBody": "Añade hooks HTTP a los ajustes de Claude Code para que sus sesiones y solicitudes de permiso lleguen a Muna. Nada más cambia en el archivo.",
+      "install": "Instalar hooks",
+      "remove": "Quitar hooks",
+      "installed": "Hooks instalados. Las sesiones iniciadas a partir de ahora aparecen aquí.",
+      "removed": "Hooks quitados.",
+      "generic": "Otros agentes",
+      "genericBody": "Cualquier herramienta puede publicar JSON en la URL de hooks con el token bearer escrito en el archivo de ajustes de Claude Code. El formato está documentado en docs/modules/ai-coding.md."
+    }
+  },
+  "health": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Salud",
+    "actions": {
+      "water": "Registrar un vaso de agua",
+      "breathe": "Iniciar un ejercicio de respiración"
+    },
+    "duration": {
+      "hours": "{{count}} h",
+      "minutes": "{{count}} min",
+      "hoursMinutes": "{{hours}} h {{minutes}} min"
+    },
+    "head": {
+      "sitting": "Sentado desde hace {{duration}}",
+      "away": "Lejos del escritorio",
+      "locked": "Bloqueado",
+      "off": "Salud está desactivado",
+      "nextBreak": "Próximo descanso en {{duration}}",
+      "breakDue": "Hora de un descanso",
+      "windingDown": "Bajando el ritmo",
+      "settings": "Ajustes"
+    },
+    "today": {
+      "label": "Hoy",
+      "active": "Activo",
+      "longestSit": "Más tiempo sentado",
+      "breaks": "Descansos",
+      "mindful": "Atención plena",
+      "streak": "Racha de {{count}} días"
+    },
+    "rings": {
+      "label": "Objetivos",
+      "breaks": "Descansos",
+      "water": "Agua",
+      "mindful": "Atención plena",
+      "breaksValue": "{{count}} de {{goal}} descansos",
+      "waterValue": "{{count}} de {{goal}} vasos",
+      "mindfulValue": "{{count}} de {{goal}} minutos de atención plena",
+      "counter": "{{count}}/{{goal}}",
+      "addWater": "Añadir un vaso de agua",
+      "removeWater": "Quitar un vaso de agua"
+    },
+    "week": {
+      "label": "Últimos 7 días",
+      "today": "Hoy",
+      "day": "{{day}}, {{count}} de 3 objetivos cumplidos"
+    },
+    "flows": {
+      "label": "Tómate un descanso",
+      "start": "Iniciar {{flow}}",
+      "move": {
+        "title": "Moverse",
+        "body": "3 min"
+      },
+      "breathe": {
+        "title": "Respirar"
+      },
+      "stretch": {
+        "title": "Estirar",
+        "body": "2 min"
+      },
+      "eyeRest": {
+        "title": "Descanso visual",
+        "body": "20 s"
+      }
+    },
+    "break": {
+      "title": "Hora de un descanso",
+      "body": "Llevas {{duration}} sentado. Elige un ejercicio o levántate un momento.",
+      "snooze": "Posponer",
+      "dismiss": "Descartar"
+    },
+    "flow": {
+      "stop": "Detener",
+      "remaining": "Quedan {{remaining}}",
+      "ring": "{{flow}}, quedan {{remaining}}",
+      "move": {
+        "prompt1": "Levántate y camina unos pasos",
+        "prompt2": "Gira los hombros hacia atrás, despacio",
+        "prompt3": "Sacude los brazos y las piernas",
+        "prompt4": "Ve a buscar un poco de agua",
+        "prompt5": "Mira por una ventana un momento",
+        "prompt6": "Respira hondo tres veces, despacio"
+      },
+      "breathe": {
+        "inhale": "Inhala",
+        "hold": "Mantén",
+        "exhale": "Exhala",
+        "round": "Ronda {{current}} de {{total}}"
+      },
+      "stretch": {
+        "step1": "Cuello: inclina la cabeza hacia cada lado",
+        "step2": "Hombros: gíralos hacia atrás cinco veces",
+        "step3": "Muñecas: haz círculos en ambos sentidos",
+        "step4": "Pecho: entrelaza las manos detrás de ti y abre el pecho",
+        "step5": "Espalda: gira suavemente hacia cada lado",
+        "step6": "Caderas: levántate y estírate hacia el techo"
+      },
+      "eyeRest": {
+        "body": "Mira algo lejano, a unos 6 metros, hasta que termine el temporizador.",
+        "hint": "Parpadea despacio unas cuantas veces mientras lo haces."
+      }
+    },
+    "state": {
+      "offTitle": "Salud está desactivado",
+      "offBody": "Actívalo en Ajustes para registrar el tiempo sentado y recibir recordatorios de descanso.",
+      "openSettings": "Abrir ajustes"
+    },
+    "hearing": {
+      "body": "Volumen alto en los auriculares: {{percent}} % durante {{duration}}. Bájalo un poco."
+    },
+    "widget": {
+      "sitting": "Sentado {{duration}}",
+      "nextBreak": "Próximo descanso en {{duration}}",
+      "breakDue": "Hora de un descanso",
+      "flow": "{{flow}} en marcha",
+      "away": "Lejos del escritorio",
+      "locked": "Bloqueado",
+      "off": "Salud está desactivado",
+      "water": "{{count}} de {{goal}} vasos"
+    },
+    "settings": {
+      "sitting": "Tiempo sentado",
+      "enabled": "Registrar el tiempo sentado y recordarme los descansos",
+      "enabledBody": "Usa solo la actividad del teclado y el ratón. Nada sale de este PC.",
+      "breakEvery": "Recordarme cada",
+      "breakEveryBody": "Un aviso en el notch cuando lleves tanto tiempo sentado; posponer te da diez minutos más. Fija un objetivo de {{count}} descansos al día.",
+      "minutes": "{{count}} min",
+      "goals": "Objetivos",
+      "waterGoal": "Objetivo de agua",
+      "waterGoalBody": "Vasos al día. Regístralos desde el panel o la tarjeta del panel de control.",
+      "glasses_one": "{{count}} vaso",
+      "glasses_other": "{{count}} vasos",
+      "breathePattern": "Patrón de respiración",
+      "breathePatternBody": "La respiración cuadrada es uniforme; Relajación tiene una exhalación larga y lenta.",
+      "patterns": {
+        "box": "Cuadrada",
+        "relax": "Relajación"
+      },
+      "evening": "Tarde",
+      "windDown": "Bajar el ritmo por la tarde",
+      "windDownBody": "A partir de esta hora, el panel muestra que estás bajando el ritmo.",
+      "windDownHour": "Desde",
+      "hearing": "Oído",
+      "hearingWarning": "Avisarme del volumen alto en los auriculares",
+      "hearingWarningBody": "Un aviso cuando el volumen se mantiene por encima del 85 % en los auriculares durante diez minutos.",
+      "data": "Datos",
+      "resetToday": "Restablecer hoy",
+      "resetTodayBody": "Borra los descansos, el agua y los minutos de atención plena de hoy.",
+      "resetTodayAction": "Restablecer",
+      "resetDone": "Hoy se ha restablecido.",
+      "clear": "Borrar el historial",
+      "clearBody": "Elimina cada día que Muna ha registrado. Los ajustes se conservan.",
+      "clearQuestion": "¿Borrar todo el historial?",
+      "clearConfirm": "Borrar",
+      "clearDone": "Historial borrado.",
+      "cancel": "Cancelar"
+    }
+  },
+  "mirror": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Espejo",
+    "head": {
+      "off": "El espejo está desactivado",
+      "starting": "Iniciando la cámara",
+      "defaultCamera": "Cámara",
+      "settings": "Ajustes"
+    },
+    "preview": {
+      "label": "Vista previa de la cámara",
+      "flip": "Invertir la imagen",
+      "zoom": "Zoom {{zoom}}",
+      "zoomLevel": "{{zoom}}×",
+      "switchCamera": "Siguiente cámara",
+      "starting": "Iniciando la cámara"
+    },
+    "state": {
+      "offTitle": "El espejo está desactivado",
+      "offBody": "Actívalo en Ajustes para comprobar tu cámara antes de una llamada. Muna abre la cámara solo mientras este panel está en pantalla.",
+      "openSettings": "Abrir ajustes",
+      "retry": "Intentar de nuevo",
+      "denied": {
+        "title": "Se rechazó el acceso a la cámara",
+        "body": "Windows u otro ajuste bloqueó la cámara. Revisa Configuración › Privacidad › Cámara e inténtalo de nuevo."
+      },
+      "notFound": {
+        "title": "No se encontró ninguna cámara",
+        "body": "Conecta una cámara o elige otra en los ajustes del módulo."
+      },
+      "busy": {
+        "title": "La cámara está en uso",
+        "body": "Otra app tiene la cámara. Ciérrala allí e inténtalo de nuevo."
+      },
+      "unsupported": {
+        "title": "La vista previa de la cámara no está disponible",
+        "body": "Esta ventana no puede abrir una cámara. Actualiza el runtime de WebView2 desde Windows Update e inténtalo de nuevo."
+      },
+      "failed": {
+        "title": "La cámara no se inició",
+        "body": "Algo falló al abrirla. Inténtalo de nuevo."
+      }
+    },
+    "widget": {
+      "off": "El espejo está desactivado",
+      "offBody": "Actívalo en Ajustes",
+      "error": "La cámara no se inició"
+    },
+    "settings": {
+      "camera": "Cámara",
+      "enabled": "Usar la cámara",
+      "enabledBody": "Desactivado de forma predeterminada. Muna abre la cámara solo mientras el panel o el widget Espejo está en pantalla, nunca en segundo plano; la luz de la cámara se enciende cuando está en uso.",
+      "flip": "Invertir la imagen",
+      "flipBody": "Te muestra como lo haría un espejo. Desactívalo para ver lo que ven los demás.",
+      "device": "Cámara elegida",
+      "deviceDefault": "La predeterminada del sistema. Cambia de cámara desde el panel.",
+      "deviceChosen": "{{label}}. Cambia de cámara desde el panel.",
+      "useDefault": "Usar la predeterminada"
+    }
+  },
+  "translation": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Traducción",
+    "auto": "Detectar idioma",
+    "head": {
+      "back": "Atrás",
+      "from": "Traducir de",
+      "to": "Traducir a",
+      "fromLanguage": "Traducir de: {{language}}",
+      "toLanguage": "Traducir a: {{language}}",
+      "swap": "Intercambiar idiomas",
+      "settings": "Ajustes"
+    },
+    "source": {
+      "label": "Texto que traducir",
+      "placeholder": "Escribe o pega texto"
+    },
+    "output": {
+      "label": "Traducción",
+      "placeholder": "La traducción aparece aquí",
+      "translating": "Traduciendo",
+      "copy": "Copiar la traducción",
+      "copied": "Copiado"
+    },
+    "actions": {
+      "translate": "Traducir",
+      "stop": "Detener",
+      "translateText": "Traducir texto"
+    },
+    "footer": {
+      "consent": "El texto se envía a {{host}}",
+      "noKey": "Añade primero una clave de API en Ajustes",
+      "tooLong": "Hasta {{max}} caracteres a la vez",
+      "translating": "Traduciendo",
+      "done": "Traducción terminada"
+    },
+    "state": {
+      "offTitle": "La traducción está desactivada",
+      "offBody": "Actívala en Ajustes para traducir texto con tu propio proveedor. No se envía nada a ninguna parte hasta que lo hagas.",
+      "openSettings": "Abrir ajustes"
+    },
+    "error": {
+      "disabled": "Activa primero la traducción en Ajustes.",
+      "empty": "Escribe algún texto que traducir.",
+      "tooLong": "Son más de {{max}} caracteres. Tradúcelo por partes.",
+      "noKey": "Añade primero una clave de API en Ajustes.",
+      "endpoint": "El punto de conexión no es una dirección a la que pueda ir el texto. Revísalo en Ajustes.",
+      "vault": "El Administrador de credenciales de Windows no respondió. Inténtalo de nuevo.",
+      "offline": "Sin conexión con {{host}}. Revisa tu red y el punto de conexión.",
+      "unauthorized": "{{host}} rechazó la clave de API. Revísala en Ajustes.",
+      "rateLimited": "{{host}} ha pedido una pausa. Inténtalo de nuevo en un momento.",
+      "modelMissing": "{{host}} no tiene el modelo {{model}}. Revísalo en Ajustes.",
+      "provider": "{{host}} no respondió con una traducción. Inténtalo de nuevo.",
+      "failed": "La traducción no se inició. Inténtalo de nuevo."
+    },
+    "list": {
+      "label": "Idiomas",
+      "search": "Buscar idiomas",
+      "clear": "Borrar búsqueda",
+      "empty": "Ningún idioma coincide"
+    },
+    "widget": {
+      "off": "La traducción está desactivada",
+      "offBody": "Actívala en Ajustes",
+      "pair": "{{source}} → {{target}}",
+      "translating": "Traduciendo",
+      "ready": "Abre el panel para traducir"
+    },
+    "settings": {
+      "section": "Traducción",
+      "privacy": "El texto que traduces sale de tu PC hacia el punto de conexión de abajo, y a ningún otro sitio; no se envía nada hasta que lo actives. La clave de API se queda en el Administrador de credenciales de Windows, nunca en el archivo de ajustes ni en los registros.",
+      "enabled": "Traducir texto",
+      "enabledBody": "Envía el texto que escribes a {{host}}.",
+      "provider": "Proveedor",
+      "providerBody": "Compatible con OpenAI cubre OpenAI, Azure OpenAI, OpenRouter y LM Studio. Cambiarlo vacía los campos de punto de conexión y modelo.",
+      "providerOpenai": "Compatible con OpenAI",
+      "providerOllama": "Ollama",
+      "endpoint": "Punto de conexión",
+      "endpointBody": "La base de la API. El http sin cifrar solo se acepta para direcciones locales y de la red local.",
+      "model": "Modelo",
+      "modelBody": "Déjalo en blanco para {{model}}.",
+      "key": "Clave de API",
+      "keyField": "Clave de API",
+      "keyPlaceholder": "Pega una clave",
+      "keySave": "Guardar",
+      "keyRemove": "Quitar",
+      "keyBusy": "Hablando con el Administrador de credenciales de Windows",
+      "keySaved": "Hay una clave guardada para {{provider}}. No se volverá a mostrar.",
+      "keyRequired": "Este proveedor la exige. Guardada en el Administrador de credenciales de Windows.",
+      "keyOptional": "Opcional; la mayoría de los servidores locales no necesitan ninguna.",
+      "keyFailed": {
+        "empty": "Pega primero una clave.",
+        "malformed": "Eso no parece una clave. Pégala de nuevo.",
+        "vault": "El Administrador de credenciales de Windows no conservó la clave. Inténtalo de nuevo.",
+        "failed": "La clave no se guardó. Inténtalo de nuevo."
+      },
+      "languages": "Idiomas",
+      "languagesBody": "El par con el que empieza el panel. Elegir un idioma en el panel también lo cambia aquí.",
+      "from": "Traducir de",
+      "to": "Traducir a",
+      "change": "Cambiar",
+      "done": "Hecho"
+    }
+  },
+  "support": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Soporte",
+    "about": "Muna {{version}} · {{os}}",
+    "back": "Atrás",
+    "done": "Listo",
+    "help": {
+      "title": "Ayuda",
+      "body": "Guías, atajos y respuestas, en tu navegador"
+    },
+    "feedback": {
+      "title": "Enviar comentarios",
+      "body": "Abre un issue de GitHub con tus versiones de Windows y de Muna ya rellenadas"
+    },
+    "diagnostics": {
+      "title": "Guardar diagnósticos",
+      "body": "Un zip en tu Escritorio: registros, ajustes sin secretos y un informe del sistema",
+      "saving": "Guardando en tu Escritorio",
+      "saved": "{{name}} guardado en tu Escritorio. Adjúntalo a tu issue."
+    },
+    "whatsNew": {
+      "title": "Novedades",
+      "body": "Versión {{version}}",
+      "onGitHub": "Notas de la versión en GitHub",
+      "empty": {
+        "title": "Esta compilación no incluye notas de la versión",
+        "body": "Las notas de cada versión están en GitHub."
+      }
+    },
+    "repair": {
+      "title": "Reparar",
+      "body": "Los controles flotantes y el espacio reservado",
+      "action": "Reparar",
+      "flyouts": "Controles flotantes de volumen y brillo",
+      "flyoutsBody": "Vuelve a mostrar los controles flotantes de Windows y luego los oculta según esté configurado el HUD.",
+      "flyoutsDone": "Controles flotantes reparados.",
+      "appBar": "Espacio reservado",
+      "appBarBody": "Vuelve a registrar el espacio sobre la Notch si alguna ventana lo solapa o queda un hueco.",
+      "appBarDone": "Espacio reservado reparado."
+    },
+    "rate": {
+      "title": "Valorar Muna en GitHub",
+      "body": "Una estrella ayuda a que otros lo encuentren"
+    },
+    "error": {
+      "noDesktop": "No se encuentra tu carpeta Escritorio, así que el paquete no se guardó.",
+      "io": "No se pudo escribir el paquete. Revisa tu carpeta Escritorio e inténtalo de nuevo.",
+      "updater": "No se pudieron comprobar las actualizaciones. Revisa tu conexión e inténtalo de nuevo.",
+      "failed": "Eso no funcionó. Inténtalo de nuevo."
+    },
+    "settings": {
+      "updates": "Actualizaciones",
+      "channel": "Canal de actualizaciones",
+      "channelBody": "Las compilaciones beta llegan antes y pueden tener fallos.",
+      "channels": {
+        "stable": "Estable",
+        "beta": "Beta"
+      },
+      "check": "Buscar actualizaciones",
+      "checkBody": "Tienes la versión {{version}}. Muna solo comprueba cuando se lo pides.",
+      "checkAction": "Comprobar",
+      "updateAvailable": "La versión {{version}} está disponible en GitHub.",
+      "upToDate": "La versión {{version}} es la más reciente.",
+      "download": "Descargar",
+      "diagnostics": "Diagnósticos",
+      "system": "Sistema",
+      "bundleBody": "{{logs}} de registros, tus ajustes sin secretos y un informe del sistema, comprimidos en tu Escritorio.",
+      "save": "Guardar",
+      "logs": "Carpeta de registros",
+      "logsBody": "Abre la carpeta donde Muna escribe sus archivos de registro.",
+      "open": "Abrir",
+      "repairBody": "Úsalos cuando algo que la Notch cambió en Windows se haya quedado atrás."
+    }
+  },
+  "settings": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Ajustes de Muna",
+    "version": "Versión {{version}}",
+    "loading": "Cargando ajustes…",
+    "error": "No se pudieron cargar los ajustes. Reinicia Muna e inténtalo de nuevo.",
+    "retry": "Intentar de nuevo",
+    "saveError": "No se pudieron guardar los cambios. Muna sigue usando los valores anteriores.",
+    "nav": "Secciones de ajustes",
+    "search": {
+      "label": "Buscar ajustes",
+      "placeholder": "Buscar ajustes",
+      "clear": "Borrar búsqueda",
+      "emptyTitle": "Ningún ajuste coincide con «{{query}}»",
+      "emptyBody": "Prueba con otra palabra, como «inicio», «pantalla» o «color»."
+    },
+    "pane": {
+      "general": "General",
+      "layout": "Disposición",
+      "position": "Posición del notch",
+      "screens": "Varias pantallas",
+      "appearance": "Apariencia",
+      "modules": "Módulos",
+      "about": "Acerca de y diagnóstico"
+    },
+    "general": {
+      "startup": "Inicio",
+      "launchAtLogin": "Abrir al iniciar sesión",
+      "launchAtLoginBody": "Muna se inicia en segundo plano cuando inicias sesión en Windows.",
+      "language": "Idioma",
+      "languageBody": "Muna cambia al instante, en el notch y aquí. Las fechas y los números siguen el idioma que elijas; con Windows, siguen tu formato regional.",
+      "languageSystem": "Windows",
+      "languageSystemBody": "Sigue el idioma de visualización de Windows, actualmente {{name}}.",
+      "languageSource": "Escrito por el equipo de Muna.",
+      "languageDraft": "Borrador automático, aún sin revisar por un hablante nativo.",
+      "privacy": "Privacidad",
+      "hideFromCaptures": "Ocultar en las capturas de pantalla",
+      "hideFromCapturesBody": "Las capturas, las grabaciones y el uso compartido de pantalla dejan fuera el notch.",
+      "help": "Ayuda",
+      "tour": "Recorrido de bienvenida",
+      "tourBody": "Los pasos del primer inicio otra vez: pantallas, colocación, forma e inicio.",
+      "tourShow": "Mostrar de nuevo"
+    },
+    "layout": {
+      "defaults": "Valores predeterminados para todas las pantallas",
+      "defaultsBody": "Las pantallas con su propia disposición en Varias pantallas los ignoran.",
+      "shape": "Forma",
+      "shapeBody": "El notch queda a ras del borde superior. La isla flota como una cápsula.",
+      "shapeNotch": "Notch",
+      "shapeIsland": "Isla",
+      "mode": "Colocación",
+      "modeBody": "Superpuesto se dibuja sobre las ventanas y se aparta de las apps a pantalla completa. Reservado deja libre una franja para que las ventanas maximizadas empiecen debajo de la franja.",
+      "modeOverlay": "Superpuesto",
+      "modeReserved": "Reservado",
+      "stripHeight": "Altura de la franja",
+      "stripHeightBody": "Compacta 26 px, Predeterminada 32 px, Cómoda 38 px.",
+      "stripCompact": "Compacta",
+      "stripDefault": "Predeterminada",
+      "stripComfortable": "Cómoda"
+    },
+    "position": {
+      "offsets": "Desplazamientos para todas las pantallas",
+      "offsetsBody": "Los cambios se aplican al notch de inmediato.",
+      "offsetX": "Desplazamiento horizontal",
+      "offsetXBody": "Desde el centro de la pantalla. Un valor positivo mueve a la derecha.",
+      "offsetY": "Desplazamiento vertical",
+      "offsetYBody": "Desde el borde superior. La isla añade su propio hueco.",
+      "px": "{{value}} px",
+      "reset": "Restablecer desplazamientos"
+    },
+    "screens": {
+      "body": "Cada pantalla sigue los valores predeterminados hasta que le des su propia disposición.",
+      "display": "Pantalla {{number}}",
+      "primary": "Principal",
+      "geometry": "{{width}} × {{height}} a {{scale}}",
+      "useDefaults": "Usar los valores predeterminados",
+      "useDefaultsBody": "Desactívalo para dar a esta pantalla su propia forma, colocación y desplazamientos.",
+      "enabled": "Mostrar el notch en esta pantalla",
+      "enabledBody": "Desactivado aparca el notch solo en esta pantalla.",
+      "emptyTitle": "No se encontraron pantallas",
+      "emptyBody": "Conecta una pantalla y vuelve a abrir los ajustes.",
+      "error": "No se pudieron listar las pantallas."
+    },
+    "appearance": {
+      "accent": "Color de acento",
+      "accentBody": "Se usa en los interruptores, el módulo activo y el anillo de foco.",
+      "accents": {
+        "blue": "Azul",
+        "cyan": "Cian",
+        "green": "Verde",
+        "orange": "Naranja",
+        "red": "Rojo",
+        "purple": "Morado",
+        "yellow": "Amarillo",
+        "pink": "Rosa"
+      },
+      "motion": "Movimiento",
+      "reduceMotion": "Reducir el movimiento",
+      "reduceMotionBody": "Sustituye los resortes por fundidos rápidos. Muna también sigue el ajuste de efectos de animación de Windows."
+    },
+    "modules": {
+      "body": "Desactiva un módulo para ocultarlo del notch. Ordena la barra de módulos con las flechas.",
+      "show": "Mostrar {{name}}",
+      "moveUp": "Subir {{name}}",
+      "moveDown": "Bajar {{name}}",
+      "emptyTitle": "Aún no hay módulos",
+      "emptyBody": "Los módulos llegan con las actualizaciones y aparecen aquí con sus propios ajustes."
+    },
+    "about": {
+      "app": "App",
+      "versionLabel": "Versión",
+      "platform": "Plataforma",
+      "profile": "Carpeta de datos",
+      "diagnostics": "Diagnóstico",
+      "openLogs": "Abrir la carpeta de registros",
+      "openLogsBody": "Los archivos de registro ayudan al informar de un problema. Nunca contienen el texto de las notificaciones.",
+      "open": "Abrir",
+      "backup": "Copia de seguridad",
+      "export": "Exportar ajustes",
+      "exportBody": "Guarda un archivo JSON que puedes importar en otro PC.",
+      "exported": "Guardado en {{path}}",
+      "import": "Importar ajustes",
+      "importBody": "Sustituye los ajustes actuales por un archivo exportado por Muna.",
+      "imported": "Ajustes importados.",
+      "reset": "Restablecer todos los ajustes",
+      "resetBody": "Devuelve cada ajuste a su valor predeterminado. Los módulos conservan sus datos.",
+      "resetQuestion": "¿Devolver cada ajuste a su valor predeterminado?",
+      "resetConfirm": "Restablecer",
+      "cancel": "Cancelar",
+      "failed": "Eso no ha funcionado: {{message}}"
+    }
+  },
+  "onboarding": {
+    "_review": "Machine draft (2026-09-28); not yet reviewed by a native speaker.",
+    "title": "Recorrido de bienvenida",
+    "progress": "Paso {{current}} de {{total}}",
+    "skip": "Omitir",
+    "back": "Atrás",
+    "next": "Continuar",
+    "finish": "Terminar",
+    "welcome": {
+      "title": "Te damos la bienvenida a Muna",
+      "body": "Un notch para Windows. Multimedia, batería y actividades en directo se sitúan en la parte superior de tu pantalla, discretos hasta que los miras.",
+      "steps": "Unas pocas decisiones llevan un minuto. Todo lo de aquí se puede cambiar después en Ajustes."
+    },
+    "displays": {
+      "title": "Elige tus pantallas",
+      "body": "El notch se muestra en cada pantalla que esté activada aquí. Cada pantalla puede tener después su propia disposición en Varias pantallas.",
+      "display": "Pantalla {{number}}",
+      "primary": "Principal",
+      "geometry": "{{width}} × {{height}}"
+    },
+    "placement": {
+      "title": "Elige cómo se coloca",
+      "overlay": "Superpuesto",
+      "overlayBody": "Se dibuja sobre las ventanas y se aparta cuando una barra de título queda debajo.",
+      "reserved": "Reservado",
+      "reservedBody": "Deja libre una franja para que las ventanas maximizadas empiecen debajo de la franja.",
+      "overlayCaption": "La franja se aparta mientras una barra de título queda debajo, y vuelve cuando esta se mueve.",
+      "reservedCaption": "Las ventanas maximizadas se detienen debajo de la franja, a cambio de una franja de pantalla."
+    },
+    "shape": {
+      "title": "Elige una forma",
+      "body": "Ambas hacen lo mismo. La isla flota un poco más abajo, lo que encaja con días de mucho navegador.",
+      "notch": "Notch",
+      "notchBody": "Queda a ras del borde superior, como en un MacBook.",
+      "island": "Isla",
+      "islandBody": "Flota como una cápsula con un pequeño hueco encima."
+    },
+    "permissions": {
+      "title": "Lo que Muna pedirá",
+      "body": "Ahora no se solicita nada. Cada permiso se pide la primera vez que un módulo lo necesita, y cada uno se puede desactivar de nuevo.",
+      "bluetooth": "Bluetooth",
+      "bluetoothBody": "Nivel de batería de los auriculares, teclados y ratones conectados.",
+      "notifications": "Notificaciones",
+      "notificationsBody": "Avisos en la franja y un lugar para clasificarlos. Disponible en las compilaciones de la Store y MSIX.",
+      "camera": "Cámara",
+      "cameraBody": "El módulo de espejo usa la cámara web solo mientras su panel está abierto."
+    },
+    "startup": {
+      "title": "Iniciar con Windows",
+      "body": "Muna es una pequeña app de bandeja. Abrirla al iniciar sesión mantiene el notch ahí cada vez que entras.",
+      "launchAtLogin": "Abrir al iniciar sesión",
+      "launchAtLoginBody": "Se inicia en segundo plano cuando inicias sesión en Windows."
+    },
+    "done": {
+      "title": "Todo listo",
+      "body": "El notch está en tu pantalla. Deja el puntero encima para echar un vistazo, haz clic para abrirlo y clic derecho para los ajustes.",
+      "hint": "Todo lo que has elegido está en Ajustes, junto con los módulos y su orden."
+    }
+  }
+}

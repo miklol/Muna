@@ -18,6 +18,7 @@ an empty repo to 1.0. Read in order the first time; afterwards jump by role.
 | 09 | [Testing & QA](09-testing-qa.md) | Test pyramid, determinism rules, shell scenario suite, perf harness, QA matrix |
 | 10 | [Release & distribution](10-release-distribution.md) | Artifacts, versioning, signing, pipeline, installer/update behaviour |
 | 11 | [CI/CD rules](11-ci-cd.md) | Branching, PR titles, rulesets, required checks, quality/perf gates, supply chain, secrets, release automation, runbooks, rules for agents |
+| — | [Localization](localization.md) | The language setting and its two locales (catalog and `Intl` format), the shipped catalogs and their review state, voice and terminology per language, adding and reviewing a locale, the RTL pseudo-locale, `i18n:check` |
 
 ## Decisions (ADRs)
 
@@ -57,9 +58,11 @@ feedback issue, the update check, both repairs against a real fault),
 [health](qa/checklists/health.md) (the sitting timer against a stopwatch, away and lock, the
 reminder while fullscreen, the four flows and the pinned panel, headphones),
 [mirror](qa/checklists/mirror.md) (the camera light against the permission policy — spike
-S1 — the panel's controls, a second camera, the refusals, the widget) and
+S1 — the panel's controls, a second camera, the refusals, the widget),
 [translation](qa/checklists/translation.md) (streaming and cancel against a local model —
-spike S2 — the hosted provider's refusals, the key in Credential Manager, the pane).
+spike S2 — the hosted provider's refusals, the key in Credential Manager, the pane) and
+[localization](qa/checklists/localization.md) (the language tiles against real Windows display
+and regional settings, the switch in both windows, the pseudo-locale walk — spike S3).
 
 ## Module specs
 

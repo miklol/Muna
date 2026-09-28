@@ -17,6 +17,7 @@ import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { ActionRow, Section, SegmentedRow, ToggleRow } from '../../settings/rows';
 import { useSettingsEditor } from '../../settings/settings-editor';
 import { LanguageList } from './language-list';
@@ -180,8 +181,8 @@ function KeyRow({ provider, hasKey }: KeyRowProps) {
  * changed here from the same list the panel uses.
  */
 export function TranslationSettingsPane() {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const { settings: document, update } = useSettingsEditor();
   useTranslationSubscription();
   const snapshot = useTranslationStore((store) => store.snapshot);

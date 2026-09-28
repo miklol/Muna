@@ -16,6 +16,7 @@ import { LayoutGroup, motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { useMinuteNow } from '../../lib/minute-now';
 import { useSettings } from '../../lib/settings';
 import { useAppStore } from '../../store/app-store';
@@ -113,10 +114,10 @@ interface StatsProps {
 }
 
 function Stats({ timeline, settings, now, locale }: StatsProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { done, total } = timeline.completion;
   const nowMs = now.getTime();
-  const percentText = new Intl.NumberFormat(i18n.language, { style: 'percent' });
+  const percentText = new Intl.NumberFormat(locale, { style: 'percent' });
 
   let dayValue: string;
   let dayFill: number;
@@ -287,8 +288,8 @@ function GapRow({ gap, locale, onAddTask }: GapRowProps) {
  * to-do and pomodoro snapshots; nothing here talks to the OS.
  */
 export function DayProgressPanel() {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const settingsDocument = useSettings() ?? defaultSettings();
   const settings = readDayProgressSettings(settingsDocument);
   const { tasks, pomodoro } = useDaySources();

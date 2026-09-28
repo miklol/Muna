@@ -3,6 +3,7 @@ import { StripView } from '@muna/ui/primitives';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../lib/locale';
 import { type DecisionPresentation, type HudPresentation, present } from './strip-content';
 
 export interface StripProps {
@@ -20,10 +21,11 @@ export interface StripProps {
  * to `StripView`'s vocabulary, localised for the window's language.
  */
 export function Strip({ content, receivedAt, hud, decision }: StripProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const locale = useLocale();
   const presentation = useMemo(
-    () => present(content, t, i18n.language, receivedAt, { hud, decision }),
-    [content, t, i18n.language, receivedAt, hud, decision],
+    () => present(content, t, locale, receivedAt, { hud, decision }),
+    [content, t, locale, receivedAt, hud, decision],
   );
   return (
     <StripView

@@ -90,3 +90,8 @@ export const ReducedMotion: Story = {
 export const RightToLeft: Story = {
   globals: { direction: 'rtl' },
 };
+
+/** Spike S3: the mirrored-English pseudo-locale; commands, hints and the empty state flip. */
+export const PseudoRtl: Story = {
+  globals: { locale: 'ar-XB' },
+};

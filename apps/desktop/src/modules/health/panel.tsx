@@ -40,6 +40,7 @@ import { motion } from 'motion/react';
 import type { ComponentType, CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { usePanelHold } from '../../lib/panel-hold';
 import { useSettings } from '../../lib/settings';
 import {
@@ -650,7 +651,7 @@ function FlowView({ flow, clock }: FlowViewProps) {
  * Rust owns the time and republishes on every change.
  */
 export function HealthPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useHealthSubscription();
   const snapshot = useHealthStore((store) => store.snapshot);
   const receivedAt = useHealthStore((store) => store.receivedAt);
@@ -658,7 +659,7 @@ export function HealthPanel() {
   const send = useHealthCommand();
   const reduceMotion = useReduceMotion();
   const enterSpring = useMotionPreset('content');
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   // The Breathe card prints the pattern the settings pick; a running flow carries its own.
   const { breathePattern } = readHealthSettings(useSettings() ?? defaultSettings());
   usePanelHold(snapshot !== null && snapshot.flow !== null);

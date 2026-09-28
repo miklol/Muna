@@ -11,6 +11,7 @@ import { MapPin, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { Section, SegmentedRow, ToggleRow, ValueRow } from '../../settings/rows';
 import { useSettingsEditor } from '../../settings/settings-editor';
 import { type SearchFailure, searchPlaces } from './use-weather';
@@ -58,9 +59,9 @@ interface CitySearchProps {
  * refuses while the module is off, which the pane says plainly instead of failing.
  */
 export function CitySearch({ enabled, onChoose }: CitySearchProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [state, setState] = useState<SearchState>({ phase: 'idle' });
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
 
   const search = (query: string) => {
     if (!enabled) {
@@ -127,10 +128,10 @@ export function CitySearch({ enabled, onChoose }: CitySearchProps) {
  * the PC, because that is the decision the switch really is.
  */
 export function WeatherSettingsPane() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { settings, update } = useSettingsEditor();
   const weather = readWeatherSettings(settings);
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
 
   const write = (recipe: (current: WeatherSettings) => WeatherSettings) => {
     update((current) => writeWeatherSettings(current, recipe(readWeatherSettings(current))));

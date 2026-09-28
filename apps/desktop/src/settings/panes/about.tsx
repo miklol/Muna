@@ -7,14 +7,10 @@ import { useTranslation } from 'react-i18next';
 
 import { unwrap } from '../../lib/ipc';
 import { sameJson } from '../../lib/json';
+import { appInfoQuery } from '../../lib/locale';
 import { cacheSettings } from '../../lib/settings';
 import { ActionRow, type RowFilter, Section, ValueRow } from '../rows';
 import { useSettingsEditor } from '../settings-editor';
-
-export const appInfoQuery = {
-  queryKey: ['app-info'] as const,
-  queryFn: () => commands.appInfo(),
-};
 
 interface PaneProps {
   visible: RowFilter;

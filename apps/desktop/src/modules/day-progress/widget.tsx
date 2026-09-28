@@ -2,6 +2,7 @@ import { defaultSettings, readDayProgressSettings } from '@muna/contracts';
 import { ProgressTrack, Text } from '@muna/ui';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { useMinuteNow } from '../../lib/minute-now';
 import { useSettings } from '../../lib/settings';
 import type { WidgetProps } from '../registry';
@@ -17,8 +18,8 @@ import { useDaySources } from './use-day-progress';
  * panel and re-renders once a minute while mounted, never when unmounted.
  */
 export function DayProgressWidget(_props: WidgetProps) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const settings = readDayProgressSettings(useSettings() ?? defaultSettings());
   const { tasks, pomodoro } = useDaySources();
   const now = useMinuteNow();
@@ -29,7 +30,7 @@ export function DayProgressWidget(_props: WidgetProps) {
   let dayValue: string;
   let dayFill: number;
   if (timeline.dayPercent !== null) {
-    const percent = new Intl.NumberFormat(i18n.language, { style: 'percent' });
+    const percent = new Intl.NumberFormat(locale, { style: 'percent' });
     dayValue = t('dayProgress.workingDayValue', {
       percent: percent.format(timeline.dayPercent / 100),
     });

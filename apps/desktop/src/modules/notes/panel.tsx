@@ -35,6 +35,7 @@ import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { folderDisplayName, formatModified, noteById } from './format';
 import { renderMarkdown } from './markdown-lite';
 import { useNotesStore } from './notes-store';
@@ -554,7 +555,7 @@ function Problem({ snapshot }: ProblemProps) {
  * snapshot the Rust side rescans on request and after every write.
  */
 export function NotesPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useNotesSubscription();
   const snapshot = useNotesStore((store) => store.snapshot);
   const now = useNotesStore((store) => store.receivedAt);
@@ -564,7 +565,7 @@ export function NotesPanel() {
   const reduceMotion = useReduceMotion();
   const enterSpring = useMotionPreset('content');
   const [view, setView] = useState<View>({ kind: 'list' });
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
 
   useEffect(() => {
     if (!quickNotePending) return;

@@ -4,6 +4,7 @@ import { CalendarCheck, CalendarPlus } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { useMinuteNow } from '../../lib/minute-now';
 import type { WidgetProps } from '../registry';
 import { dayKeyOf, formatShortDay, formatTime, tintBySource, upcoming } from './agenda';
@@ -26,10 +27,10 @@ const tintStyle = (tint: Tint | undefined): CSSProperties | undefined =>
  * card adds the place. Without a calendar, or with nothing ahead, it says so in one line.
  */
 export function CalendarWidget({ span }: WidgetProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useCalendarSubscription();
   const snapshot = useCalendarStore((store) => store.snapshot);
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   const nowMs = useMinuteNow().getTime();
 
   if (snapshot === null) return null;

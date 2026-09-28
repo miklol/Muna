@@ -26,6 +26,7 @@ import { Link, Plus, Trash2 } from 'lucide-react';
 import { type CSSProperties, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { cacheSettings } from '../../lib/settings';
 import { Section, SegmentedRow, ToggleRow } from '../../settings/rows';
 import { useSettingsEditor } from '../../settings/settings-editor';
@@ -235,13 +236,13 @@ export function AddSource({ onAdded }: AddSourceProps) {
  * leaves the PC and where the links are kept, because that is the decision adding one is.
  */
 export function CalendarSettingsPane() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { settings, update } = useSettingsEditor();
   const queryClient = useQueryClient();
   useCalendarSubscription();
   const snapshot = useCalendarStore((store) => store.snapshot);
   const calendar = readCalendarSettings(settings);
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
 
   const write = (recipe: (current: CalendarSettings) => CalendarSettings) => {
     update((current) => writeCalendarSettings(current, recipe(readCalendarSettings(current))));

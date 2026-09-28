@@ -16,6 +16,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { DeviceIcon } from './bluetooth-icon';
 import { type BluetoothPending, useBluetoothStore } from './bluetooth-store';
 import './bluetooth.css';
@@ -86,7 +87,7 @@ function ErrorText({ children }: ErrorTextProps) {
  * spring when a device pairs or unpairs; the panel keeps no timers.
  */
 export function BluetoothPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useBluetoothSubscription();
   const snapshot = useBluetoothStore((store) => store.snapshot);
   const pending = useBluetoothStore((store) => store.pending);
@@ -97,7 +98,7 @@ export function BluetoothPanel() {
   const reduceMotion = useReduceMotion();
   const layoutSpring = useMotionPreset('layout');
   const enterSpring = useMotionPreset('content');
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
 
   if (snapshot === null) return null;
 
