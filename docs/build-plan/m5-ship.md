@@ -371,7 +371,22 @@ simulation could not reach because it never pushes. The fix (in #58) snapshots e
 tip at start-up and measures each PR's own commits against the parent's original tip; the
 recovery flag `-RebaseOnto` reads that tip from the parent PR's last force-push event. The
 simulation re-run from #25 with `-RebaseOnto 24`: 32 clean rebases (#25 replaying its 2 own
-commits, not 4) and a simulated `main` equal to the tree of #58. Every PR passes the parity
+commits, not 4) and a simulated `main` equal to the tree of #58. The relaunched landing merged
+PRs #25 and #26 and stopped on #27, the perf-harness PR itself, whose `app` check failed the
+cold-start gate: the debug build started in 1976 ms on the 4-vCPU `windows-latest` runner
+against the PRD's 1500 ms, and after the two-launch fix (risk R20; first launch 3814 ms
+reported, relaunch gated) the same binary measured 1474 ms on the next run — a 25 % swing on
+identical code. The harness now dates the WebView2 browser process and the first renderer from
+the process tree: of the 1474 ms, 668 ms passed before the browser process existed (the app's
+own start-up: bindings export, platform watchers, profile, plugins, window), 276 ms were
+Chromium's boot and 530 ms the page on software rendering; optimising the dev profile's
+dependencies moved the app's share by about 7 %, so the gate as specified measures the runner.
+The decision is the maintainer's (docs/11 forbids narrowing a check from a PR): #59 (draft,
+based on #27) proposes gating the start-up row on release builds and reporting it for debug
+builds, the rule `bundle:check` already applies to the exe size, with a release-candidate check
+by hand until a job builds a release binary; the alternatives — a release or `perf`-profile
+build in the `app` job, or a larger runner — need a workflow edit. The landing resumes from
+PR #27 once one of them is in place. Every PR passes the parity
 commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`, `ci:app`, the docs checks); until the
 repository went public the hosted checks had not run because the GitHub Actions budget was
 exhausted ("The job was not started because an Actions budget is preventing further use" on
