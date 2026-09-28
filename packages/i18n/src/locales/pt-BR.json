@@ -562,6 +562,7 @@
     "title": "Calendário",
     "month": "Mês",
     "agenda": "Agenda",
+    "agendaEvents": "Eventos de {{day}}",
     "today": "Hoje",
     "previousMonth": "Mês anterior",
     "nextMonth": "Próximo mês",

@@ -137,7 +137,7 @@ function Stats({ timeline, settings, now, locale }: StatsProps) {
   return (
     <section className="day-stats" aria-label={t('dayProgress.stats')}>
       <header className="day-stats__heading">
-        <Text as="h3" variant="callout" weight={600}>
+        <Text as="h2" variant="callout" weight={600}>
           {t('dayProgress.today')}
         </Text>
         <Text variant="footnote" tone="secondary" className="day-stats__date">

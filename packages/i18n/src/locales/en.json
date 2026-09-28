@@ -550,6 +550,7 @@
     "title": "Calendar",
     "month": "Month",
     "agenda": "Agenda",
+    "agendaEvents": "Events on {{day}}",
     "today": "Today",
     "previousMonth": "Previous month",
     "nextMonth": "Next month",

@@ -174,6 +174,8 @@ describe('WeatherPanel', () => {
     expect(cells[0]).toHaveTextContent('18°');
     expect(cells[1]).toHaveTextContent('3 PM');
     expect(cells[1]).toHaveTextContent('60%');
+    // The sentence is for screen readers; the visible cell shows the bare figure.
+    expect(within(cells[1]!).getByText('60% chance of rain')).toHaveClass('sr-only');
     // Chances under 10 % are left blank so the strip does not fill with noise.
     expect(cells[2]).not.toHaveTextContent('5%');
 

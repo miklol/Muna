@@ -10,10 +10,19 @@ describe('Card', () => {
         Ready to focus
       </Card>,
     );
-    expect(screen.getByRole('heading', { level: 3, name: 'Pomodoro' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Pomodoro' })).toBeInTheDocument();
     expect(screen.getByTestId('icon').parentElement).toHaveAttribute('aria-hidden', 'true');
     expect(screen.getByText('25:00')).toBeInTheDocument();
     expect(screen.getByText('Ready to focus')).toHaveClass('muna-card__body');
+  });
+
+  it('takes a deeper heading level for cards inside a titled section', () => {
+    render(
+      <Card title="Display 2" headingLevel={3}>
+        Follows the defaults
+      </Card>,
+    );
+    expect(screen.getByRole('heading', { level: 3, name: 'Display 2' })).toBeInTheDocument();
   });
 
   it('omits the header when there is no title or trailing content', () => {

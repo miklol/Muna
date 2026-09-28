@@ -142,7 +142,7 @@
 }
 
 .code-hosting-row__meta[data-checks='failure'] {
-  color: var(--accent-red);
+  color: var(--text-destructive);
 }
 
 .code-hosting-row__meta[data-checks='success'] {

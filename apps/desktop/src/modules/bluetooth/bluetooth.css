@@ -63,7 +63,7 @@
 }
 
 .bt-error {
-  color: var(--accent-red);
+  color: var(--text-destructive);
 }
 
 .bt-empty {

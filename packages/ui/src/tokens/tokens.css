@@ -31,6 +31,9 @@
   --accent-pink: #ff375f;
   --accent: var(--accent-blue);
   --on-accent: #000000;
+  /* Red for text (destructive buttons, errors, overdue): the accent itself falls under 4.5:1 on
+     hovered surfaces. Icons and bars keep `--accent-red`. */
+  --text-destructive: #ff6961;
   --scrim: rgb(0 0 0 / 0.55);
   --media-tint: transparent;
 
@@ -148,6 +151,7 @@
     --hairline: rgb(255 255 255 / 0.24);
     --text-2: rgb(255 255 255 / 0.72);
     --text-3: rgb(255 255 255 / 0.56);
+    --text-destructive: #ff8a80;
     --media-tint: transparent;
   }
 }
@@ -156,6 +160,7 @@
   --hairline: rgb(255 255 255 / 0.24);
   --text-2: rgb(255 255 255 / 0.72);
   --text-3: rgb(255 255 255 / 0.56);
+  --text-destructive: #ff8a80;
   --media-tint: transparent;
 }
 
@@ -184,6 +189,25 @@
   --accent-red: #ff3b30;
   --accent-purple: #af52de;
   --accent-cyan: #32ade6;
+  --text-destructive: #b42318;
+}
+
+/* The light appearance with the contrast switch: the same step up, in the light neutrals. It
+   follows the light block so it wins the tie on <html>. */
+@media (prefers-contrast: more) {
+  [data-theme='light'] {
+    --hairline: rgb(0 0 0 / 0.24);
+    --text-2: rgb(0 0 0 / 0.72);
+    --text-3: rgb(0 0 0 / 0.56);
+    --text-destructive: #9b1c14;
+  }
+}
+
+[data-theme='light'][data-contrast='more'] {
+  --hairline: rgb(0 0 0 / 0.24);
+  --text-2: rgb(0 0 0 / 0.72);
+  --text-3: rgb(0 0 0 / 0.56);
+  --text-destructive: #9b1c14;
 }
 
 /* Settings → Appearance → Accent: the app mirrors the choice as `data-accent` on <html>. */

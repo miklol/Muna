@@ -315,7 +315,7 @@ export function MediaPanel() {
       />
       <div className="media-details">
         <div className="media-meta">
-          <Text as="h3" variant="title3" className="media-title">
+          <Text as="h2" variant="title3" className="media-title">
             <Marquee>{displayTitle(active.title, t('media.unknownTitle'))}</Marquee>
           </Text>
           <Text as="p" variant="footnote" tone="secondary" truncate={1}>

@@ -247,15 +247,21 @@ function ForecastView({ snapshot, forecast, onRefresh }: ForecastViewProps) {
               tone="tertiary"
               tabular
               className="weather-cell__chance"
-              aria-label={
-                hour.precipitationPercent === null
-                  ? undefined
-                  : t('weather.chance', { value: formatPercent(hour.precipitationPercent, locale) })
-              }
             >
-              {hour.precipitationPercent === null || hour.precipitationPercent < 10
-                ? '\u00a0'
-                : formatPercent(hour.precipitationPercent, locale)}
+              {hour.precipitationPercent === null || hour.precipitationPercent < 10 ? (
+                '\u00a0'
+              ) : (
+                // The visible figure is bare; the sentence around it is for screen readers
+                // (`aria-label` is not allowed on plain text).
+                <>
+                  <span aria-hidden="true">{formatPercent(hour.precipitationPercent, locale)}</span>
+                  <span className="sr-only">
+                    {t('weather.chance', {
+                      value: formatPercent(hour.precipitationPercent, locale),
+                    })}
+                  </span>
+                </>
+              )}
             </Text>
           </li>
         ))}
