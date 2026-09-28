@@ -42,7 +42,10 @@ maintainer.
   the landing locally): it squash-merges one PR, retargets the next to `main`, rebases only
   that PR's own commits onto `main` and force-pushes it with a lease. The rebase is required —
   a squash rewrites the parent's history, so a merely retargeted child shows the parent's
-  changes as conflicts.
+  changes as conflicts. "Own commits" are measured against the parent's tip from *before* the
+  script rebased it (a snapshot taken at start-up); after an interrupted run,
+  `-Bottom <child> -RebaseOnto <merged parent>` recovers that tip from the parent PR's last
+  force-push event.
 - **Drafts** for work in progress; CI runs on drafts too, but reviewers are not requested.
 
 ## Commits and PR titles

@@ -360,13 +360,24 @@ parent's history, so a child that is merely retargeted still carries the parent'
 GitHub shows them as conflicts — the landing simulation of 2026-09-28 (`land-stack.ps1
 -Simulate`) merged #24 onto a squashed #22 without the rebase and hit 11 conflicted files,
 then replayed all 33 PRs with the rebase: every one clean, no PR branched from anything but
-its parent's final tip, and the simulated `main` ended with exactly the tree of #57. Every PR
-passes the parity commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`, `ci:app`, the docs
-checks); the hosted checks have not run because the GitHub Actions budget is exhausted ("The
-job was not started because an Actions budget is preventing further use" on every job, #57
-included). When it is restored, the script reruns each never-started run once and stops on
-anything else; each PR's rebase push starts its own run, so the landing costs one full CI run
-per PR (about 35). `#54` and `#55` are Dependabot's and independent — #55 touches every
+its parent's final tip, and the simulated `main` ended with exactly the tree of #57. The live
+landing started the same day once the repository went public (the private plan's Actions
+budget and artifact-storage quota had held every hosted run; see below): #22 merged as
+`71c258c`, #24 rebased, passed its checks in four minutes and merged, and the script then
+stopped on #25 with conflicts in exactly #24's files. Cause: it read the child's merge base
+from `origin/<parent>` *after* it had force-pushed the parent's rebased commits there, so the
+base fell back to the old `main` and the rebase replayed #22 and #24 again — a path the
+simulation could not reach because it never pushes. The fix (in #58) snapshots every branch
+tip at start-up and measures each PR's own commits against the parent's original tip; the
+recovery flag `-RebaseOnto` reads that tip from the parent PR's last force-push event. The
+simulation re-run from #25 with `-RebaseOnto 24`: 32 clean rebases (#25 replaying its 2 own
+commits, not 4) and a simulated `main` equal to the tree of #58. Every PR passes the parity
+commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`, `ci:app`, the docs checks); until the
+repository went public the hosted checks had not run because the GitHub Actions budget was
+exhausted ("The job was not started because an Actions budget is preventing further use" on
+every job, #57 included). The script reruns each never-started run once and stops on anything
+else; each PR's rebase push starts its own run, so the landing costs one full CI run per PR
+(about 35). `#54` and `#55` are Dependabot's and independent — #55 touches every
 `package.json` and `pnpm-lock.yaml` the stack also changes, so land the stack first and let
 Dependabot rebase.
 
