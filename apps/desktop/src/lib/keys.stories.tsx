@@ -47,3 +47,8 @@ export const Gallery: Story = {
     </div>
   ),
 };
+
+/** The mirrored-English pseudo-locale (ar-XB): longer strings, right-to-left layout. */
+export const PseudoRtl: Story = {
+  globals: { locale: 'ar-XB' },
+};
