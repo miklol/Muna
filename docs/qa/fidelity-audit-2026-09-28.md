@@ -42,7 +42,7 @@ tour.
 | # | Surface | Finding | Spec | Decision |
 | --- | --- | --- | --- | --- |
 | B1 | Dashboard panel | The 2 × 4 grid collapses to 0 px and all seven cards overlap — in every story and in the running app (`grid 930 × 0`). `.dashboard__grid` is `flex: 1 1 0; min-block-size: 0` with `1fr` rows, so it needs a definite parent height; the shell sizes the panel to its content (`.muna-panel { block-size: 100% }` resolves to `auto` inside the measured wrapper), so there is none. [dashboard.md](../modules/dashboard.md) assumes "the panel body is 284 px tall". | Panel height follows content, 190–360 ([05 › Spacing & sizing](../05-design-system.md#spacing--sizing)) | Modules own their height. The grid gets two explicit 120 px rows (`--dashboard-row`), so the panel measures 360 with any content; `dashboard.md` and the contract note below are corrected. |
-| B2 | Mirror panel, live | The 16:9 frame is `flex: 1 1 auto` with `max-inline-size: 100%` and no block bound; with a content-sized panel it takes the full width (688 → 387 px tall, body 408) and the shape clips the bottom of the picture. Only the *off* state was visible in the app run (no camera); the `Live` story shows it. | Panel 190–360 | The frame gets `max-block-size: 240px` (284 − head 28 − gap 12, the figure the file comment already gives); `aspect-ratio` transfers it to the width (427 px). |
+| B2 | Mirror panel, live | The 16:9 frame is `flex: 1 1 auto` with `max-inline-size: 100%` and no block bound; with a content-sized panel it takes the full width (688 → 387 px tall, body 408) and the shape clips the bottom of the picture. Only the *off* state was visible in the app run (no camera); the `Live` story shows it. | Panel 190–360 | The frame gets an explicit height, `--mirror-frame: 236px` (284 − the panel's 8 px padding − head 28 − gap 12); `aspect-ratio` transfers it to the width (420 px), centred. |
 
 ### Should
 
@@ -88,10 +88,34 @@ command palette, drop row and snap zones, every settings pane, the welcome tour;
 presets are imported from `@muna/ui/motion` everywhere except S10; no exclamation marks in
 1580 strings; two font weights; hairline and surface tokens throughout.
 
+## Found while fixing
+
+Bounding the panels above made the content-height `PanelFrame` show the same class of defect
+in five more modules: their scrolling lists had `flex: 0 1 auto; min-block-size: 0` and no
+bound, which was enough under a fixed-height frame and is nothing under a content-sized one.
+The surface then clipped the overflow, and axe sampled the hidden rows against the story
+background (`color-contrast` on the notes and AI coding *Long content* stories). All fixed in
+the same PR.
+
+| # | Surface | Finding | Decision |
+| --- | --- | --- | --- |
+| F1 | AI coding panel, long content | The sessions list grows with its rows (body 577 px at eight sessions); the surface clips everything past 284. In the running app the panel measured 300. | The list scrolls inside `--ai-coding-scroll: 240px` under the counts line. |
+| F2 | Notes panel and editor | The rows grow with the notes (body 681 px at fourteen; 285 at the default five); the editor's `TextArea` collapses to one line (36 px) and the preview has no bound. | Rows and preview scroll inside `--notes-scroll: 219px`; the text area is 219 px tall. |
+| F3 | Shelf panel | The grid's `--shelf-grid-max` was 220 but the status line is 28 tall (its buttons), not the 20 the budget assumed; body 292. In the app 279 with fewer rows. | `--shelf-grid-max: 212px`; the file's budget comment corrected. |
+| F4 | Support panel | Six 44 px rows plus the version line make 289; the changelog view 331; with the outcome line the running app measured 365 — over the maximum, so the shell clamped it and the surface clipped the last row and the outcome line. | List and changelog scroll inside `--support-scroll: 220px` (five rows), leaving room for the head or version line and the outcome line. |
+| F5 | Weather panel at 720 | The six chips wrap to two rows at the minimum width (they fit in one from about 760), so the body is 294; fine in the app at 1000 (266). | A container query under 760 px tightens the chip rows and the strip cells: 282. |
+
+The "Observed on spec" list above stands for every surface except the height of these five
+at 720 px, which the earlier frame could not show.
+
 ## Contract clarified
 
 A panel's height **follows its content** between 190 and 360 px; the shell measures the
 panel and animates to it. A module that wants a fixed layout declares its own heights (rows,
-frames, list bounds) and never relies on the body being 284 px. Recorded in
-[05 › Spacing & sizing](../05-design-system.md#spacing--sizing); `dashboard.md`, `mirror.md`, `translation.md`
-and `system-monitor.md` are corrected where they said otherwise.
+frames, list bounds) and never relies on the body being 284 px — `flex: 1 1 0`,
+`block-size: 100%` and `min-block-size: 0` alone resolve to nothing there. Recorded in
+[05 › Spacing & sizing](../05-design-system.md#spacing--sizing) (the *Panel body* row);
+`dashboard.md`, `mirror.md`, `translation.md`, `system-monitor.md`, `health.md`, `notes.md`,
+`ai-coding.md`, `code-hosting.md`, `shelf.md`, `support.md` and `weather.md` record each
+module's budget. The health breathing circle's content-paced tween became `paced()` in
+`@muna/ui/motion`, recorded in [06 › Timings](../06-motion-spec.md#timings-non-spring).

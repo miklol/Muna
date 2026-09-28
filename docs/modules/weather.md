@@ -76,7 +76,9 @@ through a provider adapter over `reqwest` (rustls, HTTP/2, system proxy).
   chips for humidity, wind, UV, pressure, sunrise and sunset, the next twelve hours and the
   week; a stale forecast keeps showing with an *Updated HH:MM* chip when the last refresh
   failed (acceptance criterion "offline → last forecast with a timestamp chip"). No timers in
-  the UI. The sky is a gradient chosen by `data-sky` (six condition groups × day/night).
+  the UI. The sky is a gradient chosen by `data-sky` (six condition groups × day/night). At
+  the 720 px minimum panel width the six chips wrap to two rows and the chip rows and strip
+  cells tighten (a container query), so the body stays inside its 284 px.
 - **Deviations from the spec.** Photographic WebP skies with the Ken-Burns drift and the
   animated icon set are deferred — the panel ships no binary assets; skies are CSS gradients
   behind the black-glass material and icons are Lucide outlines, sun becoming moon after

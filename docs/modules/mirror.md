@@ -88,6 +88,9 @@ its label so the pane can name it. Zoom (1×, 1.5×, 2×) is transient.
   cameras) and *Settings*; the body is the picture in a 16:9 frame with continuous corners,
   `object-fit: cover`, mirrored and zoomed with a transform, or the empty/error state. Not a
   held panel: a collapse must stop the camera.
+- **Height budget**: the frame is 236 px tall, so the panel lands on the shell's 360 px
+  maximum; the letterbox is `--notch-black` and a zoomed picture is clipped by the frame, by
+  design.
 - **Widget**: the picture at the card's height, the module title and the camera's name; off,
   *Mirror is off · Turn it on in Settings*; an error in one line.
 - **Stories**: `Modules/Mirror/*` replace `navigator.mediaDevices` with a painted canvas

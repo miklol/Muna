@@ -90,10 +90,14 @@ is stored. Pieces, in the order a sit flows:
   the reminder card with *Snooze*/*Dismiss* leads while a break is due). Starting a flow
   swaps the columns for the **flow view**: a 112 px ring with the countdown and the guidance
   — Move prompts every 30 s, Breathe an animated circle whose scale follows the phase (its
-  transition length *is* the phase length, content pacing rather than a motion preset; under
-  reduced motion the circle stands still and the phase text carries it), Stretch a step list
+  transition is `paced(phaseMs)` from `@muna/ui/motion`, so the tween is as long as the phase;
+  under reduced motion the circle stands still and the phase text carries it), Stretch a step list
   with `aria-current="step"`, Eye rest the instruction — and a *Stop* button in the head.
   *Away*, *Locked* and *Health is off* (with *Open Settings*) say why the timer is paused.
+- **Width**: the flow cards auto-fit their column — one column at the 720 px minimum panel
+  width, two from about 860 px — and drop to a compact variant (smaller glyph, no play button)
+  under 308 px of column; the reminder card wraps its actions under the same width. Nothing
+  truncates at any panel width.
 - **Widget** (`widget.tsx`): the three rings small, the sit and the next reminder (or the
   flow, or why the timer is paused) and a *+* that logs a glass of water.
 - **Settings pane** (`settings.tsx`): *Track sitting*, *Remind me every* (with the derived

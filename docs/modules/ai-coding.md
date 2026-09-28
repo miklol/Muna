@@ -123,6 +123,8 @@ module with temp folders, scripted pids and a `FakeClock`. Pieces, in the order 
   *Open settings*), *No agents running* with either what starts one or, while Claude Code has
   no hooks, where to install them. A refused command explains itself in one line under the
   list. The panel has no timer: elapsed times are the snapshot's.
+- **Height budget**: the rows scroll inside 240 px under the counts line, so a long list lands
+  on the shell's 360 px maximum instead of being clipped by it.
 - **Widget**: *2 waiting · 1 running* (orange while anything waits) and the first three
   projects, waiting first; a wide card adds what each does. **Settings pane**: the privacy
   note, *Watch coding agents*, *GitHub Copilot CLI*, *Announce waiting agents*; then *Hook

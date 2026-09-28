@@ -68,6 +68,8 @@ the launcher, actions, quick toggles and the remaining widgets are deferred (bel
 
 - The panel body is 284 px tall (shell panel 360 − chrome), which gives two rows of 120 px
   cards with a 68 px body; a narrow card is about 166 px wide, a wide one about 340 px. The
+  grid declares those rows (`repeat(2, 120px)`) because the panel is content-sized — a flexible
+  row would collapse to nothing. The
   toolbar above the grid shows how many widgets are on it and the pencil that toggles edit mode.
 - **Deviation from the reference:** the pencil sits in the panel body, not in the shell's header
   rail — modules cannot inject into the rail's fixed props. Screenshot and info buttons are
