@@ -2,7 +2,7 @@ import type { Leading, StripContent, StripMessage, Trailing } from '@muna/contra
 import { formatCountdown, type StripSlotContent } from '@muna/ui/primitives';
 import type { useTranslation } from 'react-i18next';
 
-import { glyphLabelKey, stripGlyph, waveformGlyph } from './strip-glyphs';
+import { glyphLabelKey, stripGlyph } from './strip-glyphs';
 
 /** The typed `t` from `useTranslation()`; keys are checked against the English catalog. */
 export type Translate = ReturnType<typeof useTranslation>['t'];
@@ -60,7 +60,9 @@ export const toSlot = (
         ? { kind: 'icon', icon: stripGlyph(slot.glyph) }
         : { kind: 'icon', icon: stripGlyph(slot.glyph), tint: slot.tint };
     case 'image':
-      return { kind: 'image', src: slot.src };
+      return slot.glow === null || slot.glow === undefined
+        ? { kind: 'image', src: slot.src }
+        : { kind: 'image', src: slot.src, tint: slot.glow };
     case 'text':
       return { kind: 'text', value: slot.value };
     case 'percent':
@@ -78,7 +80,7 @@ export const toSlot = (
     case 'progress':
       return { kind: 'progress', percent: slot.percent };
     case 'waveform':
-      return { kind: 'icon', icon: waveformGlyph() };
+      return { kind: 'waveform', playing: slot.playing };
   }
 };
 

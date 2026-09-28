@@ -1,0 +1,34 @@
+/*
+ * Marquee primitive — clips a single line and scrolls it only when it overflows
+ * (docs/06-motion-spec.md "Marquee"). The track moves on `transform` alone; the fade at
+ * both edges is a mask, so no extra element paints over the text.
+ */
+
+.muna-marquee {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.muna-marquee[data-scrolling] {
+  mask-image: linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+}
+
+.muna-marquee__track {
+  display: inline-flex;
+  will-change: transform;
+}
+
+.muna-marquee__copy {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* Text that overflows but may not move (reduced motion) is clipped with an ellipsis instead. */
+.muna-marquee[data-overflow]:not([data-scrolling]) .muna-marquee__track {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -108,12 +108,20 @@ impl AppState {
     }
 
     /// Everything that must follow a settings change besides saving it: the notch shell
-    /// re-places its windows and launch-at-login is synced with the OS.
+    /// re-places its windows, launch-at-login is synced with the OS and the modules read their
+    /// namespaces.
     pub fn settings_changed(self: &Arc<Self>, app: &AppHandle, settings: &Settings) {
         if let Some(shell) = &self.shell {
             shell.apply_settings(app, &settings.shell);
         }
         self.sync_autostart(app, settings.general.launch_at_login);
+        self.apply_module_settings(settings);
+    }
+
+    /// Hands each module its `settings.modules.<id>` namespace.
+    pub fn apply_module_settings(&self, settings: &Settings) {
+        let observation = self.modules.media.apply_settings(settings);
+        crate::modules::media::schedule_art(&self.modules.media, &observation);
     }
 
     /// The context handed to every module backend.

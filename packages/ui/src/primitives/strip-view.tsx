@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, type Transition } from 'motion/react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { contentExitTransition, contentRecipe } from '../motion/presets';
 import { useMotionPreset, useReduceMotion } from '../motion/reduced-motion';
@@ -9,6 +9,7 @@ import { cx, type Tint, tintStyle } from './shared';
 import './strip-view.css';
 import { Text } from './text';
 import { TimerText } from './timer-text';
+import { Waveform } from './waveform';
 
 /**
  * What one 20 px slot of the strip shows. A UI-level vocabulary: the shell maps the
@@ -16,7 +17,12 @@ import { TimerText } from './timer-text';
  */
 export type StripSlotContent =
   | { kind: 'icon'; icon: ReactNode; tint?: Tint }
-  | { kind: 'image'; src: string }
+  | {
+      kind: 'image';
+      src: string;
+      /** A palette colour (CSS) that softly haloes the image at ≤ 30 %; album art sets it. */
+      tint?: string | null;
+    }
   | { kind: 'text'; value: string }
   | { kind: 'battery'; percent: number; charging: boolean }
   | {
@@ -27,7 +33,9 @@ export type StripSlotContent =
       /** `Date.now()` when the value arrived; the timer counts from here. */
       receivedAt: number;
     }
-  | { kind: 'progress'; percent: number };
+  | { kind: 'progress'; percent: number }
+  /** Four audio bars; they move only while `playing`. */
+  | { kind: 'waveform'; playing: boolean };
 
 export interface StripViewProps {
   /** Names the region ("Notch strip"). */
@@ -70,8 +78,14 @@ const slotKey = (content: StripSlotContent | null | undefined): string => {
       return 'timer';
     case 'progress':
       return 'progress';
+    case 'waveform':
+      return 'waveform';
   }
 };
+
+/** Inline style for a haloed image: the palette colour as `--muna-art-tint`. */
+const artTintStyle = (tint: string): CSSProperties =>
+  ({ '--muna-art-tint': tint }) as CSSProperties;
 
 function SlotContent({ content }: { content: StripSlotContent }) {
   switch (content.kind) {
@@ -87,8 +101,18 @@ function SlotContent({ content }: { content: StripSlotContent }) {
           {content.icon}
         </span>
       );
-    case 'image':
-      return <img className="muna-strip__image" src={content.src} alt="" draggable={false} />;
+    case 'image': {
+      const tint = content.tint ?? null;
+      return (
+        <img
+          className={cx('muna-strip__image', tint !== null && 'muna-strip__image--tinted')}
+          style={tint === null ? undefined : artTintStyle(tint)}
+          src={content.src}
+          alt=""
+          draggable={false}
+        />
+      );
+    }
     case 'text':
       return (
         <Text variant="footnote" weight={600} tabular className="muna-strip__text">
@@ -116,6 +140,8 @@ function SlotContent({ content }: { content: StripSlotContent }) {
           className="muna-strip__ring"
         />
       );
+    case 'waveform':
+      return <Waveform playing={content.playing} size={stripSlotLayout.size} />;
   }
 }
 

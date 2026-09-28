@@ -1,7 +1,9 @@
 /*
- * ModuleBar primitive — 640 × 40 pill on `--surface-2` with a hairline, 32 px tab slots at
- * 8 px gaps, 20 px icons. The active tab's `--surface-3` pill glides between tabs (Motion
- * layoutId, `switch`); icons scale to 1.08 on hover with the `toggle` easing.
+ * ModuleBar primitive — 640 × 40 pill of `--surface-2` on `--notch-black` with a hairline
+ * (docs/05-design-system.md "Materials"), 32 px tab slots at 8 px gaps, 20 px icons. The bar
+ * floats below the panel over the transparent window, so it carries its own black base.
+ * The active tab's `--surface-3` pill glides between tabs (Motion layoutId, `switch`); icons
+ * scale to 1.08 on hover with the `toggle` easing.
  */
 
 .muna-module-bar {
@@ -13,7 +15,7 @@
   block-size: var(--size-module-bar-height);
   padding: 0 4px;
   border-radius: var(--radius-bar);
-  background: var(--surface-2);
+  background: linear-gradient(var(--surface-2), var(--surface-2)) var(--notch-black);
   box-shadow: inset 0 0 0 1px var(--hairline);
   box-sizing: border-box;
   font-family: var(--font-sans);

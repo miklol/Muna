@@ -59,6 +59,41 @@
     "panel": "Panel",
     "hint": "Press Ctrl+Alt+M to morph, Ctrl+Alt+P to park, Ctrl+Alt+C to hide from captures."
   },
+  "media": {
+    "title": "Media",
+    "empty": {
+      "title": "Nothing playing",
+      "body": "Play something in Spotify, a browser or another app and it appears here."
+    },
+    "unknownTitle": "Unknown title",
+    "position": "Playback position",
+    "transport": "Playback controls",
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next track",
+    "previous": "Previous track",
+    "shuffle": "Shuffle",
+    "repeat": "Repeat",
+    "repeatOne": "Repeat one track",
+    "apps": "Apps with media",
+    "showApp": "Show {{app}}",
+    "settings": {
+      "source": "Source",
+      "preferredApp": "Preferred app",
+      "preferredAppBody": "Automatic follows whichever app is playing. Choosing an app keeps the notch on it while it has something to show.",
+      "auto": "Automatic",
+      "refresh": "Sessions",
+      "refreshBody": "Ask Windows again for the apps that are playing, if one seems stuck.",
+      "refreshAction": "Refresh",
+      "look": "Look",
+      "adaptiveColours": "Adaptive colours",
+      "adaptiveColoursBody": "Tints the strip and panel with colours from the album art.",
+      "visualiser": "Visualiser",
+      "visualiserBody": "Audio bars beside the art while music plays.",
+      "visualiserBars": "Bars",
+      "visualiserOff": "Off"
+    }
+  },
   "settings": {
     "title": "Muna settings",
     "version": "Version {{version}}",

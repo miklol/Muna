@@ -67,8 +67,20 @@ describe('strip content mapping', () => {
       kind: 'icon',
       tint: 'blue',
     });
-    // The waveform stands in as a static glyph until the media UI lands its bars.
-    expect(toSlot({ kind: 'waveform', playing: true }, 'en', 0)).toMatchObject({ kind: 'icon' });
+    expect(toSlot({ kind: 'waveform', playing: true }, 'en', 0)).toEqual({
+      kind: 'waveform',
+      playing: true,
+    });
+    // Album art carries its palette colour as the halo tint; other images have none.
+    expect(toSlot({ kind: 'image', src: 'a.png', glow: '#5ac8fa' }, 'en', 0)).toEqual({
+      kind: 'image',
+      src: 'a.png',
+      tint: '#5ac8fa',
+    });
+    expect(toSlot({ kind: 'image', src: 'a.png', glow: null }, 'en', 0)).toEqual({
+      kind: 'image',
+      src: 'a.png',
+    });
   });
 
   it('shows an activity wide only during the burst the scheduler signals', () => {

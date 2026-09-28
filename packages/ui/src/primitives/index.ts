@@ -2,8 +2,10 @@
  * Primitives (docs/05-design-system.md#components), built on React Aria Components. Every
  * primitive ships a Storybook story and a Vitest render test. M0-E4 landed the seven the shell
  * needs first; M1-E4 added the panel chrome, the module bar and the shared controls; M1-E2 the
- * strip's slot renderers; M1-E3 the search field; M1-E5 the option tiles.
+ * strip's slot renderers; M1-E3 the search field; M1-E5 the option tiles; M2-E2 the media
+ * pieces (album art, marquee, waveform).
  */
+export { AlbumArt, type AlbumArtProps, paletteVars } from './album-art';
 export { BatteryGlyph, type BatteryGlyphProps, batteryLevels, batteryTint } from './battery-glyph';
 export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
@@ -18,6 +20,7 @@ export {
   type PressableListRowProps,
   type StaticListRowProps,
 } from './list-row';
+export { Marquee, type MarqueeProps, marqueeTimeline, measureOverflow, overflows } from './marquee';
 export {
   ModuleBar,
   type ModuleBarItem,
@@ -57,3 +60,11 @@ export {
 export { Text, type TextProps, type TextTone, type TextVariant } from './text';
 export { formatCountdown, remainingNow, TimerText, type TimerTextProps } from './timer-text';
 export { Toggle, type ToggleProps } from './toggle';
+export {
+  barScale,
+  syntheticSample,
+  Waveform,
+  waveformAmplitude,
+  type WaveformProps,
+  waveformRest,
+} from './waveform';

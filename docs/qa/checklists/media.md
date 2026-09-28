@@ -23,7 +23,23 @@ script, 0 wrong picks); this checklist is the hardware side.
 | 3 | Track change: title and artist | < 300 ms | `VK_MEDIA_NEXT_TRACK`, first log line |
 | 4 | Track change: artwork | recorded, no budget (apps deliver art late) | second log line, `art_version` bumped |
 | 5 | Second app starts playing → follows the OS's current session | < 300 ms | manual: start playback in a second app |
-| 6 | Pinned app stays while another plays | — | needs the Media pane (M2-E2) |
+| 6 | Pinned app stays while another plays | — | pin from the panel's app chips or Settings → Media → Preferred app |
+
+## Panel and strip (M2-E2)
+
+Visual checks for the UI, run with `scripts\dev.ps1` (`-FullMotion` to see the bars move on a
+machine with Windows animations off) and the notch expanded (`Ctrl+Alt+Space`).
+
+| # | Scenario | Expect | 2026-09-25 result |
+| --- | ---------- | -------- | ------------------- |
+| 7 | Playing | strip: art with palette halo + bars; panel: art, title, "Artist · Album", progress, elapsed/remaining, pause glyph filled | PASS — art 96 CSS px, cyan track, "5:14" elapsed |
+| 8 | Pause via media key | art dims, play glyph, elapsed time freezes, halo stays | PASS — froze at 0:40 / 3:14 |
+| 9 | App reports no seek | progress is a track, not a slider | PASS — Spotify (`controls.seek: false`) |
+| 10 | Track with dark artwork over black glass | bleed is smooth (no speckle ring around the art) | PASS after the `box-shadow` change (62 → 0 pure-black pixels in the band) |
+| 11 | Module bar over a light wallpaper | solid pill, glyph legible | PASS after painting `--notch-black` under `--surface-2` |
+| 12 | Two apps with sessions → chips → pin | chip pins, `settings.json` gains `modules.media.preferredApp`, survives relaunch | not run — only one app published a session on this machine |
+| 13 | Settings → Media → Adaptive colours off | halo and bleed disappear on the next state | not run |
+| 14 | Long title | marquee scrolls only when the text overflows | not run (titles fit) |
 
 ## Results
 

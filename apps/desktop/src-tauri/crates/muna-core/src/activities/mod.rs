@@ -91,9 +91,13 @@ pub enum Leading {
         percent: u8,
         charging: bool,
     },
-    /// Album art or an app icon, as a data URL or asset URL. Rounded 6 px at 20 px.
+    /// Album art or an app icon, as a data URL or asset URL. Rounded 6 px at 20 px. `glow` is
+    /// a CSS colour from the artwork palette for the tinted halo behind it (docs/modules/
+    /// media.md, strip form); `None` draws no halo (no palette yet, or adaptive colours off).
     Image {
         src: String,
+        #[serde(default)]
+        glow: Option<String>,
     },
 }
 
@@ -254,6 +258,7 @@ mod tests {
             priority: priority::MEDIA_PLAYING,
             leading: Some(Leading::Image {
                 src: "data:,".into(),
+                glow: None,
             }),
             trailing: Some(Trailing::Progress { percent: 40 }),
             wide: Some(StripMessage::Text {
@@ -271,6 +276,21 @@ mod tests {
         assert_eq!(json["activity"]["trailing"]["kind"], "progress");
         assert_eq!(json["activity"]["wide"]["kind"], "text");
         assert_eq!(json["activity"]["wide"]["value"], "Song");
+    }
+
+    #[test]
+    fn an_image_without_a_glow_still_deserialises() {
+        // Producers that predate the halo omit the field; the strip draws none.
+        let leading: Leading =
+            serde_json::from_value(serde_json::json!({ "kind": "image", "src": "data:," }))
+                .unwrap();
+        assert_eq!(
+            leading,
+            Leading::Image {
+                src: "data:,".into(),
+                glow: None
+            }
+        );
     }
 
     #[test]
