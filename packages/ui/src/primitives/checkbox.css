@@ -10,6 +10,7 @@
 
 /* The React Aria checkbox button is the label: hover, press, selection and focus land here. */
 .muna-checkbox__button {
+  position: relative;
   display: inline-flex;
   flex: 1 1 auto;
   align-items: center;
@@ -22,6 +23,19 @@
   line-height: var(--text-body--line-height);
   cursor: default;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Effective hit area: the 20 px box grows to `--size-hit-effective` tall (36; 44 on touch)… */
+.muna-checkbox__button::before {
+  content: '';
+  position: absolute;
+  inset-block: calc((var(--size-checkbox) - var(--size-hit-effective)) / 2);
+  inset-inline: 0;
+}
+
+/* …and as wide when there is no label to widen it (a list row's leading box). */
+.muna-checkbox__button:not(:has(.muna-checkbox__label))::before {
+  inset-inline: calc((var(--size-checkbox) - var(--size-hit-effective)) / 2);
 }
 
 .muna-checkbox__box {

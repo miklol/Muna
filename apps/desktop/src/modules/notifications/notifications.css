@@ -134,9 +134,14 @@
   border-radius: var(--radius-card);
 }
 
-.ntf-card:hover,
 .ntf-card:focus-within {
   background: var(--surface-1);
+}
+
+@media (hover: hover) {
+  .ntf-card:hover {
+    background: var(--surface-1);
+  }
 }
 
 .ntf-card__text {

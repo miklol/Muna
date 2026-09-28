@@ -159,6 +159,13 @@
   --media-tint: transparent;
 }
 
+/* Touch as the primary pointer: 44 px effective hit areas (docs/05-design-system.md). */
+@media (pointer: coarse) {
+  :root {
+    --size-hit-effective: 44px;
+  }
+}
+
 /* Settings window only: neutrals invert, accents use the light-appearance variants. */
 [data-theme='light'] {
   --bg: #f5f5f7;
