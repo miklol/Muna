@@ -45,16 +45,6 @@ export const TypeScale: Story = {
 };
 
 export const Tones: Story = {
-  parameters: {
-    a11y: {
-      config: {
-        // `--text-3` (white 40 %) sits at 3.7:1 on the panel; docs/05 reserves it for ≥ 12 px
-        // secondary labels and raises it to 56 % in the increased-contrast theme. Tracked for
-        // design review; the other tones pass.
-        rules: [{ id: 'color-contrast', enabled: false }],
-      },
-    },
-  },
   render: () => (
     <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
       <Text tone="primary">Primary — titles and values</Text>

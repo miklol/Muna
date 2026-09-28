@@ -282,3 +282,11 @@ export const ReducedMotion: Story = {
     await atRest(canvasElement);
   },
 };
+
+/** The mirrored-English pseudo-locale (ar-XB): longer strings, right-to-left layout. */
+export const PseudoRtl: Story = {
+  globals: { locale: 'ar-XB' },
+  play: async ({ canvasElement }) => {
+    await atRest(canvasElement);
+  },
+};

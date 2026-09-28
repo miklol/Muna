@@ -24,6 +24,7 @@ import type {
   CodeHostingChanged,
   CodeHostingCommand,
   CodeHostingSnapshot,
+  Contrast,
   CurrentApp,
   DayTotals,
   DayUsage,
@@ -122,7 +123,7 @@ import type {
   YieldState,
 } from './bindings';
 
-export const SETTINGS_VERSION = 6;
+export const SETTINGS_VERSION = 7;
 
 /** Settings → General → Language: follow the Windows display language. */
 export const SYSTEM_LANGUAGE = 'system';
@@ -157,6 +158,8 @@ export const reducedMotionSchema = z.enum([
   'off',
 ]) satisfies z.ZodType<ReducedMotion>;
 
+export const contrastSchema = z.enum(['system', 'more']) satisfies z.ZodType<Contrast>;
+
 export const generalSettingsSchema = z.object({
   launchAtLogin: z.boolean(),
   reducedMotion: reducedMotionSchema,
@@ -164,6 +167,8 @@ export const generalSettingsSchema = z.object({
   onboarded: z.boolean(),
   // `system` or a catalog tag; `@muna/i18n` resolves it and treats an unknown tag as `system`.
   language: z.string().min(1).max(35),
+  contrast: contrastSchema,
+  announceNotices: z.boolean(),
 });
 
 export const placementModeSchema = z.enum([
@@ -434,6 +439,8 @@ export const defaultSettings = (): Settings => ({
     accent: 'blue',
     onboarded: false,
     language: SYSTEM_LANGUAGE,
+    contrast: 'system',
+    announceNotices: false,
   },
   shell: defaultShellSettings(),
   modules: {},

@@ -284,8 +284,10 @@
   transition: background-color var(--muna-motion-toggle);
 }
 
-.health-card:hover {
-  background: var(--surface-3);
+@media (hover: hover) {
+  .health-card:hover {
+    background: var(--surface-3);
+  }
 }
 
 .health-card:focus-visible {

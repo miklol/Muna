@@ -39,7 +39,7 @@ interface DueLabelProps {
   overdueSuffix: string;
 }
 
-/** The due date on a row, `--accent-red` once it has passed (with the word for readers). */
+/** The due date on a row, `--text-destructive` once it has passed (with the word for readers). */
 function DueLabel({ due, now, locale, words, overdueSuffix }: DueLabelProps) {
   const overdue = isOverdue(due, now);
   return (
@@ -145,7 +145,7 @@ export function TodoPanel() {
       <div className="todo-toolbar">
         {trash ? (
           <div className="todo-trash-heading">
-            <Text as="h3" variant="body" weight={600} className="todo-trash-heading__title">
+            <Text as="h2" variant="body" weight={600} className="todo-trash-heading__title">
               {t('todo.trash')}
             </Text>
             <Text as="p" variant="footnote" tone="secondary" className="todo-trash-heading__note">

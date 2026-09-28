@@ -22,7 +22,8 @@ controls, and the Windows-native title bar rather than the reference's custom pi
 General (language, launch at login, hide from captures, sounds, reduced motion, updates) ·
 Layout (shape, size, module order, default module) · Multiple Screens (per-monitor cards) ·
 Notch positioning (offsets, mode) · Live Activities · Drop Actions · Snap Zones · Shelf ·
-Keyboard Shortcuts · Appearance (accent, wallpaper-adaptive tint) · Privacy & Permissions
+Keyboard Shortcuts · Appearance (accent, wallpaper-adaptive tint, Reduce motion, Increase
+contrast, Announce notices) · Privacy & Permissions
 (notification listener, location, camera) · Integrations (accounts: Microsoft, Google, GitHub,
 GitLab, Bitbucket, Jira, Spotify, OpenAI/Ollama) · one pane per module · About & Updates ·
 Diagnostics (export bundle, logs).
@@ -39,7 +40,28 @@ Credential Manager (`CredWrite`).
 - Search filters panes and individual settings by label and synonyms.
 - Every toggle applies live (no relaunch) except language.
 - Reset per pane and global; export/import settings JSON.
-- Keyboard navigable; each control has a label; 4.5:1 text contrast in dark and light.
+- Keyboard navigable; each control has a label; 4.5:1 text contrast in dark and light; one
+  `h1` per pane with `h2` sections; every pane has a Storybook story that passes axe.
+
+## Implementation notes (M5-E3)
+
+Landed by `feat(settings): increase contrast and announce notices switches (m5-e3)` and the
+fixes that followed it on the same branch.
+
+- **Settings v7.** `general.contrast: 'system' | 'more'` and `general.announceNotices:
+  boolean` (both default to following Windows and staying quiet; a v6 file migrates with the
+  defaults). The app mirrors `more` as `data-contrast="more"` on `<html>` in both windows,
+  where [tokens.css](../05-design-system.md#colour) already steps hairlines and secondary text
+  up, and passes `announceNotices` to the strip, whose `role="status"` region is
+  `aria-live="off"` until it is on. Both rows sit in an *Accessibility* section of the
+  Appearance pane and are indexed by the settings search.
+- **Headings.** The pane title is the `h1`, `Section` titles are `h2`, and `Card` titles
+  default to `h2` (`headingLevel={3}` inside a titled section), so axe's `heading-order`
+  passes on every pane story.
+- **Storybook.** Every pane (General, Layout, Multiple screens, Appearance, Modules, About,
+  the onboarding flow and each module pane) has a story with a `PseudoRtl` variant, and the
+  Storybook toolbar has a *Contrast* switch that sets `data-contrast`. The manual half is
+  [qa/checklists/accessibility](../qa/checklists/accessibility.md).
 
 ## Implementation notes (M1-E3)
 
@@ -135,4 +157,4 @@ Landed by `feat(onboarding): first-run welcome tour in the settings window (m1-e
   migration and the new default.
 - **Deferred.** Mica backdrop, per-pane reset (only "Reset all settings" exists), hotkey
   editing. The diagnostics bundle lives in Settings → Support since M5-E1a
-  ([support](support.md)); About keeps _Open logs folder_.
+  ([support](support.md)); About keeps *Open logs folder*.

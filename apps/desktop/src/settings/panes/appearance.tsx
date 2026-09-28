@@ -92,7 +92,8 @@ export function AppearancePane({ visible }: PaneProps) {
         ]}
       />
       <Section
-        title={t('settings.appearance.motion')}
+        title={t('settings.appearance.accessibility')}
+        description={t('settings.appearance.accessibilityBody')}
         visible={visible}
         rows={[
           {
@@ -106,6 +107,38 @@ export function AppearancePane({ visible }: PaneProps) {
                   update((current) => ({
                     ...current,
                     general: { ...current.general, reducedMotion: on ? 'on' : 'system' },
+                  }));
+                }}
+              />
+            ),
+          },
+          {
+            id: 'appearance.increaseContrast',
+            node: (
+              <ToggleRow
+                label={t('settings.appearance.increaseContrast')}
+                description={t('settings.appearance.increaseContrastBody')}
+                isSelected={settings.general.contrast === 'more'}
+                onChange={(more) => {
+                  update((current) => ({
+                    ...current,
+                    general: { ...current.general, contrast: more ? 'more' : 'system' },
+                  }));
+                }}
+              />
+            ),
+          },
+          {
+            id: 'appearance.announceNotices',
+            node: (
+              <ToggleRow
+                label={t('settings.appearance.announceNotices')}
+                description={t('settings.appearance.announceNoticesBody')}
+                isSelected={settings.general.announceNotices}
+                onChange={(announceNotices) => {
+                  update((current) => ({
+                    ...current,
+                    general: { ...current.general, announceNotices },
                   }));
                 }}
               />

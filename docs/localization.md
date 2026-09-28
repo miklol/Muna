@@ -146,9 +146,9 @@ Storybook *Language* toolbar lists it as *Pseudo RTL*; the settings tiles never 
 It exists to find layout bugs a translation would expose later: text clipped by a fixed width,
 icons that should mirror and do not (chevrons, back arrows), padding and borders set with
 physical properties instead of logical ones, punctuation that stays at the wrong end of a
-line. Four surfaces carry a `PseudoRtl` story today — the palette, the General pane, the notes
-panel and the translation panel — and the a11y audit runs on them like on any other story;
-M5-E3 adds one to every panel and pane and fixes what they show. Findings are rows in the
+line. Every panel and pane carries a `PseudoRtl` story since M5-E3 (E6 started with four: the
+palette, the General pane, the notes panel and the translation panel) and the a11y audit runs
+on them like on any other story. Findings are rows in the
 [localization checklist](qa/checklists/localization.md).
 
 ## `i18n:check`
@@ -182,8 +182,8 @@ is the number to watch while a draft is being translated.
 - `apps/desktop/src/lib/locale.test.tsx` — `resolveLocale` under `system` and a choice,
   `applyDocumentLocale`, `useLocale` with and without a provider.
 - `apps/desktop/src/settings/settings-app.test.tsx` — choosing German switches the catalog.
-- Storybook: the *Language* toolbar on every story; the four `PseudoRtl` stories; `GermanChosen`
-  on the General pane.
+- Storybook: the *Language* toolbar on every story; a `PseudoRtl` story on every panel and
+  pane (M5-E3); `GermanChosen` on the General pane.
 - Manual: [qa/checklists/localization.md](qa/checklists/localization.md) — the display
   language and regional format against real Windows settings, the pseudo-locale walk.
 

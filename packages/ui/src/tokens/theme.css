@@ -22,6 +22,7 @@
   --color-text-1: var(--text-1);
   --color-text-2: var(--text-2);
   --color-text-3: var(--text-3);
+  --color-text-destructive: var(--text-destructive);
   --color-accent: var(--accent);
   --color-on-accent: var(--on-accent);
   --color-accent-blue: var(--accent-blue);

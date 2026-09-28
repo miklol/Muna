@@ -77,12 +77,15 @@
   block-size: 100%;
 }
 
-.muna-module-bar__tab:hover {
-  color: var(--text-1);
-}
+/* Hover only where a pointer can hover: a tap must not leave a tab tinted. */
+@media (hover: hover) {
+  .muna-module-bar__tab:hover {
+    color: var(--text-1);
+  }
 
-.muna-module-bar__tab:hover .muna-module-bar__icon {
-  scale: 1.08;
+  .muna-module-bar__tab:hover .muna-module-bar__icon {
+    scale: 1.08;
+  }
 }
 
 .muna-module-bar__tab[data-active] {
@@ -123,9 +126,11 @@
   transition: background-color var(--muna-motion-press);
 }
 
-.muna-module-bar__pager:hover {
-  background: var(--surface-2);
-  color: var(--text-1);
+@media (hover: hover) {
+  .muna-module-bar__pager:hover {
+    background: var(--surface-2);
+    color: var(--text-1);
+  }
 }
 
 .muna-module-bar__pager:focus-visible {

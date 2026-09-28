@@ -28,7 +28,7 @@ pub use clock::{Clock, FakeClock, SystemClock};
 pub use drops::{DropSession, DropSessionId, DropSessions, SelfDrag};
 pub use health::HealthDayRecord;
 pub use settings::{
-    GeneralSettings, JsonValue, ReducedMotion, Settings, SettingsError, SettingsStore,
+    Contrast, GeneralSettings, JsonValue, ReducedMotion, Settings, SettingsError, SettingsStore,
 };
 pub use shelf::{NewShelfItem, ShelfIntake, ShelfIntakeError, ShelfItemKind, ShelfRecord};
 pub use shell_settings::{MonitorLayout, NotchShape, PlacementMode, ShellSettings, StripHeight};

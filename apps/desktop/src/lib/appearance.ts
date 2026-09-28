@@ -1,3 +1,4 @@
+import type { Contrast } from '@muna/contracts';
 import { useEffect } from 'react';
 
 /** Accent names from docs/05-design-system.md (`--accent-*`); `blue` is the default. */
@@ -27,6 +28,23 @@ export function useAccent(accent: string | undefined): void {
     if (accent === undefined) return;
     document.documentElement.dataset.accent = isAccent(accent) ? accent : 'blue';
   }, [accent]);
+}
+
+/**
+ * Mirrors Settings → Appearance → Increase contrast as `data-contrast="more"` on `<html>`,
+ * where `tokens.css` steps hairlines and secondary text up and drops the media tints
+ * (docs/05-design-system.md "Accessibility"). `system` removes the attribute and leaves
+ * Windows contrast themes to `prefers-contrast: more`, which the same stylesheet honours.
+ */
+export function useContrast(contrast: Contrast | undefined): void {
+  useEffect(() => {
+    if (contrast === undefined) return;
+    if (contrast === 'more') {
+      document.documentElement.dataset.contrast = 'more';
+    } else {
+      delete document.documentElement.dataset.contrast;
+    }
+  }, [contrast]);
 }
 
 const lightQuery = '(prefers-color-scheme: light)';

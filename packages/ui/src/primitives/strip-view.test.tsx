@@ -8,7 +8,7 @@ import { StripView } from './strip-view';
 const icon = <svg data-testid="icon" aria-hidden="true" />;
 
 describe('StripView', () => {
-  it('is a named region with a polite description and empty slots when idle', () => {
+  it('is a named region with a quiet description and empty slots when idle', () => {
     render(
       <StripView
         aria-label="Notch strip"
@@ -21,7 +21,22 @@ describe('StripView', () => {
     expect(region).toHaveAttribute('data-kind', 'idle');
     expect(region).not.toHaveAttribute('data-wide');
     expect(screen.getByRole('status')).toHaveTextContent('Muna is running.');
+    // Announcements are opt-in: the text is there to read, not read out.
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'off');
     expect(region.querySelectorAll('.muna-strip__slot-content')).toHaveLength(0);
+  });
+
+  it('announces politely once asked to', () => {
+    render(
+      <StripView
+        aria-label="Notch strip"
+        itemId="bt:buds"
+        kind="notice"
+        description="Galaxy Buds connected"
+        announce
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
   });
 
   it('renders every slot form', () => {

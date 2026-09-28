@@ -41,6 +41,14 @@
     transform var(--muna-motion-press);
 }
 
+/* Effective hit area: the 28 px segment grows to `--size-hit-effective` tall (36; 44 on touch). */
+.muna-segmented__segment::before {
+  content: '';
+  position: absolute;
+  inset-block: calc((var(--size-segmented-height) - var(--size-hit-effective)) / 2);
+  inset-inline: 0;
+}
+
 .muna-segmented__indicator {
   position: absolute;
   inset: 0;
