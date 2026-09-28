@@ -348,14 +348,14 @@ close-out because nothing has merged since M1:
 | [#52](https://github.com/miklol/Muna/pull/52) | M5-E3 Accessibility | #51 |
 | [#53](https://github.com/miklol/Muna/pull/53) | M5-E2 Fidelity pass | #52 |
 | [#56](https://github.com/miklol/Muna/pull/56) | M5-E5 Landing site | #53 |
-| M5_CLOSE_PR | M5 close-out (this document, the roadmap, the risk register) | #56 |
+| [#57](https://github.com/miklol/Muna/pull/57) | M5 close-out (this document, the roadmap, the risk register) | #56 |
 
-Merge from the bottom of the M2 stack upwards (#22 → … → #46 → #47 → … → #56 → the
-close-out), retargeting each PR to `main` as its base merges — GitHub does this on its own
+Merge from the bottom of the M2 stack upwards (#22 → … → #46 → #47 → … → #56 → #57),
+retargeting each PR to `main` as its base merges — GitHub does this on its own
 when the base branch is deleted. Every PR passes the parity commands locally (`pnpm -w ci`,
 `ci:rust`, `ci:deps`, `ci:app`, the docs checks); the hosted checks have not run because the
 GitHub Actions budget is exhausted ("The job was not started because an Actions budget is
-preventing further use" on every job, #56 included). When it is restored, `gh run rerun
+preventing further use" on every job, #57 included). When it is restored, `gh run rerun
 --failed <run id>` on each PR is enough. `#54` and `#55` are Dependabot's and independent.
 
 What the milestone's own passes caught that the unit suites could not, for the record: the
