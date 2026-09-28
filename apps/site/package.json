@@ -2,23 +2,31 @@
   "name": "@muna/site",
   "version": "0.0.0",
   "private": true,
-  "description": "Marketing/download site placeholder (content lands in M5)",
+  "description": "Landing site: notch demo, module catalog, downloads, FAQ and privacy (docs/build-plan/m5-ship.md, M5-E5)",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest"
   },
   "dependencies": {
     "@muna/ui": "workspace:*",
+    "lucide-react": "^1.46.0",
+    "motion": "^13.2.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "vite": "^8.3.0"
+    "jsdom": "^30.0.1",
+    "vite": "^8.3.0",
+    "vitest": "5.0.0"
   }
 }
