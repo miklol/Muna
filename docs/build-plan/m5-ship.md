@@ -91,6 +91,27 @@ leaves E4 a kickoff prompt rather than a branch.
   the landing site is translated yet. Doc: [localization](../localization.md); QA:
   [checklists/localization](../qa/checklists/localization.md) (rows 1–9 need a Windows
   Settings pass on the maintainer's machine).
+- **M5-E3 Accessibility** — built on `m5-e3-accessibility` (PR pending, base
+  `m5-e6-localization`): settings v7 adds `general.contrast` and `general.announceNotices`
+  (Settings → Appearance → *Accessibility*; both follow Windows and stay quiet by default),
+  mirrored as `data-contrast` on `<html>` and as the strip's `aria-live` (`off` → `polite`);
+  `--size-hit-effective` is 44 px under `(pointer: coarse)` and the four controls that were
+  only as tall as they look (toggle, checkbox, chip, segmented control) extend their hit area
+  in the block direction, while raw `:hover` tints sit behind `(hover: hover)`; every panel and
+  pane has a story file with a `PseudoRtl` variant (desktop 361 stories, ui 217, 0 axe
+  violations), and what the new stories found was fixed in the design system rather than
+  per story — `Card.headingLevel` and module sub-headings at `h2` under the panel's `h1`, the
+  weather chance as an `aria-hidden` figure beside a `.sr-only` sentence instead of an
+  `aria-label` on a span, the calendar agenda as a labelled tab stop, `--text-destructive` for
+  red text (`--accent-red` is 4.26:1 on a hovered row), and the M0-E4 known gap closed by
+  raising `--text-3` to 46 % (4.6:1; light 55 %) so the last axe opt-out is gone. Deviations
+  from the kickoff: touch targets stay 28 px visual and grow the *hit* area to 44 px, as the
+  design system already said; announcements are opt-in (the kickoff said so) and there is no
+  per-second throttle beyond `polite`; the reduced-motion audit found the presets already
+  carry fallbacks, so it added stories rather than code. Doc:
+  [05-design-system → Accessibility](../05-design-system.md#accessibility); QA:
+  [checklists/accessibility](../qa/checklists/accessibility.md) (rows 1–19 need Narrator, a
+  contrast theme and a touch screen on the maintainer's machine).
 
 ### Order
 
@@ -178,8 +199,8 @@ leaves E4 a kickoff prompt rather than a branch.
   `<html dir>` from i18next's answer. Four `PseudoRtl` stories (the command palette, the
   General pane, the notes and translation panels) pass axe in `storybook:ci`. The visual walk
   is rows 10–18 of [checklists/localization](../qa/checklists/localization.md); its layout
-  findings (physical properties, unmirrored glyphs) are E3's, and E3 adds a `PseudoRtl` story
-  to every panel and pane.*
+  findings (physical properties, unmirrored glyphs) are E3's, and E3 added a `PseudoRtl` story
+  to every panel and pane — 0 axe violations across both Storybooks.*
 
 ### Risks
 
@@ -224,6 +245,9 @@ ranked [blocking|should|nit]. Then a follow-up session fixes all blocking and sh
 ```
 
 ## M5-E3 · Accessibility — agent: `muna-ui-engineer`
+
+*Built — see [Progress](#progress). The audit table, the decisions and the manual rows are in
+the PR and in [checklists/accessibility](../qa/checklists/accessibility.md).*
 
 ```text
 Make Muna usable with keyboard and Narrator: names/roles on all controls, focus order, visible

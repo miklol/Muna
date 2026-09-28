@@ -60,9 +60,11 @@ reminder while fullscreen, the four flows and the pinned panel, headphones),
 [mirror](qa/checklists/mirror.md) (the camera light against the permission policy — spike
 S1 — the panel's controls, a second camera, the refusals, the widget),
 [translation](qa/checklists/translation.md) (streaming and cancel against a local model —
-spike S2 — the hosted provider's refusals, the key in Credential Manager, the pane) and
+spike S2 — the hosted provider's refusals, the key in Credential Manager, the pane),
 [localization](qa/checklists/localization.md) (the language tiles against real Windows display
-and regional settings, the switch in both windows, the pseudo-locale walk — spike S3).
+and regional settings, the switch in both windows, the pseudo-locale walk — spike S3) and
+[accessibility](qa/checklists/accessibility.md) (Narrator through the strip, a panel and the
+settings window, a Windows contrast theme, touch hit areas, the two Appearance switches).
 
 ## Module specs
 
