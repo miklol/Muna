@@ -13,12 +13,13 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
-    Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
     BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
-    OsdState, PowerSource, Rect, SystemSample, Thumbnail, UserNotificationState, WindowHandle,
+    Notification, NotificationAccess, NotificationDelivery, OsdState, PowerSource, Rect,
+    SystemSample, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -29,6 +30,19 @@ pub enum BluetoothCall {
     Connect(String),
     Disconnect(String),
     SetRadio(bool),
+}
+
+/// One recorded [`Notifications`] request, in order, for assertions in module tests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NotificationCall {
+    RequestAccess,
+    List,
+    Remove(u32),
+    Clear,
+    Watch,
+    /// `app_logo(app_id)`.
+    Logo(String),
+    OpenApp(String),
 }
 
 /// One recorded [`Windowing`] / [`AppBar`] call, in order, for assertions in shell tests.
@@ -110,6 +124,19 @@ struct State {
     secrets: BTreeMap<String, String>,
     /// Scripted: every secrets call fails with `Os` (a locked-down or corrupt vault).
     secrets_unavailable: bool,
+    /// The scripted Action Center, oldest first.
+    notifications: Vec<Notification>,
+    notification_access: NotificationAccess,
+    /// What `watch` answers: `Push` scripts a build with package identity.
+    notification_delivery: NotificationDelivery,
+    /// Scripted: every listener call fails with `Unsupported` (no listener on this build).
+    notifications_unavailable: bool,
+    /// Every listener request the fake received, in order.
+    notification_calls: Vec<NotificationCall>,
+    /// Scripted sender logos by app id.
+    app_logos: BTreeMap<String, Thumbnail>,
+    /// Scripted focus session state; `None` scripts a Windows without the API.
+    focus_active: Option<bool>,
 }
 
 impl Default for State {
@@ -164,6 +191,13 @@ impl Default for State {
             location_requests: 0,
             secrets: BTreeMap::new(),
             secrets_unavailable: false,
+            notifications: Vec::new(),
+            notification_access: NotificationAccess::Allowed,
+            notification_delivery: NotificationDelivery::Push,
+            notifications_unavailable: false,
+            notification_calls: Vec::new(),
+            app_logos: BTreeMap::new(),
+            focus_active: None,
         }
     }
 }
@@ -483,6 +517,186 @@ impl FakePlatform {
     /// Scripts a vault that refuses every call with `Os`.
     pub fn set_secrets_unavailable(&self, unavailable: bool) {
         self.state.lock().secrets_unavailable = unavailable;
+    }
+
+    /// A toast arrives in (or is updated in) the scripted Action Center. With `Push` delivery
+    /// the change event follows, as `NotificationChanged` would.
+    pub fn push_notification(&self, notification: Notification) {
+        let push = {
+            let mut state = self.state.lock();
+            state
+                .notifications
+                .retain(|known| known.id != notification.id);
+            state.notifications.push(notification);
+            state.notification_delivery == NotificationDelivery::Push
+        };
+        if push {
+            self.publish(PlatformEvent::NotificationsChanged);
+        }
+    }
+
+    /// A toast leaves the scripted Action Center on its own (the sender withdrew it, the user
+    /// dismissed it in Windows); not recorded as a request.
+    pub fn expire_notification(&self, id: u32) {
+        let push = {
+            let mut state = self.state.lock();
+            state.notifications.retain(|known| known.id != id);
+            state.notification_delivery == NotificationDelivery::Push
+        };
+        if push {
+            self.publish(PlatformEvent::NotificationsChanged);
+        }
+    }
+
+    /// Scripts what `access` and `request_access` answer.
+    pub fn set_notification_access(&self, access: NotificationAccess) {
+        self.state.lock().notification_access = access;
+    }
+
+    /// Scripts what `watch` answers: `Polling` is a build without package identity.
+    pub fn set_notification_delivery(&self, delivery: NotificationDelivery) {
+        self.state.lock().notification_delivery = delivery;
+    }
+
+    /// Scripts a build with no listener at all: every call fails with `Unsupported`.
+    pub fn set_notifications_unavailable(&self, unavailable: bool) {
+        self.state.lock().notifications_unavailable = unavailable;
+    }
+
+    /// Scripts the logo `app_logo(app_id)` answers.
+    pub fn set_app_logo(&self, app_id: &str, bytes: Vec<u8>, content_type: &str) {
+        self.state.lock().app_logos.insert(
+            app_id.to_owned(),
+            Thumbnail {
+                bytes,
+                content_type: content_type.to_owned(),
+            },
+        );
+    }
+
+    /// Scripts the focus session state and publishes the change when Windows has the API.
+    pub fn set_focus_active(&self, active: Option<bool>) {
+        self.state.lock().focus_active = active;
+        if let Some(active) = active {
+            self.publish(PlatformEvent::FocusChanged { active });
+        }
+    }
+
+    /// Every [`Notifications`] request so far, in order.
+    #[must_use]
+    pub fn notification_calls(&self) -> Vec<NotificationCall> {
+        self.state.lock().notification_calls.clone()
+    }
+
+    /// The scripted Action Center as it stands, for assertions after `remove` / `clear`.
+    #[must_use]
+    pub fn notifications(&self) -> Vec<Notification> {
+        self.state.lock().notifications.clone()
+    }
+}
+
+impl Notifications for FakePlatform {
+    fn access(&self) -> PlatformResult<NotificationAccess> {
+        let state = self.state.lock();
+        if state.notifications_unavailable {
+            return Err(PlatformError::Unsupported("notification listener"));
+        }
+        Ok(state.notification_access)
+    }
+
+    fn request_access(&self) -> PlatformResult<NotificationAccess> {
+        let mut state = self.state.lock();
+        state
+            .notification_calls
+            .push(NotificationCall::RequestAccess);
+        if state.notifications_unavailable {
+            return Err(PlatformError::Unsupported("notification listener"));
+        }
+        Ok(state.notification_access)
+    }
+
+    fn list(&self) -> PlatformResult<Vec<Notification>> {
+        let mut state = self.state.lock();
+        state.notification_calls.push(NotificationCall::List);
+        if state.notifications_unavailable {
+            return Err(PlatformError::Unsupported("notification listener"));
+        }
+        if state.notification_access != NotificationAccess::Allowed {
+            return Err(PlatformError::AccessDenied("notification listener"));
+        }
+        Ok(state.notifications.clone())
+    }
+
+    fn remove(&self, id: u32) -> PlatformResult<()> {
+        let push = {
+            let mut state = self.state.lock();
+            state.notification_calls.push(NotificationCall::Remove(id));
+            if state.notifications_unavailable {
+                return Err(PlatformError::Unsupported("notification listener"));
+            }
+            state.notifications.retain(|known| known.id != id);
+            state.notification_delivery == NotificationDelivery::Push
+        };
+        if push {
+            self.publish(PlatformEvent::NotificationsChanged);
+        }
+        Ok(())
+    }
+
+    fn clear(&self) -> PlatformResult<()> {
+        let push = {
+            let mut state = self.state.lock();
+            state.notification_calls.push(NotificationCall::Clear);
+            if state.notifications_unavailable {
+                return Err(PlatformError::Unsupported("notification listener"));
+            }
+            state.notifications.clear();
+            state.notification_delivery == NotificationDelivery::Push
+        };
+        if push {
+            self.publish(PlatformEvent::NotificationsChanged);
+        }
+        Ok(())
+    }
+
+    fn watch(&self) -> PlatformResult<NotificationDelivery> {
+        let mut state = self.state.lock();
+        state.notification_calls.push(NotificationCall::Watch);
+        if state.notifications_unavailable {
+            return Err(PlatformError::Unsupported("notification listener"));
+        }
+        Ok(state.notification_delivery)
+    }
+
+    fn app_logo(&self, app_id: &str) -> PlatformResult<Option<Thumbnail>> {
+        let mut state = self.state.lock();
+        state
+            .notification_calls
+            .push(NotificationCall::Logo(app_id.to_owned()));
+        if state.notifications_unavailable {
+            return Err(PlatformError::Unsupported("notification listener"));
+        }
+        Ok(state.app_logos.get(app_id).cloned())
+    }
+
+    fn focus_active(&self) -> Option<bool> {
+        self.state.lock().focus_active
+    }
+
+    fn open_app(&self, app_id: &str) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        state
+            .notification_calls
+            .push(NotificationCall::OpenApp(app_id.to_owned()));
+        if state
+            .notifications
+            .iter()
+            .any(|notification| notification.app_id == app_id)
+        {
+            Ok(())
+        } else {
+            Err(PlatformError::NotFound(format!("app {app_id}")))
+        }
     }
 }
 
@@ -953,6 +1167,10 @@ impl Platform for FakePlatform {
     }
 
     fn secrets(&self) -> &dyn Secrets {
+        self
+    }
+
+    fn notifications(&self) -> &dyn Notifications {
         self
     }
 

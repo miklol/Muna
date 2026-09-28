@@ -25,6 +25,9 @@ use crate::modules::calendar::{
 };
 use crate::modules::hud::{HudSink, HudState};
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
+use crate::modules::notifications::{
+    NotificationsCommand, NotificationsSink, NotificationsSnapshot,
+};
 use crate::modules::pomodoro::{PomodoroCommand, PomodoroSink, PomodoroState};
 use crate::modules::system_monitor::{SystemMonitorSink, SystemMonitorSnapshot};
 use crate::modules::todo::{TodoCommand, TodoError, TodoSink, TodoSnapshot};
@@ -454,6 +457,46 @@ impl BluetoothSink for BluetoothEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit BluetoothChanged");
+        }
+    }
+}
+
+/// The Action Center as the module now sees it (docs/modules/notifications.md): after a
+/// listener change, a poll that found a difference, a command, a focus change or a settings
+/// change that mutes or unmutes a sender.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationsChanged {
+    pub snapshot: NotificationsSnapshot,
+}
+
+/// Bridges the notifications service to [`NotificationsChanged`].
+pub struct NotificationsEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for NotificationsEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NotificationsEventSink")
+            .finish_non_exhaustive()
+    }
+}
+
+impl NotificationsEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl NotificationsSink for NotificationsEventSink {
+    fn changed(&self, snapshot: &NotificationsSnapshot) {
+        if let Err(error) = (NotificationsChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit NotificationsChanged");
         }
     }
 }
@@ -1020,6 +1063,57 @@ async fn bluetooth_command(
     Ok(snapshot)
 }
 
+/// The Action Center as the module now sees it (a panel that just opened; afterwards it
+/// follows `NotificationsChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_notifications_snapshot(state: State<'_, Shared>) -> NotificationsSnapshot {
+    state.modules.notifications.snapshot()
+}
+
+/// Asks for access, marks read, dismisses, clears or opens, and returns the snapshot as it
+/// stands afterwards. Every listener call blocks (the consent prompt for as long as the user
+/// takes), so it runs on a blocking thread. A notification that has gone or a sender Windows
+/// cannot launch surfaces as `platform.notFound`, which the panel reports in place.
+#[tauri::command]
+#[specta::specta]
+async fn notifications_command(
+    state: State<'_, Shared>,
+    command: NotificationsCommand,
+) -> Result<NotificationsSnapshot, IpcError> {
+    let service = Arc::clone(&state.modules.notifications);
+    let snapshot = tauri::async_runtime::spawn_blocking(move || service.command(command))
+        .await
+        .map_err(|error| IpcError::new("platform.os", error))??;
+    Ok(snapshot)
+}
+
+/// Opens one of the Windows Settings pages the panel points at: notification privacy (where
+/// access is granted or withdrawn) or focus (Focus Assist / Do not disturb). A closed list, so
+/// the webview cannot ask for an arbitrary URI.
+#[tauri::command]
+#[specta::specta]
+fn notifications_open_settings(
+    app: AppHandle,
+    page: NotificationsSettingsPage,
+) -> Result<(), IpcError> {
+    let uri = match page {
+        NotificationsSettingsPage::Privacy => "ms-settings:privacy-notifications",
+        NotificationsSettingsPage::Focus => "ms-settings:quiethours",
+    };
+    app.opener()
+        .open_url(uri, None::<&str>)
+        .map_err(|error| IpcError::new("platform.os", error))
+}
+
+/// The Windows Settings pages [`notifications_open_settings`] can open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationsSettingsPage {
+    Privacy,
+    Focus,
+}
+
 /// The forecast and the refresh state as the module now sees them (a panel that just opened;
 /// afterwards it follows `WeatherChanged`).
 #[tauri::command]
@@ -1180,6 +1274,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             calendar_add_source,
             calendar_remove_source,
             calendar_open,
+            get_notifications_snapshot,
+            notifications_command,
+            notifications_open_settings,
             quit_app
         ])
         .events(collect_events![
@@ -1198,7 +1295,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             SystemMonitorChanged,
             BluetoothChanged,
             WeatherChanged,
-            CalendarChanged
+            CalendarChanged,
+            NotificationsChanged
         ])
 }
 

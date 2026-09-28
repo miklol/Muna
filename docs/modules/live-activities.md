@@ -33,6 +33,7 @@ type Trailing =
   | { kind: 'icon'; glyph: Glyph; tint: Tint | null }
   | { kind: 'text'; value: string }
   | { kind: 'percent'; value: number }
+  | { kind: 'count'; value: number }       // an integer, formatted for the locale
   | { kind: 'battery'; percent: number; charging: boolean }
   | { kind: 'timer'; remainingMs: number; totalMs: number; running: boolean }
   | { kind: 'progress'; percent: number };
@@ -42,7 +43,8 @@ type StripMessage =                       // the wide form's one line, localised
   | { kind: 'bluetoothConnected'; name: string; batteryPercent: number | null }
   | { kind: 'bluetoothDisconnected'; name: string }
   | { kind: 'deviceBatteryLow'; name: string; percent: number }
-  | { kind: 'timerFinished'; label: string };
+  | { kind: 'timerFinished'; label: string }
+  | { kind: 'notification'; app: string; title: string };
 type Activity = {
   id: string;                 // `${moduleId}:${key}`
   module: string;
@@ -90,6 +92,7 @@ paused 20 · CPU gauge 10 · Day bar 5.
 | Volume / brightness / mute / mic mute | HUD module | slider fills trailing slot |
 | Session locked / unlocked | `WTSRegisterSessionNotification` | lock glyph |
 | Focus Assist changed | notifications module | moon glyph |
+| Notification arrived / unread glance | notifications module | sender logo (or bell) + "sender · title"; the unread count in the trailing slot |
 | Screen recording / camera in use | privacy indicators (`Windows.Media.Capture` usage via registry `CapabilityAccessManager\ConsentStore`) | dot indicator, like macOS |
 | Pomodoro finished | Pomodoro module | bell + optional Timer Done overlay |
 | Task due | To-do module | check-circle glyph + task title; the due time in the trailing slot |
@@ -142,6 +145,14 @@ paused 20 · CPU gauge 10 · Day bar 5.
   *Show the day bar in the strip* is on — off by default, and the lowest priority of all, so
   any other activity takes the strip over
   ([day progress → Implementation notes](day-progress.md#implementation-notes-m3-e6)).
+- The Notifications module publishes `notifications:unread` (the latest unread sender's logo
+  or the bell glyph, the unread count in the trailing `count` slot, "sender · title" wide) at
+  *Unread* (40) while anything from an unmuted sender is unread, retracting it when the panel
+  opens, and raises one `notifications:arrived:<id>` notice per arrival — held back while a
+  focus session is on or Windows says busy or quiet hours
+  ([notifications → Implementation notes](notifications.md#implementation-notes-m3-e5)). Both
+  are switches in Settings › Notifications; the Focus Assist notice in the table above is not
+  raised yet.
 
 ## Settings (pane: Live Activities)
 

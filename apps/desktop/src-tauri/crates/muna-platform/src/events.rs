@@ -31,4 +31,11 @@ pub enum PlatformEvent {
     MonitorsChanged(Vec<MonitorInfo>),
     /// The session was locked or unlocked (`WTS_SESSION_LOCK` / `WTS_SESSION_UNLOCK`).
     SessionLockChanged { locked: bool },
+    /// The Action Center changed: a toast arrived, was dismissed or expired
+    /// (`UserNotificationListener.NotificationChanged`; only with package identity, ADR-0003).
+    /// Carries nothing: the module asks for the list, so content never crosses this channel.
+    NotificationsChanged,
+    /// A Windows focus session started or ended (`FocusSessionManager.IsFocusActiveChanged`,
+    /// Windows 11 22H2+).
+    FocusChanged { active: bool },
 }

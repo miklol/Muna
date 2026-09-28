@@ -9,7 +9,8 @@ use crate::events::PlatformEvent;
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
     BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
-    OsdState, Rect, SystemSample, Thumbnail, UserNotificationState, WindowHandle,
+    Notification, NotificationAccess, NotificationDelivery, OsdState, Rect, SystemSample,
+    Thumbnail, UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md). Snapshots come from a cache the
@@ -125,6 +126,38 @@ pub trait Secrets: Send + Sync {
     fn remove(&self, key: &str) -> PlatformResult<()>;
 }
 
+/// The Action Center through `UserNotificationListener` (docs/modules/notifications.md;
+/// docs/04-windows-platform-apis.md "Notifications & focus"). Reading works with or without
+/// package identity; only the change subscription needs it, which [`Notifications::watch`]
+/// reports so the module can poll instead (ADR-0003, M0-E3 amendment). `request_access`,
+/// `list` and `app_logo` wait on the OS (bounded), so callers run them off the async threads.
+/// Titles and bodies are content: implementations never log them.
+pub trait Notifications: Send + Sync {
+    /// Whether Muna may read notifications, without prompting (`GetAccessStatus`).
+    fn access(&self) -> PlatformResult<NotificationAccess>;
+    /// Asks Windows for access; shows the consent prompt the first time (`RequestAccessAsync`).
+    fn request_access(&self) -> PlatformResult<NotificationAccess>;
+    /// Every toast in the Action Center, as Windows orders them (oldest first). `AccessDenied`
+    /// when access is not allowed.
+    fn list(&self) -> PlatformResult<Vec<Notification>>;
+    /// Removes one notification from the Action Center too; a missing id is not an error.
+    fn remove(&self, id: u32) -> PlatformResult<()>;
+    /// Clears the whole Action Center.
+    fn clear(&self) -> PlatformResult<()>;
+    /// Starts following changes. `Push` means [`PlatformEvent::NotificationsChanged`] arrives on
+    /// every change; `Polling` means this process cannot subscribe and must ask [`Self::list`]
+    /// on its own cadence. Also starts the focus-session watch where Windows has one.
+    fn watch(&self) -> PlatformResult<NotificationDelivery>;
+    /// The sender's logo as the Action Center draws it, small (`Ok(None)` when it has none).
+    fn app_logo(&self, app_id: &str) -> PlatformResult<Option<Thumbnail>>;
+    /// Whether a Windows focus session is on (`FocusSessionManager`, Windows 11 22H2+); `None`
+    /// where the API is not available.
+    fn focus_active(&self) -> Option<bool>;
+    /// Brings the sender to the front (`shell:AppsFolder\<app id>`); best effort — `NotFound`
+    /// when Windows knows no such app.
+    fn open_app(&self, app_id: &str) -> PlatformResult<()>;
+}
+
 /// Display topology, needed for one notch window per monitor (ADR-0002).
 pub trait Monitors: Send + Sync {
     fn all(&self) -> PlatformResult<Vec<MonitorInfo>>;
@@ -210,6 +243,7 @@ pub trait Platform: Send + Sync {
     fn system_stats(&self) -> &dyn SystemStats;
     fn location(&self) -> &dyn Location;
     fn secrets(&self) -> &dyn Secrets;
+    fn notifications(&self) -> &dyn Notifications;
     fn monitors(&self) -> &dyn Monitors;
     fn foreground(&self) -> &dyn Foreground;
     fn windowing(&self) -> &dyn Windowing;

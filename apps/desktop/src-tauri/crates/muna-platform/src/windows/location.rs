@@ -29,10 +29,10 @@ use windows::Devices::Geolocation::{
 use windows::Foundation::TimeSpan;
 use windows::Win32::Foundation::ERROR_TIMEOUT;
 use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize};
-use windows::core::{HRESULT, RuntimeType};
-use windows_future::{AsyncOperationCompletedHandler, IAsyncOperation};
+use windows::core::HRESULT;
 
 use super::os_error;
+use super::winrt::join_within;
 use crate::error::{PlatformError, PlatformResult};
 use crate::types::GeoPosition;
 
@@ -99,28 +99,6 @@ fn position_with_apartment() -> PlatformResult<GeoPosition> {
     fix
 }
 
-/// `IAsyncOperation::join` with a deadline: past it the operation is cancelled and the result is
-/// `ERROR_TIMEOUT`. `WinRT` invokes the completed handler at once for an operation that has
-/// already finished, so there is no window to miss.
-fn join_within<T>(operation: &IAsyncOperation<T>, wait: Duration) -> windows::core::Result<T>
-where
-    T: RuntimeType + 'static,
-{
-    let (done, completed) = mpsc::channel::<()>();
-    operation.SetCompleted(&AsyncOperationCompletedHandler::new(move |_, _| {
-        // The receiver is gone once the wait is over; a late completion is nothing to report.
-        let _ = done.send(());
-        Ok(())
-    }))?;
-    if completed.recv_timeout(wait).is_err() {
-        let _ = operation.Cancel();
-        return Err(windows::core::Error::from_hresult(
-            ERROR_TIMEOUT.to_hresult(),
-        ));
-    }
-    operation.GetResults()
-}
-
 fn position_on_com_thread() -> PlatformResult<GeoPosition> {
     let access = Geolocator::RequestAccessAsync()
         .and_then(|operation| join_within(&operation, ACCESS_WAIT))
@@ -174,36 +152,6 @@ mod tests {
     #[test]
     fn access_denied_hresult_is_the_win32_code() {
         assert_eq!(E_ACCESSDENIED.0.cast_unsigned(), 0x8007_0005);
-    }
-
-    #[test]
-    fn a_finished_operation_is_answered_at_once() {
-        let operation = IAsyncOperation::<i32>::ready(Ok(7));
-        assert_eq!(
-            join_within(&operation, Duration::from_millis(10)).unwrap(),
-            7
-        );
-    }
-
-    #[test]
-    fn an_operation_that_completes_in_time_is_answered() {
-        let operation = IAsyncOperation::<i32>::spawn(|| {
-            std::thread::sleep(Duration::from_millis(20));
-            Ok(3)
-        });
-        assert_eq!(join_within(&operation, Duration::from_secs(5)).unwrap(), 3);
-    }
-
-    #[test]
-    fn an_operation_that_never_finishes_reports_a_timeout() {
-        let operation = IAsyncOperation::<i32>::spawn(|| {
-            std::thread::sleep(Duration::from_secs(2));
-            Ok(1)
-        });
-        let started = std::time::Instant::now();
-        let error = join_within(&operation, Duration::from_millis(50)).unwrap_err();
-        assert_eq!(error.code(), ERROR_TIMEOUT.to_hresult());
-        assert!(started.elapsed() < Duration::from_secs(1), "gave up late");
     }
 
     /// Talks to the real OS; only meaningful on the nightly lab machine. Bounded by `THREAD_WAIT`

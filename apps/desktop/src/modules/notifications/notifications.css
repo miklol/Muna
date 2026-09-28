@@ -1,0 +1,221 @@
+/*
+ * Notifications panel (docs/modules/notifications.md): a header with the unread count, the
+ * focus state and *Clear all*, then the Action Center grouped by sender. Composes tokens only;
+ * the primitives bring their own styles.
+ *
+ * Budget: the panel body has 284 px at most (360 panel − 2 × 16 padding − 44 header). The
+ * header row takes 28 + 8, and the groups scroll inside what is left so the panel never asks
+ * the shell for more than its maximum height.
+ */
+
+.ntf-panel {
+  --ntf-groups-max: 248px;
+  --ntf-logo: 36px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.ntf-head {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+  padding-inline: var(--space-1);
+}
+
+.ntf-head__state {
+  display: inline-flex;
+  flex: 1 1 0;
+  gap: var(--space-2);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.ntf-groups {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-block-size: var(--ntf-groups-max);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.ntf-groups__item {
+  flex: none;
+}
+
+.ntf-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ntf-group__head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--ntf-logo);
+  padding-inline: var(--space-1);
+}
+
+.ntf-group__name {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.ntf-group__app {
+  font-weight: 600;
+}
+
+.ntf-group__actions {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.ntf-logo {
+  flex: none;
+  inline-size: var(--ntf-logo);
+  block-size: var(--ntf-logo);
+  border-radius: var(--radius-control);
+  object-fit: contain;
+  user-select: none;
+}
+
+.ntf-logo--initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-callout);
+  font-weight: var(--text-callout--font-weight);
+  line-height: 1;
+  color: var(--text-1);
+  background: var(--surface-3);
+}
+
+/* A muted sender reads dimmer: listed, never announced or counted. */
+.ntf-group[data-muted] .ntf-logo,
+.ntf-group[data-muted] .ntf-group__app {
+  opacity: 0.6;
+}
+
+/* Positioned so a leaving card (`AnimatePresence` popLayout) pops out of flow in place. */
+.ntf-cards {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ntf-cards__item {
+  flex: none;
+}
+
+.ntf-card {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-2) var(--space-1) var(--space-2) calc(var(--ntf-logo) + var(--space-3));
+  border-radius: var(--radius-card);
+}
+
+.ntf-card:hover,
+.ntf-card:focus-within {
+  background: var(--surface-1);
+}
+
+.ntf-card__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.ntf-card__head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  min-inline-size: 0;
+}
+
+.ntf-card__title {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  font-weight: 600;
+}
+
+.ntf-card__time {
+  flex: none;
+  white-space: nowrap;
+}
+
+.ntf-card__dot {
+  flex: none;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--radius-thumb);
+  background: var(--accent-blue);
+  align-self: center;
+}
+
+.ntf-card__body {
+  overflow-wrap: anywhere;
+}
+
+/* Open and dismiss show on hover or focus; they stay in the tab order and appear on focus. */
+.ntf-card__actions {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--muna-motion-press);
+}
+
+.ntf-card:hover .ntf-card__actions,
+.ntf-card:focus-within .ntf-card__actions,
+.ntf-card[data-pending] .ntf-card__actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .ntf-card__actions {
+    opacity: 1;
+  }
+}
+
+.ntf-error {
+  padding-inline: var(--space-1);
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
+  color: var(--accent-red);
+}
+
+.ntf-empty {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-block-size: 120px;
+}
+
+.ntf-empty__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+}
