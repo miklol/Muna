@@ -4,8 +4,9 @@
 //! `UserNotificationListener` answers `GetAccessStatus`, `RequestAccessAsync` and
 //! `GetNotificationsAsync` for any desktop app once the user allowed it under Settings →
 //! Privacy → Notifications. Only the `NotificationChanged` subscription needs package identity:
-//! without it the call fails with `ERROR_NOT_FOUND` (measured in the M0 spike), which [`watch`]
-//! reports as [`NotificationDelivery::Polling`] so the module asks once a second instead.
+//! without it the call fails — `ERROR_NOT_FOUND` on Windows 11 (measured in the M0 spike),
+//! `E_ACCESSDENIED` on Windows Server 2025 (measured on the hosted CI runner) — and [`watch`]
+//! reports [`NotificationDelivery::Polling`] so the module asks once a second instead.
 //!
 //! Notification content never leaves this module through logs: the projection carries titles
 //! and bodies to the caller and nothing else sees them.
@@ -35,7 +36,7 @@ use windows::UI::Notifications::{
 };
 use windows::UI::Shell::FocusSessionManager;
 use windows::Win32::Foundation::{
-    ERROR_FILE_NOT_FOUND, ERROR_NOT_FOUND, ERROR_PATH_NOT_FOUND, RPC_E_CHANGED_MODE,
+    E_ACCESSDENIED, ERROR_FILE_NOT_FOUND, ERROR_NOT_FOUND, ERROR_PATH_NOT_FOUND, RPC_E_CHANGED_MODE,
 };
 use windows::Win32::System::Com::{
     COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, CoInitializeEx, CoUninitialize,
@@ -181,9 +182,17 @@ impl Listener {
                 *changed = Some(ChangedSubscription { listener, token });
                 Ok(NotificationDelivery::Push)
             }
-            // The one failure the spike measured on a build without package identity.
-            Err(error) if error.code() == ERROR_NOT_FOUND.to_hresult() => {
-                debug!("NotificationChanged is unavailable without package identity; polling");
+            // The two refusals measured on builds without package identity: `ERROR_NOT_FOUND`
+            // on Windows 11 (M0 spike), `E_ACCESSDENIED` on Windows Server 2025 (CI runner).
+            // Listing still works, so the module polls.
+            Err(error)
+                if error.code() == ERROR_NOT_FOUND.to_hresult()
+                    || error.code() == E_ACCESSDENIED =>
+            {
+                debug!(
+                    code = format_args!("{:#010x}", error.code().0),
+                    "NotificationChanged is unavailable without package identity; polling"
+                );
                 Ok(NotificationDelivery::Polling)
             }
             Err(error) => Err(os_error(
@@ -459,7 +468,8 @@ mod tests {
         let listener = Listener::new(events);
         // Allowed, denied or unspecified; never an error on a desktop SKU.
         access().unwrap();
-        // The subscription answers push or polling depending on the build's identity.
+        // The subscription answers push or polling depending on the build's identity, on
+        // Windows 11 and on the Server SKU of the hosted runner alike.
         let _ = listener.watch().unwrap();
         // Focus state is a bool on Windows 11 22H2+ and `None` before; never a panic.
         let _ = listener.focus_active();
