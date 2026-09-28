@@ -15,6 +15,10 @@ import { cacheSettings, useSettings } from '../lib/settings';
 import { SettingsEditorProvider } from '../settings/settings-editor';
 import { Panel } from '../shell/panel';
 
+// The settings window's own stylesheet (swatches, key caps): `settings-app.tsx` imports it in
+// the app, and pane stories render without that shell.
+import '../settings/settings.css';
+
 export interface StoryProvidersProps {
   /** The document the query cache starts with; what `installStoryIpc` returned. */
   settings?: Settings;

@@ -93,6 +93,7 @@ export function AppearancePane({ visible }: PaneProps) {
       />
       <Section
         title={t('settings.appearance.accessibility')}
+        description={t('settings.appearance.accessibilityBody')}
         visible={visible}
         rows={[
           {

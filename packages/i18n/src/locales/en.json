@@ -1913,12 +1913,13 @@
         "pink": "Pink"
       },
       "accessibility": "Accessibility",
+      "accessibilityBody": "Muna also follows the Windows settings for animation effects and contrast themes.",
       "reduceMotion": "Reduce motion",
-      "reduceMotionBody": "Replaces springs with quick fades. Muna also follows the Windows animation effects setting.",
+      "reduceMotionBody": "Quick fades instead of springs.",
       "increaseContrast": "Increase contrast",
-      "increaseContrastBody": "Stronger hairlines and secondary text on the black glass. Muna also follows Windows contrast themes.",
+      "increaseContrastBody": "Stronger hairlines and secondary text on the black glass.",
       "announceNotices": "Announce notices",
-      "announceNoticesBody": "Screen readers read a new notice, such as a track change or a connected device, as it appears."
+      "announceNoticesBody": "Screen readers read each new notice as it appears."
     },
     "modules": {
       "body": "Switch a module off to hide it from the notch. Arrange the module bar with the arrows.",
