@@ -22,6 +22,7 @@
   border-radius: var(--radius-card);
   overflow: hidden;
   isolation: isolate;
+  container-type: inline-size;
 }
 
 /* The sky sits behind everything at low alpha so `--text-*` contrast holds on every gradient. */
@@ -179,6 +180,21 @@
 
 .weather-cell:first-child {
   background: var(--surface-2);
+}
+
+/*
+ * Compact: at the minimum panel width the six chips wrap to two rows, so the chip rows and the
+ * strip cells tighten to keep the body inside its 284 px budget
+ * (8 + 46 + 12 + 52 + 12 + 66 + 12 + 66 + 8 = 282). One row of chips fits from about 760 px.
+ */
+@container (inline-size < 760px) {
+  .weather-chips {
+    row-gap: var(--space-1);
+  }
+
+  .weather-cell {
+    padding-block: 2px;
+  }
 }
 
 .weather-cell__chance {

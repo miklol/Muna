@@ -4,8 +4,10 @@
  * line, with the open button on the right. Composes tokens only; the primitives bring their
  * own styles.
  *
- * Budget: the panel body has 284 px at most. The header takes one icon-button height; the list
- * scrolls inside the rest.
+ * Budget: the panel's height follows its content (190–360), so the list bounds itself: the
+ * 284 px body the shell allows at most, minus this panel's 8 px padding, the 28 px head, the
+ * 13 px note under the list and two 8 px gaps, is 219 px (`--code-hosting-list`) — four rows
+ * and a hint of the fifth; a longer queue scrolls inside it.
  */
 
 .code-hosting-panel {
@@ -16,6 +18,8 @@
 }
 
 .code-hosting-queue {
+  --code-hosting-list: 219px;
+
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -52,6 +56,7 @@
   flex: 0 1 auto;
   flex-direction: column;
   min-block-size: 0;
+  max-block-size: var(--code-hosting-list);
   margin: 0;
   padding: 0;
   overflow-y: auto;
