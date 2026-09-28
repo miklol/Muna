@@ -70,7 +70,8 @@ leaves E4 a kickoff prompt rather than a branch.
   animations only), which the panel's enabled primary button exposed. Spec:
   [modules/translation](../modules/translation.md); QA:
   [checklists/translation](../qa/checklists/translation.md).
-- **M5-E6 Localization** — built on `m5-e6-localization` (base `m5-e1d-translation`):
+- **M5-E6 Localization** — built on `m5-e6-localization`
+  ([#51](https://github.com/miklol/Muna/pull/51), base `m5-e1d-translation`):
   `@muna/i18n` grew a locale registry (`SUPPORTED_LOCALES`, `resolveCatalogLocale`,
   `resolveFormatLocale`, `localeStatus`, `localeDisplayName`) and strips `_`-prefixed notes
   from the catalogs; the `ar-XB` pseudo-locale is generated from `en` at runtime (spike S3);
