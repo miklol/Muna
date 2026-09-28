@@ -37,7 +37,12 @@ maintainer.
 - **Keep branches fresh** by rebasing (or "Update branch" with rebase) — never merge `main`
   into a feature branch. Force-push to your own branch is fine; to `main` it is impossible.
 - **Size**: aim for ≤ 400 changed lines excluding generated bindings, snapshots and lockfiles.
-  Larger epics ship as a stack of dependent PRs; each layer is independently green.
+  Larger epics ship as a stack of dependent PRs; each layer is independently green. Land a
+  stack bottom-up with `scripts/land-stack.ps1` (`-Plan` shows the chain, `-Simulate` replays
+  the landing locally): it squash-merges one PR, retargets the next to `main`, rebases only
+  that PR's own commits onto `main` and force-pushes it with a lease. The rebase is required —
+  a squash rewrites the parent's history, so a merely retargeted child shows the parent's
+  changes as conflicts.
 - **Drafts** for work in progress; CI runs on drafts too, but reviewers are not requested.
 
 ## Commits and PR titles

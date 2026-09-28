@@ -52,7 +52,8 @@ State after M0-E1 that the specs do not mention. Every prompt below assumes it.
 
 - **Branch.** E2–E4 need the scaffold. Preferred: wait for PR #3 to merge and branch from
   `main`. While PR #3 is still open: branch from its head branch (`miklol-animated-couscous`)
-  and open the PR against it (GitHub retargets to `main` after the squash). E2, E3 and E4 run
+  and open the PR against it (retarget to `main` after the squash and rebase the branch's own
+  commits onto it — see `scripts/land-stack.ps1`). E2, E3 and E4 run
   in parallel sessions.
 - **Toolchain.** pnpm 10, Node 22 (CI runs 22.23 — check `engines` before adding a
   dependency), Rust pinned in `rust-toolchain.toml` (MSVC), `cargo-deny`. `pnpm install` at the
