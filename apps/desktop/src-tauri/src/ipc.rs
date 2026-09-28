@@ -18,6 +18,7 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
+use crate::modules::hud::{HudSink, HudState};
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
 use crate::shell::manager::ShellManager;
 use crate::shell::model::ShellLayout;
@@ -216,6 +217,45 @@ impl MediaSink for MediaEventSink {
     fn art_changed(&self, art: Option<&Artwork>) {
         if let Err(error) = (MediaArtChanged { art: art.cloned() }).emit(&self.app) {
             tracing::warn!(%error, "failed to emit MediaArtChanged");
+        }
+    }
+}
+
+/// The HUD module's state changed: a level, the microphone, the monitor list or whether the
+/// Windows flyout is hidden (docs/modules/hud.md). The notice itself travels through
+/// [`StripContentChanged`].
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct HudStateChanged {
+    pub state: HudState,
+}
+
+/// Bridges the HUD service to [`HudStateChanged`].
+pub struct HudEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for HudEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HudEventSink").finish_non_exhaustive()
+    }
+}
+
+impl HudEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl HudSink for HudEventSink {
+    fn state_changed(&self, state: &HudState) {
+        if let Err(error) = (HudStateChanged {
+            state: state.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit HudStateChanged");
         }
     }
 }
@@ -565,6 +605,59 @@ fn media_refresh(state: State<'_, Shared>) -> Result<(), IpcError> {
     Ok(())
 }
 
+/// The HUD module's levels, monitors and flyout state (a window that just opened; afterwards
+/// it follows `HudStateChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_hud_snapshot(state: State<'_, Shared>) -> HudState {
+    state.modules.hud.state()
+}
+
+/// Sets the default output level (HUD slider drag). The strip shows the result through the
+/// platform's own event, so a change made elsewhere looks the same.
+#[tauri::command]
+#[specta::specta]
+fn hud_set_volume(state: State<'_, Shared>, percent: u8) -> Result<(), IpcError> {
+    state.modules.hud.set_volume(percent)?;
+    Ok(())
+}
+
+/// Moves the output level by `delta` (wheel notches × `hud::VOLUME_STEP`), clamped, and
+/// unmutes when turning up.
+#[tauri::command]
+#[specta::specta]
+fn hud_nudge_volume(state: State<'_, Shared>, delta: i8) -> Result<(), IpcError> {
+    state.modules.hud.nudge_volume(delta)?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn hud_set_muted(state: State<'_, Shared>, muted: bool) -> Result<(), IpcError> {
+    state.modules.hud.set_muted(muted)?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn hud_set_mic_muted(state: State<'_, Shared>, muted: bool) -> Result<(), IpcError> {
+    state.modules.hud.set_mic_muted(muted)?;
+    Ok(())
+}
+
+/// Sets one monitor's brightness (`monitor_id` from the HUD state). Best effort per monitor:
+/// a DDC/CI write that fails surfaces as `platform.os`.
+#[tauri::command]
+#[specta::specta]
+fn hud_set_brightness(
+    state: State<'_, Shared>,
+    monitor_id: String,
+    percent: u8,
+) -> Result<(), IpcError> {
+    state.modules.hud.set_brightness(&monitor_id, percent)?;
+    Ok(())
+}
+
 /// Quits the app, releasing OS reservations first.
 #[tauri::command]
 #[specta::specta]
@@ -602,6 +695,12 @@ pub fn builder() -> Builder<tauri::Wry> {
             media_command,
             media_pin,
             media_refresh,
+            get_hud_snapshot,
+            hud_set_volume,
+            hud_nudge_volume,
+            hud_set_muted,
+            hud_set_mic_muted,
+            hud_set_brightness,
             quit_app
         ])
         .events(collect_events![
@@ -613,7 +712,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             ShellToggleRequested,
             ShellPointerDownOutside,
             MediaStateChanged,
-            MediaArtChanged
+            MediaArtChanged,
+            HudStateChanged
         ])
 }
 

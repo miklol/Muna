@@ -8,6 +8,7 @@
 //! `start` is synchronous and spawns whatever tasks the module needs: the trait must stay
 //! dyn-compatible for the registry, which `async fn` in traits is not yet.
 
+pub mod hud;
 pub mod live_activities;
 pub mod media;
 pub mod pomodoro;
@@ -69,6 +70,7 @@ impl std::fmt::Debug for dyn ModuleBackend {
 #[derive(Debug, Clone)]
 pub struct ModuleServices {
     pub media: Arc<media::MediaService>,
+    pub hud: Arc<hud::HudService>,
 }
 
 impl ModuleServices {
@@ -83,6 +85,7 @@ impl ModuleServices {
                 Arc::clone(hub),
                 art_cache,
             )),
+            hud: Arc::new(hud::HudService::new(Arc::clone(platform), Arc::clone(hub))),
         }
     }
 }
@@ -93,6 +96,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
     let mut all: Vec<Box<dyn ModuleBackend>> = vec![
         Box::new(live_activities::LiveActivities),
         Box::new(media::MediaModule(Arc::clone(&services.media))),
+        Box::new(hud::HudModule(Arc::clone(&services.hud))),
     ];
     if pomodoro::demo_enabled() {
         all.push(Box::new(pomodoro::PomodoroDemo));

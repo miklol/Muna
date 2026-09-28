@@ -8,10 +8,17 @@ import {
   Headphones,
   Lock,
   LockOpen,
+  Mic,
+  MicOff,
   Moon,
   Music,
   Play,
+  Sun,
   Timer,
+  Volume,
+  Volume1,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -42,6 +49,14 @@ export const glyphLabelKey: Readonly<Record<Glyph, GlyphLabelKey>> = {
   music: 'strip.glyph.music',
   moon: 'strip.glyph.moon',
   play: 'strip.glyph.play',
+  volume: 'strip.glyph.volume',
+  volumeLow: 'strip.glyph.volumeLow',
+  volumeMedium: 'strip.glyph.volumeMedium',
+  volumeHigh: 'strip.glyph.volumeHigh',
+  volumeMuted: 'strip.glyph.volumeMuted',
+  sun: 'strip.glyph.sun',
+  mic: 'strip.glyph.mic',
+  micMuted: 'strip.glyph.micMuted',
 };
 
 /**
@@ -72,5 +87,21 @@ export const stripGlyph = (glyph: Glyph): ReactNode => {
       return <Moon {...glyphProps} />;
     case 'play':
       return <Play {...glyphProps} />;
+    case 'volume':
+      return <Volume {...glyphProps} />;
+    case 'volumeLow':
+      return <Volume1 {...glyphProps} />;
+    case 'volumeMedium':
+    case 'volumeHigh':
+      // Lucide stops at two waves; the level track beside the glyph carries the rest.
+      return <Volume2 {...glyphProps} />;
+    case 'volumeMuted':
+      return <VolumeX {...glyphProps} />;
+    case 'sun':
+      return <Sun {...glyphProps} />;
+    case 'mic':
+      return <Mic {...glyphProps} />;
+    case 'micMuted':
+      return <MicOff {...glyphProps} />;
   }
 };

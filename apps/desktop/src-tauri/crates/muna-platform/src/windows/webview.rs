@@ -6,7 +6,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
     COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
     ICoreWebView2_19, ICoreWebView2Controller,
 };
-use windows_core::Interface;
+use webview2_core::Interface;
 
 use crate::error::{PlatformError, PlatformResult};
 
@@ -44,7 +44,7 @@ pub fn set_memory_usage_target(
     }
 }
 
-fn com_error(api: &'static str, error: &windows_core::Error) -> PlatformError {
+fn com_error(api: &'static str, error: &webview2_core::Error) -> PlatformError {
     PlatformError::Os {
         api,
         code: error.code().0.cast_unsigned(),
