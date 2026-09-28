@@ -54,12 +54,13 @@ Notch surfaces are dark regardless of OS theme. The Settings window gets both th
 | `--accent-cyan` | `#64D2FF` | Media, waveform |
 | `--accent-green` | `#30D158` | Success, connected, health move |
 | `--accent-orange` | `#FF9F0A` | Pomodoro, warnings, charging |
-| `--accent-red` | `#FF453A` | Destructive, errors, recording |
+| `--accent-red` | `#FF453A` | Destructive and error *glyphs*, bars, recording |
 | `--accent-purple` | `#BF5AF2` | Health stand, AI coding |
 | `--accent-yellow` | `#FFD60A` | Weather sun, stars |
 | `--accent-pink` | `#FF375F` | Health heart |
 | `--accent` | user-selectable, default `--accent-blue` | Active module indicator, toggles |
 | `--on-accent` | `#000000` | Label and glyph on an accent fill (primary button, toggle knob on); white on `#0A84FF` is 3.96:1, black is 5.8:1 |
+| `--text-destructive` | `#FF6961` | Red *text*: destructive button labels, error lines, overdue. `--accent-red` is 4.26:1 on a hovered `--surface-3`; this is 5.2:1. Light theme `#B42318` (4.7:1 on a hovered light surface) |
 | `--scrim` | `rgb(0 0 0 / 0.55)` | Behind modal-like drawers inside the panel |
 
 Media surfaces may tint `--surface-*` with the album palette through `--media-tint`
@@ -68,13 +69,15 @@ and never touches text.
 
 Light-theme Settings window: neutrals invert (`--bg #F5F5F7`, `--surface-1 rgb(0 0 0 / .04)`,
 `--text-1 #1D1D1F`, `--text-2 rgb(0 0 0 / .6)`, `--hairline rgb(0 0 0 / .1)`); accents use the
-light-appearance variants (`#007AFF`, `#34C759`, `#FF9500`, `#FF3B30`, `#AF52DE`, `#32ADE6`).
+light-appearance variants (`#007AFF`, `#34C759`, `#FF9500`, `#FF3B30`, `#AF52DE`, `#32ADE6`)
+and red text uses `--text-destructive #B42318`.
 
 Contrast: `--text-2` on `--panel-bottom` ≈ 7.5:1, `--text-3` ≈ 4.6:1 — both pass AA for body
 text; `--text-3` is never used below 12 px. Under `prefers-contrast: more` (Windows "Contrast
-themes" / high-contrast) the tokens shift: `--hairline` → 0.24, `--text-2` → 0.72, `--text-3` →
-0.56, and the strip gains a 1 px `--hairline` outline so the black shape stays visible on dark
-wallpapers.
+themes" / high-contrast) or the app's own *Increase contrast* switch the tokens shift:
+`--hairline` → 0.24, `--text-2` → 0.72, `--text-3` → 0.56, `--text-destructive` → `#FF8A80`
+(light `#9B1C14`), and the strip gains a 1 px `--hairline` outline so the black shape stays
+visible on dark wallpapers. The light theme has the same step in its own neutrals.
 
 ### Materials
 

@@ -24,6 +24,7 @@ exports[`design tokens > matches the documented token list (change docs/05-desig
   "--accent-pink: #ff375f",
   "--accent: var(--accent-blue)",
   "--on-accent: #000000",
+  "--text-destructive: #ff6961",
   "--scrim: rgb(0 0 0 / 0.55)",
   "--media-tint: transparent",
   "--material-panel: linear-gradient(180deg, var(--panel-top), var(--panel-bottom))",

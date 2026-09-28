@@ -208,7 +208,7 @@
   padding-inline: var(--space-1);
   font-size: var(--text-caption);
   line-height: var(--text-caption--line-height);
-  color: var(--accent-red);
+  color: var(--text-destructive);
 }
 
 .ntf-empty {
