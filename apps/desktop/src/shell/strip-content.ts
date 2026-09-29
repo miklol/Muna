@@ -1,10 +1,12 @@
 import {
   HUD_NOTICE_IDS,
   type Leading,
+  type PomodoroPhase,
   type StripContent,
   type StripMessage,
   type Trailing,
 } from '@muna/contracts';
+import type { MessageKey } from '@muna/i18n';
 import { formatCountdown, type StripSlotContent } from '@muna/ui/primitives';
 import type { useTranslation } from 'react-i18next';
 
@@ -12,6 +14,22 @@ import { glyphLabelKey, stripGlyph } from './strip-glyphs';
 
 /** The typed `t` from `useTranslation()`; keys are checked against the English catalog. */
 export type Translate = ReturnType<typeof useTranslation>['t'];
+
+type PomodoroMessageKey = Extract<MessageKey, `strip.message.pomodoro${string}`>;
+
+/** The wide text for a running pomodoro phase (docs/modules/pomodoro.md, "Strip"). */
+export const pomodoroPhaseKey: Readonly<Record<PomodoroPhase, PomodoroMessageKey>> = {
+  work: 'strip.message.pomodoroWork',
+  shortBreak: 'strip.message.pomodoroShortBreak',
+  longBreak: 'strip.message.pomodoroLongBreak',
+};
+
+/** The notice text when a pomodoro phase runs out. */
+export const pomodoroFinishedKey: Readonly<Record<PomodoroPhase, PomodoroMessageKey>> = {
+  work: 'strip.message.pomodoroWorkFinished',
+  shortBreak: 'strip.message.pomodoroShortBreakFinished',
+  longBreak: 'strip.message.pomodoroLongBreakFinished',
+};
 
 /** What `StripView` needs, derived from one `StripContent` (docs/modules/live-activities.md). */
 export interface StripPresentation {
@@ -68,6 +86,10 @@ export const messageText = (message: StripMessage, t: Translate): string => {
       return message.artist === ''
         ? t('strip.message.nowPlayingNoArtist', { title: message.title })
         : t('strip.message.nowPlaying', { title: message.title, artist: message.artist });
+    case 'pomodoro':
+      return t(pomodoroPhaseKey[message.phase]);
+    case 'pomodoroFinished':
+      return t(pomodoroFinishedKey[message.phase]);
   }
 };
 
@@ -184,7 +206,8 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
               message,
               percent: formatPercent(item.wide.batteryPercent, locale),
             });
-      case 'text': {
+      case 'text':
+      case 'pomodoro': {
         const fact =
           item.trailing === null || item.trailing.kind === 'icon'
             ? null
@@ -193,6 +216,7 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
       }
       case 'bluetoothDisconnected':
       case 'timerFinished':
+      case 'pomodoroFinished':
         return message;
       case 'nowPlaying': {
         // A play glyph on the right means the session is paused (docs/modules/media.md).

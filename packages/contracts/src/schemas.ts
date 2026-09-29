@@ -14,6 +14,7 @@ import type {
   NotchShape,
   Notice,
   PlacementMode,
+  PomodoroPhase,
   ReducedMotion,
   Settings,
   ShellLayout,
@@ -197,6 +198,12 @@ export const trailingSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('level'), percent, muted: z.boolean() }),
 ]) satisfies z.ZodType<Trailing>;
 
+export const pomodoroPhaseSchema = z.enum([
+  'work',
+  'shortBreak',
+  'longBreak',
+]) satisfies z.ZodType<PomodoroPhase>;
+
 export const stripMessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('text'), value: z.string() }),
   z.object({ kind: z.literal('batteryLow'), percent }),
@@ -208,6 +215,8 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('bluetoothDisconnected'), name: z.string() }),
   z.object({ kind: z.literal('timerFinished'), label: z.string() }),
   z.object({ kind: z.literal('nowPlaying'), title: z.string(), artist: z.string() }),
+  z.object({ kind: z.literal('pomodoro'), phase: pomodoroPhaseSchema }),
+  z.object({ kind: z.literal('pomodoroFinished'), phase: pomodoroPhaseSchema }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({
@@ -341,3 +350,64 @@ export const HUD_NOTICE_IDS = {
 
 /** Volume change for one wheel notch, in percent (mirrors `modules::hud::VOLUME_STEP`). */
 export const HUD_VOLUME_STEP = 2;
+
+/** The key of the pomodoro module's namespace; also its module id. */
+export const POMODORO_SETTINGS_KEY = 'pomodoro';
+
+/**
+ * Bounds the settings pane offers and the module clamps to, in minutes (mirrors
+ * `modules::pomodoro::settings::*`).
+ */
+export const POMODORO_BOUNDS = {
+  workMinutes: { min: 5, max: 90 },
+  shortBreakMinutes: { min: 1, max: 30 },
+  longBreakMinutes: { min: 5, max: 60 },
+  longBreakEvery: { min: 2, max: 8 },
+} as const;
+
+const minutes = (bounds: { min: number; max: number }, fallback: number) =>
+  z
+    .number()
+    .int()
+    .nonnegative()
+    .default(fallback)
+    .transform((value) => Math.min(bounds.max, Math.max(bounds.min, value)));
+
+/**
+ * Mirrors `modules::pomodoro::PomodoroSettings`: every field has a default so a partial entry
+ * reads, out-of-range values clamp to the bounds and a wrong type fails the whole entry, like
+ * the Rust side, so the two never disagree about what the user gets.
+ */
+export const pomodoroSettingsSchema = z.object({
+  workMinutes: minutes(POMODORO_BOUNDS.workMinutes, 25),
+  shortBreakMinutes: minutes(POMODORO_BOUNDS.shortBreakMinutes, 5),
+  longBreakMinutes: minutes(POMODORO_BOUNDS.longBreakMinutes, 15),
+  /** Work phases per cycle; the break after the last one is the long one. */
+  longBreakEvery: minutes(POMODORO_BOUNDS.longBreakEvery, 4),
+  /** Start the next phase as soon as one runs out. */
+  autoStartNext: z.boolean().default(false),
+});
+export type PomodoroSettings = z.infer<typeof pomodoroSettingsSchema>;
+
+export const defaultPomodoroSettings = (): PomodoroSettings => pomodoroSettingsSchema.parse({});
+
+/** Reads the pomodoro namespace; a missing or malformed entry yields the defaults, like Rust. */
+export const readPomodoroSettings = (settings: Settings): PomodoroSettings => {
+  const parsed = pomodoroSettingsSchema.safeParse(settings.modules[POMODORO_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultPomodoroSettings();
+};
+
+/** Returns a new document with the pomodoro namespace replaced. */
+export const writePomodoroSettings = (
+  settings: Settings,
+  pomodoro: PomodoroSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [POMODORO_SETTINGS_KEY]: pomodoro },
+});
+
+/** The pomodoro module's strip ids (docs/modules/pomodoro.md "Contract"). */
+export const POMODORO_STRIP_IDS = {
+  activity: 'pomodoro:timer',
+  finished: 'pomodoro:finished',
+} as const;

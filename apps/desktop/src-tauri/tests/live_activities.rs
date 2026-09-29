@@ -294,8 +294,10 @@ fn s8_notice_during_panel_queues_until_resume() {
 #[test]
 fn registry_lists_live_activities_with_strip_capability() {
     let platform: Arc<dyn muna_platform::Platform> = Arc::new(FakePlatform::new());
-    let hub = Arc::new(Hub::new(Arc::new(muna_core::SystemClock)));
-    let all = backends(&ModuleServices::new(&platform, &hub, None));
+    let clock: Arc<dyn muna_core::Clock> = Arc::new(muna_core::SystemClock);
+    let hub = Arc::new(Hub::new(Arc::clone(&clock)));
+    let store = Arc::new(muna_core::Store::open_in_memory().expect("in-memory store"));
+    let all = backends(&ModuleServices::new(&platform, &hub, None, &store, &clock));
     let live = all
         .iter()
         .find(|backend| backend.id() == "live-activities")
@@ -306,11 +308,9 @@ fn registry_lists_live_activities_with_strip_capability() {
         .find(|backend| backend.id() == "media")
         .expect("media is always registered");
     assert_eq!(media.capabilities(), &[Surface::Strip, Surface::Panel]);
-    // The pomodoro placeholder only appears with MUNA_DEMO=pomodoro.
-    let has_pomodoro = all.iter().any(|backend| backend.id() == "pomodoro");
-    assert_eq!(
-        has_pomodoro,
-        muna_lib::modules::pomodoro::demo_enabled(),
-        "pomodoro registration follows the demo flag"
-    );
+    let pomodoro = all
+        .iter()
+        .find(|backend| backend.id() == "pomodoro")
+        .expect("pomodoro is always registered");
+    assert_eq!(pomodoro.capabilities(), &[Surface::Strip, Surface::Panel]);
 }

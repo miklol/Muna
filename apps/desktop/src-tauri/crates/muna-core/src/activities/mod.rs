@@ -196,6 +196,31 @@ pub enum StripMessage {
         title: String,
         artist: String,
     },
+    /// The running pomodoro phase ("Focus", "Short break"); the trailing timer counts down.
+    Pomodoro {
+        phase: PomodoroPhase,
+    },
+    /// A pomodoro phase ran out (docs/modules/pomodoro.md).
+    PomodoroFinished {
+        phase: PomodoroPhase,
+    },
+}
+
+/// One step of the pomodoro cycle; the UI localises the label and picks the tint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum PomodoroPhase {
+    Work,
+    ShortBreak,
+    LongBreak,
+}
+
+impl PomodoroPhase {
+    /// `true` for the two break phases.
+    #[must_use]
+    pub const fn is_break(self) -> bool {
+        matches!(self, Self::ShortBreak | Self::LongBreak)
+    }
 }
 
 /// Long-lived strip content owned by a module (`id` is `<module>:<key>`).

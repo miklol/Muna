@@ -20,7 +20,29 @@ pub enum StoreError {
 }
 
 /// Ordered schema steps; index + 1 is the resulting `PRAGMA user_version`.
-const MIGRATIONS: &[&str] = &["CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);"];
+const MIGRATIONS: &[&str] = &[
+    "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+    // M3-E3: every pomodoro phase that ran, for "N sessions today" (docs/modules/pomodoro.md).
+    "CREATE TABLE pomodoro_sessions (
+        id INTEGER PRIMARY KEY,
+        phase TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER NOT NULL,
+        completed INTEGER NOT NULL
+    );
+    CREATE INDEX pomodoro_sessions_ended_at ON pomodoro_sessions (ended_at);",
+];
+
+/// One pomodoro phase that ran, as logged by the module. Times are Unix milliseconds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PomodoroSessionRecord {
+    /// `work`, `shortBreak` or `longBreak` (the phase's serialised name).
+    pub phase: String,
+    pub started_at_ms: i64,
+    pub ended_at_ms: i64,
+    /// `false` when the user skipped or reset it before it ran out.
+    pub completed: bool,
+}
 
 #[derive(Debug)]
 pub struct Store {
@@ -101,6 +123,37 @@ impl Store {
         )?;
         Ok(())
     }
+
+    /// Appends one pomodoro phase to the log.
+    pub fn log_pomodoro_session(&self, record: &PomodoroSessionRecord) -> Result<(), StoreError> {
+        self.conn.lock().execute(
+            "INSERT INTO pomodoro_sessions (phase, started_at, ended_at, completed) \
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                record.phase,
+                record.started_at_ms,
+                record.ended_at_ms,
+                record.completed
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Completed `work` phases that ended on the same local date as `now_ms` ("N sessions
+    /// today"). The caller passes its clock's wall time rather than letting SQLite read the
+    /// machine's, so the log and the count agree on what "today" is — under a fake clock as
+    /// much as a real one. SQLite's `localtime` modifier does the zone conversion, so no
+    /// date crate.
+    pub fn pomodoro_sessions_today(&self, now_ms: i64) -> Result<u32, StoreError> {
+        Ok(self.conn.lock().query_row(
+            "SELECT COUNT(*) FROM pomodoro_sessions \
+             WHERE phase = 'work' AND completed = 1 \
+             AND date(ended_at / 1000, 'unixepoch', 'localtime') \
+               = date(?1 / 1000, 'unixepoch', 'localtime')",
+            params![now_ms],
+            |row| row.get(0),
+        )?)
+    }
 }
 
 #[cfg(test)]
@@ -147,5 +200,54 @@ mod tests {
             Store::open(&path).unwrap_err(),
             StoreError::Newer { found: 99, .. }
         ));
+    }
+
+    #[test]
+    fn pomodoro_sessions_today_counts_completed_work_phases_only() {
+        let store = Store::open_in_memory().unwrap();
+        // A fixed moment (midday UTC), so the result does not depend on when the test runs.
+        let now_ms: i64 = 1_772_366_400_000;
+        let record = |phase: &str, ended_at_ms: i64, completed: bool| PomodoroSessionRecord {
+            phase: phase.into(),
+            started_at_ms: ended_at_ms - 1_500_000,
+            ended_at_ms,
+            completed,
+        };
+        store
+            .log_pomodoro_session(&record("work", now_ms, true))
+            .unwrap();
+        store
+            .log_pomodoro_session(&record("work", now_ms - 1000, false))
+            .unwrap();
+        store
+            .log_pomodoro_session(&record("shortBreak", now_ms, true))
+            .unwrap();
+        // Two days ago is never "today" in any time zone.
+        store
+            .log_pomodoro_session(&record("work", now_ms - 48 * 3_600_000, true))
+            .unwrap();
+        assert_eq!(store.pomodoro_sessions_today(now_ms).unwrap(), 1);
+        // "Today" is the caller's day, not the machine's: seen from two days later, nothing
+        // ended today.
+        assert_eq!(
+            store
+                .pomodoro_sessions_today(now_ms + 48 * 3_600_000)
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn a_version_one_database_migrates_forward() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("muna.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(MIGRATIONS[0]).unwrap();
+            conn.pragma_update(None, "user_version", 1).unwrap();
+        }
+        let store = Store::open(&path).unwrap();
+        assert_eq!(store.user_version().unwrap(), Store::schema_version());
+        assert_eq!(store.pomodoro_sessions_today(0).unwrap(), 0);
     }
 }

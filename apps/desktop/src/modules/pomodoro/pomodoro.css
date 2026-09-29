@@ -1,0 +1,89 @@
+/*
+ * Pomodoro panel (docs/modules/pomodoro.md, docs/reference/ui-observations.md "Pomodoro"): the
+ * dial on the left, phase, presets and controls on the right. Composes tokens only; the
+ * primitives bring their own styles.
+ */
+
+.pomodoro-panel {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+  block-size: 100%;
+  min-block-size: 0;
+  padding-inline: var(--space-2);
+}
+
+.pomodoro-dial {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* The digits take the phase tint the ring carries (warm for focus, green for breaks). */
+.pomodoro-countdown {
+  color: var(--muna-tint);
+}
+
+.pomodoro-details {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  min-inline-size: 0;
+}
+
+.pomodoro-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.pomodoro-phase {
+  margin: 0;
+}
+
+.pomodoro-status {
+  margin: 0;
+}
+
+.pomodoro-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* Start/pause: 36 px filled circle, glyph in the on-accent colour, like the media play button. */
+.pomodoro-play.muna-icon-button {
+  background: var(--text-1);
+  color: var(--on-accent);
+}
+
+.pomodoro-play.muna-icon-button[data-hovered],
+.pomodoro-play.muna-icon-button[data-pressed] {
+  background: var(--text-1);
+  color: var(--on-accent);
+  opacity: 0.9;
+}
+
+.pomodoro-cycle {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pomodoro-cycle__dot {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--radius-thumb);
+  background: var(--surface-3);
+}
+
+.pomodoro-cycle__dot[data-done] {
+  background: var(--accent-orange);
+}

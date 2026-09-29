@@ -16,7 +16,7 @@ pub mod pomodoro;
 use std::path::Path;
 use std::sync::Arc;
 
-use muna_core::{ArtCache, Hub};
+use muna_core::{ArtCache, Clock, Hub, Store};
 use muna_platform::Platform;
 
 /// A shell surface a module can own, so the shell can route to the single owner
@@ -71,12 +71,20 @@ impl std::fmt::Debug for dyn ModuleBackend {
 pub struct ModuleServices {
     pub media: Arc<media::MediaService>,
     pub hud: Arc<hud::HudService>,
+    pub pomodoro: Arc<pomodoro::PomodoroService>,
 }
 
 impl ModuleServices {
     /// `cache_dir` is the profile's cache folder; `None` keeps caches in memory (tests).
+    /// `store` is the profile database (module tables live there); `clock` is the hub's.
     #[must_use]
-    pub fn new(platform: &Arc<dyn Platform>, hub: &Arc<Hub>, cache_dir: Option<&Path>) -> Self {
+    pub fn new(
+        platform: &Arc<dyn Platform>,
+        hub: &Arc<Hub>,
+        cache_dir: Option<&Path>,
+        store: &Arc<Store>,
+        clock: &Arc<dyn Clock>,
+    ) -> Self {
         let art_cache =
             cache_dir.map(|dir| ArtCache::new(dir.join("art"), media::ART_CACHE_ENTRIES));
         Self {
@@ -86,22 +94,24 @@ impl ModuleServices {
                 art_cache,
             )),
             hud: Arc::new(hud::HudService::new(Arc::clone(platform), Arc::clone(hub))),
+            pomodoro: Arc::new(pomodoro::PomodoroService::new(
+                Arc::clone(hub),
+                Arc::clone(store),
+                Arc::clone(clock),
+            )),
         }
     }
 }
 
-/// Every backend in this build, in start order. Demo-only modules gate themselves.
+/// Every backend in this build, in start order.
 #[must_use]
 pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
-    let mut all: Vec<Box<dyn ModuleBackend>> = vec![
+    vec![
         Box::new(live_activities::LiveActivities),
         Box::new(media::MediaModule(Arc::clone(&services.media))),
         Box::new(hud::HudModule(Arc::clone(&services.hud))),
-    ];
-    if pomodoro::demo_enabled() {
-        all.push(Box::new(pomodoro::PomodoroDemo));
-    }
-    all
+        Box::new(pomodoro::PomodoroModule(Arc::clone(&services.pomodoro))),
+    ]
 }
 
 /// Starts every backend; a module that fails to start is logged and skipped so one broken
