@@ -1,6 +1,8 @@
 # Glass UI research and implementation skill
 
-**Status:** Baseline findings implemented and re-measured; native performance checks open.
+**Status:** Baseline findings implemented, re-measured and submitted as
+[PR #60](https://github.com/miklol/Muna/pull/60) (all required checks green); native
+performance checks open.
 **Date:** 2026-09-28.
 **Baseline:** `9fe73bdc30be9ace0c5b43f7e59339f1b47a4f1f`.
 
