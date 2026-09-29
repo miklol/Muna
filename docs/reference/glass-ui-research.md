@@ -1002,6 +1002,67 @@ Unchanged from the research: native FPS/p95 frame time, idle CPU, RSS, real 200 
 WebView2, forced-colours rendering, Narrator, and native focus restoration were not measured.
 The geometry and scrolling behaviour at zoom is proven in the browser at 320 px only.
 
+## Plugin phase: what was built, and why it was withdrawn
+
+With the UI foundation fixed, a media module was built on this branch through the existing
+`ModuleBackend` + `ModuleDefinition` contract: an SMTC watcher in `muna-platform`, a pure
+`Model` reducer with a timeline-drift filter, a typed `MediaStateChanged` event, and a
+three-row `MediaCard` primitive. It passed every gate (14 Rust scenarios, clippy
+`-D warnings`, 328 Vitest tests, 163 stories with 0 axe violations) and worked against a
+live Edge/YouTube session in a native dev run.
+
+It was then **withdrawn** and, on rebase, dropped entirely. Auditing the repository showed
+that a parallel session's stack (`land-stack`, PR #58 and the ~40 PRs under it) was already
+landing on `main`: by the time this branch was rebased, M2-E1/E2 media and M2-E3 HUD had
+merged (`#22`, `#24`, `#25`, `#26`), with a fuller media module — settings pane, dashboard
+widget, strip waveform — than the one built here. Two media modules on two branches would only
+produce a merge conflict; the one built here duplicated work rather than adding to it. The
+specs in `docs/modules/*.md` are what this branch started from; the stack is where they are
+being implemented, module by module.
+
+What **does** carry forward from this branch, because `main` still lacks it (checked at the
+rebase point, `94c3784`):
+
+| Fix on this branch | State on `main` |
+| --- | --- |
+| Readable tertiary text (`--text-2`), axe exemption removed | still `--text-3` at 3.7:1 |
+| Shell honours Rust's narrow `panelMaxWidth` | still a 720 px floor |
+| Panel title/subtitle wrap; chips whole; rail targets disjoint | still `truncate={1}` on both |
+| Profile moved out of the NSIS install directory, with one-time migration | still `%LOCALAPPDATA%\Muna` |
+| Module bar painted over `--notch-black` | **already fixed there** (same line; kept main's) |
+
+The three reference-composition lessons the withdrawn module encoded — capability-aware
+transport (leave controls out, do not disable them), artwork continuity across a late
+thumbnail, and "republish on meaningful change, not on every tick" — are recorded above under
+the reference review for whoever refines the landed media module.
+
+### Live run, kept as evidence
+
+The native dev run of this branch before the rebase (isolated profile, `scripts/dev.ps1
+-HitTest`) is still the only real-device evidence gathered for the UI fixes and is kept here
+for that reason:
+
+| Observation | Result |
+| --- | --- |
+| Start-up | Notch attached; `muna.exe` 59 MB RSS (WebView2 not attributed) |
+| Yield | Strip dropped to `peek` under a maximised window's caption (S5) and returned |
+| Morph, idle desktop | expand 172 fps · max 6 ms · **0 dropped**; collapse 170–177 fps · 0 dropped (four Rust `morph` samples) |
+| Morph, video playing underneath | expand **46 fps · max 36 ms · 2 dropped** (one dev-build sample) — the workload the perf harness (M2-E4) must characterise |
+| Module bar over an orange wallpaper | black base clearly legible (the Phase 1 fix, on a real desktop) |
+| Panel empty state | header, hairline and 28 px corner as specified |
+
+The installed build also surfaced the profile/install-directory collision (the NSIS per-user
+install lands in `%LOCALAPPDATA%\Muna`, on top of the data profile), which is the fourth fix
+in the table above; it was reproduced from a console and verified fixed by launching the
+reinstalled app from its Start Menu shortcut.
+
+### Not verified
+
+Idle CPU and RSS over five minutes, real 200 % zoom in WebView2, forced-colours rendering,
+Narrator, native focus restoration, and the 46 fps case under a release build remain to be
+measured on the prescribed setup. The rebased branch has been re-verified with the automated
+gates only; it has not been run natively on top of the landed media/HUD modules yet.
+
 ## Verdict
 
 **Baseline: Block** — the inspected baseline had HIGH findings in material contrast, text
