@@ -34,7 +34,19 @@ function Controlled(props: {
   );
   const reorderable = props.reorderable !== false;
   return (
-    <div style={{ display: 'grid', gap: 'var(--space-3)', justifyItems: 'center' }}>
+    // The host supplies the width bound, as the shell does (`moduleBarSize` clamps to the
+    // panel bound): the pill fills up to 640 px and never past the viewport. The track is
+    // `minmax(0, 1fr)` because an `auto` track would size to the pill's 640 px max-content and
+    // overflow the host, centring the (correctly shrunk) pill 176 px off screen.
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr)',
+        gap: 'var(--space-3)',
+        justifyItems: 'center',
+        inlineSize: 'min(var(--size-module-bar-width), calc(100vw - 2 * var(--space-4)))',
+      }}
+    >
       <ModuleBar
         aria-label="Modules"
         items={order}
@@ -94,6 +106,25 @@ export const Overflow: Story = {
         icon: <GridGlyph />,
       }))}
       initial="module-18"
+    />
+  ),
+};
+
+/**
+ * A 320 px work area (or 200 % zoom): the pill shrinks to the host's bound, the slot count
+ * follows the measured width and the pager keeps every module reachable. Nothing paints past
+ * the viewport.
+ */
+export const Narrow: Story = {
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+  render: () => (
+    <Controlled
+      items={Array.from({ length: 12 }, (_, index) => ({
+        id: `module-${String(index + 1)}`,
+        label: `Module ${String(index + 1)}`,
+        icon: <GridGlyph />,
+      }))}
+      initial="module-9"
     />
   ),
 };

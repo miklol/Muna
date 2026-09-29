@@ -12,7 +12,11 @@
     "collapse": "Collapse to the strip",
     "empty": {
       "title": "Nothing to show yet",
-      "body": "Modules appear here as they are added."
+      "body": "Modules appear here as they are added.",
+      "disabledTitle": "All modules are turned off",
+      "disabledBody": "Turn a module on in Settings to see it here.",
+      "openSettings": "Open settings",
+      "openSettingsFailed": "Unable to open Settings. Use the tray icon instead."
     }
   },
   "strip": {

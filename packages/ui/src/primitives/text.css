@@ -75,8 +75,14 @@
   color: var(--text-2);
 }
 
+/*
+ * Readable tertiary text shares `--text-2`: white at 40 % measures 3.71:1 on the panel and
+ * fails 4.5:1 on every dark surface and the light Settings base
+ * (docs/reference/glass-ui-research.md#deeper-compositing-measurements). `--text-3` stays
+ * for disabled glyphs and decorative marks, never for text a user must read.
+ */
 .muna-text--tone-tertiary {
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .muna-text--weight-400 {

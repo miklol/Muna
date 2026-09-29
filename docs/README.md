@@ -61,6 +61,8 @@ run and everyday commands for the code itself: [root README › Development](../
   paraphrased notes on the reference product's modules and site.
 - [UI observations](reference/ui-observations.md) — measured anatomy and tokens from the
   reference screenshots that seeded the design system.
+- [Glass UI research](reference/glass-ui-research.md) — primary-source research, ranked
+  interface findings, a reusable implementation skill, and measured baseline test results.
 
 ## Conventions
 

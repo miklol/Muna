@@ -15,7 +15,10 @@ export type TextVariant =
   | 'title1'
   | 'display';
 
-/** `--text-1` / `--text-2` / `--text-3`. Tertiary is never used below 12 px (`footnote`). */
+/**
+ * Readable tones. `secondary` and `tertiary` both render `--text-2` (7.3:1 on the panel);
+ * `--text-3` is reserved for disabled controls and decorative marks, not for text.
+ */
 export type TextTone = 'primary' | 'secondary' | 'tertiary';
 
 type TextElement =

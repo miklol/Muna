@@ -25,6 +25,19 @@ use state::AppState;
 /// (`muna_platform::windows::AUTOSTART_ARG` mirrors it for the Windows implementation).
 pub const AUTOSTART_ARG: &str = "--autostart";
 
+/// One-time carry-over from `%LOCALAPPDATA%\Muna` (M0–M1), which the per-user installer now
+/// owns as the install directory. Best effort and before logging exists: a failure leaves a
+/// fresh profile, never a crash.
+fn carry_over_legacy_profile(profile_dir: &std::path::Path) {
+    match paths::migrate_legacy_profile(&paths::legacy_profile_dir(), profile_dir) {
+        Ok(moved) if !moved.is_empty() => {
+            eprintln!("moved the Muna profile to {}", profile_dir.display());
+        }
+        Ok(_) => {}
+        Err(error) => eprintln!("could not move the legacy Muna profile: {error}"),
+    }
+}
+
 /// Builds and runs the application. Never returns on success.
 ///
 /// # Panics
@@ -42,6 +55,7 @@ pub fn run() {
     }
 
     let profile_dir = paths::profile_dir();
+    carry_over_legacy_profile(&profile_dir);
     let autostarted = std::env::args().skip(1).any(|arg| arg == AUTOSTART_ARG);
 
     // Managed state must exist before the config windows are created: wry pumps messages
