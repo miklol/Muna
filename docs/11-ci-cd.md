@@ -45,7 +45,9 @@ maintainer.
   changes as conflicts. "Own commits" are measured against the parent's tip from *before* the
   script rebased it (a snapshot taken at start-up); after an interrupted run,
   `-Bottom <child> -RebaseOnto <merged parent>` recovers that tip from the parent PR's last
-  force-push event.
+  force-push event. A fix pushed to a lower PR while the stack is open needs no hand rebase of
+  the PRs above it: the script measures each child from where its history parts from the
+  parent's, and the fix reaches the children through `main`.
 - **Drafts** for work in progress; CI runs on drafts too, but reviewers are not requested.
 
 ## Commits and PR titles
