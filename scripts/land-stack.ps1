@@ -17,7 +17,9 @@
   before this script rebased the parent* (the force-push in step 3 moves `origin/<parent>` to
   rewritten commits, so `merge-base origin/<parent> origin/<child>` would fall back to `main`
   and replay the whole stack). The script therefore remembers every branch tip at start-up and
-  computes each merge base from that snapshot.
+  computes each merge base from that snapshot. A fix pushed to a lower PR during the landing
+  needs no hand rebase of the PRs above it: the child's own commits still start where its
+  history parts from the parent's, and the fix reaches the child through `main`.
 
   Nothing in your working tree is touched; local branches are left where they were (fetch and
   reset them afterwards). `-Simulate` replays the whole landing locally (rebase + squash) and
@@ -205,7 +207,10 @@ function Get-UpstreamSha {
   # The commit up to which $Child's history belongs to $Parent. Normally the parent's tip as it
   # was when this run started, which the child was branched from. When an earlier run already
   # rebased the parent, that tip shares only main's history with the child, and the tip the
-  # parent had before its force-push is the one the child still carries.
+  # parent had before its force-push is the one the child still carries. When the parent merely
+  # gained commits after the child branched (a fix pushed to a lower PR of the stack), the
+  # child's own commits start where the two histories part — a commit of the parent's, never
+  # one of main's, because a squash merge puts no branch commit on main.
   param([object]$Parent, [object]$Child)
   $childRef = "origin/$($Child.headRefName)"
   if (Test-Ancestor -Commit $Parent.originalOid -Descendant $childRef) { return $Parent.originalOid }
@@ -214,6 +219,12 @@ function Get-UpstreamSha {
       Write-Step "#$($Child.number) still carries #$($Parent.number) as of $($sha.Substring(0, 10)) (before its rebase)"
       return $sha
     }
+  }
+  $fork = (Invoke-Git @('merge-base', $Parent.originalOid, $childRef) -AllowFailure).Trim()
+  if ($fork -and -not (Test-Ancestor -Commit $fork -Descendant 'origin/main')) {
+    $ahead = (Invoke-Git @('rev-list', '--count', "$fork..$($Parent.originalOid)")).Trim()
+    Write-Step "#$($Parent.number) gained $ahead commit(s) after #$($Child.number) branched at $($fork.Substring(0, 10)); the fix reaches #$($Child.number) through main"
+    return $fork
   }
   throw "Cannot tell where #$($Parent.number)'s history ends inside $childRef; rebase #$($Child.number) by hand and rerun with -Bottom $($Child.number)."
 }
