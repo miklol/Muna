@@ -7,6 +7,7 @@
 //! never held across webview creation/destruction or `SetWindowLongPtr`; reconciles run on the
 //! main thread and re-entrant requests coalesce into one more pass.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -21,6 +22,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_specta::Event;
 
 use super::hit_test::PollRate;
+use super::memory_target::{Hold, MemoryTarget, MemoryTargetPolicy};
 use super::model::{Effect, PRIMARY_LABEL, ReconcilePlan, ShellLayout, ShellModel};
 use crate::ipc::{
     ShapeRect, ShellLayoutChanged, ShellPointerDownOutside, ShellToggleRequested, ShellYieldChanged,
@@ -50,6 +52,13 @@ pub struct ShellManager {
     hotkey: Mutex<Option<String>>,
     /// Earliest pending re-evaluation, so debouncing parks never piles up timers.
     recheck_at: Mutex<Option<Instant>>,
+    /// Process start; the `shell ready` log line reports the cold-start time against it
+    /// (docs/09-testing-qa.md, performance harness).
+    started_at: Instant,
+    /// Labels whose first painted frame has been logged.
+    ready_reported: Mutex<HashSet<String>>,
+    /// Low memory target while the cursor stays away from the notch (PRD ≤ 120 MB budget).
+    memory_target: Mutex<MemoryTargetPolicy>,
 }
 
 impl std::fmt::Debug for ShellManager {
@@ -62,7 +71,7 @@ impl std::fmt::Debug for ShellManager {
 
 impl ShellManager {
     #[must_use]
-    pub fn new(platform: Arc<dyn Platform>, settings: ShellSettings) -> Self {
+    pub fn new(platform: Arc<dyn Platform>, settings: ShellSettings, started_at: Instant) -> Self {
         Self {
             platform,
             model: Mutex::new(ShellModel::new(settings)),
@@ -71,6 +80,9 @@ impl ShellManager {
             tray: Mutex::new(None),
             hotkey: Mutex::new(None),
             recheck_at: Mutex::new(None),
+            started_at,
+            ready_reported: Mutex::new(HashSet::new()),
+            memory_target: Mutex::new(MemoryTargetPolicy::new()),
         }
     }
 
@@ -81,13 +93,27 @@ impl ShellManager {
             self.model.lock().set_own_handles(own);
             // Closing the settings window hides it; the tray brings it back (tray utility).
             let window = settings.clone();
-            settings.on_window_event(move |event| {
-                if let WindowEvent::CloseRequested { api, .. } = event {
+            let manager = Arc::clone(self);
+            let app_handle = app.clone();
+            settings.on_window_event(move |event| match event {
+                WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
                     if let Err(error) = window.hide() {
                         tracing::warn!(%error, "settings hide failed");
                     }
+                    manager.set_memory_hold(&app_handle, Hold::SettingsFocused, false);
                 }
+                WindowEvent::Focused(focused) => {
+                    // WebView2 creation hands the hidden settings window a focus event that
+                    // no blur ever follows; only a visible window counts as in use.
+                    let visible = window.is_visible().unwrap_or(false);
+                    manager.set_memory_hold(
+                        &app_handle,
+                        Hold::SettingsFocused,
+                        *focused && visible,
+                    );
+                }
+                _ => {}
             });
         }
         self.reconcile(app);
@@ -252,10 +278,19 @@ impl ShellManager {
     // --- IPC entry points -----------------------------------------------------------------
 
     pub fn window_ready(self: &Arc<Self>, app: &AppHandle, label: &str) {
+        let now = Instant::now();
+        if self.ready_reported.lock().insert(label.to_owned()) {
+            // The performance harness reads this line as "cold start to first strip paint".
+            tracing::info!(
+                label,
+                since_start_ms = now.duration_since(self.started_at).as_millis(),
+                "shell ready"
+            );
+        }
         let effects = self
             .model
             .lock()
-            .window_ready(self.platform.as_ref(), label, Instant::now());
+            .window_ready(self.platform.as_ref(), label, now);
         self.apply(app, effects);
     }
 
@@ -490,7 +525,50 @@ impl ShellManager {
                 tracing::warn!(%error, "emit ShellPointerDownOutside failed");
             }
         }
+        let target = self.memory_target.lock().observe(poll.rate, Instant::now());
+        if let Some(target) = target {
+            self.apply_memory_target(app, target);
+        }
         poll.rate
+    }
+
+    /// Something is about to draw or animate in a webview (strip content, hotkey): lift the low
+    /// memory target now rather than at the next cursor poll.
+    pub fn wake_webviews(&self, app: &AppHandle) {
+        let target = self.memory_target.lock().wake();
+        if let Some(target) = target {
+            self.apply_memory_target(app, target);
+        }
+    }
+
+    /// Keeps the webviews at the normal memory target while `hold` applies (strip content on
+    /// screen, settings window focused).
+    pub fn set_memory_hold(&self, app: &AppHandle, hold: Hold, active: bool) {
+        tracing::debug!(hold = ?hold, active, "memory hold");
+        let target = self.memory_target.lock().set_hold(hold, active);
+        if let Some(target) = target {
+            self.apply_memory_target(app, target);
+        }
+    }
+
+    /// Asks every webview for `target`. The notch windows share one renderer with the settings
+    /// window (same origin), so the trim is only meaningful applied to all of them.
+    fn apply_memory_target(&self, app: &AppHandle, target: MemoryTarget) {
+        let mut labels: Vec<String> = self
+            .model
+            .lock()
+            .windows()
+            .iter()
+            .map(|w| w.label.clone())
+            .collect();
+        labels.push(SETTINGS_LABEL.to_owned());
+        tracing::info!(target = ?target, windows = labels.len(), "webview memory target");
+        for label in labels {
+            let Some(window) = app.get_webview_window(&label) else {
+                continue;
+            };
+            set_webview_memory_target(&window, target);
+        }
     }
 
     fn assert_all_topmost(&self) {
@@ -563,6 +641,31 @@ fn handle_of(window: &WebviewWindow) -> Option<WindowHandle> {
     {
         let _ = window;
         None
+    }
+}
+
+/// `ICoreWebView2_19::MemoryUsageTargetLevel` on one webview; runs on the webview thread.
+fn set_webview_memory_target(window: &WebviewWindow, target: MemoryTarget) {
+    #[cfg(windows)]
+    {
+        use muna_platform::windows::webview::{MemoryUsageTarget, set_memory_usage_target};
+        let level = match target {
+            MemoryTarget::Normal => MemoryUsageTarget::Normal,
+            MemoryTarget::Low => MemoryUsageTarget::Low,
+        };
+        let label = window.label().to_owned();
+        let result = window.with_webview(move |webview| {
+            if let Err(error) = set_memory_usage_target(&webview.controller(), level) {
+                tracing::warn!(%error, label, "memory target failed");
+            }
+        });
+        if let Err(error) = result {
+            tracing::warn!(%error, label = window.label(), "with_webview failed");
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, target);
     }
 }
 

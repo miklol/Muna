@@ -80,6 +80,21 @@ restore).
 
 ## M2-E4 · Performance harness — agent: `muna-qa-engineer`
 
+**Progress:** `scripts/perf` landed as `report.mjs` (pure: budgets, plans, parsing, statistics,
+markdown; unit-tested) + `probe.ps1` (Win32 helper) + `harness.mjs` (launch, idle window,
+cursor-driven morphs) + `index.mjs` (`--smoke` / `--full` CLI the `ci.yml` and `nightly.yml`
+jobs already call). The first real run found two idle bugs in the shell — `useShellReady`
+re-arming on every layout event (a shell ↔ UI loop at half the refresh rate, 31 % of one core
+idle) and a morph frame sampler that never stopped after a mid-morph park — and, once fixed,
+a memory budget miss (126 MB debug / 118–123 MB release private working set against 120 MB),
+answered by the shell's idle memory target
+([notch-shell → Memory target](../modules/notch-shell.md#memory-target)). Measured on
+Win11 25H2: idle CPU 0.003–0.014 % normalised (0.09–0.46 % of one core), cold start
+520–870 ms (debug) / 595–650 ms (release), idle memory 17–31 MB after the trim. Deferred:
+the bundled SMTC test player and the media-playing CPU window, 4K emulation, the `MUNA_FPS`
+overlay, the automatic delta against `main`; the morph-driving part of `--full` and the
+first-morph-after-trim frame rate need an unlocked desktop (maintainer checklist).
+
 ```text
 Build scripts/perf per docs/09-testing-qa.md#performance-harness-scriptsperf and wire it to
 a nightly workflow (.github/workflows/nightly.yml on windows-latest). Bundle a tiny test media
@@ -87,3 +102,28 @@ player (Rust binary using SystemMediaTransportControls) so SMTC tests run on CI 
 Output perf.json + markdown summary; fail on budget breach; post trend comment on PRs labelled
 `perf`. Add the fps overlay dev tool (`MUNA_FPS=1`) if not present.
 ```
+
+---
+
+## M2 close — agent: `muna-architect`
+
+**Blocked on CI (2026-09-25).** Every M2 epic is implemented and locally green, but nothing
+has merged: the Actions budget ran out while #22 was open, so the required checks fail in
+3 s before a runner starts ("The job was not started because an Actions budget is preventing
+further use"). The stack waits in merge order — #22 media backend → #24 media UI → #25 HUD
+backend → #26 HUD UI → #27 perf harness, with #23 (autostart fix, on `main`) independent — and
+each PR carries a comment with its local parity run; once the budget is back,
+`gh run rerun --failed` on each run in that order, then squash-merge one at a time and let
+GitHub retarget the next
+PR's base to `main`.
+
+The roadmap's M2 exit criteria carry their evidence but stay unticked: the now-playing and
+HUD criteria are measured on Spotify and Win11 25H2 only, the media-playing CPU window is
+not measured at all (it needs the bundled SMTC test player deferred from M2-E4), and the
+Edge/YouTube, Apple Music, foobar2000, Win11 24H2 and Win10 22H2 columns plus the external
+DDC/CI monitor are maintainer hardware
+([qa/checklists/media](../qa/checklists/media.md), [qa/checklists/hud](../qa/checklists/hud.md),
+[qa/checklists/notch-shell → Still to run](../qa/checklists/notch-shell.md#still-to-run-maintainer)).
+M3 ([m3-daily-modules.md](m3-daily-modules.md)) can start on a branch from `main` before the
+stack lands — its modules touch neither `media` nor `hud`, only the two module registries,
+which is a trivial rebase — but its PRs will queue behind the same budget.

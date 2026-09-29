@@ -146,6 +146,35 @@ so this spec was corrected in M1-E4 to match.)
 
 Expand/collapse ≥ 58 fps; idle ≤ 0.3 % CPU; notch window RSS ≤ 90 MB.
 
+### Memory target
+
+The two webviews (notch and settings share one WebView2 renderer, same origin) are asked for
+`ICoreWebView2_19::MemoryUsageTargetLevel(Low)` when nothing is moving, and for `Normal` the
+instant something may: `shell/memory_target.rs` (pure, tested) decides, `ShellManager`
+applies.
+
+- **Low** after the cursor has been outside every notch window for 30 s
+  (`MEMORY_LOW_AFTER`), while no hold is active.
+- **Holds** (`Hold`): strip content that animates on its own — a playing waveform, a running
+  timer, the wide text burst, any notice (`StripContent::animates()` in `muna-core`) — and a
+  *visible* settings window with focus. A still chip (paused media, a plain icon) does not
+  hold, so the everyday "Spotify paused" desk still gets the trim. WebView2 creation hands the
+  hidden settings window a focus event that no blur follows; the manager checks `is_visible`
+  before counting it.
+- **Normal** as soon as the cursor enters a notch window's bounds (the poll runs every 100 ms
+  while idle, hover intent takes 250 ms more before anything reveals), when the strip content
+  changes (`activities.rs` wakes the shell before it emits `StripContentChanged`), or when
+  the settings window is focused. Every wake restarts the 30 s clock.
+- **Observed** (release build, Win11 25H2, 165 Hz, 15.7 GB, locked desktop, docs/09 harness):
+  the trim takes the tree from 118–123 MB private working set to 58 MB at once and to
+  17–24 MB about 20 s later, as WebView2 purges caches and trims working sets; the page
+  stays responsive throughout (rAF latency 0.2–1 ms, two-frame paint 8–12 ms, JS heap
+  8.4 → 5.7 MB). Its cost lands in the idle CPU window as a one-off (≈ 0.3 % of one core over
+  30 s, 0.01 % normalised). Still to verify on hardware: the first morph after a trim
+  (Low → Normal on hover, then 250 ms + 600 ms before the panel expands) holds ≥ 58 fps.
+  The `webview memory target target=Low|Normal windows=N` log line marks every transition;
+  the perf harness keys its idle memory value on it.
+
 ## Implementation notes (M1-E1)
 
 How the shipped shell interprets this spec; anything here that reads as a deviation was
@@ -157,6 +186,15 @@ decided during M1-E1 and is the behaviour to test against.
   `yield_rules.rs` is pure. The UI receives `ShellLayoutChanged { layout }` and
   `ShellYieldChanged { label, state }` (broadcast to every window with the target label in the
   payload) and asks `get_shell_layout` once on mount.
+- **Ready is reported once per mount.** The UI calls `window_ready` after its first two
+  frames; the shell answers every `window_ready` with a `ShellLayoutChanged` (and a `place` +
+  top-most assert), so ready must never be re-armed by a layout change — M2-E4 found the
+  `useShellReady` effect re-running on every layout event, which looped shell ↔ UI at half the
+  display refresh (1652 `requestAnimationFrame` calls in 10 s, 31 % of one core idle). The
+  store also drops a layout identical to the current one, and the morph frame sampler stops
+  when the window parks mid-morph and after 5 s regardless. The shell logs
+  `shell ready label=… since_start_ms=…` once per window; the perf harness reads it as the
+  cold-start mark.
 - **Peek is UI-driven, Park moves the window.** `Peek` only changes the yield state the UI
   renders; the window stays in place. `Parked` moves the window to the parked rect (fully above
   the monitor) and the UI pauses; nothing is ever hidden or shown.

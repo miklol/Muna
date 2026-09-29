@@ -6,11 +6,13 @@
 use std::sync::Arc;
 
 use muna_core::{Hub, StripContent, StripSink, Waker};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
 use tokio::sync::Notify;
 
 use crate::ipc::StripContentChanged;
+use crate::shell::memory_target::Hold;
+use crate::state::AppState;
 
 struct EventSink {
     app: AppHandle,
@@ -18,6 +20,15 @@ struct EventSink {
 
 impl StripSink for EventSink {
     fn strip_changed(&self, content: &StripContent) {
+        // Content that keeps moving (playing waveform, running timer, the wide burst) holds the
+        // webviews at the normal memory target; any change lifts a low target before the frame
+        // lands, and a still chip lets the idle trim engage again 30 s later.
+        if let Some(state) = self.app.try_state::<Arc<AppState>>()
+            && let Some(shell) = &state.shell
+        {
+            shell.set_memory_hold(&self.app, Hold::StripContent, content.animates());
+            shell.wake_webviews(&self.app);
+        }
         if let Err(error) = (StripContentChanged {
             content: content.clone(),
         })

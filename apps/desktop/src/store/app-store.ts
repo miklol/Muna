@@ -18,7 +18,12 @@ export interface AppStore {
   setActiveModule: (id: string | null) => void;
 }
 
-export const useAppStore = create<AppStore>()((set) => ({
+/** `ShellLayout` is flat and primitive-valued, so a key-by-key comparison is exact. */
+const sameLayout = (a: ShellLayout, b: ShellLayout): boolean =>
+  (Object.keys(a) as (keyof ShellLayout)[]).every((key) => a[key] === b[key]) &&
+  Object.keys(a).length === Object.keys(b).length;
+
+export const useAppStore = create<AppStore>()((set, get) => ({
   stripContent: { kind: 'idle' },
   stripContentAt: 0,
   setStripContent: (content, at = Date.now()) => {
@@ -26,6 +31,17 @@ export const useAppStore = create<AppStore>()((set) => ({
   },
   shellLayout: null,
   setShellLayout: (layout) => {
+    // The shell re-sends the layout with every `shellReady`; an unchanged one must not
+    // re-render the window (each render costs a new geometry and new published rects).
+    const { shellLayout: current, yieldState } = get();
+    if (
+      layout !== null &&
+      current !== null &&
+      sameLayout(layout, current) &&
+      yieldState === layout.yieldState
+    ) {
+      return;
+    }
     set(layout ? { shellLayout: layout, yieldState: layout.yieldState } : { shellLayout: null });
   },
   yieldState: 'none',

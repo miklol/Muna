@@ -92,6 +92,10 @@ The workflow lives at [`.github/workflows/release.yml`](../.github/workflows/rel
 ## Release checklist
 
 - [ ] Milestone exit criteria met; perf nightly green 7 days.
+- [ ] Cold start ≤ 1.5 s measured on the release build of the candidate on the Win10 22H2 and
+      Win11 test machines (`pnpm -w perf:smoke -- --exe apps/desktop/src-tauri/target/release/muna.exe`);
+      the PR and nightly jobs measure debug builds and only report this number
+      ([11](11-ci-cd.md#performance-gates)).
 - [ ] `CHANGELOG.md` reviewed for user language.
 - [ ] Fresh-install + upgrade tested on Win10 22H2 and Win11 24H2 (MSIX and NSIS).
 - [ ] Signature verified (`Get-AuthenticodeSignature`, `Get-AppxPackage`).
