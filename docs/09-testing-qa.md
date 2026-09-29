@@ -103,7 +103,9 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    closed and nothing from the developer's profile leaks in. The single-instance plugin means a
    running Muna makes the run fail fast ("exited before the shell was ready").
 2. **Cold start**: wall time from process spawn to the shell's `shell ready label="notch"` log
-   line (the notch's first painted frame) → assert ≤ 1.5 s. The harness launches the binary
+   line (the notch's first painted frame) → assert ≤ 1.5 s when the binary is a release build;
+   a debug build's start-up is reported next to the budget without gating
+   ([11](11-ci-cd.md#performance-gates)). The harness launches the binary
    twice: the first launch of a binary the OS has not seen pays a one-time cost (file cache,
    Defender's scan — what a user meets once per install or update, [risk R20](08-risk-register.md))
    and is reported as `firstLaunchMs` without a gate; the process is stopped, its WebView2 and
@@ -135,8 +137,10 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
 
 Not yet automated: the media-playing CPU window (≤ 1 %; needs a bundled SMTC test player) and
 the 4K emulation pass. The harness runs against whatever build the workflow made — today the
-debug build in both `ci.yml` and `nightly.yml` — so its startup and CPU numbers are upper
-bounds for the release build (the report says so in a note).
+debug build in both `ci.yml` and `nightly.yml` — so its CPU and memory numbers are upper
+bounds for the release build and gate as such, while the start-up number is reported and
+gates only for a release build (the report says so in a note; the rule and the runner
+measurements behind it are in [11](11-ci-cd.md#performance-gates)).
 
 ## Manual QA matrix (milestone close)
 

@@ -189,8 +189,15 @@ const round = (value, digits) => {
  * Compares measurements with the budgets. `measurements` maps budget keys to numbers or
  * `null` (not measured in this mode). A `null` never fails; a breach or a missing value that
  * the plan promised does.
+ *
+ * `profile` is the Cargo profile of the measured binary. The start-up budget describes the
+ * shipped build, so on any profile but `release` the start-up is reported next to its budget
+ * without gating (`informational`, or `informational-over` when it is above the budget) —
+ * the rule `bundle:check` applies to the exe size (docs/11-ci-cd.md "Performance gates").
+ * Idle CPU and memory of a debug build are upper bounds for the release build and gate on
+ * every profile.
  */
-export function evaluate(measurements, plan, activeBudgets = budgets) {
+export function evaluate(measurements, plan, activeBudgets = budgets, profile = 'release') {
   const checks = [];
   for (const [metric, budget] of Object.entries(activeBudgets)) {
     const value = measurements[metric] ?? null;
@@ -198,6 +205,8 @@ export function evaluate(measurements, plan, activeBudgets = budgets) {
     let status;
     if (value === null) {
       status = expected ? 'missing' : 'skipped';
+    } else if (metric === 'startupMs' && profile !== 'release') {
+      status = value <= budget.max ? 'informational' : 'informational-over';
     } else if ('max' in budget) {
       status = value <= budget.max ? 'pass' : 'fail';
     } else {
@@ -231,6 +240,8 @@ const statusWord = {
   fail: '**fail**',
   missing: '**not measured**',
   skipped: 'nightly',
+  informational: 'reported (debug build)',
+  'informational-over': '**over budget**, reported (debug build)',
 };
 
 /**
@@ -344,7 +355,7 @@ export function buildReport({ mode, plan, exe, host, results, notes = [], genera
     processes: results.processes ?? null,
     morphFpsMin: morphs ? morphs.minFps : null,
   };
-  const evaluation = evaluate(measurements, plan);
+  const evaluation = evaluate(measurements, plan, budgets, exe?.profile ?? 'release');
   return {
     mode,
     status: 'measured',
