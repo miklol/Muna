@@ -12,6 +12,7 @@ pub mod hud;
 pub mod live_activities;
 pub mod media;
 pub mod pomodoro;
+pub mod todo;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -72,6 +73,7 @@ pub struct ModuleServices {
     pub media: Arc<media::MediaService>,
     pub hud: Arc<hud::HudService>,
     pub pomodoro: Arc<pomodoro::PomodoroService>,
+    pub todo: Arc<todo::TodoService>,
 }
 
 impl ModuleServices {
@@ -99,6 +101,11 @@ impl ModuleServices {
                 Arc::clone(store),
                 Arc::clone(clock),
             )),
+            todo: Arc::new(todo::TodoService::new(
+                Arc::clone(hub),
+                Arc::clone(store),
+                Arc::clone(clock),
+            )),
         }
     }
 }
@@ -111,6 +118,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         Box::new(media::MediaModule(Arc::clone(&services.media))),
         Box::new(hud::HudModule(Arc::clone(&services.hud))),
         Box::new(pomodoro::PomodoroModule(Arc::clone(&services.pomodoro))),
+        Box::new(todo::TodoModule(Arc::clone(&services.todo))),
     ]
 }
 

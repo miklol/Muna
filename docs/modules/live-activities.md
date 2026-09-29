@@ -76,8 +76,8 @@ Scheduler (`muna-core::activities::Scheduler`, driven through `Hub`):
    silently.
 
 Default priorities (`muna-core::activities::priority`): HUD 100 · charging/battery 90 ·
-Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media playing 60 · Unread
-notifications 40 · Session lock 30 · Media paused 20.
+Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media playing 60 · Task due
+≤ 60 min 55 · Unread notifications 40 · Session lock 30 · Media paused 20.
 
 ## Built-in notices (Windows sources)
 
@@ -90,6 +90,7 @@ notifications 40 · Session lock 30 · Media paused 20.
 | Focus Assist changed | notifications module | moon glyph |
 | Screen recording / camera in use | privacy indicators (`Windows.Media.Capture` usage via registry `CapabilityAccessManager\ConsentStore`) | dot indicator, like macOS |
 | Pomodoro finished | Pomodoro module | bell + optional Timer Done overlay |
+| Task due | To-do module | check-circle glyph + task title; the due time in the trailing slot |
 
 ### Implementation notes (M1-E2)
 
@@ -115,6 +116,11 @@ notifications 40 · Session lock 30 · Media paused 20.
   ([pomodoro → Implementation notes](pomodoro.md#implementation-notes-m3-e3)); it replaced the
   M1 demo source behind `MUNA_DEMO=pomodoro`. Finishing a phase raises the `pomodoro:finished`
   notice.
+- The To-do module publishes `todo:due` (check-circle glyph, the task title, the due time in
+  the trailing slot) for the earliest open timed task due within the next 60 minutes, keeping it
+  up to 15 minutes past the due time, and raises a `todo:due:<task id>` notice at the due time
+  ([todo → Implementation notes](todo.md#implementation-notes-m3-e2)). All-day tasks never
+  reach the strip.
 
 ## Settings (pane: Live Activities)
 

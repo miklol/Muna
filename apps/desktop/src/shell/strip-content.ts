@@ -69,6 +69,10 @@ export const formatPercent = (percent: number, locale: string): string =>
     percent / 100,
   );
 
+/** `14:30` or `2:30 PM` in the window's locale: a due time or a start time. */
+export const formatTime = (atMs: number, locale: string): string =>
+  new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(new Date(atMs));
+
 /** The localised sentence for a message; `text` is already words. */
 export const messageText = (message: StripMessage, t: Translate): string => {
   switch (message.kind) {
@@ -90,6 +94,9 @@ export const messageText = (message: StripMessage, t: Translate): string => {
       return t(pomodoroPhaseKey[message.phase]);
     case 'pomodoroFinished':
       return t(pomodoroFinishedKey[message.phase]);
+    case 'taskDue':
+      // The title is the user's words; the strip shows it as written.
+      return message.title;
   }
 };
 
@@ -147,6 +154,8 @@ export const toSlot = (
         onChange: hud?.onLevelChange,
         onChangeEnd: hud?.onLevelChangeEnd,
       };
+    case 'time':
+      return { kind: 'text', value: formatTime(slot.atMs, locale) };
   }
 };
 
@@ -180,6 +189,8 @@ const describeSlot = (
     case 'level':
       // The leading glyph already names the control (volume, brightness, muted).
       return formatPercent(slot.percent, locale);
+    case 'time':
+      return t('strip.describe.time', { time: formatTime(slot.atMs, locale) });
   }
 };
 
@@ -218,6 +229,13 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
       case 'timerFinished':
       case 'pomodoroFinished':
         return message;
+      case 'taskDue': {
+        // An activity carries the due time on the right; the notice fires at that time.
+        const fact = item.trailing?.kind === 'time' ? describeSlot(item.trailing, t, locale) : null;
+        return fact === null
+          ? t('strip.describe.taskDue', { title: message })
+          : t('strip.describe.taskDueAt', { title: message, fact });
+      }
       case 'nowPlaying': {
         // A play glyph on the right means the session is paused (docs/modules/media.md).
         const spoken =

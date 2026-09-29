@@ -67,7 +67,10 @@ State after M0-E1 that the specs do not mention. Every prompt below assumes it.
   `--manifest-path apps/desktop/src-tauri/Cargo.toml`.
 - **IPC.** Commands and events are declared with tauri-specta in `src-tauri/src/ipc.rs`;
   `pnpm -w contracts:generate` rewrites `packages/contracts/src/bindings.ts` and `ci:rust` fails
-  on a stale file. No 64-bit integers across IPC (specta emits `bigint`).
+  on a stale file. No 64-bit integers across IPC (specta emits `bigint`), with one exception:
+  an `i64` provably within ±2^53 (Unix milliseconds, sort orders) may carry
+  `#[specta(type = Int53)]` / `#[specta(type = Option<Int53>)]` from `muna_core::wire` and
+  exports as a plain `number`. Floats export as `number | null`; prefer integers.
 - **Windows.** `tauri.conf.json` declares `notch` (transparent, undecorated, no shadow,
   top-most, skip-taskbar, not focusable, class `MunaNotch`, created at (−10000, −10000)) and
   `settings`; `setup()` shows `settings` only, there is no tray yet. Capabilities per window in

@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 import { hudModule } from './hud';
 import { mediaModule } from './media';
 import { pomodoroModule } from './pomodoro';
+import { todoModule } from './todo';
 
 /** What the shell passes to a module's glyph: 20 px in the module bar, 16 px in the right rail. */
 export interface ModuleIconProps {
@@ -37,7 +38,12 @@ export interface ModuleDefinition {
 }
 
 /** Every module, in default order; Settings → Modules reorders and disables from here. */
-export const modules: readonly ModuleDefinition[] = [mediaModule, pomodoroModule, hudModule];
+export const modules: readonly ModuleDefinition[] = [
+  mediaModule,
+  todoModule,
+  pomodoroModule,
+  hudModule,
+];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>
   modules.find((module) => module.id === id);

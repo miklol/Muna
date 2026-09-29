@@ -1,0 +1,107 @@
+/*
+ * Checkbox primitive — 20 px circle. Rest: 1.5 px `--hairline-strong` ring; selected: accent
+ * fill with an `--on-accent` check drawn by the `toggle` spring. Focus ring on the box.
+ */
+
+.muna-checkbox {
+  display: inline-flex;
+  min-inline-size: 0;
+}
+
+/* The React Aria checkbox button is the label: hover, press, selection and focus land here. */
+.muna-checkbox__button {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muna-checkbox__box {
+  display: inline-flex;
+  flex: none;
+  inline-size: var(--size-checkbox);
+  block-size: var(--size-checkbox);
+  border-radius: var(--radius-thumb);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--hairline-strong);
+  transition:
+    background-color var(--muna-motion-toggle),
+    box-shadow var(--muna-motion-toggle);
+}
+
+.muna-checkbox__mark {
+  inline-size: 100%;
+  block-size: 100%;
+  fill: none;
+  stroke: var(--on-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Grows so a truncating label can take the rest of the row. */
+.muna-checkbox__label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.muna-checkbox__button[data-hovered] .muna-checkbox__box {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1.5px var(--text-2);
+}
+
+.muna-checkbox__button[data-pressed] .muna-checkbox__box {
+  background: var(--surface-3);
+}
+
+.muna-checkbox__button[data-selected] .muna-checkbox__box {
+  background: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.muna-checkbox__button[data-focus-visible] .muna-checkbox__box {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.muna-checkbox__button[data-disabled] {
+  color: var(--text-3);
+}
+
+.muna-checkbox__button[data-disabled] .muna-checkbox__box {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--hairline);
+}
+
+.muna-checkbox__button[data-disabled] .muna-checkbox__mark {
+  stroke: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muna-checkbox__box {
+    transition: none;
+  }
+}
+
+:root[data-reduce-motion] .muna-checkbox__box {
+  transition: none;
+}
+
+/* Compound states last: they outrank the single-state rules above. */
+.muna-checkbox__button[data-hovered][data-selected] .muna-checkbox__box {
+  background: color-mix(in oklab, var(--accent), white 8%);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent), white 8%);
+}
+
+.muna-checkbox__button[data-disabled][data-selected] .muna-checkbox__box {
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1.5px var(--surface-3);
+}
