@@ -212,11 +212,13 @@ its own diff; the whole run sits on the M2 stack because nothing has merged sinc
 | [#36](https://github.com/miklol/Muna/pull/36) | M3-E5 Notifications | #35 |
 
 Merge from the bottom of the M2 stack upwards (#22 → #24 → #25 → #26 → #27 → #28 → … → #36;
-[#23](https://github.com/miklol/Muna/pull/23) is independent), retargeting each PR to `main`
-as its base merges — GitHub does this on its own when the base branch is deleted. Every PR
+[#23](https://github.com/miklol/Muna/pull/23) is independent) with `scripts/land-stack.ps1`:
+squash-merge one PR, retarget its child to `main`, rebase only the child's own commits onto
+`main` and force-push it, then wait for the child's checks. A child that is merely retargeted
+shows its parent's changes as conflicts, because the squash rewrote them. Every PR
 passes the parity commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`, `ci:app`, the docs
 checks); the hosted checks have not run because the GitHub Actions budget is exhausted. When
-it is restored, `gh run rerun --failed <run id>` on each PR is enough.
+it is restored, the script reruns each never-started run once and stops on anything else.
 
 Carry-overs (listed against the M3 exit criteria in
 [07-roadmap → M3](../07-roadmap.md#m3--daily-modules-4-weeks)): the module story harness and
