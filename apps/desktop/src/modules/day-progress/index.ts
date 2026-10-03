@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import type { ModuleDefinition } from '../registry';
 import { DayProgressIcon } from './day-progress-icon';
 import { DayProgressPanel } from './panel';
+import { DayProgressWidget } from './widget';
 
 /** Settings → Day loads on first visit so the notch bundle stays small. */
 const DayProgressSettings = lazy(() =>
@@ -19,5 +20,6 @@ export const dayProgressModule: ModuleDefinition = {
   titleKey: 'dayProgress.title',
   icon: DayProgressIcon,
   panel: DayProgressPanel,
+  widget: DayProgressWidget,
   settings: DayProgressSettings,
 };

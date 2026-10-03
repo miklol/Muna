@@ -87,3 +87,31 @@
 .pomodoro-cycle__dot[data-done] {
   background: var(--accent-orange);
 }
+
+/*
+ * Dashboard card body (docs/modules/dashboard.md "Widgets": Pomodoro card): the small dial,
+ * the phase and its status, start/pause on the right.
+ */
+.pomodoro-widget {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.pomodoro-widget__ring {
+  flex: none;
+}
+
+.pomodoro-widget__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.pomodoro-widget__play {
+  flex: none;
+}

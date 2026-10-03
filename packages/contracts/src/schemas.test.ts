@@ -3,10 +3,13 @@ import type { z } from 'zod';
 
 import type { Settings, ShellLayout, StripContent } from './bindings';
 import {
+  DASHBOARD_GRID,
+  DASHBOARD_SETTINGS_KEY,
   DAY_PROGRESS_BOUNDS,
   DAY_PROGRESS_GAP_MINUTES,
   DAY_PROGRESS_SETTINGS_KEY,
   DAY_PROGRESS_STRIP_IDS,
+  DEFAULT_DASHBOARD_SLOTS,
   HUD_NOTICE_IDS,
   HUD_SETTINGS_KEY,
   HUD_VOLUME_STEP,
@@ -25,6 +28,8 @@ import {
   TODO_STRIP_IDS,
   WEATHER_REFRESH_MS,
   WEATHER_SETTINGS_KEY,
+  clampDashboardSlots,
+  defaultDashboardSettings,
   defaultDayProgressSettings,
   defaultHudSettings,
   defaultMediaSettings,
@@ -34,6 +39,7 @@ import {
   defaultTodoSettings,
   defaultWeatherSettings,
   monitorLayoutSchema,
+  readDashboardSettings,
   readDayProgressSettings,
   readHudSettings,
   readMediaSettings,
@@ -45,6 +51,7 @@ import {
   shellLayoutSchema,
   shellSettingsSchema,
   stripContentSchema,
+  writeDashboardSettings,
   writeDayProgressSettings,
   writeHudSettings,
   writeMediaSettings,
@@ -752,5 +759,72 @@ describe('day progress settings namespace', () => {
     expect(DAY_PROGRESS_STRIP_IDS).toEqual({ bar: 'day-progress:bar' });
     expect(DAY_PROGRESS_BOUNDS.stepMinutes).toBe(15);
     expect(DAY_PROGRESS_GAP_MINUTES).toBe(90);
+  });
+});
+
+describe('dashboard settings namespace', () => {
+  it('is the default layout, filling the whole grid, when the namespace is missing', () => {
+    const { slots } = readDashboardSettings(defaultSettings());
+    expect(slots).toEqual(DEFAULT_DASHBOARD_SLOTS);
+    expect(slots.reduce((sum, slot) => sum + slot.span, 0)).toBe(DASHBOARD_GRID.cells);
+    expect(DASHBOARD_GRID.cells).toBe(DASHBOARD_GRID.columns * DASHBOARD_GRID.rows);
+    expect(defaultDashboardSettings()).toEqual(readDashboardSettings(defaultSettings()));
+  });
+
+  it('keeps a custom layout, dropping repeats and whatever no longer fits the grid', () => {
+    const custom: Settings = {
+      ...defaultSettings(),
+      modules: {
+        [DASHBOARD_SETTINGS_KEY]: {
+          slots: [
+            { moduleId: 'todo', span: 2 },
+            { moduleId: 'todo', span: 1 },
+            { moduleId: 'weather', span: 2 },
+            { moduleId: 'media', span: 2 },
+            { moduleId: 'pomodoro', span: 2 },
+            { moduleId: 'bluetooth', span: 1 },
+          ],
+          profile: 'work',
+        },
+      },
+    };
+    expect(readDashboardSettings(custom).slots).toEqual([
+      { moduleId: 'todo', span: 2 },
+      { moduleId: 'weather', span: 2 },
+      { moduleId: 'media', span: 2 },
+      { moduleId: 'pomodoro', span: 2 },
+    ]);
+    expect(clampDashboardSlots([])).toEqual([]);
+    // A narrower slot after a full row still fits when a wider one did not.
+    expect(
+      clampDashboardSlots([
+        { moduleId: 'a', span: 2 },
+        { moduleId: 'b', span: 2 },
+        { moduleId: 'c', span: 2 },
+        { moduleId: 'd', span: 1 },
+        { moduleId: 'e', span: 2 },
+        { moduleId: 'f', span: 1 },
+      ]).map((slot) => slot.moduleId),
+    ).toEqual(['a', 'b', 'c', 'd', 'f']);
+  });
+
+  it('falls back to the defaults for a malformed entry and round-trips through write', () => {
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [DASHBOARD_SETTINGS_KEY]: { slots: [{ moduleId: 'todo', span: 3 }] } },
+    };
+    expect(readDashboardSettings(broken)).toEqual(defaultDashboardSettings());
+    const empty: Settings = {
+      ...defaultSettings(),
+      modules: { [DASHBOARD_SETTINGS_KEY]: { slots: [] } },
+    };
+    expect(readDashboardSettings(empty).slots).toEqual([]);
+    const written = writeDashboardSettings(defaultSettings(), {
+      slots: [{ moduleId: 'weather', span: 1 }],
+    });
+    expect(readDashboardSettings(written).slots).toEqual([{ moduleId: 'weather', span: 1 }]);
+    expect(written.modules[DASHBOARD_SETTINGS_KEY]).toEqual({
+      slots: [{ moduleId: 'weather', span: 1 }],
+    });
   });
 });

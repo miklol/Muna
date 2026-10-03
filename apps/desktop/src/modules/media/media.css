@@ -93,3 +93,36 @@
   justify-content: flex-end;
   min-inline-size: 0;
 }
+
+/*
+ * Dashboard card body (docs/modules/dashboard.md "Widgets": Media card): art left, title and
+ * artist in the middle, the transport on the right of a wide card.
+ */
+.media-widget {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.media-widget__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.media-widget__empty {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.media-widget__transport {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+}

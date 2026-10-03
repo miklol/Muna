@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import type { ModuleDefinition } from '../registry';
 import { MediaIcon } from './media-icon';
 import { MediaPanel } from './panel';
+import { MediaWidget } from './widget';
 
 /** Settings → Media loads on first visit so the notch bundle stays small. */
 const MediaSettings = lazy(() =>
@@ -18,5 +19,6 @@ export const mediaModule: ModuleDefinition = {
   titleKey: 'media.title',
   icon: MediaIcon,
   panel: MediaPanel,
+  widget: MediaWidget,
   settings: MediaSettings,
 };
