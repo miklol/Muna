@@ -30,7 +30,9 @@
       "pomodoroWorkFinished": "Focus finished",
       "pomodoroShortBreakFinished": "Short break finished",
       "pomodoroLongBreakFinished": "Long break finished",
-      "eventUntitled": "Untitled event"
+      "eventUntitled": "Untitled event",
+      "notification": "{{app}} · {{title}}",
+      "notificationUntitled": "Notification"
     },
     "describe": {
       "battery": "Battery {{percent}}",
@@ -52,7 +54,13 @@
       "taskDueAt": "{{title}} is due {{fact}}",
       "event": "Next, {{title}}",
       "eventAt": "Next, {{title}} {{fact}}",
-      "eventStartingSoon": "{{title}} starts in ten minutes"
+      "eventStartingSoon": "{{title}} starts in ten minutes",
+      "unread_one": "{{count}} unread",
+      "unread_other": "{{count}} unread",
+      "notificationArrived": "New from {{app}}: {{title}}",
+      "notificationLatest": "Unread from {{app}}: {{title}}",
+      "notificationUnread_one": "{{count}} unread, latest from {{app}}: {{title}}",
+      "notificationUnread_other": "{{count}} unread, latest from {{app}}: {{title}}"
     },
     "glyph": {
       "battery": "Battery",
@@ -509,6 +517,79 @@
       "showNextInStripBody": "An event within the hour takes the strip with a countdown and outranks music ten minutes before it starts.",
       "notices": "Announce events ten minutes before",
       "noticesBody": "A short notice in the strip with the event's title."
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "list": "Notifications by app",
+    "unread_one": "{{count}} unread",
+    "unread_other": "{{count}} unread",
+    "focusOn": "Focus on",
+    "focusOnBody": "Notices wait while a focus session is on. Open Windows focus settings.",
+    "clearAll": "Clear all",
+    "clearing": "Clearing…",
+    "justNow": "Just now",
+    "untitled": "Notification",
+    "unreadMark": "Unread",
+    "open": "Open",
+    "openNamed": "Open {{title}}",
+    "dismiss": "Dismiss",
+    "dismissNamed": "Dismiss {{title}}",
+    "count_one": "{{count}} notification",
+    "count_other": "{{count}} notifications",
+    "mute": "Mute {{app}}",
+    "unmute": "Unmute {{app}}",
+    "muted": "Muted",
+    "clearApp": "Clear {{app}}",
+    "error": {
+      "notFound": "Windows could not open it; the notification may have gone",
+      "accessDenied": "Windows would not allow it",
+      "unsupported": "Not available on this Windows",
+      "os": "Something went wrong; try again"
+    },
+    "empty": {
+      "title": "No notifications",
+      "body": "New ones show here as they arrive."
+    },
+    "unspecified": {
+      "title": "Let Muna show your notifications",
+      "body": "Windows asks once. Notifications stay on this PC and are never logged.",
+      "action": "Allow",
+      "asking": "Asking Windows…"
+    },
+    "denied": {
+      "title": "Notifications are turned off for Muna",
+      "body": "Turn them on under Settings › Privacy › Notifications, then check again.",
+      "action": "Open Windows Settings",
+      "recheck": "Check again"
+    },
+    "unavailable": {
+      "title": "Notifications are not available",
+      "body": "This Windows has no notification listener for apps to read."
+    },
+    "settings": {
+      "access": "Access",
+      "accessLabel": "Reading Windows notifications",
+      "accessState": {
+        "allowed": "Allowed. Muna reads the Action Center on this PC only.",
+        "denied": "Turned off in Windows Settings.",
+        "unspecified": "Windows has not been asked yet.",
+        "unavailable": "Not available on this Windows."
+      },
+      "windowsSettings": "Windows Settings",
+      "delivery": "Delivery",
+      "deliveryPush": "Instant",
+      "deliveryPolling": "Checked every second",
+      "deliveryPollingBody": "This build has no package identity, so Windows cannot tell Muna when something changes. The Store build hears about changes at once.",
+      "strip": "Strip",
+      "arrivalNotices": "Announce new notifications",
+      "arrivalNoticesBody": "A short notice in the strip with the sender and title, held back while Windows says you are busy or a focus session is on.",
+      "showUnreadInStrip": "Show unread in the strip",
+      "showUnreadInStripBody": "The latest sender and the unread count stay in the strip until you open the panel.",
+      "mutedApps": "Muted apps",
+      "mutedAppsBody": "Muted apps stay in the panel but are never announced or counted. Mute one from its row in the panel.",
+      "noMutedApps": "No muted apps.",
+      "unmute": "Unmute"
     }
   },
   "dayProgress": {

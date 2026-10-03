@@ -29,10 +29,10 @@ use windows::Media::Control::{
     TimelinePropertiesChangedEventArgs,
 };
 use windows::Media::MediaPlaybackAutoRepeatMode;
-use windows::Storage::Streams::{Buffer, DataReader, InputStreamOptions};
 use windows::core::HSTRING;
 
 use super::os_error;
+use super::winrt::{UNIX_EPOCH_TICKS, read_image};
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::types::{
@@ -43,8 +43,6 @@ use crate::types::{
 const REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 /// Thumbnails larger than this are ignored (a misbehaving app, not artwork).
 const MAX_THUMBNAIL_BYTES: u64 = 8 * 1024 * 1024;
-/// `FILETIME`/`DateTime` ticks (100 ns) between 1601-01-01 and 1970-01-01.
-const UNIX_EPOCH_TICKS: i64 = 116_444_736_000_000_000;
 
 #[derive(Debug)]
 enum Msg {
@@ -584,31 +582,7 @@ fn now_universal_ticks() -> i64 {
 fn read_thumbnail(
     reference: &windows::Storage::Streams::IRandomAccessStreamReference,
 ) -> windows::core::Result<Option<Thumbnail>> {
-    let stream = reference.OpenReadAsync()?.join()?;
-    let size = stream.Size()?;
-    if size == 0 || size > MAX_THUMBNAIL_BYTES {
-        return Ok(None);
-    }
-    let content_type = stream
-        .ContentType()
-        .map(|s| hstring(&s))
-        .unwrap_or_default();
-    // Bounded by MAX_THUMBNAIL_BYTES, so the cast cannot truncate.
-    #[allow(clippy::cast_possible_truncation)]
-    let size = size as u32;
-    let buffer = Buffer::Create(size)?;
-    let input = stream.GetInputStreamAt(0)?;
-    let filled = input
-        .ReadAsync(&buffer, size, InputStreamOptions::ReadAhead)?
-        .join()?;
-    let reader = DataReader::FromBuffer(&filled)?;
-    let length = reader.UnconsumedBufferLength()? as usize;
-    let mut bytes = vec![0u8; length];
-    reader.ReadBytes(&mut bytes)?;
-    Ok(Some(Thumbnail {
-        bytes,
-        content_type,
-    }))
+    read_image(reference, MAX_THUMBNAIL_BYTES)
 }
 
 /// Stable 64-bit FNV-1a, enough to notice that artwork bytes changed.

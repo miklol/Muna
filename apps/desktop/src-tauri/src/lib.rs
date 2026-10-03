@@ -172,4 +172,7 @@ fn wire_module_sinks(app: &tauri::AppHandle, modules: &modules::ModuleServices) 
     modules
         .calendar
         .set_sink(Arc::new(ipc::CalendarEventSink::new(app.clone())));
+    modules
+        .notifications
+        .set_sink(Arc::new(ipc::NotificationsEventSink::new(app.clone())));
 }

@@ -203,6 +203,7 @@ export const trailingSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('waveform'), playing: z.boolean() }),
   z.object({ kind: z.literal('level'), percent, muted: z.boolean() }),
   z.object({ kind: z.literal('time'), atMs: z.number().int() }),
+  z.object({ kind: z.literal('count'), value: z.number().int().min(0) }),
 ]) satisfies z.ZodType<Trailing>;
 
 export const pomodoroPhaseSchema = z.enum([
@@ -227,6 +228,7 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('pomodoroFinished'), phase: pomodoroPhaseSchema }),
   z.object({ kind: z.literal('taskDue'), title: z.string() }),
   z.object({ kind: z.literal('eventStarting'), title: z.string() }),
+  z.object({ kind: z.literal('notification'), app: z.string(), title: z.string() }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({
@@ -697,6 +699,62 @@ export const CALENDAR_STRIP_IDS = {
   /** Notices are `calendar:starting:<event id>`. */
   startingPrefix: 'calendar:starting:',
 } as const;
+
+/** The key of the notifications module's namespace; also its module id. */
+export const NOTIFICATIONS_SETTINGS_KEY = 'notifications';
+
+/**
+ * Mirrors `modules::notifications::NotificationsSettings`: defaults for missing fields, and a
+ * wrong type fails the whole entry, like the Rust side.
+ */
+export const notificationsSettingsSchema = z.object({
+  /**
+   * Announce an arriving notification in the strip (held back while Windows says the user is
+   * busy or a focus session is on).
+   */
+  arrivalNotices: z.boolean().default(true),
+  /** Keep the unread glance (latest sender and count) in the strip while anything is unread. */
+  showUnreadInStrip: z.boolean().default(true),
+  /**
+   * Senders (by app user model id) whose notifications are listed but never announced or
+   * counted; the settings pane lists them so they can be unmuted.
+   */
+  mutedApps: z.array(z.string()).default([]),
+});
+export type NotificationsSettings = z.infer<typeof notificationsSettingsSchema>;
+
+export const defaultNotificationsSettings = (): NotificationsSettings =>
+  notificationsSettingsSchema.parse({});
+
+/** Reads the notifications namespace; a missing or malformed entry yields the defaults. */
+export const readNotificationsSettings = (settings: Settings): NotificationsSettings => {
+  const parsed = notificationsSettingsSchema.safeParse(
+    settings.modules[NOTIFICATIONS_SETTINGS_KEY] ?? {},
+  );
+  return parsed.success ? parsed.data : defaultNotificationsSettings();
+};
+
+/** Returns a new document with the notifications namespace replaced. */
+export const writeNotificationsSettings = (
+  settings: Settings,
+  notifications: NotificationsSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [NOTIFICATIONS_SETTINGS_KEY]: notifications },
+});
+
+/** The strip ids the notifications module publishes under (mirrors `modules::notifications`). */
+export const NOTIFICATIONS_STRIP_IDS = {
+  unread: 'notifications:unread',
+  /** Arrival notices are `notifications:arrived:<notification id>`. */
+  arrivedPrefix: 'notifications:arrived:',
+} as const;
+
+/**
+ * How often the module re-reads the Action Center on a build without package identity, in
+ * milliseconds (mirrors `modules::notifications::POLL_INTERVAL`); the settings pane says so.
+ */
+export const NOTIFICATIONS_POLL_MS = 1000;
 
 /** The key of the day-progress module's namespace; also its module id. */
 export const DAY_PROGRESS_SETTINGS_KEY = 'day-progress';

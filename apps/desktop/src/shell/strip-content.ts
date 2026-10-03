@@ -73,6 +73,10 @@ export const formatPercent = (percent: number, locale: string): string =>
 export const formatTime = (atMs: number, locale: string): string =>
   new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(new Date(atMs));
 
+/** `3` or `١٢` in the window's locale: a small whole number such as an unread count. */
+export const formatCount = (value: number, locale: string): string =>
+  new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
+
 /** The localised sentence for a message; `text` is already words. */
 export const messageText = (message: StripMessage, t: Translate): string => {
   switch (message.kind) {
@@ -102,6 +106,11 @@ export const messageText = (message: StripMessage, t: Translate): string => {
     case 'eventStarting':
       // The title is the feed's words; an untitled event gets a name.
       return message.title === '' ? t('strip.message.eventUntitled') : message.title;
+    case 'notification':
+      // Sender and title are the toast's words; a toast without text shows its sender alone.
+      return message.title === ''
+        ? message.app
+        : t('strip.message.notification', { app: message.app, title: message.title });
   }
 };
 
@@ -161,6 +170,8 @@ export const toSlot = (
       };
     case 'time':
       return { kind: 'text', value: formatTime(slot.atMs, locale) };
+    case 'count':
+      return { kind: 'text', value: formatCount(slot.value, locale) };
   }
 };
 
@@ -196,6 +207,8 @@ const describeSlot = (
       return formatPercent(slot.percent, locale);
     case 'time':
       return t('strip.describe.time', { time: formatTime(slot.atMs, locale) });
+    case 'count':
+      return t('strip.describe.unread', { count: slot.value });
   }
 };
 
@@ -267,6 +280,18 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
               });
         const paused = item.trailing?.kind === 'icon' && item.trailing.glyph === 'play';
         return paused ? t('strip.describe.nowPaused', { message: spoken }) : spoken;
+      }
+      case 'notification': {
+        // A notice is an arrival; the activity is the unread glance, with the count beside it.
+        const app = item.wide.app;
+        const title =
+          item.wide.title === '' ? t('strip.message.notificationUntitled') : item.wide.title;
+        if (content.kind === 'notice') {
+          return t('strip.describe.notificationArrived', { app, title });
+        }
+        return item.trailing?.kind === 'count'
+          ? t('strip.describe.notificationUnread', { count: item.trailing.value, app, title })
+          : t('strip.describe.notificationLatest', { app, title });
       }
     }
   }

@@ -140,6 +140,7 @@ impl AppState {
         self.modules.bluetooth.apply_settings(settings);
         self.modules.weather.apply_settings(settings);
         self.modules.calendar.apply_settings(settings);
+        self.modules.notifications.apply_settings(settings);
         self.modules.day_progress.apply_settings(settings);
     }
 

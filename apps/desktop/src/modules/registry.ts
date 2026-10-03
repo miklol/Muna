@@ -7,6 +7,7 @@ import { dashboardModule } from './dashboard';
 import { dayProgressModule } from './day-progress';
 import { hudModule } from './hud';
 import { mediaModule } from './media';
+import { notificationsModule } from './notifications';
 import { pomodoroModule } from './pomodoro';
 import { systemMonitorModule } from './system-monitor';
 import { todoModule } from './todo';
@@ -67,6 +68,7 @@ export const modules: readonly ModuleDefinition[] = [
   dashboardModule,
   mediaModule,
   calendarModule,
+  notificationsModule,
   todoModule,
   pomodoroModule,
   systemMonitorModule,

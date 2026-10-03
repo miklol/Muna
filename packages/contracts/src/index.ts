@@ -4,6 +4,7 @@
  */
 export { commands, events } from './bindings';
 export type {
+  AccessState,
   Activity,
   ActivityState,
   AppInfo,
@@ -48,6 +49,13 @@ export type {
   MorphRequested,
   NotchShape,
   Notice,
+  NotificationDelivery,
+  NotificationGroup,
+  NotificationView,
+  NotificationsChanged,
+  NotificationsCommand,
+  NotificationsSettingsPage,
+  NotificationsSnapshot,
   OsdState,
   Place,
   PlacementMode,

@@ -64,6 +64,60 @@ describe('strip content mapping', () => {
     expect(messageText({ kind: 'taskDue', title: 'Call Sam' }, t)).toBe('Call Sam');
     expect(messageText({ kind: 'eventStarting', title: 'Design sync' }, t)).toBe('Design sync');
     expect(messageText({ kind: 'eventStarting', title: '' }, t)).toBe('Untitled event');
+    expect(messageText({ kind: 'notification', app: 'Teams', title: 'Standup moved' }, t)).toBe(
+      'Teams · Standup moved',
+    );
+    expect(messageText({ kind: 'notification', app: 'Teams', title: '' }, t)).toBe('Teams');
+  });
+
+  it('formats an unread count for the locale and describes the glance and the arrival', () => {
+    expect(toSlot({ kind: 'count', value: 3 }, ctx)).toEqual({ kind: 'text', value: '3' });
+    expect(toSlot({ kind: 'count', value: 12 }, { ...ctx, locale: 'ar-EG' })).toEqual({
+      kind: 'text',
+      value: '١٢',
+    });
+    const glance: StripContent = {
+      kind: 'activity',
+      wide: true,
+      activity: {
+        id: 'notifications:unread',
+        module: 'notifications',
+        priority: 40,
+        leading: { kind: 'image', src: 'data:image/png;base64,AA==', glow: null },
+        trailing: { kind: 'count', value: 3 },
+        wide: { kind: 'notification', app: 'Teams', title: 'Standup moved' },
+      },
+    };
+    expect(present(glance, t, 'en', 0)).toMatchObject({
+      text: 'Teams · Standup moved',
+      wide: true,
+      trailing: { kind: 'text', value: '3' },
+      description: '3 unread, latest from Teams: Standup moved',
+    });
+    expect(present({ ...glance, wide: false }, t, 'en', 0)).toMatchObject({ wide: false });
+    expect(
+      present(
+        {
+          kind: 'notice',
+          notice: {
+            id: 'notifications:arrived:7',
+            module: 'notifications',
+            priority: 40,
+            leading: { kind: 'icon', glyph: 'bell', tint: null },
+            trailing: null,
+            wide: { kind: 'notification', app: 'Mail', title: '' },
+            holdMs: 0,
+          },
+        },
+        t,
+        'en',
+        0,
+      ),
+    ).toMatchObject({
+      text: 'Mail',
+      wide: true,
+      description: 'New from Mail: Notification',
+    });
   });
 
   it('formats a time slot as a short time for the locale', () => {
