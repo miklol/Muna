@@ -78,6 +78,7 @@ impl AppState {
             settings,
             started_at,
             self.modules.drop_actions.sessions(),
+            self.modules.window_snap.sessions(),
         )));
         self
     }
@@ -140,6 +141,7 @@ impl AppState {
         self.modules.day_progress.apply_settings(settings);
         self.modules.drop_actions.apply_settings(settings);
         self.modules.shelf.apply_settings(settings);
+        self.modules.window_snap.apply_settings(settings);
         let bindings = self.modules.keyboard_shortcuts.apply_settings(settings);
         for binding in bindings
             .iter()

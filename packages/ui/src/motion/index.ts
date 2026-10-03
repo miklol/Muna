@@ -18,6 +18,7 @@ export {
   moduleBarRecipe,
   reducedMotionTransition,
   shellSpringNames,
+  snapZoneRecipe,
   type SpringName,
   type SpringPreset,
   springDampingRatio,

@@ -22,6 +22,7 @@ mod location;
 mod media;
 mod monitors;
 mod notifications;
+mod placement;
 mod power;
 mod pump;
 mod radio;
@@ -42,7 +43,8 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground, Location,
-    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
+    WindowPlacement, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
@@ -525,6 +527,24 @@ impl DragSource for WindowsPlatform {
     }
 }
 
+impl WindowPlacement for WindowsPlatform {
+    fn is_snappable(&self, window: WindowHandle) -> PlatformResult<bool> {
+        placement::is_snappable(window)
+    }
+
+    fn frame_bounds(&self, window: WindowHandle) -> PlatformResult<Rect> {
+        placement::frame_bounds(window)
+    }
+
+    fn place(&self, window: WindowHandle, target: Rect) -> PlatformResult<()> {
+        placement::place(window, target)
+    }
+
+    fn maximize(&self, window: WindowHandle, work_area: Rect) -> PlatformResult<()> {
+        placement::maximize(window, work_area)
+    }
+}
+
 impl Platform for WindowsPlatform {
     fn media(&self) -> &dyn Media {
         self
@@ -594,12 +614,32 @@ impl Platform for WindowsPlatform {
         self
     }
 
+    fn window_placement(&self) -> &dyn WindowPlacement {
+        self
+    }
+
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent> {
         self.events.subscribe()
     }
 
     fn name(&self) -> &'static str {
         "windows"
+    }
+}
+
+/// Shared plumbing for the `platform-tests` that need the interactive desktop to themselves.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::sync::{Mutex, MutexGuard, PoisonError};
+
+    static DESKTOP: Mutex<()> = Mutex::new(());
+
+    /// Serialises the tests that inject input with the tests that can raise a system consent
+    /// dialog: `Shell_SystemDialog` dims the whole desktop (`Shell_SystemDim`) and takes every
+    /// click for as long as it is up, so a drag injected meanwhile never reaches its window.
+    /// A poisoned lock only means an earlier holder panicked; the desktop is still usable.
+    pub(crate) fn desktop() -> MutexGuard<'static, ()> {
+        DESKTOP.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 

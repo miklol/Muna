@@ -168,6 +168,10 @@ impl NotchState {
 
 /// The shell model. Not thread-safe by itself; the manager wraps it in a mutex and never
 /// holds that lock across window creation or `SetWindowLongPtr` (see `poll_cursor`).
+///
+/// The flags are independent observations from different Win32 sources, not a state machine
+/// (see [`YieldInputs`]).
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug)]
 pub struct ShellModel {
     settings: ShellSettings,
@@ -176,6 +180,9 @@ pub struct ShellModel {
     foreground: Option<ForegroundWindow>,
     quiet: UserNotificationState,
     moving: bool,
+    /// The current window drag is a Window snap candidate (docs/modules/window-snap.md): the
+    /// strip holds still for the zones and the cursor poll reports where the drag is.
+    snapping: bool,
     locked: bool,
     paused: BTreeSet<String>,
     /// Muna's other windows (settings) so focusing them never counts as a foreground change.
@@ -199,6 +206,7 @@ impl ShellModel {
             foreground: None,
             quiet: UserNotificationState::AcceptsNotifications,
             moving: false,
+            snapping: false,
             locked: false,
             paused: BTreeSet::new(),
             own_handles: Vec::new(),
@@ -530,6 +538,27 @@ impl ShellModel {
         self.evaluate(platform, now)
     }
 
+    /// The Window snap module is (`true`) or is no longer (`false`) tracking the current
+    /// window drag: while it is, no window peeks for the drag and [`Self::poll_cursor`] samples
+    /// which notch window the cursor is over.
+    pub fn set_snapping(
+        &mut self,
+        platform: &dyn Platform,
+        snapping: bool,
+        now: Instant,
+    ) -> Vec<Effect> {
+        if self.snapping == snapping {
+            return Vec::new();
+        }
+        self.snapping = snapping;
+        self.evaluate(platform, now)
+    }
+
+    #[must_use]
+    pub fn is_snapping(&self) -> bool {
+        self.snapping
+    }
+
     pub fn set_locked(
         &mut self,
         platform: &dyn Platform,
@@ -651,6 +680,7 @@ impl ShellModel {
                     foreground: self.foreground.as_ref(),
                     quiet: self.quiet,
                     moving: self.moving,
+                    snapping: self.snapping,
                     dragging: window.dragging,
                     locked: self.locked,
                     paused: self.paused.contains(&window.monitor.id),
@@ -759,6 +789,11 @@ impl ShellModel {
         let pressed = button_down && !self.pointer_button_was_down;
         self.pointer_button_was_down = button_down;
         let mut poll = CursorPoll::default();
+        // A tracked window drag is followed at the active rate whatever the hit tester says:
+        // the zones must appear within a frame of the cursor arriving.
+        if self.snapping {
+            poll.rate = PollRate::Active;
+        }
         for window in self.windows.iter_mut().filter(|w| w.ready) {
             let decision = window.hit_tester.observe(cursor, window.rect);
             if decision.rate == PollRate::Active || window.css_shapes.len() > 1 {
@@ -770,9 +805,29 @@ impl ShellModel {
             if pressed && window.hit_tester.is_ignoring() {
                 poll.pressed_outside.push(window.label.clone());
             }
+            if self.snapping
+                && poll.snap_over.is_none()
+                && !window.debounce.is_parked()
+                && window.rect.contains(cursor.0, cursor.1)
+            {
+                poll.snap_over = Some(SnapOver {
+                    label: window.label.clone(),
+                    x: cursor.0 - window.rect.x,
+                    y: cursor.1 - window.rect.y,
+                });
+            }
         }
         poll
     }
+}
+
+/// Where a tracked window drag is, relative to one notch window's client area, in physical
+/// pixels (the manager converts to CSS pixels for the UI).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SnapOver {
+    pub label: String,
+    pub x: i32,
+    pub y: i32,
 }
 
 /// Result of one [`ShellModel::poll_cursor`] tick.
@@ -784,6 +839,8 @@ pub struct CursorPoll {
     pub toggles: Vec<(WindowHandle, bool)>,
     /// Labels of the windows that must receive `ShellPointerDownOutside`.
     pub pressed_outside: Vec<String>,
+    /// While a snap drag is tracked: the notch window under the cursor, if any.
+    pub snap_over: Option<SnapOver>,
 }
 
 impl Default for CursorPoll {
@@ -792,6 +849,7 @@ impl Default for CursorPoll {
             rate: PollRate::Idle,
             toggles: Vec::new(),
             pressed_outside: Vec::new(),
+            snap_over: None,
         }
     }
 }

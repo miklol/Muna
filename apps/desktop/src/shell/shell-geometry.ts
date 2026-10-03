@@ -48,6 +48,11 @@ export interface GeometryInput {
    * out at its own width — up to the panel's — and the shell morphs to match, like the panel.
    */
   readonly dropContentSize?: Size | null;
+  /**
+   * Natural size of the snap zones (docs/modules/window-snap.md), when known; measured and
+   * morphed to like the drop row.
+   */
+  readonly snapContentSize?: Size | null;
 }
 
 export const stripSize = ({ layout, wide }: GeometryInput): Size => ({
@@ -76,8 +81,14 @@ export const panelSize = ({ layout, panelContentHeight }: GeometryInput): Size =
  * out (the first frame after a drag enters) the strip's size stands in, so the morph starts
  * from where the strip is.
  */
-export const dropSize = (input: GeometryInput): Size => {
-  const measured = input.dropContentSize ?? null;
+export const dropSize = (input: GeometryInput): Size =>
+  measuredSize(input.dropContentSize ?? null, input);
+
+/** The snap zones, likewise (docs/modules/window-snap.md). */
+export const snapSize = (input: GeometryInput): Size =>
+  measuredSize(input.snapContentSize ?? null, input);
+
+const measuredSize = (measured: Size | null, input: GeometryInput): Size => {
   if (measured === null || measured.width === 0 || measured.height === 0) {
     return stripSize(input);
   }
@@ -97,6 +108,8 @@ export const targetSize = (state: ShellState, input: GeometryInput): Size => {
       return revealSize(input);
     case 'drop':
       return dropSize(input);
+    case 'snap':
+      return snapSize(input);
     default:
       return stripSize(input);
   }
@@ -118,11 +131,15 @@ export const showsPanel = (state: ShellState): boolean =>
 /** Whether `state` shows the drop tiles (docs/modules/drop-actions.md). */
 export const showsDrop = (state: ShellState): boolean => state === 'drop';
 
+/** Whether `state` shows the snap zones (docs/modules/window-snap.md). */
+export const showsSnap = (state: ShellState): boolean => state === 'snap';
+
 /**
- * Whether `state` is one of the large silhouettes — the panel or the drop row — that take the
- * panel material and hide the strip, as opposed to a strip form.
+ * Whether `state` is one of the large silhouettes — the panel, the drop row or the snap zones
+ * — that take the panel material and hide the strip, as opposed to a strip form.
  */
-export const showsLarge = (state: ShellState): boolean => showsPanel(state) || showsDrop(state);
+export const showsLarge = (state: ShellState): boolean =>
+  showsPanel(state) || showsDrop(state) || showsSnap(state);
 
 export const moduleBarSize: Size = {
   width: shellSizes.moduleBarWidth,

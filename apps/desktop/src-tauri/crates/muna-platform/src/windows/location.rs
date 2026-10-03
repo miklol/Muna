@@ -156,14 +156,21 @@ mod tests {
 
     /// Talks to the real OS; only meaningful on the nightly lab machine. Bounded by `THREAD_WAIT`
     /// however the broker behaves, so a machine with no usable source still finishes. Expect the
-    /// full `ACCESS_WAIT` on the first run of a freshly linked binary: the access broker was seen
-    /// never answering a just-written executable, and answering the same one in 10 ms from then on.
+    /// full `ACCESS_WAIT` on the first run of a freshly linked binary: the access broker raises
+    /// the location consent dialog for an executable it has not seen before, which nobody
+    /// answers, and answers the same one in 10 ms from then on. That dialog dims the desktop
+    /// and takes every click, so the test holds the desktop lock for the tests that inject input.
     #[test]
     #[cfg_attr(
         not(feature = "platform-tests"),
         ignore = "requires a real Windows session"
     )]
     fn position_answers_or_says_why_not() {
+        // The parallel runner starts the input-injecting tests within milliseconds and they hold
+        // the desktop lock for a few seconds; the consent dialog this test can raise stays up
+        // well after the test returns, so let them go first.
+        std::thread::sleep(Duration::from_secs(1));
+        let _desktop = crate::windows::test_support::desktop();
         match position() {
             Ok(fix) => {
                 assert!((-90.0..=90.0).contains(&fix.latitude));

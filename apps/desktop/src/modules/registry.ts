@@ -16,6 +16,7 @@ import { shelfModule } from './shelf';
 import { systemMonitorModule } from './system-monitor';
 import { todoModule } from './todo';
 import { weatherModule } from './weather';
+import { windowSnapModule } from './window-snap';
 
 /** What the shell passes to a module's glyph: 20 px in the module bar, 16 px in the right rail. */
 export interface ModuleIconProps {
@@ -74,6 +75,24 @@ export interface DropSurfaceProps {
 }
 
 /**
+ * What the shell hands the snap zones while a window is dragged near the notch
+ * (docs/modules/window-snap.md). Like the drop row, the zones lay out at their natural size,
+ * hit-test `position` against their own tiles and, once the drag has `ended` over this window,
+ * place the window or cancel the session themselves; `onDone` hands the notch back.
+ */
+export interface SnapSurfaceProps {
+  readonly session: number;
+  /** The drag's cursor in this window's CSS px, live; the zone under it highlights. */
+  readonly position: DropPoint;
+  /** `true` once the button went up over this window: apply the hovered zone, or cancel. */
+  readonly ended: boolean;
+  /** The widest the zones may lay out (the panel's width for this monitor). */
+  readonly maxWidth: number;
+  /** The zones have placed the window or cancelled: collapse. */
+  readonly onDone: () => void;
+}
+
+/**
  * Frontend half of the module contract (ADR-0004). A module registers here and in
  * `src-tauri/src/modules/mod.rs`; modules never import each other.
  */
@@ -114,6 +133,12 @@ export interface ModuleDefinition {
    * like a panel. Disabling the module in Settings › Modules turns drops off with it.
    */
   readonly drop?: ComponentType<DropSurfaceProps>;
+  /**
+   * What the notch shows while a window is dragged near it (docs/modules/window-snap.md); at
+   * most one enabled module provides it. Mounted for the drag only. Disabling the module in
+   * Settings › Modules turns snapping off with it, on both sides.
+   */
+  readonly snap?: ComponentType<SnapSurfaceProps>;
 }
 
 /** Every action the registered modules declare, in module order. */
@@ -124,6 +149,11 @@ export const moduleActions = (definitions: readonly ModuleDefinition[]): readonl
 export const dropModuleOf = (
   definitions: readonly ModuleDefinition[],
 ): ModuleDefinition | undefined => definitions.find((module) => module.drop !== undefined);
+
+/** The first module (in order) that provides snap zones, if any is enabled. */
+export const snapModuleOf = (
+  definitions: readonly ModuleDefinition[],
+): ModuleDefinition | undefined => definitions.find((module) => module.snap !== undefined);
 
 /**
  * Every module, in default order; Settings → Modules reorders and disables from here. The
@@ -145,6 +175,7 @@ export const modules: readonly ModuleDefinition[] = [
   keyboardShortcutsModule,
   dropActionsModule,
   shelfModule,
+  windowSnapModule,
 ];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>

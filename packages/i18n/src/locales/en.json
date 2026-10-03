@@ -934,6 +934,36 @@
       "clearAction": "Clear"
     }
   },
+  "windowSnap": {
+    "title": "Window snap",
+    "zones": "Snap zones",
+    "zone": {
+      "topLeft": "Top left",
+      "bottomLeft": "Bottom left",
+      "leftHalf": "Left half",
+      "maximize": "Maximise",
+      "rightHalf": "Right half",
+      "topRight": "Top right",
+      "bottomRight": "Bottom right",
+      "leftThird": "Left third",
+      "centerThird": "Centre third",
+      "rightThird": "Right third",
+      "cell": "Cell {{row}}, {{col}}"
+    },
+    "settings": {
+      "zones": "Zones",
+      "zonesBody": "Drag any window to the notch and release over a zone. Up to {{max}} zones in all, grid cells included.",
+      "chosen": "Zones in use",
+      "count": "{{count}} of {{max}}",
+      "grid": "Grid",
+      "gridBody": "Equal cells with a gap between them. Cells count towards the zone limit and appear after the zones.",
+      "gridEnabled": "Show a grid",
+      "rows": "Rows",
+      "cols": "Columns",
+      "gap": "Gap",
+      "px": "{{value}} px"
+    }
+  },
   "settings": {
     "title": "Muna settings",
     "version": "Version {{version}}",

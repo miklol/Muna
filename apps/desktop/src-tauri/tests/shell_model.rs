@@ -105,6 +105,7 @@ fn inputs<'a>(
         foreground,
         quiet: UserNotificationState::AcceptsNotifications,
         moving: false,
+        snapping: false,
         dragging: false,
         locked: false,
         paused: false,
@@ -157,6 +158,31 @@ fn a_window_drag_peeks_in_both_modes() {
     assert_eq!(decide(&i), YieldState::Peek);
     i.mode = PlacementMode::Reserved;
     assert_eq!(decide(&i), YieldState::Peek);
+}
+
+/// docs/modules/notch-shell.md: "MOVESIZESTART on any window → Peek unless the Window-snap
+/// module wants the hot zone"; the zones need the strip in place, and a park still wins.
+#[test]
+fn a_snap_candidate_drag_holds_the_strip_instead_of_peeking() {
+    let monitors = [primary()];
+    let caption = app(0x55, Rect::new(100, 0, 1400, 900), false);
+    let mut i = inputs(&monitors[0], &monitors, Some(&caption));
+    i.moving = true;
+    assert_eq!(decide(&i), YieldState::Peek);
+    i.snapping = true;
+    assert_eq!(decide(&i), YieldState::None);
+    i.mode = PlacementMode::Reserved;
+    assert_eq!(decide(&i), YieldState::None);
+    i.locked = true;
+    assert_eq!(decide(&i), YieldState::Parked);
+    i.locked = false;
+    i.moving = false;
+    i.mode = PlacementMode::Overlay;
+    assert_eq!(
+        decide(&i),
+        YieldState::Peek,
+        "snapping without a drag changes nothing; the caption still peeks"
+    );
 }
 
 /// docs/build-plan/m4-power-tools.md "Risks": a file drag over the strip must win over Peek
