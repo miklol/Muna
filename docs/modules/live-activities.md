@@ -77,7 +77,7 @@ Scheduler (`muna-core::activities::Scheduler`, driven through `Hub`):
 
 Default priorities (`muna-core::activities::priority`): HUD 100 · charging/battery 90 ·
 Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media playing 60 · Task due
-≤ 60 min 55 · Unread notifications 40 · Session lock 30 · Media paused 20.
+≤ 60 min 55 · Unread notifications 40 · Session lock 30 · Media paused 20 · CPU gauge 10.
 
 ## Built-in notices (Windows sources)
 

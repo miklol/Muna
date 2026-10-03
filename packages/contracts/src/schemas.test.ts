@@ -11,6 +11,10 @@ import {
   POMODORO_SETTINGS_KEY,
   POMODORO_STRIP_IDS,
   STRIP_HEIGHT_PX,
+  SYSTEM_MONITOR_BOUNDS,
+  SYSTEM_MONITOR_PERIODS,
+  SYSTEM_MONITOR_SETTINGS_KEY,
+  SYSTEM_MONITOR_STRIP_IDS,
   TODO_BOUNDS,
   TODO_INBOX_LIST_ID,
   TODO_SETTINGS_KEY,
@@ -19,11 +23,13 @@ import {
   defaultMediaSettings,
   defaultPomodoroSettings,
   defaultSettings,
+  defaultSystemMonitorSettings,
   defaultTodoSettings,
   monitorLayoutSchema,
   readHudSettings,
   readMediaSettings,
   readPomodoroSettings,
+  readSystemMonitorSettings,
   readTodoSettings,
   settingsSchema,
   shellLayoutSchema,
@@ -32,6 +38,7 @@ import {
   writeHudSettings,
   writeMediaSettings,
   writePomodoroSettings,
+  writeSystemMonitorSettings,
   writeTodoSettings,
 } from './schemas';
 
@@ -148,6 +155,18 @@ describe('strip content schema', () => {
           leading: { kind: 'icon', glyph: 'checkCircle', tint: 'blue' },
           trailing: { kind: 'time', atMs: 1_790_000_000_000 },
           wide: { kind: 'taskDue', title: 'Call Sam' },
+        },
+      },
+      {
+        kind: 'activity',
+        wide: false,
+        activity: {
+          id: 'system-monitor:cpu',
+          module: 'system-monitor',
+          priority: 10,
+          leading: { kind: 'icon', glyph: 'cpu', tint: null },
+          trailing: { kind: 'percent', value: 37 },
+          wide: null,
         },
       },
       {
@@ -489,5 +508,67 @@ describe('todo settings namespace', () => {
   it('names the strip ids and the default list the Rust module uses', () => {
     expect(TODO_STRIP_IDS).toEqual({ activity: 'todo:due', noticePrefix: 'todo:due:' });
     expect(TODO_INBOX_LIST_ID).toBe('inbox');
+  });
+});
+
+describe('system monitor settings namespace', () => {
+  it('reads the defaults when the namespace is missing', () => {
+    expect(readSystemMonitorSettings(defaultSettings())).toEqual({
+      showCpuInStrip: false,
+      processCount: 5,
+    });
+    expect(defaultSystemMonitorSettings()).toEqual(readSystemMonitorSettings(defaultSettings()));
+  });
+
+  it('fills in missing keys, ignores unknown ones and clamps like the Rust side', () => {
+    const partial: Settings = {
+      ...defaultSettings(),
+      modules: { [SYSTEM_MONITOR_SETTINGS_KEY]: { showCpuInStrip: true, gpu: 'nvml' } },
+    };
+    expect(readSystemMonitorSettings(partial)).toEqual({
+      ...defaultSystemMonitorSettings(),
+      showCpuInStrip: true,
+    });
+    const tooMany: Settings = {
+      ...defaultSettings(),
+      modules: { [SYSTEM_MONITOR_SETTINGS_KEY]: { processCount: 99 } },
+    };
+    expect(readSystemMonitorSettings(tooMany).processCount).toBe(
+      SYSTEM_MONITOR_BOUNDS.processCount.max,
+    );
+    const none: Settings = {
+      ...defaultSettings(),
+      modules: { [SYSTEM_MONITOR_SETTINGS_KEY]: { processCount: 0 } },
+    };
+    expect(readSystemMonitorSettings(none).processCount).toBe(0);
+  });
+
+  it('falls back to the defaults for a malformed namespace', () => {
+    const malformed: Settings = {
+      ...defaultSettings(),
+      modules: { [SYSTEM_MONITOR_SETTINGS_KEY]: { processCount: 'all', showCpuInStrip: true } },
+    };
+    expect(readSystemMonitorSettings(malformed)).toEqual(defaultSystemMonitorSettings());
+    const notAnObject: Settings = {
+      ...defaultSettings(),
+      modules: { [SYSTEM_MONITOR_SETTINGS_KEY]: 'yes' },
+    };
+    expect(readSystemMonitorSettings(notAnObject)).toEqual(defaultSystemMonitorSettings());
+  });
+
+  it('writes the namespace without touching the rest of the document', () => {
+    const before: Settings = { ...defaultSettings(), modules: { hud: { showLevelText: true } } };
+    const after = writeSystemMonitorSettings(before, { showCpuInStrip: true, processCount: 3 });
+    expect(after.modules).toEqual({
+      hud: { showLevelText: true },
+      'system-monitor': { showCpuInStrip: true, processCount: 3 },
+    });
+    expect(before.modules).toEqual({ hud: { showLevelText: true } });
+    expect(settingsSchema.parse(after)).toEqual(after);
+  });
+
+  it('names the strip id and the cadence the Rust module uses', () => {
+    expect(SYSTEM_MONITOR_STRIP_IDS).toEqual({ cpu: 'system-monitor:cpu' });
+    expect(SYSTEM_MONITOR_PERIODS).toEqual({ visibleMs: 1000, stripMs: 10_000 });
   });
 });

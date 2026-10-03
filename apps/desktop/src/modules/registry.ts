@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 import { hudModule } from './hud';
 import { mediaModule } from './media';
 import { pomodoroModule } from './pomodoro';
+import { systemMonitorModule } from './system-monitor';
 import { todoModule } from './todo';
 
 /** What the shell passes to a module's glyph: 20 px in the module bar, 16 px in the right rail. */
@@ -42,6 +43,7 @@ export const modules: readonly ModuleDefinition[] = [
   mediaModule,
   todoModule,
   pomodoroModule,
+  systemMonitorModule,
   hudModule,
 ];
 

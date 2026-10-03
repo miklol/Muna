@@ -136,6 +136,7 @@ impl AppState {
         self.modules.hud.apply_settings(settings);
         self.modules.pomodoro.apply_settings(settings);
         self.modules.todo.apply_settings(settings);
+        self.modules.system_monitor.apply_settings(settings);
     }
 
     /// Releases what the modules hold on the OS (the hidden system flyout) on a clean exit.

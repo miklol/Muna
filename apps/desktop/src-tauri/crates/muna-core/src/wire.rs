@@ -12,7 +12,8 @@
 //! pub due_ms: Option<i64>,
 //! ```
 //!
-//! Anything that may exceed 2^53 (byte counts of large files, nanoseconds) must not use it.
+//! Anything that may exceed 2^53 (byte counts of large files, nanoseconds) must either be
+//! saturated with [`Int53::saturate`] where it crosses, or not use it.
 
 use specta::datatype::{DataType, Primitive};
 use specta::{Type, Types};
@@ -21,6 +22,18 @@ use specta::{Type, Types};
 /// runtime type; it only names the TypeScript side.
 #[derive(Debug, Clone, Copy)]
 pub struct Int53;
+
+impl Int53 {
+    /// `Number.MAX_SAFE_INTEGER`: the largest magnitude a JavaScript `number` holds exactly.
+    pub const MAX: u64 = (1 << 53) - 1;
+
+    /// Caps an unsigned quantity (a byte count) at [`Self::MAX`] so it can be exported as
+    /// `Int53`: for values that are small on every real machine but not provably so.
+    #[must_use]
+    pub const fn saturate(value: u64) -> u64 {
+        if value > Self::MAX { Self::MAX } else { value }
+    }
+}
 
 impl Type for Int53 {
     fn definition(_: &mut Types) -> DataType {
@@ -44,5 +57,13 @@ mod tests {
             <Option<Int53>>::definition(&mut types),
             DataType::Nullable(_)
         ));
+    }
+
+    #[test]
+    fn saturates_at_the_safe_integer_limit() {
+        assert_eq!(Int53::saturate(0), 0);
+        assert_eq!(Int53::saturate(Int53::MAX), Int53::MAX);
+        assert_eq!(Int53::saturate(u64::MAX), Int53::MAX);
+        assert_eq!(Int53::MAX, 9_007_199_254_740_991);
     }
 }

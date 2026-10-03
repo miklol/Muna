@@ -70,5 +70,19 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
   `BluetoothSetServiceState`), battery (GATT + HFP DEVPKEY), radio toggle.
 - **M3-E8 System monitor** — `sysinfo` + `nvml-wrapper`; 1 Hz visible, 10 s hidden; top
   processes; no temps (P3).
+
+  **Progress.** Landed as one PR stacked on M3-E2 (#29): the pull-based
+  `muna-platform::SystemStats` trait over `sysinfo` (CPU, memory, volumes, network counters,
+  the process walk grouped by executable) with scripted samples in the fake, the
+  `SystemMonitorService` that owns the cadence (1 Hz while a window watches, 10 s while only
+  the strip gauge is on, parked otherwise) and differences consecutive samples for CPU and
+  rates, the opt-in `system-monitor:cpu` strip activity (priority `SYSTEM_GAUGE` 10), the
+  contract (`get_system_monitor_snapshot`, `system_monitor_watch`, `SystemMonitorChanged`;
+  integers only — byte counts saturate at 2⁵³ − 1 through `Int53`), the six-ring panel with
+  the process table, and the settings pane
+  ([system-monitor → Implementation notes](../modules/system-monitor.md#implementation-notes-m3-e8)).
+  GPU (`nvml-wrapper`) and temperatures are deferred and listed there; Task Manager parity is
+  approximate because Windows 11 shows "% Processor Utility" while the PDH idle counters give
+  the classic reading.
 - **M3-E9 Dashboard** — `muna-ui-engineer`: widget grid composing all P1 modules' widgets,
   drag-reorder with pointer events, sizes S/M/L, edit mode, persisted layout.
