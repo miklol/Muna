@@ -562,6 +562,38 @@ pub enum TransferMode {
     Move,
 }
 
+/// What a drag out of Muna carries (docs/modules/shelf.md "Drag out"): files travel as the
+/// shell's own data object (`CF_HDROP` plus the id-list formats Explorer, Outlook and Teams
+/// read), text as `CF_UNICODETEXT`. Paths are content and are never logged.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DragPayload {
+    Files(Vec<std::path::PathBuf>),
+    Text(String),
+}
+
+/// What the drop target did with a drag out of Muna.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum DropEffect {
+    Copy,
+    Move,
+    Link,
+}
+
+/// How a drag out of Muna ended ([`crate::DragSource::start_drag`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum DragOutcome {
+    /// The button was released over a target that accepted the payload.
+    Dropped { effect: DropEffect },
+    /// Esc, a release over nothing, or a target that refused.
+    Cancelled,
+}
+
 #[cfg(test)]
 mod tests {
     use super::UserNotificationState as S;

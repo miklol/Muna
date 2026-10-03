@@ -28,8 +28,8 @@ pub struct DropFolder {
     pub mode: TransferMode,
 }
 
-/// One tile in the row, in display order (docs/modules/drop-actions.md "Tiles"). *Shelf*,
-/// *Convert* and *Music* arrive with their modules.
+/// One tile in the row, in display order (docs/modules/drop-actions.md "Tiles"). *Convert*
+/// and *Music* arrive with their modules.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(
     tag = "kind",
@@ -38,6 +38,8 @@ pub struct DropFolder {
 )]
 pub enum DropTile {
     NearbyShare,
+    /// Park the items on the Shelf (docs/modules/shelf.md).
+    Shelf,
     Folder {
         id: String,
     },
@@ -71,11 +73,12 @@ pub struct DropActionsSettings {
 }
 
 impl Default for DropActionsSettings {
-    /// Every built-in tile, share first and the two destructive ones last.
+    /// Every built-in tile: share first, the Shelf beside it, the two destructive ones last.
     fn default() -> Self {
         Self {
             tiles: vec![
                 DropTile::NearbyShare,
+                DropTile::Shelf,
                 DropTile::CopyTo,
                 DropTile::MoveTo,
                 DropTile::OpenWith,

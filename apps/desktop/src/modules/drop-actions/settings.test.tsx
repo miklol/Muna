@@ -89,6 +89,7 @@ describe('drop actions settings helpers', () => {
       tiles: [{ kind: 'zip' as const }, { kind: 'nearbyShare' as const }],
     };
     expect(hiddenBuiltIns(trimmed).map((tile) => tile.kind)).toEqual([
+      'shelf',
       'copyTo',
       'moveTo',
       'openWith',
@@ -208,6 +209,7 @@ describe('DropActionsSettingsPane', () => {
     expect(shown.map((toggle) => toggle.getAttribute('aria-label'))).toEqual([
       'Show Nearby Share',
       'Show Zip',
+      'Show Shelf',
       'Show Copy to',
       'Show Move to',
       'Show Open with',

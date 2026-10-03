@@ -8,6 +8,7 @@ import {
   FolderInput,
   FolderOpen,
   FolderSearch,
+  Inbox,
   Share2,
   Trash2,
 } from 'lucide-react';
@@ -35,6 +36,8 @@ export function TileGlyph({ icon, size = TILE_ICON_SIZE }: TileGlyphProps) {
   switch (icon) {
     case 'share':
       return <Share2 {...props} />;
+    case 'shelf':
+      return <Inbox {...props} />;
     case 'folderCopy':
       return <Folder {...props} />;
     case 'folderMove':

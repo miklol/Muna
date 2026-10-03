@@ -75,7 +75,11 @@ export function DropSurface({
       settings === undefined ? defaultDropActionsSettings() : readDropActionsSettings(settings),
     [settings],
   );
-  const entries = useMemo(() => tileEntries(dropSettings, items, t), [dropSettings, items, t]);
+  const disabledModules = settings?.shell.disabledModules;
+  const entries = useMemo(
+    () => tileEntries(dropSettings, items, t, disabledModules),
+    [disabledModules, dropSettings, items, t],
+  );
   const [revealed, setRevealed] = useState(false);
   const layout = useMemo(
     () => rowLayout(entries, dropTilesPerRow(dropSettings), revealed, t),

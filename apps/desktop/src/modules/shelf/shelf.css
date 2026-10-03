@@ -1,0 +1,208 @@
+/*
+ * Shelf panel (docs/modules/shelf.md): a toolbar (paste field, select-all, copy, remove), a
+ * status line, then the grid of 64 px tiles. Composes tokens only; the primitives bring their
+ * own styles.
+ *
+ * The panel body has 284 px at most (360 panel − 2 × 16 padding − 44 header); the toolbar takes
+ * 28 + 8 and the status line 20 + 8, so the grid scrolls inside the 220 px left — two rows of
+ * tiles — and the panel never asks the shell for more than its maximum height.
+ */
+
+.shelf-panel {
+  --shelf-tile-picture: 64px;
+  --shelf-grid-max: 220px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.shelf-toolbar {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.shelf-paste {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.shelf-toolbar__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  margin-inline-start: auto;
+}
+
+.shelf-status {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--size-chip-height);
+  padding-inline: var(--space-1);
+}
+
+.shelf-status__count {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+/* Positioned so a leaving tile (`AnimatePresence` popLayout) pops out of flow in place. */
+.shelf-grid {
+  position: relative;
+  display: grid;
+  flex: 0 1 auto;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: var(--space-1);
+  max-block-size: var(--shelf-grid-max);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+/* One tile: the picture over a two-line name; the whole tile is the press and drag target. */
+.shelf-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: center;
+  padding: var(--space-1);
+  border-radius: var(--radius-tile);
+  outline: none;
+  cursor: default;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition:
+    background var(--muna-motion-toggle),
+    opacity var(--muna-motion-toggle);
+}
+
+.shelf-tile:hover {
+  background: var(--surface-1);
+}
+
+.shelf-tile[data-selected] {
+  background: var(--surface-2);
+}
+
+.shelf-tile:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(-1 * var(--focus-ring-offset));
+}
+
+/* The item is on its way out of the notch; it dims until the drop lands or is cancelled. */
+.shelf-tile[data-dragging] {
+  opacity: 0.4;
+}
+
+.shelf-tile[data-missing] {
+  color: var(--text-3);
+}
+
+.shelf-tile__picture {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--shelf-tile-picture);
+  block-size: var(--shelf-tile-picture);
+}
+
+.shelf-tile__thumbnail {
+  max-inline-size: 100%;
+  max-block-size: 100%;
+  border-radius: var(--radius-control);
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* Explorer has no picture: a card in the tile's colour with the extension or a glyph. */
+.shelf-tile__placeholder {
+  display: grid;
+  place-items: center;
+  inline-size: 48px;
+  block-size: 56px;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+.shelf-tile__placeholder[data-kind='text'] {
+  inline-size: 56px;
+  block-size: 56px;
+}
+
+.shelf-tile__placeholder[data-missing] {
+  color: var(--accent-red);
+  background: transparent;
+  border-style: dashed;
+}
+
+.shelf-tile__extension {
+  max-inline-size: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The selection circle: a hint on hover, filled with the accent once selected. */
+.shelf-tile__check {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+  background: rgb(0 0 0 / 0.6);
+  border-radius: var(--radius-thumb);
+  opacity: 0;
+  transition: opacity var(--muna-motion-toggle);
+}
+
+.shelf-tile:hover .shelf-tile__check,
+.shelf-tile:focus-visible .shelf-tile__check {
+  opacity: 0.7;
+}
+
+.shelf-tile[data-selected] .shelf-tile__check {
+  color: var(--text-1);
+  background: var(--accent);
+  opacity: 1;
+}
+
+.shelf-tile__name {
+  max-inline-size: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.shelf-tile[data-missing] .shelf-tile__name {
+  text-decoration: line-through;
+  text-decoration-color: var(--text-3);
+}
+
+/* Dashed like the reference drop zone: the panel is where dropped items land. */
+.shelf-empty {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-block-size: 120px;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--radius-tile);
+}
+
+@media (hover: none) {
+  .shelf-tile__check {
+    opacity: 0.7;
+  }
+}

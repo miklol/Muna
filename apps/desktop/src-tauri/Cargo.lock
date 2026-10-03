@@ -2560,6 +2560,7 @@ dependencies = [
 name = "muna-platform"
 version = "0.0.0"
 dependencies = [
+ "image",
  "parking_lot",
  "serde",
  "serde_json",

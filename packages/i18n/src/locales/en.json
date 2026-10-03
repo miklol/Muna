@@ -52,7 +52,9 @@
         "reveal_other": "Showing {{count}} items",
         "trash_one": "Deleting {{count}} item",
         "trash_other": "Deleting {{count}} items",
-        "eject": "Ejecting the drive"
+        "eject": "Ejecting the drive",
+        "shelf_one": "Adding {{count}} item to the Shelf",
+        "shelf_other": "Adding {{count}} items to the Shelf"
       },
       "dropFinished": {
         "share_one": "Shared {{count}} item",
@@ -73,7 +75,9 @@
         "reveal_other": "Showing {{count}} items in File Explorer",
         "trash_one": "Moved {{count}} item to the recycle bin",
         "trash_other": "Moved {{count}} items to the recycle bin",
-        "eject": "Drive ejected"
+        "eject": "Drive ejected",
+        "shelf_one": "Added {{count}} item to the Shelf",
+        "shelf_other": "Added {{count}} items to the Shelf"
       },
       "dropFailed": {
         "share": "Could not share",
@@ -85,7 +89,8 @@
         "unzip": "Could not unzip",
         "reveal": "Could not show in File Explorer",
         "trash": "Could not delete",
-        "eject": "Could not eject the drive"
+        "eject": "Could not eject the drive",
+        "shelf": "Could not add to the Shelf"
       }
     },
     "describe": {
@@ -144,7 +149,8 @@
       "archive": "Archive",
       "share": "Share",
       "trash": "Recycle bin",
-      "drive": "Drive"
+      "drive": "Drive",
+      "shelf": "Shelf"
     }
   },
   "spike": {
@@ -803,6 +809,8 @@
     "tiles": {
       "nearbyShare": "Nearby Share",
       "nearbyShareBody": "Share sheet",
+      "shelf": "Shelf",
+      "shelfBody": "Keep for later",
       "copyTo": "Copy to",
       "moveTo": "Move to",
       "chooseFolder": "Choose a folder",
@@ -878,9 +886,52 @@
       "trash_one": "Recycling {{count}} item",
       "trash_other": "Recycling {{count}} items",
       "eject": "Ejecting the drive",
+      "shelf_one": "Adding {{count}} item to the Shelf",
+      "shelf_other": "Adding {{count}} items to the Shelf",
       "percent": "{{percent}}%",
       "done": "Done",
       "failed": "Failed"
+    }
+  },
+  "shelf": {
+    "title": "Shelf",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "selected_one": "{{count}} of {{total}} selected",
+    "selected_other": "{{count}} of {{total}} selected",
+    "paste": "Paste text or a link, then Enter",
+    "selectAll": "Select all",
+    "clearSelection": "Clear selection",
+    "copyAll": "Copy everything to the clipboard",
+    "copySelected_one": "Copy {{count}} item to the clipboard",
+    "copySelected_other": "Copy {{count}} items to the clipboard",
+    "copiedNotice": "Copied to the clipboard",
+    "removeSelected_one": "Remove {{count}} item",
+    "removeSelected_other": "Remove {{count}} items",
+    "clear": "Clear the Shelf",
+    "reveal": "Show in Explorer",
+    "removeMissing_one": "Remove {{count}} missing",
+    "removeMissing_other": "Remove {{count}} missing",
+    "missing": "File not found",
+    "copied": "Copy in Shelf storage",
+    "folder": "Folder",
+    "file": "File",
+    "empty": "Nothing on the Shelf yet",
+    "emptyBody": "Drop files on the notch and choose Shelf, or paste text above. Drag items out to any app.",
+    "settings": {
+      "storage": "Storage",
+      "copyIntoStorage": "Copy files into Shelf storage",
+      "copyIntoStorageBody": "Items keep working after the original is moved or deleted. Copies go when the item does.",
+      "expiry": "Remove items after",
+      "expiryBody": "Items older than this leave the Shelf on their own.",
+      "never": "Never",
+      "days_one": "1 day",
+      "days_other": "{{count}} days",
+      "items": "Items",
+      "count": "On the Shelf",
+      "clear": "Clear the Shelf",
+      "clearBody": "Removes every item. Copies in Shelf storage are deleted; original files are not touched.",
+      "clearAction": "Clear"
     }
   },
   "settings": {

@@ -23,6 +23,7 @@ vi.mock('@muna/contracts', async (importOriginal) => {
       publishShapeRects: vi.fn(ok),
       setNotchFocusable: vi.fn(ok),
       reportMorph: vi.fn(ok),
+      getDragSpike: vi.fn(() => Promise.resolve(null)),
       getSettings: vi.fn(() => Promise.resolve(original.defaultSettings())),
     },
     events: {

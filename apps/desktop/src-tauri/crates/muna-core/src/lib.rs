@@ -10,6 +10,7 @@ pub mod artwork;
 pub mod clock;
 pub mod drops;
 pub mod settings;
+pub mod shelf;
 pub mod shell_settings;
 pub mod store;
 pub mod tasks;
@@ -21,10 +22,11 @@ pub use activities::{
 };
 pub use artwork::{ArtCache, Artwork, ArtworkError};
 pub use clock::{Clock, FakeClock, SystemClock};
-pub use drops::{DropSession, DropSessionId, DropSessions};
+pub use drops::{DropSession, DropSessionId, DropSessions, SelfDrag};
 pub use settings::{
     GeneralSettings, JsonValue, ReducedMotion, Settings, SettingsError, SettingsStore,
 };
+pub use shelf::{NewShelfItem, ShelfIntake, ShelfIntakeError, ShelfItemKind, ShelfRecord};
 pub use shell_settings::{MonitorLayout, NotchShape, PlacementMode, ShellSettings, StripHeight};
 pub use store::{PomodoroSessionRecord, Store, StoreError};
 pub use tasks::{Due, INBOX_LIST_ID, NewTask, Task, TaskList, TaskPatch};

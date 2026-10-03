@@ -116,7 +116,9 @@ fn encode_png(image: &DynamicImage) -> Result<Vec<u8>, ArtworkError> {
     Ok(out.into_inner())
 }
 
-fn data_url(bytes: &[u8], mime: &str) -> String {
+/// `data:<mime>;base64,…` for `bytes`; the Shelf hands thumbnails to the UI this way too.
+#[must_use]
+pub fn data_url(bytes: &[u8], mime: &str) -> String {
     let mime = if mime.is_empty() {
         "application/octet-stream"
     } else {

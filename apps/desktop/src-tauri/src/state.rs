@@ -53,13 +53,8 @@ impl AppState {
         let store = Arc::new(Store::open(&profile_dir.join("muna.db"))?);
         let clock: Arc<dyn Clock> = Arc::new(SystemClock);
         let activities = Arc::new(Hub::new(Arc::clone(&clock)));
-        let modules = ModuleServices::new(
-            &platform,
-            &activities,
-            Some(&profile_dir.join("cache")),
-            &store,
-            &clock,
-        );
+        let modules =
+            ModuleServices::new(&platform, &activities, Some(profile_dir), &store, &clock);
         Ok(Self {
             platform,
             settings_store,
@@ -144,6 +139,7 @@ impl AppState {
         self.modules.notifications.apply_settings(settings);
         self.modules.day_progress.apply_settings(settings);
         self.modules.drop_actions.apply_settings(settings);
+        self.modules.shelf.apply_settings(settings);
         let bindings = self.modules.keyboard_shortcuts.apply_settings(settings);
         for binding in bindings
             .iter()
