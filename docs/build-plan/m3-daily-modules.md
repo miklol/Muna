@@ -83,6 +83,22 @@ to Implemented and the roadmap table. Do not copy third-party code or marketing 
   (1 s) when identity absent; group by app; dismiss/clear; Focus Assist state read-only with
   deep link. Test both installers.
 - **M3-E6 Day progress** — pure UI; working-hours settings; strip bar form.
+
+  **Progress.** Landed as one PR stacked on M3-E4: the UI merges the to-do and pomodoro
+  snapshots through the contract (no cross-module imports) into a pure `timeline.ts` — timed
+  tasks due today, the running or paused focus phase as a block, an optional bedtime, the
+  completion count over timed tasks only, the share of the working day gone and the first
+  free stretch of at least 90 minutes left in it. The panel puts the stats on the left and the
+  timeline on the right, with a now row that moves between the items on the `layout` spring
+  at every whole minute (one aligned timeout, cleared on unmount) and a *Long stretch* row
+  offering *Add a task*, which hands over to the to-do module. The Rust half owns
+  `settings.modules.day-progress` (working hours, bedtime, strip bar, sources; minutes since
+  local midnight, repaired identically on both sides) and the opt-in `day-progress:bar` strip
+  activity (hourglass glyph + progress, priority 5, working hours only), sleeping exactly until
+  the whole percent changes and reading the local offset at every wake so DST moves the bar
+  with the clock ([day progress → Implementation notes](../modules/day-progress.md#implementation-notes-m3-e6)).
+  Deferred: calendar and health sources (their modules do not exist yet), the dashboard card
+  (E9); the strip form is the day bar rather than "Next in 10m", which `todo:due` covers.
 - **M3-E7 Bluetooth** — panel with paired devices, connect/disconnect, device kinds, battery
   (GATT), low-battery notices, hide devices, radio toggle.
 

@@ -47,6 +47,9 @@ pub mod priority {
     /// The system monitor's CPU strip gauge (docs/modules/system-monitor.md): ambient
     /// telemetry, so it sits under everything with a message, including paused media.
     pub const SYSTEM_GAUGE: u8 = 10;
+    /// The day-progress bar (docs/modules/day-progress.md): the most ambient content of all,
+    /// so even the CPU gauge outranks it.
+    pub const DAY_PROGRESS: u8 = 5;
 }
 
 /// An accent from the design system (docs/05-design-system.md, colour tokens).
@@ -96,6 +99,8 @@ pub enum Glyph {
     CheckCircle,
     /// A processor (docs/modules/system-monitor.md): the CPU strip gauge.
     Cpu,
+    /// An hourglass (docs/modules/day-progress.md): the working day's progress bar.
+    Hourglass,
 }
 
 /// The leading (left) slot of the strip.
