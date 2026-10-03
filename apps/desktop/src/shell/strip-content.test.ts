@@ -62,6 +62,8 @@ describe('strip content mapping', () => {
       'Long break finished',
     );
     expect(messageText({ kind: 'taskDue', title: 'Call Sam' }, t)).toBe('Call Sam');
+    expect(messageText({ kind: 'eventStarting', title: 'Design sync' }, t)).toBe('Design sync');
+    expect(messageText({ kind: 'eventStarting', title: '' }, t)).toBe('Untitled event');
   });
 
   it('formats a time slot as a short time for the locale', () => {
@@ -120,6 +122,56 @@ describe('strip content mapping', () => {
         0,
       ),
     ).toMatchObject({ text: 'Call Sam', wide: true, description: 'Call Sam is due' });
+  });
+
+  it('describes the next event with its start, and the ten-minute notice as starting soon', () => {
+    const atMs = new Date(2026, 8, 26, 14, 30).getTime();
+    expect(
+      present(
+        {
+          kind: 'activity',
+          wide: true,
+          activity: {
+            id: 'calendar:next',
+            module: 'calendar',
+            priority: 50,
+            leading: { kind: 'icon', glyph: 'calendar', tint: 'purple' },
+            trailing: { kind: 'time', atMs },
+            wide: { kind: 'eventStarting', title: 'Design sync' },
+          },
+        },
+        t,
+        'en',
+        0,
+      ),
+    ).toMatchObject({
+      text: 'Design sync',
+      wide: true,
+      description: expect.stringMatching(/^Next, Design sync at 2:30\sPM$/),
+    });
+    expect(
+      present(
+        {
+          kind: 'notice',
+          notice: {
+            id: 'calendar:starting:src:uid:1',
+            module: 'calendar',
+            priority: 65,
+            leading: { kind: 'icon', glyph: 'calendar', tint: 'purple' },
+            trailing: { kind: 'time', atMs },
+            wide: { kind: 'eventStarting', title: '' },
+            holdMs: 0,
+          },
+        },
+        t,
+        'en',
+        0,
+      ),
+    ).toMatchObject({
+      text: 'Untitled event',
+      wide: true,
+      description: 'Untitled event starts in ten minutes',
+    });
   });
 
   it('maps contract slots to the UI vocabulary and anchors timers to their arrival', () => {

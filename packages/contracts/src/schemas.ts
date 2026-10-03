@@ -20,6 +20,7 @@ import type {
   Settings,
   ShellLayout,
   ShellSettings,
+  SourceSetting,
   StripContent,
   StripHeight,
   StripMessage,
@@ -154,6 +155,7 @@ export const glyphSchema = z.enum([
   'checkCircle',
   'cpu',
   'hourglass',
+  'calendar',
 ]) satisfies z.ZodType<Glyph>;
 
 export const tintSchema = z.enum([
@@ -224,6 +226,7 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('pomodoro'), phase: pomodoroPhaseSchema }),
   z.object({ kind: z.literal('pomodoroFinished'), phase: pomodoroPhaseSchema }),
   z.object({ kind: z.literal('taskDue'), title: z.string() }),
+  z.object({ kind: z.literal('eventStarting'), title: z.string() }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({
@@ -614,6 +617,86 @@ export const writeWeatherSettings = (settings: Settings, weather: WeatherSetting
  * `modules::weather::REFRESH`), so a panel can say how old a forecast is allowed to be.
  */
 export const WEATHER_REFRESH_MS = 15 * 60 * 1000;
+
+/** The key of the calendar module's namespace; also its module id. */
+export const CALENDAR_SETTINGS_KEY = 'calendar';
+
+/** The refresh periods the settings pane offers, in minutes (mirrors `REFRESH_CHOICES_MINUTES`). */
+export const CALENDAR_REFRESH_CHOICES_MINUTES = [5, 15, 30, 60] as const;
+export type CalendarRefreshMinutes = (typeof CALENDAR_REFRESH_CHOICES_MINUTES)[number];
+
+export const isCalendarRefresh = (minutes: number): minutes is CalendarRefreshMinutes =>
+  CALENDAR_REFRESH_CHOICES_MINUTES.some((choice) => choice === minutes);
+
+/** The longest source name kept (mirrors `modules::calendar::settings::MAX_NAME_CHARS`). */
+export const CALENDAR_MAX_NAME_CHARS = 60;
+
+/**
+ * The strip timings (mirrors `modules::calendar::{LEAD, STARTING_LEAD, GRACE}`): the next
+ * timed event takes the strip an hour ahead, is announced and outranks playing media ten
+ * minutes ahead, and leaves fifteen minutes after it started.
+ */
+export const CALENDAR_STRIP_MS = {
+  lead: 60 * 60 * 1000,
+  startingLead: 10 * 60 * 1000,
+  grace: 15 * 60 * 1000,
+} as const;
+
+/**
+ * One subscribed calendar as the settings document keeps it (mirrors
+ * `modules::calendar::SourceSetting`). The address itself lives in the credential vault
+ * under the source id and never crosses into the UI.
+ */
+export const calendarSourceSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  color: tintSchema,
+  enabled: z.boolean(),
+  host: z.string(),
+}) satisfies z.ZodType<SourceSetting>;
+
+/**
+ * Mirrors `modules::calendar::CalendarSettings`: no sources by default (the module makes no
+ * request until one is added), defaults for missing fields, a refresh period outside the
+ * offered ones reads as the default, and a wrong type fails the whole entry.
+ */
+export const calendarSettingsSchema = z.object({
+  sources: z.array(calendarSourceSchema).default([]),
+  refreshMinutes: z
+    .number()
+    .int()
+    .default(5)
+    .transform((minutes): CalendarRefreshMinutes => (isCalendarRefresh(minutes) ? minutes : 5)),
+  /** Whether the next event within the hour takes the strip. */
+  showNextInStrip: z.boolean().default(true),
+  /** Whether an event is announced ten minutes before it starts. */
+  notices: z.boolean().default(true),
+});
+export type CalendarSettings = z.infer<typeof calendarSettingsSchema>;
+
+export const defaultCalendarSettings = (): CalendarSettings => calendarSettingsSchema.parse({});
+
+/** Reads the calendar namespace; a missing or malformed entry yields the defaults. */
+export const readCalendarSettings = (settings: Settings): CalendarSettings => {
+  const parsed = calendarSettingsSchema.safeParse(settings.modules[CALENDAR_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultCalendarSettings();
+};
+
+/** Returns a new document with the calendar namespace replaced. */
+export const writeCalendarSettings = (
+  settings: Settings,
+  calendar: CalendarSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [CALENDAR_SETTINGS_KEY]: calendar },
+});
+
+/** The strip ids the calendar module publishes under (mirrors `modules::calendar`). */
+export const CALENDAR_STRIP_IDS = {
+  next: 'calendar:next',
+  /** Notices are `calendar:starting:<event id>`. */
+  startingPrefix: 'calendar:starting:',
+} as const;
 
 /** The key of the day-progress module's namespace; also its module id. */
 export const DAY_PROGRESS_SETTINGS_KEY = 'day-progress';

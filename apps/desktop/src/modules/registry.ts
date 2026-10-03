@@ -2,6 +2,7 @@ import type { MessageKey } from '@muna/i18n';
 import type { ComponentType } from 'react';
 
 import { bluetoothModule } from './bluetooth';
+import { calendarModule } from './calendar';
 import { dashboardModule } from './dashboard';
 import { dayProgressModule } from './day-progress';
 import { hudModule } from './hud';
@@ -65,6 +66,7 @@ export interface ModuleDefinition {
 export const modules: readonly ModuleDefinition[] = [
   dashboardModule,
   mediaModule,
+  calendarModule,
   todoModule,
   pomodoroModule,
   systemMonitorModule,

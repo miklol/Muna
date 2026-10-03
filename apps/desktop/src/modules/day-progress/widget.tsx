@@ -2,12 +2,13 @@ import { defaultSettings, readDayProgressSettings } from '@muna/contracts';
 import { ProgressTrack, Text } from '@muna/ui';
 import { useTranslation } from 'react-i18next';
 
+import { useMinuteNow } from '../../lib/minute-now';
 import { useSettings } from '../../lib/settings';
 import type { WidgetProps } from '../registry';
 import './day-progress.css';
 import { formatTime } from './panel';
 import { buildTimeline } from './timeline';
-import { useDaySources, useMinuteNow } from './use-day-progress';
+import { useDaySources } from './use-day-progress';
 
 /**
  * The day-progress card on the dashboard (docs/modules/dashboard.md "Widgets": Day Progress

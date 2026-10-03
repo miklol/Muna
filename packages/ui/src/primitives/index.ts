@@ -4,7 +4,7 @@
  * needs first; M1-E4 added the panel chrome, the module bar and the shared controls; M1-E2 the
  * strip's slot renderers; M1-E3 the search field; M1-E5 the option tiles; M2-E2 the media
  * pieces (album art, marquee, waveform); M2-E3 the HUD level track; M3-E2 the checkbox and
- * text field.
+ * text field; M3-E1 the month grid.
  */
 export { AlbumArt, type AlbumArtProps, paletteVars } from './album-art';
 export { BatteryGlyph, type BatteryGlyphProps, batteryLevels, batteryTint } from './battery-glyph';
@@ -33,6 +33,7 @@ export {
   moduleBarLayout,
   moduleBarPage,
 } from './module-bar';
+export { MONTH_GRID_MAX_MARKS, MonthGrid, type MonthGridProps } from './month-grid';
 export {
   notchMorphRadiusVar,
   NotchSurface,

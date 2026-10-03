@@ -78,8 +78,8 @@ Scheduler (`muna-core::activities::Scheduler`, driven through `Hub`):
 
 Default priorities (`muna-core::activities::priority`): HUD 100 · charging/battery 90 ·
 Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media playing 60 · Task due
-≤ 60 min 55 · Unread notifications 40 · Session lock 30 · Media paused 20 · CPU gauge 10 ·
-Day bar 5.
+≤ 60 min 55 · Event upcoming ≤ 60 min 50 · Unread notifications 40 · Session lock 30 · Media
+paused 20 · CPU gauge 10 · Day bar 5.
 
 ## Built-in notices (Windows sources)
 
@@ -93,6 +93,7 @@ Day bar 5.
 | Screen recording / camera in use | privacy indicators (`Windows.Media.Capture` usage via registry `CapabilityAccessManager\ConsentStore`) | dot indicator, like macOS |
 | Pomodoro finished | Pomodoro module | bell + optional Timer Done overlay |
 | Task due | To-do module | check-circle glyph + task title; the due time in the trailing slot |
+| Event starting in 10 min | Calendar module | calendar glyph + event title; the start time in the trailing slot |
 
 ### Implementation notes (M1-E2)
 
@@ -127,6 +128,15 @@ Day bar 5.
   up to 15 minutes past the due time, and raises a `todo:due:<task id>` notice at the due time
   ([todo → Implementation notes](todo.md#implementation-notes-m3-e2)). All-day tasks never
   reach the strip.
+- The Calendar module publishes `calendar:next` (calendar glyph, the event title, the start
+  time in the trailing slot) for the next timed event starting within 60 minutes at *Event
+  upcoming* (50, under a task due), raises it to *Event starting* (65, over playing media) from
+  10 minutes before, keeps it 15 minutes past the start, and raises one
+  `calendar:starting:<event id>` notice at the 10-minute mark
+  ([calendar → Implementation notes](calendar.md#implementation-notes-m3-e1)). The strip has
+  no press-to-act path yet, so *Join* lives in the panel and the notice only announces.
+  All-day events never reach the strip, and both the activity and the notice are switches in
+  Settings → Calendar.
 - The Day progress module publishes `day-progress:bar` (hourglass glyph, the share of the
   working day gone in the trailing progress slot, no wide form) during working hours when
   *Show the day bar in the strip* is on — off by default, and the lowest priority of all, so
