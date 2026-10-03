@@ -24,6 +24,9 @@ use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
 use crate::modules::pomodoro::{PomodoroCommand, PomodoroSink, PomodoroState};
 use crate::modules::system_monitor::{SystemMonitorSink, SystemMonitorSnapshot};
 use crate::modules::todo::{TodoCommand, TodoError, TodoSink, TodoSnapshot};
+use crate::modules::weather::{
+    FetchError, Place, SearchError, WeatherCommand, WeatherSink, WeatherSnapshot,
+};
 use crate::shell::manager::ShellManager;
 use crate::shell::model::ShellLayout;
 use crate::shell::yield_rules::YieldState;
@@ -82,6 +85,17 @@ impl From<PlatformError> for IpcError {
             PlatformError::Os { .. } => "platform.os",
             PlatformError::NotFound(_) => "platform.notFound",
             PlatformError::AccessDenied(_) => "platform.accessDenied",
+        };
+        Self::new(code, error)
+    }
+}
+
+impl From<SearchError> for IpcError {
+    fn from(error: SearchError) -> Self {
+        let code = match &error {
+            SearchError::Disabled => "weather.disabled",
+            SearchError::Fetch(FetchError::Offline) => "weather.offline",
+            SearchError::Fetch(FetchError::Provider) => "weather.provider",
         };
         Self::new(code, error)
     }
@@ -424,6 +438,44 @@ impl BluetoothSink for BluetoothEventSink {
         .emit(&self.app)
         {
             tracing::warn!(%error, "failed to emit BluetoothChanged");
+        }
+    }
+}
+
+/// The forecast, its place and the refresh state as the module now sees them
+/// (docs/modules/weather.md): after a fetch, a position fix, a command or a settings change.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct WeatherChanged {
+    pub snapshot: WeatherSnapshot,
+}
+
+/// Bridges the weather service to [`WeatherChanged`].
+pub struct WeatherEventSink {
+    app: AppHandle,
+}
+
+impl std::fmt::Debug for WeatherEventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WeatherEventSink").finish_non_exhaustive()
+    }
+}
+
+impl WeatherEventSink {
+    #[must_use]
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl WeatherSink for WeatherEventSink {
+    fn changed(&self, snapshot: &WeatherSnapshot) {
+        if let Err(error) = (WeatherChanged {
+            snapshot: snapshot.clone(),
+        })
+        .emit(&self.app)
+        {
+            tracing::warn!(%error, "failed to emit WeatherChanged");
         }
     }
 }
@@ -914,6 +966,32 @@ async fn bluetooth_command(
     Ok(snapshot)
 }
 
+/// The forecast and the refresh state as the module now sees them (a panel that just opened;
+/// afterwards it follows `WeatherChanged`).
+#[tauri::command]
+#[specta::specta]
+fn get_weather_snapshot(state: State<'_, Shared>) -> WeatherSnapshot {
+    state.modules.weather.snapshot()
+}
+
+/// Refreshes now or asks for the position again; returns the snapshot as it stands afterwards
+/// (the work itself runs in the module's loop and arrives as `WeatherChanged`).
+#[tauri::command]
+#[specta::specta]
+fn weather_command(state: State<'_, Shared>, command: WeatherCommand) -> WeatherSnapshot {
+    state.modules.weather.command(command)
+}
+
+/// Places matching a typed city name, for the settings pane. `weather.disabled` while the
+/// module is off, `weather.offline` when the request never reached the provider,
+/// `weather.provider` when it answered with something other than places.
+#[tauri::command]
+#[specta::specta]
+async fn weather_search(state: State<'_, Shared>, query: String) -> Result<Vec<Place>, IpcError> {
+    let service = Arc::clone(&state.modules.weather);
+    Ok(service.search(query).await?)
+}
+
 /// The single source of truth for the command/event surface.
 #[must_use]
 pub fn builder() -> Builder<tauri::Wry> {
@@ -955,6 +1033,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             system_monitor_watch,
             get_bluetooth_snapshot,
             bluetooth_command,
+            get_weather_snapshot,
+            weather_command,
+            weather_search,
             quit_app
         ])
         .events(collect_events![
@@ -971,7 +1052,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             PomodoroStateChanged,
             TodoChanged,
             SystemMonitorChanged,
-            BluetoothChanged
+            BluetoothChanged,
+            WeatherChanged
         ])
 }
 

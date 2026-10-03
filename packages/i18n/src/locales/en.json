@@ -316,6 +316,94 @@
       "showDevice": "Show in the panel"
     }
   },
+  "weather": {
+    "title": "Weather",
+    "currentLocation": "Current location",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "updated": "Updated {{time}}",
+    "now": "Now",
+    "today": "Today",
+    "hourly": "Next hours",
+    "daily": "Next days",
+    "feelsLike": "Feels like {{value}}",
+    "high": "H {{value}}",
+    "low": "L {{value}}",
+    "humidity": "Humidity",
+    "wind": "Wind",
+    "uv": "UV",
+    "pressure": "Pressure",
+    "hpa": "{{value}} hPa",
+    "sunrise": "Sunrise",
+    "sunset": "Sunset",
+    "chance": "{{value}} chance of rain",
+    "condition": {
+      "clear": "Clear",
+      "mainlyClear": "Mainly clear",
+      "partlyCloudy": "Partly cloudy",
+      "overcast": "Overcast",
+      "fog": "Fog",
+      "drizzle": "Drizzle",
+      "rain": "Rain",
+      "snow": "Snow",
+      "showers": "Showers",
+      "snowShowers": "Snow showers",
+      "thunderstorm": "Thunderstorm",
+      "unknown": "Weather"
+    },
+    "off": {
+      "title": "Weather is off",
+      "body": "Turn it on in settings to see the forecast. Muna then asks Open-Meteo for it every quarter hour.",
+      "action": "Open settings"
+    },
+    "locating": {
+      "title": "Finding your location",
+      "body": "Windows is working out where you are."
+    },
+    "chooseCity": {
+      "title": "Choose a city",
+      "denied": "Windows is not sharing your location with Muna. Pick a city in settings, or allow location for desktop apps and try again.",
+      "unavailable": "This PC has no location source. Pick a city in settings.",
+      "failed": "Your location could not be found just now. Muna will try again shortly.",
+      "action": "Choose a city",
+      "retry": "Try again"
+    },
+    "loading": "Loading the forecast",
+    "error": {
+      "offline": {
+        "title": "You seem to be offline",
+        "body": "The forecast will refresh when you are back online."
+      },
+      "provider": {
+        "title": "The weather service is having trouble",
+        "body": "Muna will try again shortly."
+      },
+      "retry": "Try again"
+    },
+    "settings": {
+      "section": "Forecast",
+      "privacy": "Weather is off until you turn it on. When on, Muna sends only rounded coordinates to Open-Meteo, a free forecast service with no account, and keeps the last forecast on this PC.",
+      "show": "Show weather",
+      "showBody": "Fetches a forecast every quarter hour while Muna runs.",
+      "location": "Location",
+      "useCurrent": "Current location",
+      "useCity": "City",
+      "locationBody": "Current location asks Windows once and rounds the answer to about a kilometre.",
+      "search": "Search for a city",
+      "searchPlaceholder": "City name",
+      "searching": "Searching…",
+      "noResults": "No places match. Try the nearest larger town.",
+      "searchOff": "Turn on weather to search for a city.",
+      "searchOffline": "Search needs a connection.",
+      "searchFailed": "The place search is not answering; try again shortly.",
+      "place": "Chosen city",
+      "noPlace": "None yet",
+      "choosePlace": "Use {{name}}",
+      "units": "Units",
+      "metric": "°C, km/h",
+      "imperial": "°F, mph"
+    }
+  },
   "settings": {
     "title": "Muna settings",
     "version": "Version {{version}}",

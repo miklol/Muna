@@ -26,4 +26,4 @@ pub use settings::{
 pub use shell_settings::{MonitorLayout, NotchShape, PlacementMode, ShellSettings, StripHeight};
 pub use store::{PomodoroSessionRecord, Store, StoreError};
 pub use tasks::{Due, INBOX_LIST_ID, NewTask, Task, TaskList, TaskPatch};
-pub use wire::Int53;
+pub use wire::{Finite, Int53};

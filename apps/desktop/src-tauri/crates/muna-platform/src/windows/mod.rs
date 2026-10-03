@@ -1,8 +1,9 @@
 //! Real Windows implementation. M0 wires the services the notch shell needs (power, monitors,
 //! foreground tracking and window affinities, ADR-0002); M1 adds paired Bluetooth devices for
 //! the live-activities strip; M2 adds System Media Transport Controls sessions; M3 adds
-//! Bluetooth connect, disconnect and the radio toggle; every other service reports
-//! [`PlatformError::Unsupported`] until its module milestone lands (docs/07-roadmap.md).
+//! Bluetooth connect, disconnect and the radio toggle, and the device position for weather;
+//! every other service reports [`PlatformError::Unsupported`] until its module milestone lands
+//! (docs/07-roadmap.md).
 //!
 //! Every Win32 call in this module checks its result and every `unsafe` block carries a
 //! `// SAFETY:` comment (repository rule).
@@ -14,6 +15,7 @@ mod bluetooth;
 mod brightness;
 mod foreground;
 pub mod identity;
+mod location;
 mod media;
 mod monitors;
 mod power;
@@ -33,13 +35,13 @@ pub use autostart::{AUTOSTART_ARG, STARTUP_TASK_ID};
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Media, Monitors, Platform, Power,
-    SystemOsd, SystemStats, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
+    Platform, Power, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
-    BrightnessMonitor, ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect,
-    SystemSample, Thumbnail, UserNotificationState, WindowHandle,
+    BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
+    OsdState, Rect, SystemSample, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -299,6 +301,12 @@ impl SystemStats for WindowsPlatform {
     }
 }
 
+impl Location for WindowsPlatform {
+    fn position(&self) -> PlatformResult<GeoPosition> {
+        location::position()
+    }
+}
+
 impl Monitors for WindowsPlatform {
     fn all(&self) -> PlatformResult<Vec<MonitorInfo>> {
         monitors::enumerate()
@@ -417,6 +425,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn system_stats(&self) -> &dyn SystemStats {
+        self
+    }
+
+    fn location(&self) -> &dyn Location {
         self
     }
 

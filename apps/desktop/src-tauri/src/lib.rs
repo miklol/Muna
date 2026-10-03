@@ -166,4 +166,7 @@ fn wire_module_sinks(app: &tauri::AppHandle, modules: &modules::ModuleServices) 
     modules
         .bluetooth
         .set_sink(Arc::new(ipc::BluetoothEventSink::new(app.clone())));
+    modules
+        .weather
+        .set_sink(Arc::new(ipc::WeatherEventSink::new(app.clone())));
 }

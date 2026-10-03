@@ -15,6 +15,7 @@ pub mod media;
 pub mod pomodoro;
 pub mod system_monitor;
 pub mod todo;
+pub mod weather;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -78,6 +79,7 @@ pub struct ModuleServices {
     pub todo: Arc<todo::TodoService>,
     pub system_monitor: Arc<system_monitor::SystemMonitorService>,
     pub bluetooth: Arc<bluetooth::BluetoothService>,
+    pub weather: Arc<weather::WeatherService>,
 }
 
 impl ModuleServices {
@@ -119,6 +121,11 @@ impl ModuleServices {
                 Arc::clone(platform),
                 Arc::clone(hub),
             )),
+            weather: Arc::new(weather::WeatherService::new(
+                Arc::clone(store),
+                Arc::clone(clock),
+                Arc::new(weather::OpenMeteo::new()),
+            )),
         }
     }
 }
@@ -136,6 +143,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
             &services.system_monitor,
         ))),
         Box::new(bluetooth::BluetoothModule(Arc::clone(&services.bluetooth))),
+        Box::new(weather::WeatherModule(Arc::clone(&services.weather))),
     ]
 }
 
