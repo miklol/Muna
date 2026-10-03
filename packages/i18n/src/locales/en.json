@@ -20,6 +20,7 @@
       "batteryLow": "Low battery",
       "bluetoothConnected": "{{name}} connected",
       "bluetoothDisconnected": "{{name}} disconnected",
+      "deviceBatteryLow": "{{name}} battery low",
       "timerFinished": "{{label}} finished",
       "nowPlaying": "{{title}} · {{artist}}",
       "nowPlayingNoArtist": "{{title}}",
@@ -35,6 +36,7 @@
       "charging": "Charging, {{percent}}",
       "batteryLow": "Low battery, {{percent}}",
       "bluetoothBattery": "{{message}}, battery {{percent}}",
+      "deviceBatteryLow": "{{name}} battery low, {{percent}}",
       "timer": "{{remaining}} left",
       "timerPaused": "{{remaining}} left, paused",
       "progress": "{{percent}} done",
@@ -259,6 +261,59 @@
       "processRows_zero": "None",
       "processRows_one": "{{count}} process",
       "processRows_other": "{{count}} processes"
+    }
+  },
+  "bluetooth": {
+    "title": "Bluetooth",
+    "radio": "Bluetooth",
+    "radioOn": "On",
+    "radioOff": "Off",
+    "radioUnavailable": "No Bluetooth radio",
+    "radioBody": "Turn the radio off to stop every device at once.",
+    "devices": "Devices",
+    "connected": "Connected",
+    "connectedBattery": "Connected · {{percent}}",
+    "disconnected": "Not connected",
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "disconnect": "Disconnect",
+    "disconnectDevice": "Disconnect {{name}}",
+    "disconnecting": "Disconnecting…",
+    "kind": {
+      "headphones": "Headphones",
+      "speaker": "Speaker",
+      "phone": "Phone",
+      "mouse": "Mouse",
+      "keyboard": "Keyboard",
+      "controller": "Controller",
+      "other": "Device"
+    },
+    "error": {
+      "unsupported": "Not supported for this device",
+      "notFound": "This device is no longer paired",
+      "accessDenied": "Windows would not allow it",
+      "os": "Something went wrong; try again"
+    },
+    "empty": {
+      "title": "No paired devices",
+      "body": "Pair a device in Windows Settings and it will appear here."
+    },
+    "off": {
+      "title": "Bluetooth is off",
+      "body": "Turn it on to see your devices."
+    },
+    "unavailable": {
+      "title": "Bluetooth is not available",
+      "body": "This PC has no Bluetooth radio, or Windows will not let Muna use it."
+    },
+    "settings": {
+      "notices": "Notices",
+      "lowBatteryNotices": "Low battery notices",
+      "lowBatteryNoticesBody": "Announce a connected device in the strip when its battery reaches 20 % and again at 10 %.",
+      "devices": "Devices in the panel",
+      "devicesBody": "Paired devices you hide stay paired; they just leave the list.",
+      "noDevices": "No paired devices to show.",
+      "showDevice": "Show in the panel"
     }
   },
   "settings": {

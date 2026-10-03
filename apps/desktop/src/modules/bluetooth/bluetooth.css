@@ -1,0 +1,71 @@
+/*
+ * Bluetooth panel (docs/modules/bluetooth.md): the radio row, then the paired devices. Composes
+ * tokens only; the primitives bring their own styles.
+ *
+ * The panel body has 284 px at most (360 panel − 2 × 16 padding − 44 header); the radio row
+ * takes 44 + 8, and the list scrolls inside what is left so the panel never asks the shell for
+ * more than its maximum height.
+ */
+
+.bt-panel {
+  --bt-list-max: 232px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.bt-radio {
+  flex: none;
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+}
+
+/* Positioned so a leaving row (`AnimatePresence` popLayout) pops out of flow in place. */
+.bt-list {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  max-block-size: var(--bt-list-max);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.bt-row {
+  flex: none;
+  border-radius: var(--radius-control);
+}
+
+.bt-row:hover {
+  background: var(--surface-1);
+}
+
+.bt-row__content {
+  padding-inline: var(--space-1);
+}
+
+/* A device that is not connected reads dimmer, so the connected ones stand out on top. */
+.bt-row:not([data-connected]) .muna-list-row__icon {
+  color: var(--text-3);
+}
+
+.bt-row[data-pending] .muna-list-row__description {
+  color: var(--text-3);
+}
+
+.bt-error {
+  color: var(--accent-red);
+}
+
+.bt-empty {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-block-size: 120px;
+}

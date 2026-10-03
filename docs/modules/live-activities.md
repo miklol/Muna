@@ -41,6 +41,7 @@ type StripMessage =                       // the wide form's one line, localised
   | { kind: 'batteryLow'; percent: number }
   | { kind: 'bluetoothConnected'; name: string; batteryPercent: number | null }
   | { kind: 'bluetoothDisconnected'; name: string }
+  | { kind: 'deviceBatteryLow'; name: string; percent: number }
   | { kind: 'timerFinished'; label: string };
 type Activity = {
   id: string;                 // `${moduleId}:${key}`
@@ -105,12 +106,16 @@ Bluetooth connect 85 · Pomodoro 70 · Event starting ≤ 10 min 65 · Media pla
   crossing while discharging.
 - **Session** notices are glyph-only (`lock`/`unlock`, untinted); assistive technology hears
   "Locked" / "Unlocked" from the glyph label.
-- **Bluetooth** notices use the `headphones` glyph when the name suggests earbuds or a headset
-  and `bluetooth` otherwise, tinted blue; the trailing slot shows the device battery when known.
+- **Bluetooth** notices use the `headphones` glyph when the platform classifies the device as
+  headphones (`BluetoothDeviceKind`, from `System.Devices.Aep.Category`) or, failing that, when
+  its name suggests earbuds or a headset, and `bluetooth` otherwise, tinted blue; the trailing
+  slot shows the device battery when known.
   Disconnects are reported only for devices seen connected. On Windows the devices come from
   `muna-platform`'s paired-device watcher ([bluetooth → Implementation notes](bluetooth.md#implementation-notes-m1-e2)),
   which publishes nothing until its first enumeration completes, so devices already connected at
-  start-up seed the reducer instead of announcing themselves.
+  start-up seed the reducer instead of announcing themselves. The low-battery notice
+  (`bluetooth:low:<device id>`, 20 % and 10 %) is the Bluetooth module's own since M3-E7
+  ([bluetooth → Implementation notes](bluetooth.md#implementation-notes-m3-e7)).
 - The Pomodoro path (`pomodoro:timer`, Timer glyph + countdown, wide text "Focus" / "Short
   break" / "Long break") is published by the Pomodoro module since M3-E3
   ([pomodoro → Implementation notes](pomodoro.md#implementation-notes-m3-e3)); it replaced the

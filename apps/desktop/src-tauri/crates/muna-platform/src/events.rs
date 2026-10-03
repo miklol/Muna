@@ -1,4 +1,6 @@
-use crate::types::{BatteryState, BluetoothDevice, ForegroundWindow, MediaSession, MonitorInfo};
+use crate::types::{
+    BatteryState, BluetoothDevice, BluetoothRadioState, ForegroundWindow, MediaSession, MonitorInfo,
+};
 
 /// Push notifications from the platform layer. Consumers subscribe through
 /// [`crate::Platform::subscribe`]; the channel is `tokio::sync::broadcast`, so slow consumers
@@ -16,6 +18,8 @@ pub enum PlatformEvent {
     BrightnessChanged { monitor_id: String, percent: u8 },
     /// A Bluetooth device connected, disconnected or reported a new battery level.
     BluetoothChanged(BluetoothDevice),
+    /// The Bluetooth radio was turned on or off, by Muna or by the OS (docs/modules/bluetooth.md).
+    BluetoothRadioChanged(BluetoothRadioState),
     /// Battery level or power source changed.
     BatteryChanged(BatteryState),
     /// The foreground window changed (`EVENT_SYSTEM_FOREGROUND`).

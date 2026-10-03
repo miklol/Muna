@@ -14,12 +14,20 @@ use crate::traits::{
     SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BrightnessMonitor,
-    ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, PowerSource, Rect,
-    SystemSample, Thumbnail, UserNotificationState, WindowHandle,
+    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
+    BrightnessMonitor, ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState,
+    PowerSource, Rect, SystemSample, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
+
+/// One recorded [`Bluetooth`] request, in order, for assertions in module tests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BluetoothCall {
+    Connect(String),
+    Disconnect(String),
+    SetRadio(bool),
+}
 
 /// One recorded [`Windowing`] / [`AppBar`] call, in order, for assertions in shell tests.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,6 +72,14 @@ struct State {
     /// Every `set_suppressed` request, in order.
     osd_requests: Vec<bool>,
     bluetooth: Vec<BluetoothDevice>,
+    bluetooth_radio: BluetoothRadioState,
+    /// Scripted: `connect`/`disconnect` fail with `Unsupported`, as Windows does for a device
+    /// it offers no way to reach from an app.
+    bluetooth_unsupported: bool,
+    /// Scripted: `set_radio` fails with `AccessDenied` (a policy, or the user said no).
+    bluetooth_radio_denied: bool,
+    /// Every Bluetooth request the fake received, in order.
+    bluetooth_calls: Vec<BluetoothCall>,
     battery: BatteryState,
     monitors: Vec<MonitorInfo>,
     foreground: Option<ForegroundWindow>,
@@ -103,6 +119,10 @@ impl Default for State {
             osd_unavailable: false,
             osd_requests: Vec::new(),
             bluetooth: Vec::new(),
+            bluetooth_radio: BluetoothRadioState::On,
+            bluetooth_unsupported: false,
+            bluetooth_radio_denied: false,
+            bluetooth_calls: Vec::new(),
             battery: BatteryState {
                 percent: None,
                 source: PowerSource::Ac,
@@ -294,6 +314,45 @@ impl FakePlatform {
             state.bluetooth.push(device.clone());
         }
         self.publish(PlatformEvent::BluetoothChanged(device));
+    }
+
+    /// Unpairs a device: it leaves the list, and a connected one reads as a disconnect first,
+    /// as the Windows watcher reports it.
+    pub fn remove_bluetooth_device(&self, id: &str) {
+        let removed = {
+            let mut state = self.state.lock();
+            let index = state.bluetooth.iter().position(|d| d.id == id);
+            index.map(|index| state.bluetooth.remove(index))
+        };
+        if let Some(device) = removed.filter(|device| device.connected) {
+            self.publish(PlatformEvent::BluetoothChanged(BluetoothDevice {
+                connected: false,
+                battery_percent: None,
+                ..device
+            }));
+        }
+    }
+
+    /// Scripts the radio's state and publishes the change, as the OS toggle would.
+    pub fn set_bluetooth_radio(&self, radio: BluetoothRadioState) {
+        self.state.lock().bluetooth_radio = radio;
+        self.publish(PlatformEvent::BluetoothRadioChanged(radio));
+    }
+
+    /// Scripts `connect`/`disconnect` to fail with `Unsupported`.
+    pub fn set_bluetooth_unsupported(&self, unsupported: bool) {
+        self.state.lock().bluetooth_unsupported = unsupported;
+    }
+
+    /// Scripts `set_radio` to fail with `AccessDenied`.
+    pub fn set_bluetooth_radio_denied(&self, denied: bool) {
+        self.state.lock().bluetooth_radio_denied = denied;
+    }
+
+    /// Every [`Bluetooth`] request so far, in order.
+    #[must_use]
+    pub fn bluetooth_calls(&self) -> Vec<BluetoothCall> {
+        self.state.lock().bluetooth_calls.clone()
     }
 
     pub fn set_battery(&self, battery: BatteryState) {
@@ -668,11 +727,48 @@ impl Bluetooth for FakePlatform {
     }
 
     fn connect(&self, id: &str) -> PlatformResult<()> {
+        self.state
+            .lock()
+            .bluetooth_calls
+            .push(BluetoothCall::Connect(id.to_owned()));
         self.toggle_bluetooth(id, true)
     }
 
     fn disconnect(&self, id: &str) -> PlatformResult<()> {
+        self.state
+            .lock()
+            .bluetooth_calls
+            .push(BluetoothCall::Disconnect(id.to_owned()));
         self.toggle_bluetooth(id, false)
+    }
+
+    fn radio(&self) -> BluetoothRadioState {
+        self.state.lock().bluetooth_radio
+    }
+
+    fn set_radio(&self, on: bool) -> PlatformResult<()> {
+        let radio = {
+            let mut state = self.state.lock();
+            state.bluetooth_calls.push(BluetoothCall::SetRadio(on));
+            if state.bluetooth_radio_denied {
+                return Err(PlatformError::AccessDenied("bluetooth radio"));
+            }
+            if state.bluetooth_radio == BluetoothRadioState::Unavailable {
+                return Err(PlatformError::Unsupported("bluetooth radio"));
+            }
+            let radio = if on {
+                BluetoothRadioState::On
+            } else {
+                BluetoothRadioState::Off
+            };
+            if state.bluetooth_radio == radio {
+                return Ok(());
+            }
+            state.bluetooth_radio = radio;
+            radio
+        };
+        self.publish(PlatformEvent::BluetoothRadioChanged(radio));
+        Ok(())
     }
 }
 
@@ -680,12 +776,25 @@ impl FakePlatform {
     fn toggle_bluetooth(&self, id: &str, connected: bool) -> PlatformResult<()> {
         let device = {
             let mut state = self.state.lock();
+            if state.bluetooth_unsupported {
+                return Err(PlatformError::Unsupported(if connected {
+                    "bluetooth connect"
+                } else {
+                    "bluetooth disconnect"
+                }));
+            }
             let device = state
                 .bluetooth
                 .iter_mut()
                 .find(|d| d.id == id)
                 .ok_or_else(|| PlatformError::NotFound(format!("bluetooth device {id}")))?;
+            if device.connected == connected {
+                return Ok(());
+            }
             device.connected = connected;
+            if !connected {
+                device.battery_percent = None;
+            }
             device.clone()
         };
         self.publish(PlatformEvent::BluetoothChanged(device));

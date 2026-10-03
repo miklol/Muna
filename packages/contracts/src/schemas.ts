@@ -216,6 +216,7 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
     batteryPercent: percent.nullable(),
   }),
   z.object({ kind: z.literal('bluetoothDisconnected'), name: z.string() }),
+  z.object({ kind: z.literal('deviceBatteryLow'), name: z.string(), percent }),
   z.object({ kind: z.literal('timerFinished'), label: z.string() }),
   z.object({ kind: z.literal('nowPlaying'), title: z.string(), artist: z.string() }),
   z.object({ kind: z.literal('pomodoro'), phase: pomodoroPhaseSchema }),
@@ -520,3 +521,41 @@ export const SYSTEM_MONITOR_PERIODS = {
   visibleMs: 1000,
   stripMs: 10_000,
 } as const;
+
+/** The key of the Bluetooth module's namespace; also its module id. */
+export const BLUETOOTH_SETTINGS_KEY = 'bluetooth';
+
+/**
+ * Mirrors `modules::bluetooth::BluetoothSettings`: defaults for missing fields, and a wrong
+ * type fails the whole entry, like the Rust side.
+ */
+export const bluetoothSettingsSchema = z.object({
+  /** Announce a connected device's battery at 20 % and again at 10 %. */
+  lowBatteryNotices: z.boolean().default(true),
+  /** Devices (by id) the panel leaves out; the settings pane still lists them. */
+  hiddenDevices: z.array(z.string()).default([]),
+});
+export type BluetoothSettings = z.infer<typeof bluetoothSettingsSchema>;
+
+export const defaultBluetoothSettings = (): BluetoothSettings => bluetoothSettingsSchema.parse({});
+
+/** Reads the Bluetooth namespace; a missing or malformed entry yields the defaults. */
+export const readBluetoothSettings = (settings: Settings): BluetoothSettings => {
+  const parsed = bluetoothSettingsSchema.safeParse(settings.modules[BLUETOOTH_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultBluetoothSettings();
+};
+
+/** Returns a new document with the Bluetooth namespace replaced. */
+export const writeBluetoothSettings = (
+  settings: Settings,
+  bluetooth: BluetoothSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [BLUETOOTH_SETTINGS_KEY]: bluetooth },
+});
+
+/**
+ * The battery levels at which the module announces a connected device (mirrors
+ * `modules::bluetooth::LOW_THRESHOLDS`).
+ */
+export const BLUETOOTH_LOW_THRESHOLDS = [20, 10] as const;

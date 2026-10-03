@@ -101,11 +101,13 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 | Need | API | Notes |
 | ------ | ----- | ------- |
 | Battery state | `Windows.System.Power.PowerManager`: `BatteryStatus`, `PowerSupplyStatus`, `RemainingChargePercent`, `RemainingDischargeTime`, `EnergySaverStatus` + `*Changed` events | "Charging" live activity on `PowerSupplyStatusChanged → Adequate`. `Battery.AggregateBattery.GetReport()` for mWh rates |
-| Bluetooth enumerate | `DeviceInformation.CreateWatcher(BluetoothDevice.GetDeviceSelectorFromPairingState(true), [System.Devices.Aep.IsConnected, …], AssociationEndpoint)`; LE via `BluetoothLEDevice.GetDeviceSelectorFromPairingState`; `BluetoothDevice.ConnectionStatusChanged` | Dual-mode devices are two AEPs sharing `System.Devices.Aep.ContainerId` — merge on it. Capability `bluetooth` (declared in MSIX) for GATT. Seelen-UI `radios/bluetooth/classic.rs` |
+| Bluetooth enumerate | `DeviceInformation.CreateWatcher(BluetoothDevice.GetDeviceSelectorFromPairingState(true), [System.Devices.Aep.IsConnected, System.Devices.Aep.Category, …], AssociationEndpoint)`; LE via `BluetoothLEDevice.GetDeviceSelectorFromPairingState`; `BluetoothDevice.ConnectionStatusChanged` | Dual-mode devices are two AEPs sharing `System.Devices.Aep.ContainerId` — merge on it. `Category` is a string array of dotted paths (`Communication.Headset.Bluetooth`) — match segments, not prefixes. Capability `bluetooth` (declared in MSIX) for GATT. Seelen-UI `radios/bluetooth/classic.rs` |
 | Bluetooth battery (LE) | GATT Battery Service `0x180F` / characteristic `0x2A19`, subscribe notifications | Standard |
 | Bluetooth battery (classic/HFP) ⚠️ | PnP property `{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2` on the `BTHENUM` node via `SetupDiGetDevicePropertyW` | Undocumented; AirPods report one combined %, often stale (cembaylam/peripheral-battery) |
-| Bluetooth connect/disconnect ⚠️ | `BluetoothSetServiceState(hRadio, &info, &A2DP_SINK / HFP, DISABLE→ENABLE)`; disconnect `DeviceIoControl(IOCTL_BTH_DISCONNECT_DEVICE 0x0041000C)` | Disabled state is **persistent** → journal and re-enable on start/`Drop` |
-| Radio power | `Windows.Devices.Radios.Radio.GetRadiosAsync()` → `SetStateAsync` (capability `radios`) | Consent prompt first time |
+| Bluetooth disconnect | `DeviceIoControl(hRadio from BluetoothFindFirstRadio, IOCTL_BTH_DISCONNECT_DEVICE 0x0041000C, &BTH_ADDR)` | Drops the baseband link, every profile follows; nothing persisted, no admin. The constant is from `bthioctl.h`, not in the `windows` crate — defined locally (M3-E7) |
+| Bluetooth connect (best effort) | Classic: `BluetoothDevice.FromIdAsync` + `GetRfcommServicesWithCacheModeAsync(Uncached)` pages the device, then `ConnectionStatus`; LE: `GetGattServicesWithCacheModeAsync` | Blocks for seconds when out of range → off the async threads. Not every stack reconnects A2DP from a page; report `Unsupported` |
+| Bluetooth connect via services ⚠️ | `BluetoothSetServiceState(hRadio, &info, &A2DP_SINK / HFP, DISABLE→ENABLE)` | Disabled state is **persistent** → would need a journal re-enabled on start/`Drop`. Not used (M3-E7); kept as the fallback |
+| Radio power | `Windows.Devices.Radios.Radio.GetRadiosAsync()` → `RequestAccessAsync` → `SetStateAsync` (capability `radios`); `StateChanged` for the OS toggle | Consent prompt first time; `Disabled`/`Unknown` → unavailable |
 | USB eject | `CM_Request_Device_EjectW` on the volume's devnode; `IOCTL_STORAGE_EJECT_MEDIA` fallback | Drop-action tile |
 | Webcam (Mirror) | WebView2 `getUserMedia` (needs `webcam` capability under MSIX + Windows privacy toggle) | Zero Rust; stop tracks on collapse |
 
@@ -164,9 +166,10 @@ Shell-level facts that shape every window decision (details in [ADR-0001](adr/00
 `tauri-plugin-{dialog,opener}` (native file dialogs and "open folder" for the settings
 window's export, import and logs actions; both stay in Rust so the UI never touches the file
 system), `tauri-plugin-drag`, `windows` ≥ 0.62 (features: `Media_Control`, `Storage_Streams`,
-`UI_Notifications_Management`, `UI_Shell`, `Devices_Bluetooth`, `Devices_Enumeration`,
-`Devices_Radios`, `System_Power`, `ApplicationModel_DataTransfer`, `Win32_Media_Audio_Endpoints`,
-`Win32_Devices_Bluetooth`, `Win32_UI_WindowsAndMessaging`, `Win32_UI_Shell`, `Win32_Graphics_Gdi`,
+`UI_Notifications_Management`, `UI_Shell`, `Devices_Bluetooth`, `Devices_Bluetooth_Rfcomm`,
+`Devices_Enumeration`, `Devices_Radios`, `System_Power`, `ApplicationModel_DataTransfer`,
+`Win32_Media_Audio_Endpoints`, `Win32_Devices_Bluetooth`, `Win32_System_IO`,
+`Win32_UI_WindowsAndMessaging`, `Win32_UI_Shell`, `Win32_Graphics_Gdi`,
 `Win32_Graphics_Dwm`, `Win32_UI_Accessibility`, `Win32_System_RemoteDesktop`), `sysinfo`,
 `nvml-wrapper`, `wmi`, `windows-capture`, `cpal` + `realfft`, `rusqlite`, `tokio`, `serde`,
 `specta`/`tauri-specta`, `keyring` (Credential Manager), `ical`, `rrule`, `zip`, `color-thief`.

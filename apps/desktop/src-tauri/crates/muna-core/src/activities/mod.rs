@@ -205,6 +205,12 @@ pub enum StripMessage {
     BluetoothDisconnected {
         name: String,
     },
+    /// A connected Bluetooth device's battery fell to a threshold (docs/modules/bluetooth.md);
+    /// the name is content and is never logged.
+    DeviceBatteryLow {
+        name: String,
+        percent: u8,
+    },
     TimerFinished {
         label: String,
     },

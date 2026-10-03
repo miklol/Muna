@@ -46,6 +46,9 @@ describe('strip content mapping', () => {
     expect(messageText({ kind: 'bluetoothDisconnected', name: 'Buds' }, t)).toBe(
       'Buds disconnected',
     );
+    expect(messageText({ kind: 'deviceBatteryLow', name: 'Buds', percent: 20 }, t)).toBe(
+      'Buds battery low',
+    );
     expect(messageText({ kind: 'timerFinished', label: 'Focus' }, t)).toBe('Focus finished');
     expect(messageText({ kind: 'nowPlaying', title: 'Song', artist: 'Artist' }, t)).toBe(
       'Song · Artist',
@@ -265,6 +268,26 @@ describe('strip content mapping', () => {
         0,
       ).description,
     ).toBe('Buds connected, battery 80%');
+    // A low device battery is one fact: the name, the word, the level.
+    expect(
+      present(
+        {
+          kind: 'notice',
+          notice: {
+            id: 'bluetooth:low:buds',
+            module: 'bluetooth',
+            priority: 85,
+            leading: { kind: 'icon', glyph: 'headphones', tint: 'orange' },
+            trailing: { kind: 'battery', percent: 20, charging: false },
+            wide: { kind: 'deviceBatteryLow', name: 'Buds', percent: 20 },
+            holdMs: 0,
+          },
+        },
+        t,
+        'en',
+        0,
+      ),
+    ).toMatchObject({ text: 'Buds battery low', wide: true, description: 'Buds battery low, 20%' });
     // A HUD notice reads its glyph then the level; the glyph names the control.
     expect(
       present(
