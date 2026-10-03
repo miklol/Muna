@@ -185,37 +185,4 @@ export function ActionRow({ label, description, action }: ActionRowProps) {
   return <ListRow label={label} description={description} trailingIsControl trailing={action} />;
 }
 
-interface KeysProps {
-  /** `tauri-plugin-global-shortcut` syntax, e.g. `ctrl+alt+space`. */
-  shortcut: string;
-}
-
-const keyNames: Record<string, string> = {
-  ctrl: 'Ctrl',
-  control: 'Ctrl',
-  alt: 'Alt',
-  shift: 'Shift',
-  super: 'Win',
-  meta: 'Win',
-  cmd: 'Win',
-  space: 'Space',
-};
-
-const keyName = (key: string): string =>
-  keyNames[key.toLowerCase()] ?? (key.length === 1 ? key.toUpperCase() : key);
-
-/** Renders a shortcut as keyboard caps. */
-export function Keys({ shortcut }: KeysProps) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      {shortcut.split('+').map((key, index) => (
-        <kbd
-          key={`${key}-${index}`}
-          className="rounded-control bg-surface-2 px-1.5 py-0.5 font-sans text-caption font-medium text-text-1"
-        >
-          {keyName(key)}
-        </kbd>
-      ))}
-    </span>
-  );
-}
+export { Keys, type KeysProps } from '../lib/keys';

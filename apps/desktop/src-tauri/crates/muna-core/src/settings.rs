@@ -17,7 +17,13 @@ use thiserror::Error;
 
 use crate::shell_settings::ShellSettings;
 
-pub const CURRENT_VERSION: u32 = 4;
+pub const CURRENT_VERSION: u32 = 5;
+
+/// The keyboard-shortcuts module's namespace under `modules` (v5); the migration from v4 moves
+/// the shell's toggle hotkey there.
+pub const KEYBOARD_SHORTCUTS_KEY: &str = "keyboard-shortcuts";
+/// The action id of the panel toggle in that namespace's `bindings`.
+pub const TOGGLE_PANEL_ACTION: &str = "shell.togglePanel";
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -172,12 +178,51 @@ fn migrate(value: &mut Value, from: u32) {
                         .or_insert_with(|| Value::Bool(true));
                 }
             }
+            // v5 (M4-E6): every global shortcut lives in the keyboard-shortcuts namespace. The
+            // shell's `toggleHotkey` becomes `bindings["shell.togglePanel"]` there — an empty
+            // chord stays unbound — and leaves `shell`, whose struct rejects unknown fields.
+            4 => migrate_toggle_hotkey(value),
             _ => unreachable!("migration from version {version} is not defined"),
         }
         version += 1;
         if let Some(object) = value.as_object_mut() {
             object.insert("version".into(), Value::from(version));
         }
+    }
+}
+
+fn migrate_toggle_hotkey(value: &mut Value) {
+    let chord = value
+        .get_mut("shell")
+        .and_then(Value::as_object_mut)
+        .and_then(|shell| shell.remove("toggleHotkey"))
+        .and_then(|chord| chord.as_str().map(str::trim).map(str::to_owned))
+        .filter(|chord| !chord.is_empty());
+    let Some(chord) = chord else {
+        return;
+    };
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+    let modules = object
+        .entry("modules")
+        .or_insert_with(|| Value::Object(serde_json::Map::default()));
+    let Some(modules) = modules.as_object_mut() else {
+        return;
+    };
+    let namespace = modules
+        .entry(KEYBOARD_SHORTCUTS_KEY)
+        .or_insert_with(|| Value::Object(serde_json::Map::default()));
+    let Some(namespace) = namespace.as_object_mut() else {
+        return;
+    };
+    let bindings = namespace
+        .entry("bindings")
+        .or_insert_with(|| Value::Object(serde_json::Map::default()));
+    if let Some(bindings) = bindings.as_object_mut() {
+        bindings
+            .entry(TOGGLE_PANEL_ACTION)
+            .or_insert_with(|| Value::String(chord));
     }
 }
 
@@ -282,7 +327,7 @@ mod tests {
     fn version_three_files_count_as_onboarded_and_keep_the_rest() {
         let json = r#"{"version":3,"general":{"launchAtLogin":true,"reducedMotion":"on","accent":"pink"},"shell":{"hideFromCaptures":false,"toggleHotkey":"ctrl+alt+space","defaults":{"enabled":true,"mode":"reserved","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{},"moduleOrder":["bluetooth"],"disabledModules":["battery"]},"modules":{}}"#;
         let settings = Settings::from_json(json).unwrap();
-        assert_eq!(settings.version, 4);
+        assert_eq!(settings.version, CURRENT_VERSION);
         assert!(settings.general.onboarded);
         assert!(settings.general.launch_at_login);
         assert_eq!(settings.general.accent, "pink");
@@ -291,6 +336,42 @@ mod tests {
         assert_eq!(
             settings.shell.defaults.mode,
             crate::shell_settings::PlacementMode::Reserved
+        );
+    }
+
+    #[test]
+    fn version_four_files_move_the_toggle_hotkey_into_the_shortcuts_namespace() {
+        let json = r#"{"version":4,"general":{"launchAtLogin":false,"reducedMotion":"system","accent":"blue","onboarded":true},"shell":{"hideFromCaptures":false,"toggleHotkey":"ctrl+shift+m","defaults":{"enabled":true,"mode":"overlay","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{},"moduleOrder":[],"disabledModules":[]},"modules":{"media":{"showArtwork":false}}}"#;
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(settings.version, 5);
+        assert_eq!(
+            settings.modules[KEYBOARD_SHORTCUTS_KEY],
+            serde_json::json!({ "bindings": { TOGGLE_PANEL_ACTION: "ctrl+shift+m" } })
+        );
+        assert_eq!(
+            settings.modules["media"],
+            serde_json::json!({ "showArtwork": false })
+        );
+    }
+
+    #[test]
+    fn version_four_files_with_an_empty_toggle_hotkey_stay_unbound() {
+        let json = r#"{"version":4,"general":{"launchAtLogin":false,"reducedMotion":"system","accent":"blue","onboarded":true},"shell":{"hideFromCaptures":false,"toggleHotkey":"  ","defaults":{"enabled":true,"mode":"overlay","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{},"moduleOrder":[],"disabledModules":[]},"modules":{}}"#;
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(settings.version, CURRENT_VERSION);
+        assert!(!settings.modules.contains_key(KEYBOARD_SHORTCUTS_KEY));
+    }
+
+    #[test]
+    fn migration_keeps_a_binding_the_namespace_already_has() {
+        let json = r#"{"version":4,"general":{"launchAtLogin":false,"reducedMotion":"system","accent":"blue","onboarded":true},"shell":{"hideFromCaptures":false,"toggleHotkey":"ctrl+alt+space","defaults":{"enabled":true,"mode":"overlay","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{},"moduleOrder":[],"disabledModules":[]},"modules":{"keyboard-shortcuts":{"bindings":{"shell.togglePanel":"alt+f1"},"onlyWhileHovering":true}}}"#;
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(
+            settings.modules[KEYBOARD_SHORTCUTS_KEY],
+            serde_json::json!({
+                "bindings": { TOGGLE_PANEL_ACTION: "alt+f1" },
+                "onlyWhileHovering": true
+            })
         );
     }
 

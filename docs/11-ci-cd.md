@@ -383,7 +383,7 @@ feature it checks exists). Renaming one is a `ci` change that updates the workfl
 | -------- | ---------- |
 | `lint`, `typecheck`, `test` | Whole-workspace lint, `tsc --noEmit`, Vitest (`test -- --run --coverage` in CI) |
 | `i18n:check` | `scripts/i18n-check.mjs`; fails on missing/unused `en` keys |
-| `storybook:ci` | `build-storybook` into `packages/ui/storybook-static`, then `test-storybook` with axe against it |
+| `storybook:ci` | For the design system and the desktop app in turn: `build-storybook` into `<project>/storybook-static`, then `test-storybook` with axe against it (`packages/ui` is the artifact the workflow uploads) |
 | `contracts:generate` | Regenerates `packages/contracts` from tauri-specta; CI diffs the result |
 | `licenses:check` | `license-checker-rseidelsohn` with the allowlist above |
 | `bundle:check` | `scripts/bundle-size.mjs` against the budgets above |

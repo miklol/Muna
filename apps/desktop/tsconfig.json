@@ -6,6 +6,8 @@
   "include": [
     "src",
     "tests",
+    ".storybook/**/*.ts",
+    ".storybook/**/*.tsx",
     "vite.config.ts",
     "vitest.config.ts",
     "vitest.setup.ts",

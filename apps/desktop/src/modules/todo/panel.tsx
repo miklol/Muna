@@ -16,7 +16,7 @@ import {
 } from '@muna/ui';
 import { CalendarClock, ListChecks, Plus, Trash2, Undo2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { describeDue, type DueWords, isOverdue } from './due-label';
@@ -78,6 +78,22 @@ export function TodoPanel() {
   const [chosenListId, setChosenListId] = useState<string>(TODO_INBOX_LIST_ID);
   const [view, setView] = useState<View>('list');
   const [draft, setDraft] = useState('');
+  const quickAddPending = useTodoStore((store) => store.quickAddPending);
+  const consumeQuickAdd = useTodoStore((store) => store.consumeQuickAdd);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const loaded = snapshot !== null;
+  if (quickAddPending && view !== 'list') {
+    // The `todo.quickAdd` action while the trash shows: back to the list, adjusted during render.
+    setView('list');
+  }
+
+  // Once the tasks are here and the list shows, put the caret in the add field. The field's
+  // focus pins the notch and makes the window focusable (shell machine, `fieldFocus`).
+  useEffect(() => {
+    if (!quickAddPending || !loaded || view !== 'list') return;
+    consumeQuickAdd();
+    panelRef.current?.querySelector('input')?.focus();
+  }, [quickAddPending, loaded, view, consumeQuickAdd]);
 
   const locale = i18n.resolvedLanguage ?? i18n.language;
   const words = useMemo<DueWords>(
@@ -119,7 +135,12 @@ export function TodoPanel() {
   };
 
   return (
-    <div className="todo-panel" data-view={view} data-lists={lists.length > 1 || undefined}>
+    <div
+      ref={panelRef}
+      className="todo-panel"
+      data-view={view}
+      data-lists={lists.length > 1 || undefined}
+    >
       <div className="todo-toolbar">
         {trash ? (
           <div className="todo-trash-heading">

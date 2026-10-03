@@ -49,6 +49,31 @@ Derived from the spec template in [`modules/README.md`](modules/README.md):
 4. Settings schema default + at least one migration test.
 5. Storybook stories: `Default`, `Empty`, `Loading`, `Error`, `LongContent`, `RTL`, `ReducedMotion`.
 
+### Module stories (`apps/desktop/.storybook`)
+
+Desktop stories live next to the source (`*.stories.tsx`) and run in the app's own Storybook
+(`pnpm -w storybook:desktop`, port 6007); `storybook:ci` builds and axe-tests it after the
+design system's. The preview extends `@muna/ui/storybook` and adds what a module needs to
+render outside Tauri:
+
+- `parameters.ipc` — fake commands by name (`get_hotkeys: () => bindings`). A Storybook loader
+  installs them through `@tauri-apps/api/mocks` before the story renders, so a component's
+  first `commands.*` call on mount already gets an answer; `refuse(code, message)` from
+  `src/storybook/ipc.ts` fails a `typedError` command the way Rust does. Events are routed
+  in-page, so a story may `emit()` what a component listens for. Unmocked commands reject
+  loudly and log a warning.
+- `parameters.settings` — the document `get_settings` returns (a value or a recipe over
+  `defaultSettings()`); `update_settings` round-trips through it.
+- `parameters.window` — `notch` (default) or `settings`, which sets `body[data-window]` and the
+  window label so the right stylesheet applies.
+- `src/storybook/frames.tsx` — `PanelFrame` (the expanded island with the shell's `Panel`
+  header) for panels and `SettingsPaneFrame` (column width, title, `SettingsEditorProvider`)
+  for settings panes. Stories keep the module's `titleKey`; i18n and a primed query cache come
+  from the preview.
+
+Interaction states use `play` functions (`storybook/test`); the axe opt-outs the design-system
+runner accepts (`parameters.a11y.config.rules`, each with a comment saying why) apply here too.
+
 ## Notch shell scenario suite (harness page)
 
 The harness mounts the real shell with `FakePlatform` and asserts state + shape rects:

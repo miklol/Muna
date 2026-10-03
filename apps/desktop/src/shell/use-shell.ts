@@ -73,18 +73,21 @@ export function useShellLayoutSubscription() {
   }, [setShellLayout, setYieldState]);
 }
 
-/** The shell's toggle hotkey was pressed over this window's monitor (`ShellToggleRequested`). */
-export function useShellToggleSubscription(onToggle: () => void) {
+/**
+ * A global hotkey fired over this window's monitor (`HotkeyPressed`); `action` is the id the
+ * chord is bound to, resolved against the shell's actions and the module registry.
+ */
+export function useHotkeySubscription(onAction: (action: string) => void) {
   useEffect(() => {
     const label = currentWindowLabel();
     return listenWhileMounted(() =>
-      events.shellToggleRequested.listen((event) => {
+      events.hotkeyPressed.listen((event) => {
         if (event.payload.label === label) {
-          onToggle();
+          onAction(event.payload.action);
         }
       }),
     );
-  }, [onToggle]);
+  }, [onAction]);
 }
 
 /**

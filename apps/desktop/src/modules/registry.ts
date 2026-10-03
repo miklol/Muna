@@ -6,6 +6,7 @@ import { calendarModule } from './calendar';
 import { dashboardModule } from './dashboard';
 import { dayProgressModule } from './day-progress';
 import { hudModule } from './hud';
+import { keyboardShortcutsModule } from './keyboard-shortcuts';
 import { mediaModule } from './media';
 import { notificationsModule } from './notifications';
 import { pomodoroModule } from './pomodoro';
@@ -26,6 +27,28 @@ export interface ModuleIconProps {
  */
 export interface WidgetProps {
   readonly span: 1 | 2;
+}
+
+/**
+ * What the shell hands a module action when it runs (docs/modules/keyboard-shortcuts.md):
+ * the panel controls a module cannot reach on its own. Actions run from a global hotkey or the
+ * command palette, on whichever notch the cursor is over.
+ */
+export interface ModuleActionContext {
+  /** Opens the panel on the module (a no-op when it is already showing it). */
+  readonly openModule: (id: string) => void;
+}
+
+/**
+ * One thing a module can do on request — bindable to a global hotkey in Settings › Keyboard
+ * shortcuts and listed in the command palette. Ids are `<module>.<verb>` (`todo.quickAdd`);
+ * they are what the settings document stores, so they never change once shipped.
+ */
+export interface ModuleAction {
+  readonly id: string;
+  /** Message key of the label the palette and the shortcuts pane show. */
+  readonly labelKey: MessageKey;
+  readonly run: (context: ModuleActionContext) => void | Promise<void>;
 }
 
 /**
@@ -57,7 +80,17 @@ export interface ModuleDefinition {
    * the idle bundle stays small; the window wraps it in `Suspense`.
    */
   readonly settings?: ComponentType;
+  /**
+   * Actions other surfaces may trigger (docs/modules/keyboard-shortcuts.md): each becomes a
+   * row in Settings › Keyboard shortcuts and an entry in the command palette. Unbound by
+   * default; the user picks the chords.
+   */
+  readonly actions?: readonly ModuleAction[];
 }
+
+/** Every action the registered modules declare, in module order. */
+export const moduleActions = (definitions: readonly ModuleDefinition[]): readonly ModuleAction[] =>
+  definitions.flatMap((module) => module.actions ?? []);
 
 /**
  * Every module, in default order; Settings → Modules reorders and disables from here. The
@@ -76,6 +109,7 @@ export const modules: readonly ModuleDefinition[] = [
   weatherModule,
   dayProgressModule,
   hudModule,
+  keyboardShortcutsModule,
 ];
 
 export const findModule = (id: string): ModuleDefinition | undefined =>

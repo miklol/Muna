@@ -1,15 +1,18 @@
-// Storybook gate for the `web` job: build the static Storybook, serve it locally, then run
-// the test-runner (which executes axe on every story). Uses a plain node:http server so the
-// gate has no extra dependencies.
+// Storybook gate for the `web` job: for each Storybook project (the design system, then the
+// desktop module states) build the static Storybook, serve it locally, then run the test-runner
+// (which executes axe on every story). Uses a plain node:http server so the gate has no extra
+// dependencies.
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { repoRoot, run, runAsync } from './lib.mjs';
 
-const uiDir = path.join(repoRoot, 'packages', 'ui');
-const staticDir = path.join(uiDir, 'storybook-static');
-const port = Number(process.env.STORYBOOK_CI_PORT ?? 6006);
+const projects = [
+  { filter: '@muna/ui', dir: path.join(repoRoot, 'packages', 'ui') },
+  { filter: '@muna/desktop', dir: path.join(repoRoot, 'apps', 'desktop') },
+];
+const basePort = Number(process.env.STORYBOOK_CI_PORT ?? 6006);
 
 const mime = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -26,7 +29,7 @@ const mime = new Map([
   ['.txt', 'text/plain; charset=utf-8'],
 ]);
 
-function serve() {
+function serve(staticDir, port) {
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', `http://127.0.0.1:${port}`);
     let file = path.join(staticDir, decodeURIComponent(url.pathname));
@@ -51,29 +54,31 @@ function serve() {
   });
 }
 
-run('pnpm', ['--filter', '@muna/ui', 'build-storybook']);
-
 // Idempotent; downloads Chromium once per runner (see the Development section of README.md).
 run('pnpm', ['--filter', '@muna/ui', 'exec', 'playwright', 'install', 'chromium']);
 
-const server = await serve();
-try {
-  // Must be async: a blocking spawn would freeze the event loop and the server with it.
-  await runAsync(
-    'pnpm',
-    [
-      '--filter',
-      '@muna/ui',
-      'exec',
-      'test-storybook',
-      '--url',
-      `http://127.0.0.1:${port}`,
-      '--ci',
-      '--maxWorkers=2',
-    ],
-    { env: { STORYBOOK_DISABLE_TELEMETRY: '1' } },
-  );
-} finally {
-  server.close();
+for (const [index, project] of projects.entries()) {
+  const port = basePort + index;
+  run('pnpm', ['--filter', project.filter, 'build-storybook']);
+  const server = await serve(path.join(project.dir, 'storybook-static'), port);
+  try {
+    // Must be async: a blocking spawn would freeze the event loop and the server with it.
+    await runAsync(
+      'pnpm',
+      [
+        '--filter',
+        project.filter,
+        'exec',
+        'test-storybook',
+        '--url',
+        `http://127.0.0.1:${port}`,
+        '--ci',
+        '--maxWorkers=2',
+      ],
+      { env: { STORYBOOK_DISABLE_TELEMETRY: '1' } },
+    );
+  } finally {
+    server.close();
+  }
+  console.log(`storybook:ci ok (${project.filter})`);
 }
-console.log('storybook:ci ok');
