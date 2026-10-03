@@ -48,6 +48,10 @@ pub mod priority {
     /// the task named a moment the user chose, and rises to [`EVENT_STARTING`] at ten
     /// minutes.
     pub const EVENT_UPCOMING: u8 = 50;
+    /// A review request or a finished check run on the user's pull request
+    /// (docs/modules/code-hosting.md): a notice that pre-empts what is on the strip while it
+    /// holds, ordered among notices under a task or an event the user themselves scheduled.
+    pub const CODE_HOSTING: u8 = 45;
     pub const UNREAD: u8 = 40;
     pub const SESSION: u8 = 30;
     pub const MEDIA_PAUSED: u8 = 20;
@@ -122,6 +126,10 @@ pub enum Glyph {
     Drive,
     /// A tray (docs/modules/shelf.md): items parked on the Shelf.
     Shelf,
+    /// A pull request (docs/modules/code-hosting.md): a review was requested.
+    PullRequest,
+    /// A circle with a cross (docs/modules/code-hosting.md): checks failed on a pull request.
+    XCircle,
 }
 
 /// The leading (left) slot of the strip.
@@ -291,6 +299,17 @@ pub enum StripMessage {
     /// A drop action failed or was cancelled by the user; the reason stays in the log.
     DropFailed {
         action: DropActionKind,
+    },
+    /// Someone asked the user to review a pull request (docs/modules/code-hosting.md); the
+    /// title is content and is never logged. The UI phrases it ("Review requested · title").
+    ReviewRequested {
+        title: String,
+    },
+    /// The checks on a pull request the user opened finished (docs/modules/code-hosting.md);
+    /// the title is content and is never logged.
+    ChecksFinished {
+        title: String,
+        passed: bool,
     },
 }
 

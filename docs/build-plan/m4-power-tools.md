@@ -94,6 +94,27 @@ and branching from `main` would only move the conflicts. One PR per epic, phases
   per-monitor-DPI resizes. Details in
   [window-snap → Implementation notes](../modules/window-snap.md#implementation-notes-m4-e3);
   hardware rows in [qa/checklists/window-snap](../qa/checklists/window-snap.md).
+- **M4-E4 Code hosting — built** (branch `m4-e4-code-hosting`, stacked on
+  `m4-e3-window-snap`). GitHub behind a personal access token: one GraphQL request per poll
+  (`viewer` plus the *review-requested* and *author* searches with the check rollup), every
+  two minutes while on, connected and unlocked, backing off to 30 minutes on failures and
+  stopping on a refused token; the token in Credential Manager (`muna_platform::Secrets`)
+  read at every poll, the last queue cached in `Store` meta for an offline start; the two
+  strip notices at priority 45 with a cap of three per poll; the panel with *To review /
+  Mine / All* chips, the widget, and the pane with the masked connect form and *Disconnect*.
+  Against the plan: **GraphQL, not REST** — ETag / `If-None-Match` and `X-Poll-Interval` do
+  not apply, the fixed two-minute cadence, the backoff and the `rateLimited` case are the
+  rate-limit friendliness the soak measures; **no `Http` platform trait** — `reqwest` stays
+  inside the module behind the `CodeHost` trait like the weather and calendar providers, so
+  the row below did not materialise; **no avatars** (the notch's CSP allows only local images
+  and the UI never makes network calls; rows show the author's initial); **a notice, not a
+  live activity**, for finished checks; **PAT only** — spike S4's device flow still waits for
+  a maintainer OAuth client id and plugs into the same trait; GitLab, Bitbucket, Jira and
+  GitHub notifications are deferred. The module's Rust `FetchError` is `CodeHostError`:
+  specta refuses two exported types with one name. Turning the module off keeps the token,
+  the cache **and the account in view**, so the pane still offers *Disconnect*. Details in
+  [code-hosting → Implementation notes](../modules/code-hosting.md#implementation-notes-m4-e4);
+  network and account rows in [qa/checklists/code-hosting](../qa/checklists/code-hosting.md).
 
 ### Order
 

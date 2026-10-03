@@ -6,7 +6,13 @@
 import { z } from 'zod';
 
 import type {
+  Account,
   Activity,
+  ChecksState,
+  CodeHostError,
+  CodeHostingChanged,
+  CodeHostingCommand,
+  CodeHostingSnapshot,
   DragOutRequest,
   DragOutcome,
   DragSpike,
@@ -37,7 +43,10 @@ import type {
   Place,
   PlacementMode,
   PomodoroPhase,
+  Provider,
+  PullRequest,
   ReducedMotion,
+  ReviewDecision,
   Settings,
   ShelfChanged,
   ShelfCommand,
@@ -190,6 +199,8 @@ export const glyphSchema = z.enum([
   'trash',
   'drive',
   'shelf',
+  'pullRequest',
+  'xCircle',
 ]) satisfies z.ZodType<Glyph>;
 
 /** What a drop action does with the items (docs/modules/drop-actions.md "Tiles"). */
@@ -289,6 +300,8 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
     count: z.number().int().min(0),
   }),
   z.object({ kind: z.literal('dropFailed'), action: dropActionKindSchema }),
+  z.object({ kind: z.literal('reviewRequested'), title: z.string() }),
+  z.object({ kind: z.literal('checksFinished'), title: z.string(), passed: z.boolean() }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({
@@ -1560,3 +1573,159 @@ export const snapDragEndedSchema = z.object({
   session: z.number().int().min(0),
   label: z.string().min(1).nullable(),
 }) satisfies z.ZodType<SnapDragEnded>;
+
+/** The key of the code-hosting module's namespace; also its module id. */
+export const CODE_HOSTING_SETTINGS_KEY = 'code-hosting';
+
+/**
+ * How often the module asks the host for the queue once connected, in milliseconds (mirrors
+ * `modules::code_hosting::POLL`); the settings pane says so.
+ */
+export const CODE_HOSTING_POLL_MS = 2 * 60 * 1000;
+
+/** The longest token accepted (mirrors `modules::code_hosting::provider::MAX_TOKEN_CHARS`). */
+export const CODE_HOSTING_MAX_TOKEN_CHARS = 255;
+
+/** The credential-vault key the token is kept under (mirrors `modules::code_hosting::TOKEN_KEY`). */
+export const CODE_HOSTING_TOKEN_KEY = 'code-hosting.github.token';
+
+/** The strip ids the code-hosting module publishes under (mirrors `modules::code_hosting`). */
+export const CODE_HOSTING_STRIP_IDS = {
+  /** Review-request notices are `code-hosting:review:<pull request id>`. */
+  reviewPrefix: 'code-hosting:review:',
+  /** Checks notices are `code-hosting:checks:<pull request id>`. */
+  checksPrefix: 'code-hosting:checks:',
+} as const;
+
+/**
+ * Mirrors `modules::code_hosting::settings::NoticeSettings`: which changes to the queue reach
+ * the strip as notices.
+ */
+export const codeHostingNoticeSettingsSchema = z.object({
+  /** A pull request newly asks for the account's review. */
+  reviewRequested: z.boolean().default(true),
+  /** The checks on one of the account's own pull requests finish, passing or failing. */
+  checksFinished: z.boolean().default(true),
+});
+export type CodeHostingNoticeSettings = z.infer<typeof codeHostingNoticeSettingsSchema>;
+
+/**
+ * Mirrors `modules::code_hosting::CodeHostingSettings`: off by default (nothing is sent until
+ * the user turns it on and connects), defaults for missing fields, and a wrong type fails the
+ * whole entry, like the Rust side. The token itself lives in the credential vault, never here.
+ */
+export const codeHostingSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  notices: codeHostingNoticeSettingsSchema.prefault({}),
+});
+export type CodeHostingSettings = z.infer<typeof codeHostingSettingsSchema>;
+
+export const defaultCodeHostingSettings = (): CodeHostingSettings =>
+  codeHostingSettingsSchema.parse({});
+
+/** Reads the code-hosting namespace; a missing or malformed entry yields the defaults. */
+export const readCodeHostingSettings = (settings: Settings): CodeHostingSettings => {
+  const parsed = codeHostingSettingsSchema.safeParse(
+    settings.modules[CODE_HOSTING_SETTINGS_KEY] ?? {},
+  );
+  return parsed.success ? parsed.data : defaultCodeHostingSettings();
+};
+
+/** Returns a new document with the code-hosting namespace replaced. */
+export const writeCodeHostingSettings = (
+  settings: Settings,
+  codeHosting: CodeHostingSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [CODE_HOSTING_SETTINGS_KEY]: codeHosting },
+});
+
+export const codeHostProviderSchema = z.enum(['gitHub']) satisfies z.ZodType<Provider>;
+
+export const checksStateSchema = z.enum([
+  'none',
+  'pending',
+  'success',
+  'failure',
+]) satisfies z.ZodType<ChecksState>;
+
+export const reviewDecisionSchema = z.enum([
+  'none',
+  'reviewRequired',
+  'approved',
+  'changesRequested',
+]) satisfies z.ZodType<ReviewDecision>;
+
+/** Why a poll or a connect produced no queue; one sentence per case in the UI. */
+export const codeHostErrorSchema = z.enum([
+  'offline',
+  'unauthorized',
+  'rateLimited',
+  'provider',
+]) satisfies z.ZodType<CodeHostError>;
+
+/** The connected account as the settings pane names it. */
+export const codeHostAccountSchema = z.object({
+  provider: codeHostProviderSchema,
+  login: z.string(),
+  avatarUrl: z.string().nullable(),
+}) satisfies z.ZodType<Account>;
+
+/** One row of the review queue (docs/modules/code-hosting.md "Reference"). */
+export const pullRequestSchema = z.object({
+  id: z.string().min(1),
+  provider: codeHostProviderSchema,
+  repo: z.string(),
+  number: z.number().int().min(0),
+  title: z.string(),
+  url: z.string(),
+  author: z.string(),
+  authorAvatarUrl: z.string().nullable(),
+  draft: z.boolean(),
+  additions: z.number().int().min(0),
+  deletions: z.number().int().min(0),
+  changedFiles: z.number().int().min(0),
+  checks: checksStateSchema,
+  reviewDecision: reviewDecisionSchema,
+  updatedAtMs: z.number().int().min(0),
+  reviewRequested: z.boolean(),
+  mine: z.boolean(),
+}) satisfies z.ZodType<PullRequest>;
+
+/** What `commands.getCodeHostingSnapshot` returns and `events.codeHostingChanged` carries. */
+export const codeHostingSnapshotSchema = z.object({
+  enabled: z.boolean(),
+  account: codeHostAccountSchema.nullable(),
+  pullRequests: z.array(pullRequestSchema),
+  fetchedAtMs: z.number().int().min(0).nullable(),
+  fetching: z.boolean(),
+  error: codeHostErrorSchema.nullable(),
+}) satisfies z.ZodType<CodeHostingSnapshot>;
+
+export const codeHostingChangedSchema = z.object({
+  snapshot: codeHostingSnapshotSchema,
+}) satisfies z.ZodType<CodeHostingChanged>;
+
+/** The argument of `commands.codeHostingCommand`. */
+export const codeHostingCommandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('refresh') }),
+]) satisfies z.ZodType<CodeHostingCommand>;
+
+/** The filter chips the panel offers; UI state only, never persisted. */
+export const CODE_HOSTING_FILTERS = ['toReview', 'mine', 'all'] as const;
+export type CodeHostingFilter = (typeof CODE_HOSTING_FILTERS)[number];
+
+/** The rows of `pullRequests` that `filter` keeps, in the order the module sent them. */
+export const filterPullRequests = (
+  pullRequests: readonly PullRequest[],
+  filter: CodeHostingFilter,
+): PullRequest[] => {
+  switch (filter) {
+    case 'toReview':
+      return pullRequests.filter((row) => row.reviewRequested);
+    case 'mine':
+      return pullRequests.filter((row) => row.mine);
+    case 'all':
+      return [...pullRequests];
+  }
+};

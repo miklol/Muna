@@ -91,7 +91,10 @@
         "trash": "Could not delete",
         "eject": "Could not eject the drive",
         "shelf": "Could not add to the Shelf"
-      }
+      },
+      "reviewRequested": "Review requested: {{title}}",
+      "checksPassed": "Checks passed: {{title}}",
+      "checksFailed": "Checks failed: {{title}}"
     },
     "describe": {
       "battery": "Battery {{percent}}",
@@ -119,7 +122,10 @@
       "notificationArrived": "New from {{app}}: {{title}}",
       "notificationLatest": "Unread from {{app}}: {{title}}",
       "notificationUnread_one": "{{count}} unread, latest from {{app}}: {{title}}",
-      "notificationUnread_other": "{{count}} unread, latest from {{app}}: {{title}}"
+      "notificationUnread_other": "{{count}} unread, latest from {{app}}: {{title}}",
+      "reviewRequested": "Your review is requested on {{title}}",
+      "checksPassed": "Checks passed on {{title}}",
+      "checksFailed": "Checks failed on {{title}}"
     },
     "glyph": {
       "battery": "Battery",
@@ -150,7 +156,9 @@
       "share": "Share",
       "trash": "Recycle bin",
       "drive": "Drive",
-      "shelf": "Shelf"
+      "shelf": "Shelf",
+      "pullRequest": "Pull request",
+      "xCircle": "Failed"
     }
   },
   "spike": {
@@ -962,6 +970,116 @@
       "cols": "Columns",
       "gap": "Gap",
       "px": "{{value}} px"
+    }
+  },
+  "codeHosting": {
+    "title": "Code hosting",
+    "queue": "Pull requests",
+    "actions": {
+      "refresh": "Refresh the review queue"
+    },
+    "filter": {
+      "label": "Show",
+      "toReview": "To review",
+      "mine": "Mine",
+      "all": "All"
+    },
+    "provider": {
+      "gitHub": "GitHub"
+    },
+    "refresh": "Refresh",
+    "refreshing": "Refreshing",
+    "updated": "Updated {{time}}",
+    "open": "Open {{title}} on {{provider}}",
+    "draft": "Draft",
+    "pullRequest": "{{repo}} #{{number}}",
+    "byAuthor": "by {{author}}",
+    "changes": "+{{additions}} −{{deletions}}",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "checks": {
+      "none": "No checks",
+      "pending": "Checks running",
+      "success": "Checks passed",
+      "failure": "Checks failed"
+    },
+    "review": {
+      "reviewRequired": "Review required",
+      "approved": "Approved",
+      "changesRequested": "Changes requested"
+    },
+    "count_one": "{{count}} pull request",
+    "count_other": "{{count}} pull requests",
+    "error": {
+      "offline": "Offline, showing the queue from {{time}}",
+      "offlineNoCache": "Offline. The queue appears when the connection is back.",
+      "unauthorized": "GitHub no longer accepts the token. Connect again in Settings.",
+      "rateLimited": "GitHub asked for a pause. The queue refreshes in a while.",
+      "provider": "GitHub answered with something unexpected. Muna tries again in a while."
+    },
+    "empty": {
+      "off": {
+        "title": "Code hosting is off",
+        "body": "Turn it on in Settings and connect a GitHub account to see pull requests waiting on you.",
+        "action": "Open settings"
+      },
+      "connect": {
+        "title": "No account connected",
+        "body": "Connect a GitHub account in Settings with a token that can read your repositories.",
+        "action": "Open settings"
+      },
+      "toReview": {
+        "title": "Nothing to review",
+        "body": "Pull requests that ask for your review appear here within a couple of minutes."
+      },
+      "mine": {
+        "title": "No open pull requests of yours",
+        "body": "Your own open pull requests and their checks appear here."
+      },
+      "all": {
+        "title": "No open pull requests",
+        "body": "Pull requests that ask for your review, and your own, appear here."
+      }
+    },
+    "widget": {
+      "label": "Review queue",
+      "waiting_one": "{{count}} waiting for your review",
+      "waiting_other": "{{count}} waiting for your review",
+      "none": "Nothing to review",
+      "off": "Code hosting is off",
+      "connect": "Connect a GitHub account in Settings"
+    },
+    "settings": {
+      "section": "GitHub",
+      "privacy": "Muna asks api.github.com for open pull requests that mention you every two minutes while it runs. The token stays in Windows Credential Manager and never appears in the settings file, an export or the log.",
+      "enabled": "Show pull requests",
+      "enabledBody": "Lists pull requests waiting for your review and your own, with their checks.",
+      "connect": "Connect a GitHub account",
+      "connectBody": "Paste a personal access token that can read the repositories you review. Fine-grained tokens need Pull requests and Metadata read access.",
+      "token": "Access token",
+      "tokenPlaceholder": "github_pat_… or ghp_…",
+      "createToken": "Create a token",
+      "connectAction": "Connect",
+      "connecting": "Checking the token…",
+      "connected": "Connected as {{login}}",
+      "connectedBody": "Signed in to {{provider}}. Disconnect to forget the token and the queue.",
+      "disconnect": "Disconnect",
+      "connectFailed": {
+        "disabled": "Turn code hosting on first.",
+        "empty": "Paste a token first.",
+        "malformed": "That does not look like a token. Paste it without spaces or quotes.",
+        "offline": "GitHub could not be reached. Check the connection and try again.",
+        "unauthorized": "GitHub refused the token. Check that it can read your repositories and has not expired.",
+        "rateLimited": "GitHub asked for a pause. Try again in a few minutes.",
+        "provider": "GitHub answered with something unexpected. Try again.",
+        "vault": "Windows could not store the token. Try again.",
+        "failed": "That did not work. Try again."
+      },
+      "notices": "Strip",
+      "reviewRequested": "Announce review requests",
+      "reviewRequestedBody": "A pull request that newly asks for your review shows in the strip for a moment.",
+      "checksFinished": "Announce finished checks",
+      "checksFinishedBody": "When the checks on one of your pull requests pass or fail, the strip says so."
     }
   },
   "settings": {
