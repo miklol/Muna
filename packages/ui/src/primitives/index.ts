@@ -4,7 +4,7 @@
  * needs first; M1-E4 added the panel chrome, the module bar and the shared controls; M1-E2 the
  * strip's slot renderers; M1-E3 the search field; M1-E5 the option tiles; M2-E2 the media
  * pieces (album art, marquee, waveform); M2-E3 the HUD level track; M3-E2 the checkbox and
- * text field; M3-E1 the month grid.
+ * text field; M3-E1 the month grid; M4-E7 the text area.
  */
 export { AlbumArt, type AlbumArtProps, paletteVars } from './album-art';
 export { BatteryGlyph, type BatteryGlyphProps, batteryLevels, batteryTint } from './battery-glyph';
@@ -62,6 +62,7 @@ export {
   stripSlotOffsetPx,
 } from './strip-view';
 export { Text, type TextProps, type TextTone, type TextVariant } from './text';
+export { TextArea, type TextAreaProps } from './text-area';
 export { TextField, type TextFieldProps } from './text-field';
 export { formatCountdown, remainingNow, TimerText, type TimerTextProps } from './timer-text';
 export { Toggle, type ToggleProps } from './toggle';

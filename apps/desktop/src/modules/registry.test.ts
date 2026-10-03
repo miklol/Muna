@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { dropModuleOf, findModule, modules, snapModuleOf } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf, window snap and code hosting (M4)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf, window snap, code hosting and notes (M4)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
@@ -21,6 +21,7 @@ describe('module registry', () => {
       'shelf',
       'window-snap',
       'code-hosting',
+      'notes',
     ]);
     expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
     expect(findModule('dashboard')?.settings).toBeDefined();
@@ -58,6 +59,9 @@ describe('module registry', () => {
     expect(findModule('code-hosting')?.titleKey).toBe('codeHosting.title');
     expect(findModule('code-hosting')?.settings).toBeDefined();
     expect(findModule('code-hosting')?.panel).toBeDefined();
+    expect(findModule('notes')?.titleKey).toBe('notes.title');
+    expect(findModule('notes')?.settings).toBeDefined();
+    expect(findModule('notes')?.panel).toBeDefined();
   });
 
   it('gives the HUD a settings pane but no panel: it lives in the strip', () => {
@@ -92,7 +96,7 @@ describe('module registry', () => {
     expect(snapModuleOf(modules.filter((module) => module.id !== 'window-snap'))).toBeUndefined();
   });
 
-  it('declares the module actions on the media, to-do, pomodoro and code-hosting modules only', () => {
+  it('declares the module actions on the media, to-do, pomodoro, code-hosting and notes modules only', () => {
     const withActions = modules
       .filter((module) => module.actions !== undefined)
       .map((module) => [module.id, module.actions?.map((action) => action.id)]);
@@ -101,6 +105,7 @@ describe('module registry', () => {
       ['todo', ['todo.quickAdd']],
       ['pomodoro', ['pomodoro.toggle']],
       ['code-hosting', ['code-hosting.refresh']],
+      ['notes', ['notes.quickNote']],
     ]);
   });
 
@@ -116,6 +121,7 @@ describe('module registry', () => {
       'weather',
       'day-progress',
       'code-hosting',
+      'notes',
     ]);
   });
 

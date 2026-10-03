@@ -10,6 +10,10 @@ import type {
   DropEntered,
   DropJob,
   HotkeyBinding,
+  NoteContent,
+  NoteDraft,
+  NotesCommand,
+  NotesSnapshot,
   Settings,
   ShelfCommand,
   ShelfItem,
@@ -52,6 +56,10 @@ import {
   HUD_VOLUME_STEP,
   KEYBOARD_SHORTCUTS_SETTINGS_KEY,
   MEDIA_SETTINGS_KEY,
+  NOTES_AUTOSAVE_MS,
+  NOTES_INBOX_ID,
+  NOTES_MAX_NOTE_BYTES,
+  NOTES_SETTINGS_KEY,
   NOTIFICATIONS_POLL_MS,
   NOTIFICATIONS_SETTINGS_KEY,
   NOTIFICATIONS_STRIP_IDS,
@@ -93,6 +101,7 @@ import {
   defaultHudSettings,
   defaultKeyboardShortcutsSettings,
   defaultMediaSettings,
+  defaultNotesSettings,
   defaultNotificationsSettings,
   defaultPomodoroSettings,
   defaultSettings,
@@ -120,6 +129,13 @@ import {
   monitorLayoutSchema,
   normaliseChord,
   normaliseSnapGrid,
+  noteContentSchema,
+  noteDraftSchema,
+  noteSchema,
+  notesChangedSchema,
+  notesCommandSchema,
+  notesSettingsSchema,
+  notesSnapshotSchema,
   pullRequestSchema,
   readCalendarSettings,
   readCodeHostingSettings,
@@ -129,6 +145,7 @@ import {
   readHudSettings,
   readKeyboardShortcutsSettings,
   readMediaSettings,
+  readNotesSettings,
   readNotificationsSettings,
   readPomodoroSettings,
   readShelfSettings,
@@ -152,6 +169,7 @@ import {
   snapZoneRefSchema,
   snapZoneSchema,
   stripContentSchema,
+  widgetNote,
   windowSnapSettingsSchema,
   writeCalendarSettings,
   writeCodeHostingSettings,
@@ -161,6 +179,7 @@ import {
   writeHudSettings,
   writeKeyboardShortcutsSettings,
   writeMediaSettings,
+  writeNotesSettings,
   writeNotificationsSettings,
   writePomodoroSettings,
   writeShelfSettings,
@@ -1755,6 +1774,116 @@ describe('code hosting schemas', () => {
     expect(filterPullRequests(rows, 'mine').map((pr) => pr.id)).toEqual(['b', 'c']);
     expect(filterPullRequests(rows, 'all').map((pr) => pr.id)).toEqual(['a', 'b', 'c']);
     expect(filterPullRequests(rows, 'all')).not.toBe(rows);
+  });
+});
+
+describe('notes schemas', () => {
+  const note = (id: string, pinned = false, modifiedMs = 1_790_600_000_000) => ({
+    id,
+    title: id.replace(/\.md$/, '').split('/').at(-1) ?? id,
+    folder: id.includes('/') ? id.split('/').slice(0, -1).join('/') : '',
+    excerpt: 'buy milk call Ann',
+    modifiedMs,
+    bytes: 26,
+    pinned,
+  });
+
+  it('uses the default folder until one is chosen', () => {
+    expect(defaultNotesSettings()).toEqual({ folder: null });
+    expect(readNotesSettings(defaultSettings())).toEqual({ folder: null });
+    expect(NOTES_SETTINGS_KEY).toBe('notes');
+    expect(NOTES_INBOX_ID).toBe('Inbox.md');
+    expect(NOTES_MAX_NOTE_BYTES).toBe(2_097_152);
+    expect(NOTES_AUTOSAVE_MS).toBe(600);
+  });
+
+  it('trims the folder, treats blank as the default and falls back on a malformed entry', () => {
+    expect(notesSettingsSchema.parse({ folder: '  D:\\Vault  ' })).toEqual({
+      folder: 'D:\\Vault',
+    });
+    expect(notesSettingsSchema.parse({ folder: '   ' })).toEqual({ folder: null });
+    expect(notesSettingsSchema.parse({})).toEqual({ folder: null });
+    const doc = writeNotesSettings(defaultSettings(), { folder: 'D:\\Vault' });
+    expect(readNotesSettings(doc)).toEqual({ folder: 'D:\\Vault' });
+    expect(readNotesSettings(writeNotesSettings(doc, { folder: null }))).toEqual({
+      folder: null,
+    });
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [NOTES_SETTINGS_KEY]: { folder: 42 } },
+    };
+    expect(readNotesSettings(broken)).toEqual(defaultNotesSettings());
+  });
+
+  it('round-trips the snapshot and its change event', () => {
+    const snapshot: NotesSnapshot = {
+      folder: 'C:\\Users\\me\\AppData\\Roaming\\Muna\\notes',
+      defaultFolder: true,
+      notes: [
+        note('Groceries.md', true),
+        note('projects/Muna.md', false, 1_790_600_060_000),
+        note('Inbox.md'),
+      ],
+      inboxId: 'Inbox.md',
+      problem: null,
+    };
+    expect(notesSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+    expect(notesChangedSchema.parse({ snapshot })).toEqual({ snapshot });
+    const away: NotesSnapshot = {
+      folder: 'E:\\Vault',
+      defaultFolder: false,
+      notes: [],
+      inboxId: null,
+      problem: 'missing',
+    };
+    expect(notesSnapshotSchema.parse(away)).toEqual(away);
+    expect(noteSchema.safeParse({ ...note('a.md'), id: '' }).success).toBe(false);
+    expect(noteSchema.safeParse({ ...note('a.md'), modifiedMs: 1.5 }).success).toBe(false);
+    expect(notesSnapshotSchema.safeParse({ ...away, problem: 'locked' }).success).toBe(false);
+    expect(notesSnapshotSchema.safeParse({ ...away, inboxId: '' }).success).toBe(false);
+    expectTypeOf<z.infer<typeof notesSnapshotSchema>>().toEqualTypeOf<NotesSnapshot>();
+  });
+
+  it('round-trips what the editor loads and sends back', () => {
+    const content: NoteContent = {
+      id: 'Inbox.md',
+      title: 'Inbox',
+      body: '- remember the milk\n',
+      modifiedMs: 1_790_600_000_000,
+    };
+    expect(noteContentSchema.parse(content)).toEqual(content);
+    const draft: NoteDraft = {
+      id: 'Inbox.md',
+      body: '- remember the milk\n- and the eggs\n',
+      baseModifiedMs: 1_790_600_000_000,
+    };
+    expect(noteDraftSchema.parse(draft)).toEqual(draft);
+    expect(noteDraftSchema.safeParse({ ...draft, baseModifiedMs: -1 }).success).toBe(false);
+    expect(noteDraftSchema.safeParse({ ...draft, id: '' }).success).toBe(false);
+    expectTypeOf<z.infer<typeof noteContentSchema>>().toEqualTypeOf<NoteContent>();
+    expectTypeOf<z.infer<typeof noteDraftSchema>>().toEqualTypeOf<NoteDraft>();
+  });
+
+  it('accepts refresh, pin and delete and nothing else', () => {
+    const commands: NotesCommand[] = [
+      { kind: 'refresh' },
+      { kind: 'pin', id: 'Groceries.md', pinned: true },
+      { kind: 'delete', id: 'projects/Muna.md' },
+    ];
+    for (const command of commands) {
+      expect(notesCommandSchema.parse(command)).toEqual(command);
+    }
+    expect(notesCommandSchema.safeParse({ kind: 'pin', id: '', pinned: true }).success).toBe(false);
+    expect(notesCommandSchema.safeParse({ kind: 'rename', id: 'a.md' }).success).toBe(false);
+    expectTypeOf<z.infer<typeof notesCommandSchema>>().toEqualTypeOf<NotesCommand>();
+  });
+
+  it('shows the head of the list in the widget', () => {
+    expect(widgetNote([])).toBeNull();
+    const pinned = note('Groceries.md', true);
+    expect(widgetNote([pinned, note('Inbox.md')])).toBe(pinned);
+    const newest = note('Inbox.md');
+    expect(widgetNote([newest])).toBe(newest);
   });
 });
 
