@@ -8,8 +8,8 @@ use crate::error::PlatformResult;
 use crate::events::PlatformEvent;
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
-    BrightnessMonitor, ForegroundWindow, MediaCommand, MediaSession, MonitorInfo, OsdState, Rect,
-    SystemSample, Thumbnail, UserNotificationState, WindowHandle,
+    BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
+    OsdState, Rect, SystemSample, Thumbnail, UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md). Snapshots come from a cache the
@@ -100,6 +100,17 @@ pub trait SystemStats: Send + Sync {
     fn sample(&self, top_processes: usize) -> PlatformResult<SystemSample>;
 }
 
+/// The device's position for the weather module (docs/modules/weather.md), from
+/// `Windows.Devices.Geolocation`. One fix per call and no tracking; the call blocks for the
+/// access check and the fix (seconds), so callers run it off the async threads.
+pub trait Location: Send + Sync {
+    /// `AccessDenied` when the user or a policy keeps location from desktop apps,
+    /// `Unsupported` when the machine has no location source, `Os` for anything else. The
+    /// implementation never asks Windows twice on its own: a denial stands until the caller
+    /// asks again.
+    fn position(&self) -> PlatformResult<GeoPosition>;
+}
+
 /// Display topology, needed for one notch window per monitor (ADR-0002).
 pub trait Monitors: Send + Sync {
     fn all(&self) -> PlatformResult<Vec<MonitorInfo>>;
@@ -183,6 +194,7 @@ pub trait Platform: Send + Sync {
     fn bluetooth(&self) -> &dyn Bluetooth;
     fn power(&self) -> &dyn Power;
     fn system_stats(&self) -> &dyn SystemStats;
+    fn location(&self) -> &dyn Location;
     fn monitors(&self) -> &dyn Monitors;
     fn foreground(&self) -> &dyn Foreground;
     fn windowing(&self) -> &dyn Windowing;

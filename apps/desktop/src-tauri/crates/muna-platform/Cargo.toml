@@ -25,6 +25,9 @@ windows-core = "0.62"
 # Same version `windows` 0.62 depends on; needed to name `IIterable<HSTRING>` for the
 # `DeviceWatcher` property list.
 windows-collections = "0.3"
+# Same version `windows` 0.62 depends on; names `IAsyncOperation` so the location fix can wait
+# on it with a deadline instead of `join`.
+windows-future = "0.3"
 # Internal-panel brightness (docs/modules/hud.md): `WmiMonitorBrightness*` in `ROOT\WMI`
 # through a typed WMI client instead of hand-rolled `IWbemServices` plumbing.
 wmi = { version = "0.18", default-features = false }
@@ -38,6 +41,7 @@ windows = { version = "0.62", features = [
   "Devices_Bluetooth_GenericAttributeProfile",
   "Devices_Bluetooth_Rfcomm",
   "Devices_Enumeration",
+  "Devices_Geolocation",
   "Devices_Radios",
   "Foundation",
   "Foundation_Collections",

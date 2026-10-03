@@ -14,6 +14,18 @@
 //!
 //! Anything that may exceed 2^53 (byte counts of large files, nanoseconds) must either be
 //! saturated with [`Int53::saturate`] where it crosses, or not use it.
+//!
+//! Floats have the same problem in the other direction: `NaN` and the infinities serialise as
+//! `null`, so specta writes `f64` as `number | null`. A value that is provably finite — one
+//! parsed from JSON, which cannot spell `NaN`, or clamped before it crosses — exports as a plain
+//! `number` through [`Finite`]:
+//!
+//! ```ignore
+//! #[specta(type = Finite)]
+//! pub temperature_c: f64,
+//! #[specta(type = Option<Finite>)]
+//! pub uv_index: Option<f64>,
+//! ```
 
 use specta::datatype::{DataType, Primitive};
 use specta::{Type, Types};
@@ -42,6 +54,19 @@ impl Type for Int53 {
     }
 }
 
+/// Marker for `#[specta(type = Finite)]`: an `f64` known never to be `NaN` or infinite, so
+/// the TypeScript side is a plain `number`. Never a runtime type.
+#[derive(Debug, Clone, Copy)]
+pub struct Finite;
+
+impl Type for Finite {
+    fn definition(_: &mut Types) -> DataType {
+        // The only primitive specta-typescript writes as a bare `number`; TypeScript does not
+        // tell integers from floats.
+        DataType::Primitive(Primitive::i32)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,6 +81,10 @@ mod tests {
         assert!(matches!(
             <Option<Int53>>::definition(&mut types),
             DataType::Nullable(_)
+        ));
+        assert!(matches!(
+            Finite::definition(&mut types),
+            DataType::Primitive(Primitive::i32)
         ));
     }
 
