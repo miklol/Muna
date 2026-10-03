@@ -1,6 +1,10 @@
 //! Service traits. Methods are synchronous and cheap: implementations either answer from a
 //! cache maintained by their own background threads or issue a non-blocking OS call. Anything
-//! that must wait for the OS reports back through [`PlatformEvent`].
+//! that must wait for the OS reports back through [`PlatformEvent`]. The one exception is
+//! [`FileOps`], whose calls block for as long as the shell's own operation takes; the module
+//! runs them on a blocking thread.
+
+use std::path::{Path, PathBuf};
 
 use tokio::sync::broadcast;
 
@@ -10,7 +14,7 @@ use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
     BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
     Notification, NotificationAccess, NotificationDelivery, OsdState, Rect, SystemSample,
-    Thumbnail, UserNotificationState, WindowHandle,
+    Thumbnail, TransferMode, UserNotificationState, WindowHandle,
 };
 
 /// System Media Transport Controls (docs/modules/media.md). Snapshots come from a cache the
@@ -232,6 +236,44 @@ pub trait Autostart: Send + Sync {
     fn set_enabled(&self, enabled: bool) -> PlatformResult<()>;
 }
 
+/// File operations behind the Drop actions tiles (docs/modules/drop-actions.md,
+/// docs/04-windows-platform-apis.md "Files & sharing"). Every call blocks until the shell is
+/// done — a copy of several gigabytes included — so callers run them on a blocking thread.
+/// Conflicts, progress and confirmations are the shell's own dialogs; Muna adds only the
+/// strip notice. Paths are content and are never logged.
+///
+/// One call puts up UI that belongs to a window: [`FileOps::share`] must run on the thread
+/// that owns `window` (the main thread for a notch window), because the share sheet is bound
+/// to its message loop. The folder picker is modal to `window` but runs on its own thread, so
+/// any thread may call it.
+pub trait FileOps: Send + Sync {
+    /// Copies or moves `items` into the folder `destination` (undoable, conflicts asked).
+    fn transfer(
+        &self,
+        items: &[PathBuf],
+        destination: &Path,
+        mode: TransferMode,
+    ) -> PlatformResult<()>;
+    /// Sends `items` to the Recycle Bin. Never a permanent delete: Explorer's undo works.
+    fn recycle(&self, items: &[PathBuf]) -> PlatformResult<()>;
+    /// Opens `item` with its default handler, as a double-click in Explorer would.
+    fn open(&self, item: &Path) -> PlatformResult<()>;
+    /// Shows the system *Open with* dialog for `item`.
+    fn open_with(&self, item: &Path) -> PlatformResult<()>;
+    /// Opens the parent folder in Explorer with `items` selected. Items in other folders
+    /// than the first one's are ignored.
+    fn reveal(&self, items: &[PathBuf]) -> PlatformResult<()>;
+    /// Shows the Windows share sheet (Nearby sharing, apps) for `items`, anchored to
+    /// `window`. Returns once the sheet is up; what the user picks is not reported.
+    fn share(&self, window: WindowHandle, items: &[PathBuf]) -> PlatformResult<()>;
+    /// Safely removes the removable drive that holds `item`.
+    /// [`crate::PlatformError::NotFound`] when the path is not on a removable volume.
+    fn eject(&self, item: &Path) -> PlatformResult<()>;
+    /// Shows the folder picker with `title`, modal to `window` (`0` for none); `None` when the
+    /// user cancels.
+    fn pick_folder(&self, window: WindowHandle, title: &str) -> PlatformResult<Option<PathBuf>>;
+}
+
 /// The whole platform: every service plus the event stream.
 pub trait Platform: Send + Sync {
     fn media(&self) -> &dyn Media;
@@ -249,6 +291,7 @@ pub trait Platform: Send + Sync {
     fn windowing(&self) -> &dyn Windowing;
     fn app_bar(&self) -> &dyn AppBar;
     fn autostart(&self) -> &dyn Autostart;
+    fn file_ops(&self) -> &dyn FileOps;
 
     /// New receiver for platform events. Events published before the call are not replayed.
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent>;

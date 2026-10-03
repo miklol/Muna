@@ -3,7 +3,8 @@
 **Status:** Accepted (validated on Win11 25H2 by the M0-E2 spike, results in
 [spikes/m0-window](../spikes/m0-window.md); Win10 22H2 column pending) · **Date:** 2026-09-14
 · **Amended:** 2026-09-15 (WebView2 process switches, top-most re-assertion, cursor-poll
-thread)
+thread) · 2026-09-27 (OLE drops on the click-through window, see
+[spikes/m4-drop](../spikes/m4-drop.md))
 
 ## Context
 
@@ -61,3 +62,10 @@ the 15.6 ms system tick and turned a 16.7 ms period into 31 ms in the spike.
   crash takes the browser process down (`ProcessFailed` → the watchdog recreates the windows),
   and the switches are Chromium command-line flags a runtime update may ignore, so the perf
   harness asserts the process shape and total on every run (risk R19).
+- **File drags use Tauri's drag-drop path** (`dragDropEnabled: true` → wry's `IDropTarget` on
+  the WebView2 child → `WindowEvent::DragDrop`); the shell registers no `IDropTarget` of its
+  own. OLE re-targets the window on the mouse move after the hit tester flips
+  `WS_EX_TRANSPARENT`, so *enter* and *leave* follow the published shapes (65–80 ms and 32 ms
+  in the M4-E1 spike) and the window never activates. Two limits follow: wry only reports
+  `CF_HDROP` (text and URL drags produce no events), and the webview receives no pointer events
+  during a drag, so the shell forwards the *over* coordinates for the UI to hit-test its tiles.

@@ -1,0 +1,80 @@
+/*
+ * Drop actions row (docs/modules/drop-actions.md "Reference"): equal tiles separated by
+ * hairlines — outline icon, title, subtitle; disabled tiles dimmed; a divider is a wider gap
+ * between groups; rows past the first sit under a hairline. The row lays out at its own width
+ * — the shell measures it and morphs to match — and never wider than the panel, so tracks are
+ * `minmax(0, tile)`: full tiles when they fit, evenly narrower when they do not. Hover and the
+ * drop pulse are driven by the drag's position (an OLE drag never `:hover`s). Tokens only.
+ */
+
+.drop-surface {
+  --drop-tile-width: 156px;
+  --drop-divider: var(--space-3);
+
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  inline-size: max-content;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+}
+
+.drop-row {
+  display: grid;
+  align-items: stretch;
+}
+
+.drop-row + .drop-row {
+  margin-block-start: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-block-start: 1px solid var(--hairline);
+}
+
+.drop-tile-slot {
+  display: flex;
+  min-inline-size: 0;
+  padding-inline: var(--space-1);
+}
+
+/* Hairline between neighbouring tiles; none beside a divider, whose gap is the separator. */
+.drop-tile-slot + .drop-tile-slot {
+  border-inline-start: 1px solid var(--hairline);
+}
+
+.drop-divider {
+  min-inline-size: 0;
+}
+
+.drop-tile {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  padding: var(--space-3) var(--space-2) var(--space-2);
+  border-radius: var(--radius-tile);
+  text-align: center;
+  transition: background-color var(--muna-motion-toggle);
+}
+
+.drop-tile[data-hovered] {
+  background: var(--surface-3);
+}
+
+.drop-tile[aria-disabled='true'] {
+  opacity: 0.4;
+}
+
+.drop-tile__glyph {
+  display: inline-flex;
+  margin-block-end: var(--space-1);
+  color: var(--text-1);
+}
+
+.drop-tile__title,
+.drop-tile__subtitle {
+  max-inline-size: 100%;
+}

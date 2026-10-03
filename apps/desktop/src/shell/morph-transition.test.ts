@@ -31,6 +31,24 @@ describe('morphTransition', () => {
     expect(morphTransition('pinned', 'pinned', false, false)).toBe(springs.switch);
   });
 
+  it('drop actions: expands into the row, collapses out of it, switches from a panel or for a second row', () => {
+    expect(morphTransition('collapsed', 'drop', false, false)).toBe(springs.expand);
+    expect(morphTransition('peek', 'drop', false, false)).toBe(springs.expand);
+    expect(morphTransition('hoverReveal', 'drop', true, false)).toBe(springs.expand);
+    expect(morphTransition('drop', 'collapsed', false, false)).toEqual({
+      ...springs.collapse,
+      delay: timings.shapeFollowDelayMs / 1000,
+    });
+    expect(morphTransition('drop', 'peek', false, false)).toEqual({
+      ...springs.collapse,
+      delay: timings.shapeFollowDelayMs / 1000,
+    });
+    expect(morphTransition('expanded', 'drop', false, false)).toBe(springs.switch);
+    expect(morphTransition('pinned', 'drop', false, false)).toBe(springs.switch);
+    expect(morphTransition('drop', 'drop', false, false)).toBe(springs.switch);
+    expect(morphTransition('collapsed', 'drop', false, true)).toBe(reducedMotionTransition);
+  });
+
   it('S14: uses the 150 ms ease-out for every morph under reduced motion', () => {
     expect(morphTransition('collapsed', 'expanded', false, true)).toBe(reducedMotionTransition);
     expect(morphTransition('expanded', 'collapsed', false, true)).toBe(reducedMotionTransition);

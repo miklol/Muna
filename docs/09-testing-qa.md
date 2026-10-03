@@ -188,7 +188,10 @@ per scenario with the measured latency; the first is
 presses timed against the module's log); [checklists/hud.md](qa/checklists/hud.md) is manual
 (volume, brightness, wheel and drag over the strip, the flyout after a hard kill), as is
 [checklists/notifications.md](qa/checklists/notifications.md) (consent states, MSIX push and
-NSIS polling, focus and busy holds, capture hiding).
+NSIS polling, focus and busy holds, capture hiding);
+[checklists/drop-actions.md](qa/checklists/drop-actions.md) pairs with the scripted drop spike
+(`scripts/spikes/drop/index.mjs` for the enter / over / leave timing) and covers the sources,
+tiles and hardware by hand.
 
 ## Bug workflow
 

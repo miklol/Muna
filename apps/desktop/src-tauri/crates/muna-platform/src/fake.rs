@@ -5,6 +5,7 @@
 //! implementation would. Commands sent to the fake are recorded so tests can assert on them.
 
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
@@ -12,17 +13,35 @@ use tokio::sync::broadcast;
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, Foreground, Location, Media, Monitors,
-    Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
+    AppBar, Audio, Autostart, Bluetooth, Brightness, FileOps, Foreground, Location, Media,
+    Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats, Windowing,
 };
 use crate::types::{
     AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
     BrightnessMonitor, ForegroundWindow, GeoPosition, MediaCommand, MediaSession, MonitorInfo,
     Notification, NotificationAccess, NotificationDelivery, OsdState, PowerSource, Rect,
-    SystemSample, Thumbnail, UserNotificationState, WindowHandle,
+    SystemSample, Thumbnail, TransferMode, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
+
+/// One recorded [`FileOps`] request, in order, for assertions in the drop-actions tests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FileOpsCall {
+    Transfer {
+        items: Vec<PathBuf>,
+        destination: PathBuf,
+        mode: TransferMode,
+    },
+    Recycle(Vec<PathBuf>),
+    Open(PathBuf),
+    OpenWith(PathBuf),
+    Reveal(Vec<PathBuf>),
+    Share(WindowHandle, Vec<PathBuf>),
+    Eject(PathBuf),
+    /// `pick_folder(window, title)`.
+    PickFolder(WindowHandle, String),
+}
 
 /// One recorded [`Bluetooth`] request, in order, for assertions in module tests.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,6 +156,13 @@ struct State {
     app_logos: BTreeMap<String, Thumbnail>,
     /// Scripted focus session state; `None` scripts a Windows without the API.
     focus_active: Option<bool>,
+    /// Every file operation the fake received, in order.
+    file_ops_calls: Vec<FileOpsCall>,
+    /// Scripted: every file operation fails with this error (a refused eject, a shell that
+    /// cannot start, a cancelled copy).
+    file_ops_error: Option<PlatformError>,
+    /// Scripted answer to `pick_folder`; `None` scripts the user cancelling.
+    picked_folder: Option<PathBuf>,
 }
 
 impl Default for State {
@@ -198,6 +224,9 @@ impl Default for State {
             notification_calls: Vec::new(),
             app_logos: BTreeMap::new(),
             focus_active: None,
+            file_ops_calls: Vec::new(),
+            file_ops_error: None,
+            picked_folder: None,
         }
     }
 }
@@ -405,6 +434,32 @@ impl FakePlatform {
     #[must_use]
     pub fn bluetooth_calls(&self) -> Vec<BluetoothCall> {
         self.state.lock().bluetooth_calls.clone()
+    }
+
+    /// Scripts every [`FileOps`] call to fail with `error` (`None` restores success).
+    pub fn set_file_ops_error(&self, error: Option<PlatformError>) {
+        self.state.lock().file_ops_error = error;
+    }
+
+    /// Scripts what the folder picker answers; `None` (the default) is a cancel.
+    pub fn set_picked_folder(&self, folder: Option<PathBuf>) {
+        self.state.lock().picked_folder = folder;
+    }
+
+    /// Every [`FileOps`] request so far, in order.
+    #[must_use]
+    pub fn file_ops_calls(&self) -> Vec<FileOpsCall> {
+        self.state.lock().file_ops_calls.clone()
+    }
+
+    /// Records a file operation, or fails it as scripted.
+    fn file_op(&self, call: FileOpsCall) -> PlatformResult<()> {
+        let mut state = self.state.lock();
+        state.file_ops_calls.push(call);
+        match &state.file_ops_error {
+            Some(error) => Err(error.clone()),
+            None => Ok(()),
+        }
     }
 
     pub fn set_battery(&self, battery: BatteryState) {
@@ -1133,6 +1188,50 @@ impl Foreground for FakePlatform {
     }
 }
 
+impl FileOps for FakePlatform {
+    fn transfer(
+        &self,
+        items: &[PathBuf],
+        destination: &Path,
+        mode: TransferMode,
+    ) -> PlatformResult<()> {
+        self.file_op(FileOpsCall::Transfer {
+            items: items.to_vec(),
+            destination: destination.to_path_buf(),
+            mode,
+        })
+    }
+
+    fn recycle(&self, items: &[PathBuf]) -> PlatformResult<()> {
+        self.file_op(FileOpsCall::Recycle(items.to_vec()))
+    }
+
+    fn open(&self, item: &Path) -> PlatformResult<()> {
+        self.file_op(FileOpsCall::Open(item.to_path_buf()))
+    }
+
+    fn open_with(&self, item: &Path) -> PlatformResult<()> {
+        self.file_op(FileOpsCall::OpenWith(item.to_path_buf()))
+    }
+
+    fn reveal(&self, items: &[PathBuf]) -> PlatformResult<()> {
+        self.file_op(FileOpsCall::Reveal(items.to_vec()))
+    }
+
+    fn share(&self, window: WindowHandle, items: &[PathBuf]) -> PlatformResult<()> {
+        self.file_op(FileOpsCall::Share(window, items.to_vec()))
+    }
+
+    fn eject(&self, item: &Path) -> PlatformResult<()> {
+        self.file_op(FileOpsCall::Eject(item.to_path_buf()))
+    }
+
+    fn pick_folder(&self, window: WindowHandle, title: &str) -> PlatformResult<Option<PathBuf>> {
+        self.file_op(FileOpsCall::PickFolder(window, title.to_owned()))?;
+        Ok(self.state.lock().picked_folder.clone())
+    }
+}
+
 impl Platform for FakePlatform {
     fn media(&self) -> &dyn Media {
         self
@@ -1194,6 +1293,10 @@ impl Platform for FakePlatform {
         self
     }
 
+    fn file_ops(&self) -> &dyn FileOps {
+        self
+    }
+
     fn subscribe(&self) -> broadcast::Receiver<PlatformEvent> {
         self.events.subscribe()
     }
@@ -1207,6 +1310,41 @@ impl Platform for FakePlatform {
 mod tests {
     use super::*;
     use crate::types::PlaybackStatus;
+
+    #[test]
+    fn file_operations_are_recorded_and_fail_as_scripted() {
+        let fake = FakePlatform::new();
+        let items = vec![PathBuf::from(r"C:\in\a.txt"), PathBuf::from(r"C:\in\b.txt")];
+        fake.file_ops()
+            .transfer(&items, Path::new(r"D:\out"), TransferMode::Move)
+            .unwrap();
+        assert_eq!(fake.file_ops().pick_folder(7, "Copy to").unwrap(), None);
+        fake.set_picked_folder(Some(PathBuf::from(r"E:\picked")));
+        assert_eq!(
+            fake.file_ops().pick_folder(7, "Copy to").unwrap(),
+            Some(PathBuf::from(r"E:\picked"))
+        );
+
+        fake.set_file_ops_error(Some(PlatformError::NotFound("removable volume".into())));
+        assert_eq!(
+            fake.file_ops().eject(Path::new(r"C:\in\a.txt")),
+            Err(PlatformError::NotFound("removable volume".into()))
+        );
+
+        assert_eq!(
+            fake.file_ops_calls(),
+            vec![
+                FileOpsCall::Transfer {
+                    items: items.clone(),
+                    destination: PathBuf::from(r"D:\out"),
+                    mode: TransferMode::Move,
+                },
+                FileOpsCall::PickFolder(7, "Copy to".into()),
+                FileOpsCall::PickFolder(7, "Copy to".into()),
+                FileOpsCall::Eject(PathBuf::from(r"C:\in\a.txt")),
+            ]
+        );
+    }
 
     fn session(app: &str, title: &str) -> MediaSession {
         MediaSession {

@@ -43,6 +43,11 @@ export interface GeometryInput {
   readonly wide: boolean;
   /** Natural height of the panel content, when known. */
   readonly panelContentHeight: number | null;
+  /**
+   * Natural size of the drop tiles (docs/modules/drop-actions.md), when known: the row lays
+   * out at its own width — up to the panel's — and the shell morphs to match, like the panel.
+   */
+  readonly dropContentSize?: Size | null;
 }
 
 export const stripSize = ({ layout, wide }: GeometryInput): Size => ({
@@ -66,6 +71,22 @@ export const panelSize = ({ layout, panelContentHeight }: GeometryInput): Size =
   ),
 });
 
+/**
+ * The drop row takes the size its tiles measure, no wider than the panel; until it has laid
+ * out (the first frame after a drag enters) the strip's size stands in, so the morph starts
+ * from where the strip is.
+ */
+export const dropSize = (input: GeometryInput): Size => {
+  const measured = input.dropContentSize ?? null;
+  if (measured === null || measured.width === 0 || measured.height === 0) {
+    return stripSize(input);
+  }
+  return {
+    width: Math.min(measured.width, panelSize(input).width),
+    height: measured.height,
+  };
+};
+
 /** The size the shell node animates to in `state`. */
 export const targetSize = (state: ShellState, input: GeometryInput): Size => {
   switch (state) {
@@ -74,6 +95,8 @@ export const targetSize = (state: ShellState, input: GeometryInput): Size => {
       return panelSize(input);
     case 'hoverReveal':
       return revealSize(input);
+    case 'drop':
+      return dropSize(input);
     default:
       return stripSize(input);
   }
@@ -91,6 +114,15 @@ export const targetOffsetY = (state: ShellState, input: GeometryInput): number =
 /** Whether `state` shows the panel (as opposed to the strip in one of its forms). */
 export const showsPanel = (state: ShellState): boolean =>
   state === 'expanded' || state === 'pinned';
+
+/** Whether `state` shows the drop tiles (docs/modules/drop-actions.md). */
+export const showsDrop = (state: ShellState): boolean => state === 'drop';
+
+/**
+ * Whether `state` is one of the large silhouettes — the panel or the drop row — that take the
+ * panel material and hide the strip, as opposed to a strip form.
+ */
+export const showsLarge = (state: ShellState): boolean => showsPanel(state) || showsDrop(state);
 
 export const moduleBarSize: Size = {
   width: shellSizes.moduleBarWidth,

@@ -1,5 +1,17 @@
-import type { ShellLayout, StripContent, YieldState } from '@muna/contracts';
+import type { DropItem, DropPoint, ShellLayout, StripContent, YieldState } from '@muna/contracts';
 import { create } from 'zustand';
+
+/**
+ * A drag carrying files over this window (docs/modules/drop-actions.md): what Rust told the
+ * UI in `DropEntered`, then whether the items were released. The pointer position lives apart
+ * so that a drag moving across the tiles re-renders the row alone.
+ */
+export interface DropSession {
+  readonly session: number;
+  readonly items: readonly DropItem[];
+  /** `true` once `Dropped` arrived: the row hit-tests `dropPosition` and runs the action. */
+  readonly dropped: boolean;
+}
 
 export interface AppStore {
   /** What the closed strip renders; mirrors the Rust scheduler via `StripContentChanged`. */
@@ -16,6 +28,18 @@ export interface AppStore {
   /** The module the panel shows; `null` falls back to the first module in order. */
   activeModuleId: string | null;
   setActiveModule: (id: string | null) => void;
+  /** The drag over this window, if any (`DropEntered` … `DropLeft` / handled). */
+  dropSession: DropSession | null;
+  /** Where the drag's pointer is, in this window's CSS px; `null` between drags. */
+  dropPosition: DropPoint | null;
+  /** `DropEntered`: a new drag; replaces any session the UI still held. */
+  beginDrop: (session: number, items: readonly DropItem[], position: DropPoint) => void;
+  /** `DropMoved`: ignored unless it names the current session. */
+  moveDrop: (session: number, position: DropPoint) => void;
+  /** `Dropped`: the items were released at `position`. */
+  markDropped: (session: number, position: DropPoint) => void;
+  /** `DropLeft`, or the row has handled the drop: forgets the session. */
+  endDrop: (session: number) => void;
 }
 
 /** `ShellLayout` is flat and primitive-valued, so a key-by-key comparison is exact. */
@@ -51,5 +75,28 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   activeModuleId: null,
   setActiveModule: (id) => {
     set({ activeModuleId: id });
+  },
+  dropSession: null,
+  dropPosition: null,
+  beginDrop: (session, items, position) => {
+    set({ dropSession: { session, items, dropped: false }, dropPosition: position });
+  },
+  moveDrop: (session, position) => {
+    const current = get().dropSession;
+    if (current !== null && current.session === session) {
+      set({ dropPosition: position });
+    }
+  },
+  markDropped: (session, position) => {
+    const current = get().dropSession;
+    if (current !== null && current.session === session && !current.dropped) {
+      set({ dropSession: { ...current, dropped: true }, dropPosition: position });
+    }
+  },
+  endDrop: (session) => {
+    const current = get().dropSession;
+    if (current !== null && current.session === session) {
+      set({ dropSession: null, dropPosition: null });
+    }
   },
 }));
