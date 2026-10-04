@@ -115,7 +115,7 @@ marked *plan* wait for a public repository or a paid plan.
 | `nightly.yml` | `schedule` 03:00 UTC, `workflow_dispatch` | ubuntu (links, deps) + windows (perf, platform, nightly-zip) | Full perf harness, platform tests, external link check, dependency re-audit, unsigned nightly zip | No — opens/updates a `ci:nightly` issue |
 | `release.yml` | `push` tag `v*`, `workflow_dispatch` (dry run) | windows (build) + ubuntu (preflight, publish) | Build, sign, attest, publish (see [10](10-release-distribution.md#pipeline)) | Environment-gated |
 | `release-please.yml` | `push` to `main` (no-op until repository variable `RELEASE_AUTOMATION=true`) | ubuntu | Maintains the release PR (version bump + `CHANGELOG.md`); merging it creates the tag | — |
-| `site.yml` | `push` to `main` touching `apps/site/**`, after a release | ubuntu | Build and deploy `apps/site` to GitHub Pages | — |
+| `site.yml` | `push` to `main` touching `apps/site/**`, after a release | ubuntu | Build and deploy `apps/site` to GitHub Pages — not yet added (maintainer): `pnpm install --frozen-lockfile && pnpm --filter @muna/site build`, then publish `apps/site/dist` (relative asset URLs, so a project page or a custom domain both work) | — |
 | `codeql.yml` | `pull_request` (JS/TS only), weekly schedule | ubuntu | CodeQL for JavaScript/TypeScript; Rust is covered by `cargo deny`/`cargo audit` | Weekly: no; PR: yes once enabled |
 
 ```mermaid

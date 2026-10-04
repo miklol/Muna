@@ -104,7 +104,7 @@ With the app running, `pwsh scripts/qa/notch-yield.ps1` drives the ten yield sce
 | `apps/desktop` | `@muna/desktop` | Tauri v2 app: React shell (`src/`) and the Rust binary (`src-tauri/`). |
 | `apps/desktop/src-tauri/crates/muna-platform` | `muna-platform` | Platform traits, `FakePlatform` for tests, Windows implementations behind `cfg(windows)`. |
 | `apps/desktop/src-tauri/crates/muna-core` | `muna-core` | Strip scheduler, settings + migrations, SQLite store. No Tauri or Win32 dependency. |
-| `apps/site` | `@muna/site` | Placeholder marketing site (Vite). |
+| `apps/site` | `@muna/site` | Landing page (Vite + React, English only): interactive notch demo built from `@muna/ui` primitives, module catalog mirrored from [docs/02-feature-catalog.md](docs/02-feature-catalog.md) with a drift test, downloads, FAQ and privacy. `pnpm --filter @muna/site dev` (port 1430), `build` → `apps/site/dist` with relative asset URLs, `test`. |
 | `packages/ui` | `@muna/ui` | Design system: tokens (`src/tokens`, `@muna/ui/tokens.css` + `fonts.css`), primitives (`@muna/ui/primitives`), motion presets and reduced-motion provider (`@muna/ui/motion`), squircle and notch path helpers (`@muna/ui/shape`), Storybook. |
 | `packages/contracts` | `@muna/contracts` | tauri-specta generated bindings (`src/bindings.ts`) and zod schemas. |
 | `packages/i18n` | `@muna/i18n` | i18next setup and `locales/*.json`. |
@@ -118,6 +118,7 @@ pnpm -w typecheck              # tsc --noEmit in every package
 pnpm -w test                   # vitest (watch); `pnpm -w test --run --coverage` for CI parity
 pnpm -w storybook              # @muna/ui Storybook on http://localhost:6006
 pnpm -w storybook:desktop      # desktop module states on http://localhost:6007
+pnpm --filter @muna/site dev   # landing page on http://localhost:1430
 pnpm -w docs:check             # markdownlint + relative-link check
 pnpm -w format                 # prettier --write
 
