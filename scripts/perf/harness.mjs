@@ -14,6 +14,7 @@ import {
   parseMemoryTargetLine,
   parseMorphLine,
   parseReadyLine,
+  stripProbePoint,
 } from './report.mjs';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -376,10 +377,11 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
 }
 
 /**
- * Drives `count` expand/collapse cycles with the real cursor: it lands on the strip and drifts
- * a pixel at a time (well under the hover-intent velocity limit) until the shell reports the
- * expand morph, then parks far away until the collapse morph is reported. Returns the morph
- * records; a cycle that does not morph within its timeout ends the loop with a note.
+ * Drives `count` expand/collapse cycles with the real cursor: it lands on the strip's top
+ * sliver (`stripProbePoint`, inside the strip whether it rests or peeks) and drifts a pixel at
+ * a time (well under the hover-intent velocity limit) until the shell reports the expand
+ * morph, then parks far away until the collapse morph is reported. Returns the morph records;
+ * a cycle that does not morph within its timeout ends the loop with a note.
  */
 export async function driveMorphs(app, probe, host, count, log) {
   const notes = [];
@@ -391,10 +393,7 @@ export async function driveMorphs(app, probe, host, count, log) {
     );
     return { morphs: [], notes };
   }
-  const scale = primary.dpi / 96;
-  // The strip sits at the top centre of the notch window (200 × 32 logical px).
-  const centreX = (primary.left + primary.right) / 2;
-  const stripY = primary.top + 14 * scale;
+  const { x: centreX, y: stripY } = stripProbePoint(primary);
   const awayX = host.screenWidth * 0.1;
   const awayY = host.screenHeight - 120;
   const morphs = [];

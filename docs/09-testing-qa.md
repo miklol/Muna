@@ -175,10 +175,13 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    on the strip animates ([modules/notch-shell.md](modules/notch-shell.md#memory-target));
    the gated value is the median of the samples taken at that target (the last sample when the
    trim never ran, with a note) → assert ≤ 120 MB. The pre-trim median is reported too.
-5. Full mode only: drive 20 expand/collapse cycles by drifting the cursor onto the strip below
-   the hover-intent velocity, waiting for the shell's `morph` log lines (frames, duration,
-   longest frame, dropped) and parking the cursor again → assert the slowest morph ≥ 58 fps.
-   Memory is sampled once more after the last collapse.
+5. Full mode only: drive 20 expand/collapse cycles by drifting the cursor along the strip's
+   top sliver — 3 logical px under the screen edge, inside the strip whether it rests or
+   *peeks* under a maximised window's caption, when only its bottom 6 px stay interactive
+   ([modules/notch-shell.md](modules/notch-shell.md#implementation-notes-m1-e1)) — below the
+   hover-intent velocity, waiting for the shell's `morph` log lines (frames, duration, longest
+   frame, dropped) and parking the cursor again → assert the slowest morph ≥ 58 fps. Memory is
+   sampled once more after the last collapse.
 6. Write the JSON report and the markdown the `app` job posts on the PR (with the
    `<!-- muna-perf-report -->` marker); exit 1 on any breach or when nothing was measured.
    `--baseline` renders a delta column against an earlier JSON. Which steps run on PRs
