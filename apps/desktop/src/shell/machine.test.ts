@@ -210,6 +210,85 @@ describe('transition (pure)', () => {
     expect(run([{ type: 'fieldFocus', focused: true }]).snapshot).toBe(initialSnapshot);
   });
 
+  it('a module hold pins the panel without the pin button and releases to auto-collapse', () => {
+    const { snapshot, effects } = run([{ type: 'hold', held: true }], opened());
+    expect(snapshot.state).toBe('pinned');
+    expect(snapshot.held).toBe(true);
+    expect(snapshot.pinnedByUser).toBe(false);
+    expect(snapshot.focusable).toBe(false);
+    expect(effects).toEqual([]);
+
+    // Neither the pointer leaving nor a click outside closes a held panel.
+    const left = run([away, { type: 'pressOutside' }], snapshot);
+    expect(left.snapshot.state).toBe('pinned');
+    expect(left.snapshot.timers).toEqual([]);
+
+    const released = run([{ type: 'hold', held: false }], left.snapshot);
+    expect(released.snapshot.state).toBe('expanded');
+    expect(released.snapshot.held).toBe(false);
+    // The pointer is away: the grace timer arms at once.
+    expect(released.effects).toEqual([
+      { type: 'startTimer', id: 'hoverOut', ms: timings.hoverOutGraceExpandedMs },
+    ]);
+  });
+
+  it('Esc, the ⤡ button and the hotkey still close a held panel', () => {
+    const held = run([{ type: 'hold', held: true }], opened()).snapshot;
+    expect(run([{ type: 'escape' }], held).snapshot.state).toBe('collapsed');
+    expect(run([{ type: 'collapse' }], held).snapshot.state).toBe('collapsed');
+    expect(run([{ type: 'toggle' }], held).snapshot.state).toBe('collapsed');
+  });
+
+  it('a hold outlives a close and pins again on reopening', () => {
+    const closed = run([{ type: 'hold', held: true }, { type: 'escape' }], opened()).snapshot;
+    expect(closed.state).toBe('collapsed');
+    expect(closed.held).toBe(true);
+    const reopened = run([hover(), { type: 'press' }], closed).snapshot;
+    expect(reopened.state).toBe('pinned');
+    expect(run([{ type: 'hold', held: false }], reopened).snapshot.state).toBe('expanded');
+  });
+
+  it('a hold taken on the strip is remembered and pins the next open', () => {
+    const { snapshot } = run([{ type: 'hold', held: true }]);
+    expect(snapshot.state).toBe('collapsed');
+    expect(snapshot.held).toBe(true);
+    expect(run([{ type: 'open' }], snapshot).snapshot.state).toBe('pinned');
+    expect(run([{ type: 'hold', held: false }]).snapshot).toBe(initialSnapshot);
+  });
+
+  it('a hold keeps the panel pinned when the pin or a field lets go, and vice versa', () => {
+    const base = opened();
+    const pinAndHold = run(
+      [
+        { type: 'pin', pinned: true },
+        { type: 'hold', held: true },
+      ],
+      base,
+    );
+    expect(run([{ type: 'pin', pinned: false }], pinAndHold.snapshot).snapshot.state).toBe(
+      'pinned',
+    );
+    expect(run([{ type: 'hold', held: false }], pinAndHold.snapshot).snapshot.state).toBe('pinned');
+    const fieldAndHold = run(
+      [
+        { type: 'fieldFocus', focused: true },
+        { type: 'hold', held: true },
+      ],
+      base,
+    );
+    const blurred = run([{ type: 'fieldFocus', focused: false }], fieldAndHold.snapshot);
+    expect(blurred.snapshot.state).toBe('pinned');
+    expect(blurred.snapshot.focusable).toBe(false);
+    const both = run(
+      [
+        { type: 'fieldFocus', focused: false },
+        { type: 'hold', held: false },
+      ],
+      fieldAndHold.snapshot,
+    );
+    expect(both.snapshot.state).toBe('expanded');
+  });
+
   it('S5–S7: yield peek and park are rendered as the shell asks', () => {
     const peeked = run([{ type: 'yield', state: 'peek' }]).snapshot;
     expect(peeked.state).toBe('peek');

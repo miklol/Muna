@@ -1,0 +1,517 @@
+/*
+ * Health panel (docs/modules/health.md; docs/reference/ui-observations.md "Health"): the
+ * sitting timer in the head, then three columns — today's facts, the goal rings with the week
+ * and the counters, and the "Take a break" cards. A running flow replaces the columns with its
+ * dial and guidance. Composes tokens only; the primitives bring their own styles.
+ *
+ * Budget: the panel body has 284 px at most. The head is one row (28 px); below it the rings
+ * (96) with the counters beside them and the week row underneath, and the four flow cards in
+ * two rows of two (2 × 44 + gap), fit in about 150 px with the captions.
+ */
+
+.health-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  block-size: 100%;
+  min-block-size: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.health-head {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+}
+
+.health-head__glyph {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent-pink);
+}
+
+.health-head__glyph[data-tint='green'] {
+  color: var(--accent-green);
+}
+
+.health-head__glyph[data-tint='blue'] {
+  color: var(--accent-blue);
+}
+
+.health-head__glyph[data-tint='purple'] {
+  color: var(--accent-purple);
+}
+
+.health-head__title {
+  flex: 0 1 auto;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.health-head__spacer {
+  flex: 1 1 auto;
+}
+
+/* A tinted chip: the reminder in pink, the wind-down in purple. */
+.health-chip[data-tint='pink'] {
+  color: var(--accent-pink);
+}
+
+.health-chip[data-tint='purple'] {
+  color: var(--accent-purple);
+}
+
+.health-caption {
+  display: block;
+  text-transform: none;
+}
+
+.health-columns {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(148px, 1fr) minmax(0, 1.5fr) minmax(220px, 1.3fr);
+  gap: var(--space-4);
+  min-block-size: 0;
+}
+
+/* Left column: today's facts as label / value rows, the streak beside the caption. */
+.health-today {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.health-today__head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.health-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.health-facts__row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  justify-content: space-between;
+  min-inline-size: 0;
+}
+
+.health-facts dd,
+.health-facts dt {
+  margin: 0;
+}
+
+/* The hearing warning: orange, at the foot of the column. */
+.health-hearing {
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-start;
+  margin-block-start: auto;
+  color: var(--accent-orange);
+}
+
+.health-hearing svg {
+  flex: none;
+  margin-block-start: 1px;
+}
+
+/* Middle column: the rings on the left, the counters and the week on the right. */
+.health-goals {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+/* Three concentric rings stacked in one grid cell; the primitive centres each in its box. */
+.health-rings {
+  display: grid;
+  flex: none;
+  place-items: center;
+}
+
+.health-rings__ring {
+  grid-area: 1 / 1;
+}
+
+.health-goals__side {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.health-counters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.health-counters__row {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+  min-inline-size: 0;
+}
+
+.health-counters__dot {
+  flex: none;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--radius-thumb);
+}
+
+.health-counters__label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.health-counters__buttons {
+  display: inline-flex;
+  gap: 2px;
+  margin-inline-start: var(--space-1);
+}
+
+/* Seven dots, each filled by the goals met that day (0–3 quarters of a pie). */
+.health-week {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.health-week__day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+.health-week__dot {
+  --met: 0;
+
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: var(--radius-thumb);
+  background: conic-gradient(var(--accent-green) calc(var(--met) / 3 * 100%), var(--surface-3) 0);
+}
+
+.health-week__day[data-today] .health-week__dot {
+  box-shadow: 0 0 0 1px var(--text-2);
+}
+
+.health-week__initial {
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--text-3);
+}
+
+/* Right column: the reminder (when it is up) and the four flow cards. */
+.health-flows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.health-break {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-card);
+  background: color-mix(in oklab, var(--accent-pink) 14%, transparent);
+  min-inline-size: 0;
+}
+
+.health-break__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  min-inline-size: 0;
+}
+
+.health-break__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+
+.health-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A flow card: a 44 px button with the flow's tinted glyph, its name and length, and play. */
+.health-card {
+  --muna-tint: var(--accent-green);
+
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  inline-size: 100%;
+  min-block-size: 44px;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+  color: var(--text-1);
+  text-align: start;
+  cursor: default;
+  transition: background-color var(--muna-motion-toggle);
+}
+
+.health-card:hover {
+  background: var(--surface-3);
+}
+
+.health-card:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.health-card[data-tint='blue'] {
+  --muna-tint: var(--accent-blue);
+}
+
+.health-card[data-tint='purple'] {
+  --muna-tint: var(--accent-purple);
+}
+
+.health-card__glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--radius-thumb);
+  background: color-mix(in oklab, var(--muna-tint) 18%, transparent);
+  color: var(--muna-tint);
+}
+
+.health-card__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  min-inline-size: 0;
+}
+
+.health-card__play {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: var(--radius-thumb);
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+
+/* A running flow: the dial on the left, the guidance filling the rest. */
+.health-flow {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-5);
+  align-items: center;
+  min-block-size: 0;
+  padding-inline: var(--space-2);
+}
+
+.health-flow__ring {
+  flex: none;
+}
+
+.health-flow__countdown {
+  color: var(--muna-tint);
+}
+
+.health-flow__guidance {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.health-guidance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.health-prompt {
+  margin: 0;
+  text-wrap: balance;
+}
+
+.health-prompt__dots {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.health-prompt__dot {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--radius-thumb);
+  background: var(--surface-3);
+}
+
+.health-prompt__dot[data-done] {
+  background: var(--accent-green);
+}
+
+/* Stretch: six steps, the current one lit, the done ones dimmed. */
+.health-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.health-steps__step {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--text-2);
+  counter-increment: step;
+}
+
+.health-steps__step::before {
+  content: counter(step);
+  flex: none;
+  inline-size: 16px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.health-steps__step[data-current] {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.health-steps__step[data-current]::before {
+  color: var(--accent-green);
+}
+
+.health-steps__step[data-done] {
+  color: var(--text-3);
+}
+
+/* Breathe: the circle grows and shrinks in the stage; the count and the round beside it. */
+.health-breathe {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+}
+
+.health-breathe__stage {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 120px;
+  block-size: 120px;
+}
+
+.health-breathe__circle {
+  grid-area: 1 / 1;
+  inline-size: 120px;
+  block-size: 120px;
+  border-radius: var(--radius-thumb);
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--accent-purple) 55%, transparent) 0%,
+    color-mix(in oklab, var(--accent-purple) 18%, transparent) 70%,
+    transparent 100%
+  );
+  will-change: transform;
+}
+
+.health-breathe__word {
+  grid-area: 1 / 1;
+  margin: 0;
+}
+
+.health-breathe__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.health-breathe__count {
+  color: var(--accent-purple);
+}
+
+/* Off: the empty state fills the body and points at Settings. */
+.health-empty {
+  flex: 1 1 auto;
+}
+
+/*
+ * Dashboard card body (docs/modules/dashboard.md "Widgets"): the small breaks ring with the
+ * water count inside, the sitting time and the next reminder, and a water button.
+ */
+.health-widget {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.health-widget__rings {
+  display: grid;
+  flex: none;
+  place-items: center;
+}
+
+.health-widget__ring {
+  grid-area: 1 / 1;
+}
+
+.health-widget__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.health-widget__water {
+  flex: none;
+}
