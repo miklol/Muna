@@ -6,6 +6,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
@@ -13,14 +14,14 @@ use tokio::sync::broadcast;
 use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
-    AppBar, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground, Location,
-    Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
+    AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
+    Location, Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
     WindowPlacement, Windowing,
 };
 use crate::types::{
-    AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice, BluetoothRadioState,
-    BrightnessMonitor, DragOutcome, DragPayload, DropEffect, ForegroundWindow, GeoPosition,
-    MediaCommand, MediaSession, MonitorInfo, Notification, NotificationAccess,
+    AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
+    BluetoothRadioState, BrightnessMonitor, DragOutcome, DragPayload, DropEffect, ForegroundWindow,
+    GeoPosition, MediaCommand, MediaSession, MonitorInfo, Notification, NotificationAccess,
     NotificationDelivery, OsdState, PowerSource, Rect, SystemSample, Thumbnail, TransferMode,
     UserNotificationState, WindowHandle,
 };
@@ -149,6 +150,13 @@ struct State {
     battery: BatteryState,
     monitors: Vec<MonitorInfo>,
     foreground: Option<ForegroundWindow>,
+    /// Scripted answer to `Foreground::idle_for`.
+    idle_for: Duration,
+    /// Scripted `AppInfo::describe` answers by executable path; an unknown path answers
+    /// `NotFound`, like a file that is gone.
+    app_descriptions: BTreeMap<PathBuf, AppDescription>,
+    /// Every `describe(executable, icon_size)` the fake answered, in order.
+    app_info_calls: Vec<(PathBuf, u32)>,
     sent_media_commands: Vec<(String, MediaCommand)>,
     pointer: Pointer,
     quiet: UserNotificationState,
@@ -247,6 +255,9 @@ impl Default for State {
                 is_primary: true,
             }],
             foreground: None,
+            idle_for: Duration::ZERO,
+            app_descriptions: BTreeMap::new(),
+            app_info_calls: Vec::new(),
             sent_media_commands: Vec::new(),
             pointer: Pointer::default(),
             quiet: UserNotificationState::AcceptsNotifications,
@@ -551,6 +562,24 @@ impl FakePlatform {
     pub fn foreground_changed(&self, window: ForegroundWindow) {
         self.state.lock().foreground = Some(window.clone());
         self.publish(PlatformEvent::ForegroundChanged(window));
+    }
+
+    /// Scripts how long [`Foreground::idle_for`] says the user has been away.
+    pub fn set_idle_for(&self, idle: Duration) {
+        self.state.lock().idle_for = idle;
+    }
+
+    /// Scripts what [`AppInfo::describe`] answers for `executable`.
+    pub fn set_app_description(&self, executable: PathBuf, description: AppDescription) {
+        self.state
+            .lock()
+            .app_descriptions
+            .insert(executable, description);
+    }
+
+    /// Every `describe(executable, icon_size)` answered so far, in order.
+    pub fn app_info_calls(&self) -> Vec<(PathBuf, u32)> {
+        self.state.lock().app_info_calls.clone()
     }
 
     pub fn set_session_locked(&self, locked: bool) {
@@ -1298,6 +1327,24 @@ impl Foreground for FakePlatform {
     fn current(&self) -> PlatformResult<Option<ForegroundWindow>> {
         Ok(self.state.lock().foreground.clone())
     }
+
+    fn idle_for(&self) -> PlatformResult<Duration> {
+        Ok(self.state.lock().idle_for)
+    }
+}
+
+impl AppInfo for FakePlatform {
+    fn describe(&self, executable: &Path, icon_size: u32) -> PlatformResult<AppDescription> {
+        let mut state = self.state.lock();
+        state
+            .app_info_calls
+            .push((executable.to_path_buf(), icon_size));
+        state
+            .app_descriptions
+            .get(executable)
+            .cloned()
+            .ok_or_else(|| PlatformError::NotFound("executable".into()))
+    }
 }
 
 impl FileOps for FakePlatform {
@@ -1478,6 +1525,10 @@ impl Platform for FakePlatform {
     }
 
     fn foreground(&self) -> &dyn Foreground {
+        self
+    }
+
+    fn app_info(&self) -> &dyn AppInfo {
         self
     }
 
@@ -1844,11 +1895,36 @@ mod tests {
             handle: 42,
             title: "Game".into(),
             process_name: "game.exe".into(),
+            process_path: r"C:\Games\game.exe".into(),
             bounds: Rect::new(0, 0, 2560, 1440),
             is_fullscreen: true,
         };
         fake.foreground_changed(window.clone());
         assert_eq!(fake.foreground().current().unwrap(), Some(window));
+    }
+
+    #[test]
+    fn idle_time_and_app_descriptions_are_scripted() {
+        let fake = FakePlatform::new();
+        assert_eq!(fake.foreground().idle_for().unwrap(), Duration::ZERO);
+        fake.set_idle_for(Duration::from_secs(300));
+        assert_eq!(
+            fake.foreground().idle_for().unwrap(),
+            Duration::from_secs(300)
+        );
+
+        let exe = PathBuf::from(r"C:\Games\game.exe");
+        assert!(matches!(
+            fake.app_info().describe(&exe, 64),
+            Err(PlatformError::NotFound(_))
+        ));
+        let description = AppDescription {
+            name: Some("Game".into()),
+            icon_png: Some(vec![0x89, b'P', b'N', b'G']),
+        };
+        fake.set_app_description(exe.clone(), description.clone());
+        assert_eq!(fake.app_info().describe(&exe, 64).unwrap(), description);
+        assert_eq!(fake.app_info_calls(), vec![(exe.clone(), 64), (exe, 64)]);
     }
 
     #[test]
@@ -1902,11 +1978,16 @@ mod tests {
             handle: 42,
             title: "Game".into(),
             process_name: "game.exe".into(),
+            process_path: r"C:\Games\game.exe".into(),
             bounds: Rect::default(),
             is_fullscreen: false,
         };
         let json = serde_json::to_value(&window).unwrap();
         assert!(json.get("handle").is_none());
+        assert!(
+            json.get("processPath").is_none() && json.get("process_path").is_none(),
+            "the executable path is content the UI never needs"
+        );
     }
 
     #[test]

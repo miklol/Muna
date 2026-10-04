@@ -52,6 +52,9 @@ pub mod priority {
     /// (docs/modules/code-hosting.md): a notice that pre-empts what is on the strip while it
     /// holds, ordered among notices under a task or an event the user themselves scheduled.
     pub const CODE_HOSTING: u8 = 45;
+    /// A daily screen-time limit reached (docs/modules/screen-time.md): a nudge the user set
+    /// for themselves, under the code-hosting notices, above unread notifications.
+    pub const SCREEN_TIME_LIMIT: u8 = 42;
     pub const UNREAD: u8 = 40;
     pub const SESSION: u8 = 30;
     pub const MEDIA_PAUSED: u8 = 20;
@@ -310,6 +313,12 @@ pub enum StripMessage {
     ChecksFinished {
         title: String,
         passed: bool,
+    },
+    /// An app reached the daily limit the user set for it (docs/modules/screen-time.md); the
+    /// name is content and is never logged. The UI phrases it ("Steam · 2 h limit reached").
+    ScreenTimeLimit {
+        app: String,
+        minutes: u32,
     },
 }
 

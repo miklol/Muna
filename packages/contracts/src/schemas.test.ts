@@ -2,7 +2,9 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
 
 import type {
+  AppUsage,
   CodeHostingSnapshot,
+  DayUsage,
   DragOutRequest,
   DragOutcome,
   DragSpike,
@@ -14,6 +16,8 @@ import type {
   NoteDraft,
   NotesCommand,
   NotesSnapshot,
+  ScreenTimeCommand,
+  ScreenTimeSnapshot,
   Settings,
   ShelfCommand,
   ShelfItem,
@@ -28,6 +32,7 @@ import type {
   StripContent,
 } from './bindings';
 import {
+  APP_CATEGORIES,
   CALENDAR_MAX_NAME_CHARS,
   CALENDAR_REFRESH_CHOICES_MINUTES,
   CALENDAR_SETTINGS_KEY,
@@ -66,6 +71,11 @@ import {
   POMODORO_BOUNDS,
   POMODORO_SETTINGS_KEY,
   POMODORO_STRIP_IDS,
+  SCREEN_TIME_BOUNDS,
+  SCREEN_TIME_LIMIT_PRESETS,
+  SCREEN_TIME_SETTINGS_KEY,
+  SCREEN_TIME_TOP_APPS,
+  SCREEN_TIME_WEEK_DAYS,
   SETTINGS_VERSION,
   SHELF_BOUNDS,
   SHELF_EXPIRY_CHOICES,
@@ -88,6 +98,8 @@ import {
   WEATHER_SETTINGS_KEY,
   WINDOW_SNAP_BOUNDS,
   WINDOW_SNAP_SETTINGS_KEY,
+  appUsageSchema,
+  categoryShares,
   clampDashboardSlots,
   codeHostingChangedSchema,
   codeHostingCommandSchema,
@@ -104,6 +116,7 @@ import {
   defaultNotesSettings,
   defaultNotificationsSettings,
   defaultPomodoroSettings,
+  defaultScreenTimeSettings,
   defaultSettings,
   defaultShelfSettings,
   defaultSystemMonitorSettings,
@@ -126,6 +139,7 @@ import {
   filterPullRequests,
   hotkeyBindingSchema,
   isSnoozeMinutes,
+  limitProgress,
   monitorLayoutSchema,
   normaliseChord,
   normaliseSnapGrid,
@@ -148,11 +162,16 @@ import {
   readNotesSettings,
   readNotificationsSettings,
   readPomodoroSettings,
+  readScreenTimeSettings,
   readShelfSettings,
   readSystemMonitorSettings,
   readTodoSettings,
   readWeatherSettings,
   readWindowSnapSettings,
+  screenTimeChangedSchema,
+  screenTimeCommandSchema,
+  screenTimeSettingsSchema,
+  screenTimeSnapshotSchema,
   settingsSchema,
   shelfChangedSchema,
   shelfCommandSchema,
@@ -169,6 +188,7 @@ import {
   snapZoneRefSchema,
   snapZoneSchema,
   stripContentSchema,
+  weekScaleMs,
   widgetNote,
   windowSnapSettingsSchema,
   writeCalendarSettings,
@@ -182,6 +202,7 @@ import {
   writeNotesSettings,
   writeNotificationsSettings,
   writePomodoroSettings,
+  writeScreenTimeSettings,
   writeShelfSettings,
   writeSystemMonitorSettings,
   writeTodoSettings,
@@ -435,6 +456,18 @@ describe('strip content schema', () => {
           leading: { kind: 'icon', glyph: 'xCircle', tint: 'red' },
           trailing: null,
           wide: { kind: 'checksFinished', title: 'Review queue', passed: false },
+          holdMs: 0,
+        },
+      },
+      {
+        kind: 'notice',
+        notice: {
+          id: 'screen-time:limit:steam.exe',
+          module: 'screen-time',
+          priority: 42,
+          leading: { kind: 'icon', glyph: 'hourglass', tint: 'orange' },
+          trailing: null,
+          wide: { kind: 'screenTimeLimit', app: 'Steam', minutes: 120 },
           holdMs: 0,
         },
       },
@@ -1884,6 +1917,177 @@ describe('notes schemas', () => {
     expect(widgetNote([pinned, note('Inbox.md')])).toBe(pinned);
     const newest = note('Inbox.md');
     expect(widgetNote([newest])).toBe(newest);
+  });
+});
+
+describe('screen time schemas', () => {
+  const app = (exe: string, totalMs: number, extra: Partial<AppUsage> = {}): AppUsage => ({
+    exe,
+    name: exe.replace(/\.exe$/, ''),
+    category: 'other',
+    totalMs,
+    sessions: 1,
+    longestMs: totalMs,
+    icon: null,
+    limitMinutes: null,
+    limitReached: false,
+    ...extra,
+  });
+  const day = (dayStartMs: number, totalMs: number): DayUsage => ({
+    dayStartMs,
+    totalMs,
+    byCategory: totalMs > 0 ? [{ category: 'other', totalMs }] : [],
+  });
+  const DAY = 86_400_000;
+  const MIDNIGHT = 1_718_150_400_000;
+  const week = Array.from({ length: 7 }, (_, index) =>
+    day(MIDNIGHT - (6 - index) * DAY, index === 6 ? 600_000 : 0),
+  );
+
+  it('is on by default, stops after five idle minutes and rolls over at midnight', () => {
+    expect(defaultScreenTimeSettings()).toEqual({
+      enabled: true,
+      idleMinutes: 5,
+      dayResetHour: 0,
+    });
+    expect(readScreenTimeSettings(defaultSettings())).toEqual(defaultScreenTimeSettings());
+    expect(SCREEN_TIME_SETTINGS_KEY).toBe('screen-time');
+    expect(SCREEN_TIME_TOP_APPS).toBe(20);
+    expect(SCREEN_TIME_WEEK_DAYS).toBe(7);
+    expect(APP_CATEGORIES).toHaveLength(8);
+    expect(
+      SCREEN_TIME_LIMIT_PRESETS.every((minutes) => minutes >= SCREEN_TIME_BOUNDS.limitMinutes.min),
+    ).toBe(true);
+  });
+
+  it('clamps the ranges, fills missing fields and falls back on a malformed entry', () => {
+    expect(screenTimeSettingsSchema.parse({ idleMinutes: 0, dayResetHour: 24 })).toEqual({
+      enabled: true,
+      idleMinutes: SCREEN_TIME_BOUNDS.idleMinutes.min,
+      dayResetHour: SCREEN_TIME_BOUNDS.dayResetHour.max,
+    });
+    expect(screenTimeSettingsSchema.parse({ idleMinutes: 90 }).idleMinutes).toBe(
+      SCREEN_TIME_BOUNDS.idleMinutes.max,
+    );
+    expect(screenTimeSettingsSchema.parse({ enabled: false })).toEqual({
+      enabled: false,
+      idleMinutes: 5,
+      dayResetHour: 0,
+    });
+    const doc = writeScreenTimeSettings(defaultSettings(), {
+      enabled: true,
+      idleMinutes: 10,
+      dayResetHour: 4,
+    });
+    expect(readScreenTimeSettings(doc)).toEqual({
+      enabled: true,
+      idleMinutes: 10,
+      dayResetHour: 4,
+    });
+    expect(doc.modules[NOTES_SETTINGS_KEY]).toBeUndefined();
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [SCREEN_TIME_SETTINGS_KEY]: { enabled: 'yes' } },
+    };
+    expect(readScreenTimeSettings(broken)).toEqual(defaultScreenTimeSettings());
+  });
+
+  it('round-trips the snapshot and its change event', () => {
+    const snapshot: ScreenTimeSnapshot = {
+      tracking: 'active',
+      now: {
+        exe: 'code.exe',
+        name: 'Visual Studio Code',
+        category: 'development',
+        sinceMs: MIDNIGHT + 43_200_000,
+        icon: 'data:image/png;base64,iVBORw0KGgo=',
+      },
+      today: { totalMs: 600_000, switches: 3, longestMs: 300_000, averageMs: 200_000 },
+      apps: [
+        app('code.exe', 420_000, {
+          name: 'Visual Studio Code',
+          category: 'development',
+          sessions: 2,
+          longestMs: 300_000,
+          limitMinutes: 120,
+        }),
+        app('chrome.exe', 180_000, { category: 'browsing' }),
+      ],
+      categories: [
+        { category: 'browsing', totalMs: 180_000 },
+        { category: 'development', totalMs: 420_000 },
+      ],
+      week,
+      excluded: [{ exe: 'keepass.exe', name: 'KeePass' }],
+      dayStartMs: MIDNIGHT,
+      generatedAtMs: MIDNIGHT + 43_800_000,
+    };
+    expect(screenTimeSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+    expect(screenTimeChangedSchema.parse({ snapshot })).toEqual({ snapshot });
+    const off: ScreenTimeSnapshot = {
+      ...snapshot,
+      tracking: 'off',
+      now: null,
+      apps: [],
+      categories: [],
+      excluded: [],
+    };
+    expect(screenTimeSnapshotSchema.parse(off)).toEqual(off);
+    expect(screenTimeSnapshotSchema.safeParse({ ...off, tracking: 'paused' }).success).toBe(false);
+    expect(screenTimeSnapshotSchema.safeParse({ ...off, week: week.slice(1) }).success).toBe(false);
+    expect(appUsageSchema.safeParse({ ...app('a.exe', 1), exe: '' }).success).toBe(false);
+    expect(appUsageSchema.safeParse({ ...app('a.exe', 1), category: 'work' }).success).toBe(false);
+    expect(appUsageSchema.safeParse({ ...app('a.exe', 1), limitMinutes: 0 }).success).toBe(false);
+    expect(appUsageSchema.safeParse({ ...app('a.exe', -1) }).success).toBe(false);
+    expectTypeOf<z.infer<typeof screenTimeSnapshotSchema>>().toEqualTypeOf<ScreenTimeSnapshot>();
+  });
+
+  it('accepts every command and refuses an unknown one or a blank exe', () => {
+    const commands: ScreenTimeCommand[] = [
+      { kind: 'refresh' },
+      { kind: 'exclude', exe: 'keepass.exe' },
+      { kind: 'include', exe: 'keepass.exe' },
+      { kind: 'setCategory', exe: 'code.exe', category: 'productivity' },
+      { kind: 'setCategory', exe: 'code.exe', category: null },
+      { kind: 'setLimit', exe: 'steam.exe', minutes: 120 },
+      { kind: 'setLimit', exe: 'steam.exe', minutes: null },
+      { kind: 'clearHistory' },
+    ];
+    for (const command of commands) {
+      expect(screenTimeCommandSchema.parse(command)).toEqual(command);
+    }
+    expect(screenTimeCommandSchema.safeParse({ kind: 'exclude', exe: '' }).success).toBe(false);
+    expect(screenTimeCommandSchema.safeParse({ kind: 'reset' }).success).toBe(false);
+    expect(
+      screenTimeCommandSchema.safeParse({ kind: 'setLimit', exe: 'a.exe', minutes: -5 }).success,
+    ).toBe(false);
+    expectTypeOf<z.infer<typeof screenTimeCommandSchema>>().toEqualTypeOf<ScreenTimeCommand>();
+  });
+
+  it('turns categories into donut shares that sum to one', () => {
+    expect(categoryShares([])).toEqual([]);
+    expect(categoryShares([{ category: 'other', totalMs: 0 }])).toEqual([]);
+    const shares = categoryShares([
+      { category: 'browsing', totalMs: 180_000 },
+      { category: 'development', totalMs: 420_000 },
+      { category: 'games', totalMs: 0 },
+    ]);
+    expect(shares.map((entry) => entry.category)).toEqual(['browsing', 'development']);
+    expect(shares.reduce((sum, entry) => sum + entry.share, 0)).toBeCloseTo(1);
+    expect(shares[0]?.share).toBeCloseTo(0.3);
+  });
+
+  it('measures limit progress and clamps it at one', () => {
+    expect(limitProgress({ totalMs: 600_000, limitMinutes: null })).toBeNull();
+    expect(limitProgress({ totalMs: 600_000, limitMinutes: 0 })).toBeNull();
+    expect(limitProgress({ totalMs: 600_000, limitMinutes: 20 })).toBeCloseTo(0.5);
+    expect(limitProgress({ totalMs: 6_000_000, limitMinutes: 20 })).toBe(1);
+  });
+
+  it('scales the week to its tallest day, never below a minute', () => {
+    expect(weekScaleMs([])).toBe(60_000);
+    expect(weekScaleMs(week.map((entry) => ({ ...entry, totalMs: 0 })))).toBe(60_000);
+    expect(weekScaleMs(week)).toBe(600_000);
   });
 });
 

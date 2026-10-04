@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '../lib/i18n';
 import {
+  formatMinutes,
   formatPercent,
   hudNoticeShowing,
   levelLabelKey,
@@ -82,6 +83,42 @@ describe('strip content mapping', () => {
     expect(messageText({ kind: 'checksFinished', title: 'Snap zones', passed: false }, t)).toBe(
       'Checks failed: Snap zones',
     );
+    expect(messageText({ kind: 'screenTimeLimit', app: 'Steam', minutes: 90 }, t)).toBe(
+      'Steam · 1 h 30 min limit reached',
+    );
+  });
+
+  it('formats a minute count as hours and minutes', () => {
+    expect(formatMinutes(45, t)).toBe('45 min');
+    expect(formatMinutes(120, t)).toBe('2 h');
+    expect(formatMinutes(125, t)).toBe('2 h 5 min');
+    expect(formatMinutes(1, t)).toBe('1 min');
+    expect(formatMinutes(0, t)).toBe('0 min');
+  });
+
+  it('describes a reached screen time limit as one sentence', () => {
+    const shown = present(
+      {
+        kind: 'notice',
+        notice: {
+          id: 'screen-time:limit:steam.exe',
+          module: 'screen-time',
+          priority: 42,
+          leading: { kind: 'icon', glyph: 'hourglass', tint: 'orange' },
+          trailing: null,
+          wide: { kind: 'screenTimeLimit', app: 'Steam', minutes: 60 },
+          holdMs: 0,
+        },
+      },
+      t,
+      'en',
+      0,
+    );
+    expect(shown).toMatchObject({
+      text: 'Steam · 1 h limit reached',
+      wide: true,
+      description: 'Steam reached its daily limit of 1 h',
+    });
   });
 
   it('describes a review request and finished checks as one sentence each', () => {

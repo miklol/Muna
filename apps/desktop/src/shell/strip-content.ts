@@ -88,6 +88,16 @@ export const formatTime = (atMs: number, locale: string): string =>
 export const formatCount = (value: number, locale: string): string =>
   new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
 
+/** `3 h 5 min`, `2 h` or `45 min`, from the catalog so every unit is translatable. */
+export const formatMinutes = (minutes: number, t: Translate): string => {
+  const whole = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(whole / 60);
+  const rest = whole % 60;
+  if (hours === 0) return t('strip.duration.minutes', { count: rest });
+  if (rest === 0) return t('strip.duration.hours', { count: hours });
+  return t('strip.duration.hoursMinutes', { hours, minutes: rest });
+};
+
 /** The localised sentence for a message; `text` is already words. */
 export const messageText = (message: StripMessage, t: Translate): string => {
   switch (message.kind) {
@@ -135,6 +145,12 @@ export const messageText = (message: StripMessage, t: Translate): string => {
       return message.passed
         ? t('strip.message.checksPassed', { title: message.title })
         : t('strip.message.checksFailed', { title: message.title });
+    case 'screenTimeLimit':
+      // The app name is the process's words; the limit is the user's setting.
+      return t('strip.message.screenTimeLimit', {
+        app: message.app,
+        limit: formatMinutes(message.minutes, t),
+      });
   }
 };
 
@@ -332,6 +348,11 @@ export const describe = (content: StripContent, t: Translate, locale: string): s
         return item.wide.passed
           ? t('strip.describe.checksPassed', { title: item.wide.title })
           : t('strip.describe.checksFailed', { title: item.wide.title });
+      case 'screenTimeLimit':
+        return t('strip.describe.screenTimeLimit', {
+          app: item.wide.app,
+          limit: formatMinutes(item.wide.minutes, t),
+        });
     }
   }
   // A battery glyph beside its own percentage is one fact, not two.
