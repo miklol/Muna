@@ -124,9 +124,12 @@ with Drop (M4). Hardware evidence is measured with
 `scripts/dev.ps1 -HitTest -FullMotion` and the `morph` lines in `%LOCALAPPDATA%\Muna\logs`;
 numbers are recorded in
 [notch-shell.md → Implementation notes](modules/notch-shell.md#implementation-notes-m1-e1).
-When driving the notch with synthetic input (`SetCursorPos`), nudge the cursor once after the
-shell has made the window interactive: Windows sends no `WM_MOUSEMOVE` for a cursor that is
-already resting there, whereas a real mouse always does.
+When driving the notch with synthetic input, nudge the cursor once after the shell has made
+the window interactive: Windows sends no `WM_MOUSEMOVE` for a cursor that is already resting
+there, whereas a real mouse always does. `SendInput` and `SetCursorPos` both work (the perf
+harness uses `SendInput`, the input-stack path, and keeps `SetCursorPos` as its fallback); what
+does not work is expecting the *first* expand of a cold session to report a morph, see step 5
+below.
 
 ## Performance harness (`scripts/perf`)
 
@@ -181,7 +184,27 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    ([modules/notch-shell.md](modules/notch-shell.md#implementation-notes-m1-e1)) — below the
    hover-intent velocity, waiting for the shell's `morph` log lines (frames, duration, longest
    frame, dropped) and parking the cursor again → assert the slowest morph ≥ 58 fps. Memory is
-   sampled once more after the last collapse.
+   sampled once more after the last collapse. The cursor moves through `SendInput` (the input
+   stack, like a real mouse), first into the notch window's bounds under the strip for a
+   400 ms dwell — the lead time a real approach gives the shell to lift the low memory target
+   ([modules/notch-shell.md](modules/notch-shell.md#memory-target)) — then along the sliver.
+   When the first cycle reports no expand within 6 s, the harness records a **stall
+   snapshot** — where the cursor really is, which window `WindowFromPoint` names at the probe
+   point, the foreground window (class, process, rect, styles; never its title), the notch
+   window's click-through bit, how long ago the memory target changed and the shell's last 40
+   log lines — as `morphStall` in the JSON, a one-line note in the markdown and the log tail
+   in a folded block, then tries the cycle again with the same mover and, failing that,
+   through `SetCursorPos`; the notes say which attempt worked. On the hosted runner (4 vCPU,
+   reduced motion, debug build) the **first expand of a cold session completes within a single
+   frame**: the strip opens, the sampler logs no morph for it (`frames = 0` is treated as a
+   mount), and the second attempt reports normally — nightly runs
+   [37197808643](https://github.com/miklol/Muna/actions/runs/37197808643),
+   [37198821548](https://github.com/miklol/Muna/actions/runs/37198821548) and
+   [37200725934](https://github.com/miklol/Muna/actions/runs/37200725934) show it whichever
+   mover goes first and with the dwell in place. The report says so (`silentExpand`); the 20
+   measured cycles follow it and the gate is unchanged: a cycle that never morphs still fails
+   the run. Making the sampler report single-frame morphs instead of dropping them is
+   shell work tracked in [#71](https://github.com/miklol/Muna/issues/71).
 6. Write the JSON report and the markdown the `app` job posts on the PR (with the
    `<!-- muna-perf-report -->` marker); exit 1 on any breach or when nothing was measured.
    `--baseline` renders a delta column against an earlier JSON. Which steps run on PRs

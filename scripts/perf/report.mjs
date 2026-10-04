@@ -425,8 +425,30 @@ export function renderMarkdown(report, baseline = null) {
   }
   for (const note of notes) lines.push(`- ${note}`);
   if (notes.length > 0) lines.push('');
+  lines.push(...renderStallLog(report.morphStall));
   lines.push('<!-- muna-perf-report -->', '');
   return lines.join('\n');
+}
+
+/**
+ * The shell's last log lines from a morph stall snapshot, folded into a `<details>` block so
+ * the nightly issue shows them without a trip to the artifact. Empty when nothing stalled.
+ */
+export function renderStallLog(stall, max = 12) {
+  if (!stall || !Array.isArray(stall.recentLog) || stall.recentLog.length === 0) return [];
+  const tail = stall.recentLog.slice(-max);
+  const lines = tail.map((entry) => `${String(entry.atMs).padStart(7)} ms  ${entry.line}`);
+  return [
+    '<details>',
+    `<summary>Shell log at the ${stall.phase} stall (last ${tail.length} lines)</summary>`,
+    '',
+    '```text',
+    ...lines,
+    '```',
+    '',
+    '</details>',
+    '',
+  ];
 }
 
 /**
@@ -493,6 +515,8 @@ export function buildReport({ mode, plan, exe, host, results, notes = [], genera
     morphs,
     processTree: results.processTree ?? [],
     rawMorphs: results.morphs ?? [],
+    /** Desktop snapshot taken when a morph cycle stalled (`driveMorphs`); `null` when none did. */
+    morphStall: results.morphStall ?? null,
     evaluation,
     notes,
   };
