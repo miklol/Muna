@@ -409,6 +409,24 @@ else; each PR's rebase push starts its own run, so the landing costs one full CI
 `package.json` and `pnpm-lock.yaml` the stack also changes, so land the stack first and let
 Dependabot rebase.
 
+With #59 merged into #27 the landing ran again on 2026-10-02/03 and merged PRs #27 through
+PR #50 — 24 PRs, every rebase clean (the script gained a third way to find a child's fork point
+for #37, whose parent #36 had taken the notifications fix after the child branched) — and
+stopped at #51, whose `app` check failed the idle CPU gate at 0.3145 % normalised against the
+0.3 % budget. The PR changes nothing that runs while idle; the per-process split in its
+`perf-smoke.json` had `muna.exe` at 93.8 ms over the 30 s window, identical to the green runs,
+and the excess in the WebView2 browser and renderer processes (141 ms each against 16 and
+78 ms in a green run minutes earlier). The gate's window, 5–35 s after launch, always contains
+the shell's memory trim (requested 30 s after the cursor left the notch) and Chromium's
+settling after it, and the 21 PRs landed before #51 had ranged 0.34–1.26 % of one core across
+that window without tripping — the check measured where the trim fell, not the PR. The fix
+([#64](https://github.com/miklol/Muna/pull/64)) lands on `main` on its own: the harness samples
+CPU with every memory sample and gates on the median 5 s window of the 60–90 s steady state,
+reporting the settling phase, the mean and the busiest window next to it, with the budget
+unchanged and the method and the runner data in [09](../09-testing-qa.md#performance-harness-scriptsperf)
+and [11](../11-ci-cd.md#performance-gates) (risk R22 now covers both runner-noise gates). The
+landing resumes from #51 rebased onto that `main`.
+
 What the milestone's own passes caught that the unit suites could not, for the record: the
 fidelity audit found that the shell sizes a panel to its content, so every module that assumed
 a 284 px body (`flex: 1 1 0` rows, `block-size: 100%`, unbounded lists) rendered 0 px tall or
