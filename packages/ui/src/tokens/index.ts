@@ -24,7 +24,7 @@ const groupOf = (name: string): TokenGroup => {
   if (name.startsWith('--size-')) return 'size';
   if (name.startsWith('--focus-')) return 'focus';
   if (name.startsWith('--material-') || name === '--catch-light') return 'material';
-  if (name.startsWith('--text-') && !/^--text-[123]$/.test(name)) return 'type';
+  if (name.startsWith('--text-') && !/^--text-([123]|destructive)$/.test(name)) return 'type';
   if (name.startsWith('--font-')) return 'type';
   return 'colour';
 };

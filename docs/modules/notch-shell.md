@@ -127,13 +127,18 @@ on / off), sounds.
 
 ## Accessibility
 
-The strip is a named `role="region"` whose wide-form text is a `role="status"` live region;
-the expanded panel is
+The strip is a named `role="region"` whose spoken description is a `role="status"` region,
+`aria-live="off"` until Settings → Appearance → *Announce notices* turns it `polite` (M5-E3;
+off by default because a track change every few minutes is noise for most listeners); the
+expanded panel is
 `role="dialog" aria-modal="false"` labelled by the active module title (or the app name when
-no module is registered); the module bar is a `tablist` of `tab`s with roving focus; all icon
+no module is registered), and that title is the panel's one `h1` — module sub-headings are
+`h2`; the module bar is a `tablist` of `tab`s with roving focus; all icon
 buttons have `aria-label`; focus ring visible on keyboard navigation; `Esc` collapses; hotkey
 to focus the panel (`Ctrl+Alt+Space` default); `Ctrl+Tab` / `Ctrl+Shift+Tab` step through
-modules while the panel is open. Nothing traps focus. (An earlier draft said the panel was a
+modules while the panel is open. Nothing traps focus. Settings → Appearance → *Increase
+contrast* mirrors as `data-contrast="more"` on both windows' `<html>` alongside the Windows
+contrast theme. (An earlier draft said the panel was a
 `region`; the [design system](../05-design-system.md#accessibility) already said `dialog`,
 so this spec was corrected in M1-E4 to match.)
 

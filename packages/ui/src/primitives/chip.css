@@ -25,10 +25,22 @@
 }
 
 .muna-chip--selectable {
+  position: relative;
   cursor: default;
   transition:
     background-color var(--muna-motion-toggle),
     transform var(--muna-motion-press);
+}
+
+/*
+ * Effective hit area: ±4 px above and below the 24 px chip. Chip rows are 8 px apart, so two
+ * rows' extensions meet without overlapping; the height stays within the token budget.
+ */
+.muna-chip--selectable::before {
+  content: '';
+  position: absolute;
+  inset-block: -4px;
+  inset-inline: 0;
 }
 
 .muna-chip__icon {

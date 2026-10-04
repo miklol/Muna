@@ -47,7 +47,8 @@ Derived from the spec template in [`modules/README.md`](modules/README.md):
 2. Strip form renders inside 2 slots; wide form truncates gracefully at 220 px.
 3. `onHidden()` stops all timers/subscriptions (assert zero pending timers after hide).
 4. Settings schema default + at least one migration test.
-5. Storybook stories: `Default`, `Empty`, `Loading`, `Error`, `LongContent`, `RTL`, `ReducedMotion`.
+5. Storybook stories: `Default`, `Empty`, `Loading`, `Error`, `LongContent`, `RTL`, `ReducedMotion`,
+   `PseudoRtl` (the `ar-XB` locale; every panel and pane has one since M5-E3).
 
 ### Module stories (`apps/desktop/.storybook`)
 
@@ -72,7 +73,17 @@ render outside Tauri:
   from the preview.
 
 Interaction states use `play` functions (`storybook/test`); the axe opt-outs the design-system
-runner accepts (`parameters.a11y.config.rules`, each with a comment saying why) apply here too.
+runner accepts (`parameters.a11y.config.rules`, each with a comment saying why) apply here too —
+none is in use since M5-E3 raised `--text-3`. Since M5-E3 every panel and pane has a story
+file, and each carries a `PseudoRtl` variant (`globals: { locale: 'ar-XB' }`), so the axe
+pass covers the whole surface in both directions. Two runner habits the stories follow: the
+preview iframe persists across stories, so a stateful IPC fake re-seeds on the first snapshot
+read of a mount; and axe reads the DOM right after `play`, so a story whose content arrives
+asynchronously waits with `findBy*` and one whose content animates in awaits its enter
+transition before asserting.
+
+The toolbar has *Contrast* (`data-contrast="more"` on `<html>`) beside *Reduce motion*,
+*Language* and *Direction*; a story can pin it with `globals: { contrast: 'more' }`.
 
 ## Notch shell scenario suite (harness page)
 
@@ -211,7 +222,10 @@ by hand; [checklists/window-snap.md](qa/checklists/window-snap.md) pairs with th
 next to the pump (`cargo test -p muna-platform --features platform-tests -- s3_a` for the hook
 latency and the drag-start clock) and the fake-platform zone table (`tests/window_snap.rs`),
 and covers real drags, exact placement on mixed DPI, elevated and UWP windows and the grid by
-hand.
+hand. [checklists/accessibility.md](qa/checklists/accessibility.md) is the cross-cutting one:
+Narrator through the strip, a panel and the settings window, a Windows contrast theme against
+the app's own switch, touch hit areas on a touch screen, reduced motion, and the two Appearance
+switches; the automated half is the axe pass in `storybook:ci`.
 
 ## Bug workflow
 

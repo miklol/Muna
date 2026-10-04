@@ -20,7 +20,9 @@
   --hairline-strong: rgb(255 255 255 / 0.18);
   --text-1: rgb(255 255 255 / 1);
   --text-2: rgb(255 255 255 / 0.6);
-  --text-3: rgb(255 255 255 / 0.4);
+  /* 0.46, not 0.40: white at 40 % is 3.7:1 on `--panel-bottom`; 46 % is 4.6:1 (AA) and keeps the
+     1 / 0.6 / 0.46 hierarchy. */
+  --text-3: rgb(255 255 255 / 0.46);
   --accent-blue: #0a84ff;
   --accent-cyan: #64d2ff;
   --accent-green: #30d158;
@@ -31,6 +33,9 @@
   --accent-pink: #ff375f;
   --accent: var(--accent-blue);
   --on-accent: #000000;
+  /* Red for text (destructive buttons, errors, overdue): the accent itself falls under 4.5:1 on
+     hovered surfaces. Icons and bars keep `--accent-red`. */
+  --text-destructive: #ff6961;
   --scrim: rgb(0 0 0 / 0.55);
   --media-tint: transparent;
 
@@ -148,6 +153,7 @@
     --hairline: rgb(255 255 255 / 0.24);
     --text-2: rgb(255 255 255 / 0.72);
     --text-3: rgb(255 255 255 / 0.56);
+    --text-destructive: #ff8a80;
     --media-tint: transparent;
   }
 }
@@ -156,7 +162,15 @@
   --hairline: rgb(255 255 255 / 0.24);
   --text-2: rgb(255 255 255 / 0.72);
   --text-3: rgb(255 255 255 / 0.56);
+  --text-destructive: #ff8a80;
   --media-tint: transparent;
+}
+
+/* Touch as the primary pointer: 44 px effective hit areas (docs/05-design-system.md). */
+@media (pointer: coarse) {
+  :root {
+    --size-hit-effective: 44px;
+  }
 }
 
 /* Settings window only: neutrals invert, accents use the light-appearance variants. */
@@ -170,13 +184,33 @@
   --hairline-strong: rgb(0 0 0 / 0.18);
   --text-1: #1d1d1f;
   --text-2: rgb(0 0 0 / 0.6);
-  --text-3: rgb(0 0 0 / 0.4);
+  /* Black needs more alpha than white for the same contrast: 0.55 is 4.7:1 on `--bg`. */
+  --text-3: rgb(0 0 0 / 0.55);
   --accent-blue: #007aff;
   --accent-green: #34c759;
   --accent-orange: #ff9500;
   --accent-red: #ff3b30;
   --accent-purple: #af52de;
   --accent-cyan: #32ade6;
+  --text-destructive: #b42318;
+}
+
+/* The light appearance with the contrast switch: the same step up, in the light neutrals. It
+   follows the light block so it wins the tie on <html>. */
+@media (prefers-contrast: more) {
+  [data-theme='light'] {
+    --hairline: rgb(0 0 0 / 0.24);
+    --text-2: rgb(0 0 0 / 0.72);
+    --text-3: rgb(0 0 0 / 0.64);
+    --text-destructive: #9b1c14;
+  }
+}
+
+[data-theme='light'][data-contrast='more'] {
+  --hairline: rgb(0 0 0 / 0.24);
+  --text-2: rgb(0 0 0 / 0.72);
+  --text-3: rgb(0 0 0 / 0.64);
+  --text-destructive: #9b1c14;
 }
 
 /* Settings → Appearance → Accent: the app mirrors the choice as `data-accent` on <html>. */

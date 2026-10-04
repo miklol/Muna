@@ -1,12 +1,14 @@
+import type { Contrast } from '@muna/contracts';
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { accents, isAccent, useAccent, useSystemTheme } from './appearance';
+import { accents, isAccent, useAccent, useContrast, useSystemTheme } from './appearance';
 
 describe('appearance', () => {
   afterEach(() => {
     cleanup();
     delete document.documentElement.dataset.accent;
+    delete document.documentElement.dataset.contrast;
     delete document.documentElement.dataset.theme;
   });
 
@@ -28,6 +30,20 @@ describe('appearance', () => {
     expect(document.documentElement.dataset.accent).toBe('green');
     rerender({ accent: 'not-a-colour' });
     expect(document.documentElement.dataset.accent).toBe('blue');
+  });
+
+  it('mirrors the contrast switch onto <html> and removes it for system', () => {
+    const { rerender } = renderHook(
+      ({ contrast }: { contrast: Contrast | undefined }) => {
+        useContrast(contrast);
+      },
+      { initialProps: { contrast: undefined as Contrast | undefined } },
+    );
+    expect(document.documentElement.dataset.contrast).toBeUndefined();
+    rerender({ contrast: 'more' });
+    expect(document.documentElement.dataset.contrast).toBe('more');
+    rerender({ contrast: 'system' });
+    expect(document.documentElement.dataset.contrast).toBeUndefined();
   });
 
   it('follows prefers-color-scheme while mounted', () => {

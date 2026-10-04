@@ -137,7 +137,7 @@ function Agenda({ snapshot, days, tintOf, day, nowMs, locale, onRefresh }: Agend
     <section className="calendar-agenda" aria-label={t('calendar.agenda')}>
       <header className="calendar-agenda__head">
         <div className="calendar-agenda__heading">
-          <Text as="h3" variant="callout" className="calendar-agenda__title">
+          <Text as="h2" variant="callout" className="calendar-agenda__title">
             {formatDayHeading(day, locale)}
           </Text>
           <Text as="span" variant="caption" tone="tertiary" tabular>
@@ -165,7 +165,14 @@ function Agenda({ snapshot, days, tintOf, day, nowMs, locale, onRefresh }: Agend
           {outsideWindow ? t('calendar.outsideWindow') : t('calendar.noEvents')}
         </Text>
       ) : (
-        <ol className="calendar-agenda__list">
+        <ol
+          className="calendar-agenda__list"
+          aria-label={t('calendar.agendaEvents', { day: formatDayHeading(day, locale) })}
+          // The list scrolls inside the grid's height and a day may have no button in it; a tab
+          // stop lets the keyboard scroll it (axe `scrollable-region-focusable`).
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- scrollable region
+          tabIndex={0}
+        >
           {events.map((event) => (
             <AgendaRow
               key={event.id}

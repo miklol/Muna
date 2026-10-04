@@ -310,6 +310,23 @@ describe('SettingsApp', () => {
     });
   });
 
+  it('saves the accessibility switches from the Appearance pane', async () => {
+    await renderSettings();
+    openPane('Appearance');
+    fireEvent.click(screen.getByRole('switch', { name: 'Increase contrast' }));
+    await waitFor(() => {
+      expect(lastSaved().general.contrast).toBe('more');
+    });
+    fireEvent.click(screen.getByRole('switch', { name: 'Increase contrast' }));
+    await waitFor(() => {
+      expect(lastSaved().general.contrast).toBe('system');
+    });
+    fireEvent.click(screen.getByRole('switch', { name: 'Announce notices' }));
+    await waitFor(() => {
+      expect(lastSaved().general.announceNotices).toBe(true);
+    });
+  });
+
   it('switches the window language as soon as a tile is chosen, and back to Windows', async () => {
     await renderSettings();
     expect(screen.getByRole('radio', { name: 'Windows' })).toBeChecked();

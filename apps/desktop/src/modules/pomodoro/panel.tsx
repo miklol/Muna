@@ -142,7 +142,7 @@ export function PomodoroPanel() {
       </div>
       <div className="pomodoro-details">
         <div className="pomodoro-meta">
-          <Text as="h3" variant="title3" className="pomodoro-phase">
+          <Text as="h2" variant="title3" className="pomodoro-phase">
             {phaseName}
           </Text>
           <Text as="p" variant="footnote" tone="secondary" className="pomodoro-status">

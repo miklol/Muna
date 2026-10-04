@@ -132,6 +132,18 @@ export const settingsIndex: readonly SettingEntry[] = [
     synonyms: ['animation', 'animations', 'motion', 'spring', 'accessibility', 'effects'],
   },
   {
+    pane: 'appearance',
+    id: 'appearance.increaseContrast',
+    labelKey: 'settings.appearance.increaseContrast',
+    synonyms: ['contrast', 'high contrast', 'accessibility', 'readable', 'legible', 'hairline'],
+  },
+  {
+    pane: 'appearance',
+    id: 'appearance.announceNotices',
+    labelKey: 'settings.appearance.announceNotices',
+    synonyms: ['screen reader', 'narrator', 'announce', 'read aloud', 'accessibility', 'live'],
+  },
+  {
     pane: 'modules',
     id: 'modules.list',
     labelKey: 'settings.pane.modules',

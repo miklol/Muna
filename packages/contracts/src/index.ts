@@ -40,6 +40,7 @@ export type {
   CodeHostingChanged,
   CodeHostingCommand,
   CodeHostingSnapshot,
+  Contrast,
   CurrentApp,
   CurrentConditions,
   DayForecast,

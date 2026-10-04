@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest';
 import { AppProviders } from '../app-providers';
 import { Strip } from './strip';
 
-const renderStrip = (content: StripContent) =>
+const renderStrip = (content: StripContent, announce = false) =>
   render(
     <AppProviders>
-      <Strip content={content} receivedAt={Date.now()} />
+      <Strip content={content} receivedAt={Date.now()} announce={announce} />
     </AppProviders>,
   );
 
@@ -20,7 +20,13 @@ describe('Strip', () => {
     expect(region()).toHaveAttribute('data-kind', 'idle');
     expect(region()).not.toHaveAttribute('data-wide');
     expect(screen.getByRole('status')).toHaveTextContent('Muna is running.');
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'off');
     expect(region().querySelector('.muna-strip__slot-content')).toBeNull();
+  });
+
+  it('announces notices only when Settings → Appearance → Announce notices is on', () => {
+    renderStrip({ kind: 'idle' }, true);
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
   });
 
   it('maps an activity to its slots, hides them from AT and describes them in the live region', () => {

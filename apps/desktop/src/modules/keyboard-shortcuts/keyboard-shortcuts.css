@@ -1,7 +1,7 @@
 /*
  * Settings › Keyboard shortcuts (docs/modules/keyboard-shortcuts.md): one row per action, the
  * chord as caps on the right; the recorder button turns into a prompt while it listens; a
- * refusal ("In use", "Invalid") sits beside the caps in `--accent-red`. Composes tokens only.
+ * refusal ("In use", "Invalid") sits beside the caps in `--text-destructive`. Composes tokens only.
  */
 
 .shortcuts-binding {
@@ -56,7 +56,7 @@
 }
 
 .shortcuts-state[data-tone='error'] {
-  color: var(--accent-red);
+  color: var(--text-destructive);
 }
 
 @media (prefers-reduced-motion: reduce) {

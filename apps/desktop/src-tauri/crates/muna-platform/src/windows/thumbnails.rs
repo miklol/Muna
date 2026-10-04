@@ -18,7 +18,7 @@ use windows::Win32::UI::Shell::{
     WTS_E_EXTRACTIONPENDING, WTS_E_EXTRACTIONTIMEDOUT, WTS_E_FAILEDEXTRACTION,
     WTS_E_SURROGATEUNAVAILABLE,
 };
-use windows::core::Interface;
+use windows::core::{HRESULT, Interface};
 
 use super::file_ops::{on_sta_thread, shell_item};
 use super::os_error;
@@ -27,9 +27,15 @@ use crate::error::{PlatformError, PlatformResult};
 /// Largest side the shell is asked for; bigger requests only cost memory.
 const MAX_SIDE: u32 = 512;
 
+/// `E_PENDING`: the `windows` crate files it under `Win32::System::Com::Urlmon`, a feature this
+/// crate has no other use for.
+const E_PENDING: HRESULT = HRESULT(0x8000_000A_u32.cast_signed());
+
 /// Whether `error` is the shell declining an extraction for now (`WTS_E_*`: the thumbnail
-/// cache is busy, the extraction timed out or its surrogate is gone). Explorer shows a blank
-/// tile and tries again later; callers here treat it as "no icon this time".
+/// cache is busy, the extraction timed out or its surrogate is gone; `E_PENDING`: the image
+/// factory has started extracting and has nothing to hand over yet, which a cold icon cache
+/// answers for an executable's first request). Explorer shows a blank tile and tries again
+/// later; callers here treat it as "no icon this time".
 pub(super) fn shell_declined(error: &PlatformError) -> bool {
     matches!(
         error,
@@ -40,6 +46,7 @@ pub(super) fn shell_declined(error: &PlatformError) -> bool {
                 WTS_E_SURROGATEUNAVAILABLE,
                 WTS_E_EXTRACTIONPENDING,
                 WTS_E_EXTRACTIONBLOCKED,
+                E_PENDING,
             ]
             .iter()
             .any(|declined| declined.0.cast_unsigned() == *code)
@@ -250,6 +257,11 @@ mod tests {
         assert!(shell_declined(&PlatformError::Os {
             api: "IShellItemImageFactory::GetImage",
             code: 0x8004_B201,
+        }));
+        // E_PENDING: the factory is still extracting.
+        assert!(shell_declined(&PlatformError::Os {
+            api: "IShellItemImageFactory::GetImage",
+            code: 0x8000_000A,
         }));
         assert!(!shell_declined(&PlatformError::Os {
             api: "IShellItemImageFactory::GetImage",

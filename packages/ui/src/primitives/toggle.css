@@ -9,6 +9,7 @@
 
 /* The React Aria switch button is the label: hover, press and focus land here. */
 .muna-toggle__button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -19,6 +20,14 @@
   line-height: var(--text-body--line-height);
   cursor: default;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Effective hit area: the 20 px track grows to `--size-hit-effective` tall (36; 44 on touch). */
+.muna-toggle__button::before {
+  content: '';
+  position: absolute;
+  inset-block: calc((var(--size-toggle-height) - var(--size-hit-effective)) / 2);
+  inset-inline: 0;
 }
 
 .muna-toggle__track {

@@ -319,11 +319,22 @@ describe('settings schema', () => {
       monitorLayoutSchema.safeParse({ ...settings.shell.defaults, stripHeight: 'huge' }).success,
     ).toBe(false);
     // The toggle hotkey moved to the keyboard-shortcuts namespace in version 5; the language
-    // arrived in version 6.
-    expect(SETTINGS_VERSION).toBe(6);
+    // arrived in version 6 and the accessibility switches in version 7.
+    expect(SETTINGS_VERSION).toBe(7);
     expect(
       shellSettingsSchema.safeParse({ ...settings.shell, toggleHotkey: 'ctrl+alt+space' }).data,
     ).not.toHaveProperty('toggleHotkey');
+  });
+
+  it('carries the accessibility switches and refuses an unknown contrast', () => {
+    const settings = defaultSettings();
+    expect(settings.general.contrast).toBe('system');
+    expect(settings.general.announceNotices).toBe(false);
+    const general = { ...settings.general, contrast: 'more', announceNotices: true };
+    expect(settingsSchema.parse({ ...settings, general }).general).toEqual(general);
+    expect(
+      settingsSchema.safeParse({ ...settings, general: { ...general, contrast: 'less' } }).success,
+    ).toBe(false);
   });
 
   it('carries the language setting and refuses an empty one', () => {

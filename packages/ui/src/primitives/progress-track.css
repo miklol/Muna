@@ -63,9 +63,14 @@
   translate: calc(var(--muna-progress) * -100cqw) 0;
 }
 
-.muna-progress-track--seekable:hover .muna-progress-track__thumb,
 .muna-progress-track--seekable:focus-within .muna-progress-track__thumb {
   opacity: 1;
+}
+
+@media (hover: hover) {
+  .muna-progress-track--seekable:hover .muna-progress-track__thumb {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -66,8 +66,10 @@
   border-radius: var(--radius-control);
 }
 
-.ai-coding-row:hover {
-  background: var(--surface-1);
+@media (hover: hover) {
+  .ai-coding-row:hover {
+    background: var(--surface-1);
+  }
 }
 
 /* The terminal glyph with the status dot at its corner: green working, orange stopped for you. */
@@ -187,8 +189,10 @@
   border-radius: var(--radius-control);
 }
 
-.ai-coding-recent__row:hover {
-  background: var(--surface-1);
+@media (hover: hover) {
+  .ai-coding-recent__row:hover {
+    background: var(--surface-1);
+  }
 }
 
 .ai-coding-recent__project {

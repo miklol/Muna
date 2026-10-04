@@ -94,8 +94,10 @@
   border-radius: var(--radius-control);
 }
 
-.todo-row:hover {
-  background: var(--surface-1);
+@media (hover: hover) {
+  .todo-row:hover {
+    background: var(--surface-1);
+  }
 }
 
 .todo-row__check {
@@ -122,7 +124,7 @@
 }
 
 .todo-row__due[data-overdue] {
-  color: var(--accent-red);
+  color: var(--text-destructive);
 }
 
 .todo-row__action {
@@ -206,5 +208,5 @@
 }
 
 .todo-widget__row[data-overdue] .todo-widget__due {
-  color: var(--accent-red);
+  color: var(--text-destructive);
 }

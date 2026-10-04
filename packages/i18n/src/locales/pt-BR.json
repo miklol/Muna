@@ -562,6 +562,7 @@
     "title": "Calendário",
     "month": "Mês",
     "agenda": "Agenda",
+    "agendaEvents": "Eventos de {{day}}",
     "today": "Hoje",
     "previousMonth": "Mês anterior",
     "nextMonth": "Próximo mês",
@@ -1939,9 +1940,14 @@
         "yellow": "Amarelo",
         "pink": "Rosa"
       },
-      "motion": "Movimento",
+      "accessibility": "Acessibilidade",
+      "accessibilityBody": "O Muna também segue as configurações do Windows de efeitos de animação e temas de contraste.",
       "reduceMotion": "Reduzir movimento",
-      "reduceMotionBody": "Substitui as molas por esmaecimentos rápidos. O Muna também segue a configuração de efeitos de animação do Windows."
+      "reduceMotionBody": "Esmaecimentos rápidos em vez de molas.",
+      "increaseContrast": "Aumentar o contraste",
+      "increaseContrastBody": "Linhas e texto secundário mais fortes sobre o vidro preto.",
+      "announceNotices": "Anunciar avisos",
+      "announceNoticesBody": "Leitores de tela leem cada novo aviso assim que ele aparece."
     },
     "modules": {
       "body": "Desative um módulo para ocultá-lo do notch. Organize a barra de módulos com as setas.",

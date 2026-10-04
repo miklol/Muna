@@ -983,6 +983,14 @@ export type CodeHostingSnapshot = {
 	error: CodeHostError | null,
 };
 
+/**
+ *  Settings → Appearance → Increase contrast (v7): the UI mirrors `more` as
+ *  `data-contrast="more"` on `<html>`, where the design tokens step hairlines and secondary
+ *  text up (docs/05-design-system.md "Accessibility"). `system` follows Windows contrast
+ *  themes through `prefers-contrast` alone.
+ */
+export type Contrast = "system" | "more";
+
 /**  The app in the foreground right now, for the *Now* card. */
 export type CurrentApp = {
 	exe: string,
@@ -1299,6 +1307,14 @@ export type GeneralSettings = {
 	 *  unknown tag (a catalog that was dropped) behaves like `system` (v6).
 	 */
 	language: string,
+	/**  Settings → Appearance → Increase contrast (v7). */
+	contrast: Contrast,
+	/**
+	 *  Settings → Appearance → Announce notices: the strip's notices are a polite live region
+	 *  for screen readers; off (the default) keeps the text readable without announcing every
+	 *  track change (v7).
+	 */
+	announceNotices: boolean,
 };
 
 /**

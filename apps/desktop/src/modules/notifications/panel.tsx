@@ -71,7 +71,7 @@ interface ErrorTextProps {
   children: ReactNode;
 }
 
-/** A refusal under a card or the header, in `--accent-red`; announced when it appears. */
+/** A refusal under a card or the header, in `--text-destructive`; announced when it appears. */
 function ErrorText({ children }: ErrorTextProps) {
   return (
     <span role="alert" className="ntf-error">

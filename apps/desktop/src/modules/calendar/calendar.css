@@ -84,6 +84,11 @@
   scrollbar-width: thin;
 }
 
+.calendar-agenda__list:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 /* An event row: the calendar's colour as a 3 px bar, the time column, the text, the action. */
 .calendar-event {
   --calendar-tint: var(--text-2);
@@ -97,8 +102,10 @@
   border-radius: var(--radius-control);
 }
 
-.calendar-event:hover {
-  background: var(--surface-1);
+@media (hover: hover) {
+  .calendar-event:hover {
+    background: var(--surface-1);
+  }
 }
 
 .calendar-event__bar {

@@ -49,17 +49,18 @@ Notch surfaces are dark regardless of OS theme. The Settings window gets both th
 | `--hairline-strong` | `rgb(255 255 255 / 0.18)` | Focused input border |
 | `--text-1` | `rgb(255 255 255 / 1)` | Primary |
 | `--text-2` | `rgb(255 255 255 / 0.60)` | Secondary |
-| `--text-3` | `rgb(255 255 255 / 0.40)` | Tertiary, placeholders, disabled |
+| `--text-3` | `rgb(255 255 255 / 0.46)` | Tertiary, placeholders, disabled — 4.6:1 on the panel, never below 12 px |
 | `--accent-blue` | `#0A84FF` | Links, selection, focus ring |
 | `--accent-cyan` | `#64D2FF` | Media, waveform |
 | `--accent-green` | `#30D158` | Success, connected, health move |
 | `--accent-orange` | `#FF9F0A` | Pomodoro, warnings, charging |
-| `--accent-red` | `#FF453A` | Destructive, errors, recording |
+| `--accent-red` | `#FF453A` | Destructive and error *glyphs*, bars, recording |
 | `--accent-purple` | `#BF5AF2` | Health stand, AI coding |
 | `--accent-yellow` | `#FFD60A` | Weather sun, stars |
 | `--accent-pink` | `#FF375F` | Health heart |
 | `--accent` | user-selectable, default `--accent-blue` | Active module indicator, toggles |
 | `--on-accent` | `#000000` | Label and glyph on an accent fill (primary button, toggle knob on); white on `#0A84FF` is 3.96:1, black is 5.8:1 |
+| `--text-destructive` | `#FF6961` | Red *text*: destructive button labels, error lines, overdue. `--accent-red` is 4.26:1 on a hovered `--surface-3`; this is 5.2:1. Light theme `#B42318` (4.7:1 on a hovered light surface) |
 | `--scrim` | `rgb(0 0 0 / 0.55)` | Behind modal-like drawers inside the panel |
 
 Media surfaces may tint `--surface-*` with the album palette through `--media-tint`
@@ -67,14 +68,17 @@ Media surfaces may tint `--surface-*` with the album palette through `--media-ti
 and never touches text.
 
 Light-theme Settings window: neutrals invert (`--bg #F5F5F7`, `--surface-1 rgb(0 0 0 / .04)`,
-`--text-1 #1D1D1F`, `--text-2 rgb(0 0 0 / .6)`, `--hairline rgb(0 0 0 / .1)`); accents use the
-light-appearance variants (`#007AFF`, `#34C759`, `#FF9500`, `#FF3B30`, `#AF52DE`, `#32ADE6`).
+`--text-1 #1D1D1F`, `--text-2 rgb(0 0 0 / .6)`, `--text-3 rgb(0 0 0 / .55)` — black needs more
+alpha than white for the same 4.5:1, `--hairline rgb(0 0 0 / .1)`); accents use the
+light-appearance variants (`#007AFF`, `#34C759`, `#FF9500`, `#FF3B30`, `#AF52DE`, `#32ADE6`)
+and red text uses `--text-destructive #B42318`.
 
 Contrast: `--text-2` on `--panel-bottom` ≈ 7.5:1, `--text-3` ≈ 4.6:1 — both pass AA for body
 text; `--text-3` is never used below 12 px. Under `prefers-contrast: more` (Windows "Contrast
-themes" / high-contrast) the tokens shift: `--hairline` → 0.24, `--text-2` → 0.72, `--text-3` →
-0.56, and the strip gains a 1 px `--hairline` outline so the black shape stays visible on dark
-wallpapers.
+themes" / high-contrast) or the app's own *Increase contrast* switch the tokens shift:
+`--hairline` → 0.24, `--text-2` → 0.72, `--text-3` → 0.56 (light 0.64), `--text-destructive`
+→ `#FF8A80` (light `#9B1C14`), and the strip gains a 1 px `--hairline` outline so the black
+shape stays visible on dark wallpapers. The light theme has the same step in its own neutrals.
 
 ### Materials
 
@@ -299,22 +303,42 @@ Pure-CSS state changes (hover tint, press scale, chip select) transition with th
 
 Contrast ≥ 4.5:1 for text, 3:1 for icons/controls; names on every icon button; focus order
 follows layout; Esc always collapses/closes; `prefers-contrast: more` **or** the app's
-`[data-contrast=more]` applies the values in the Colour section (`--hairline` 0.24, `--text-2`
-0.72, `--text-3` 0.56, strip outline) and removes media tints; reduced motion per the
+`[data-contrast=more]` (Settings → Appearance → *Increase contrast*) applies the values in the
+Colour section (`--hairline` 0.24, `--text-2` 0.72, `--text-3` 0.56, `--text-destructive`
+brighter, strip outline) and removes media tints; reduced motion per the
 [motion spec](06-motion-spec.md); no information conveyed by colour alone (rings carry labels;
-status has icon + text).
+status has icon + text). Red text is `--text-destructive`, never `--accent-red`, whose 4.26:1 on
+a hovered row fails the rule.
 
-Known gap, measured in M0-E4: `--text-3` (white at 40 %) is **3.7:1** on `--panel-bottom`,
-below the 4.5:1 rule above; 4.5:1 needs ≥ 46 %. Open for design review — either raise the
-token (0.46 keeps the hierarchy: 1 / 0.6 / 0.46) or restrict `--text-3` to non-essential,
-≥ 18 px text and record the exception here. Until decided, the Storybook "Tones" story opts
-out of axe's `color-contrast` rule for that line only.
+`--text-3` was measured at 3.7:1 in M0-E4 (white at 40 %) and raised to 46 % in M5-E3 — 4.6:1
+on `--panel-bottom`, hierarchy 1 / 0.6 / 0.46 — rather than carving out an exception; the light
+value is 55 % for the same reason. Nothing opts out of axe's `color-contrast` rule any more.
 
-Screen readers: the collapsed strip and live activities are one `role="status"` region with
-`aria-live="polite"` so a track change or "AirPods connected" is announced without stealing
-focus; HUD value changes are announced at most once per second (`aria-atomic`, throttled);
-the expanded panel is `role="dialog" aria-modal="false"` labelled by the module title; the
-module bar is `role="tablist"`. Nothing inside the notch ever traps focus.
+Headings: the panel title (`PanelChrome`) and the settings pane title are the one `h1` of
+their surface; section titles, `Card` titles and a module's own sub-headings are `h2`
+(`Card` takes `headingLevel={3}` when it sits inside a titled section). axe's `heading-order`
+runs on every story, so a skipped level fails `storybook:ci`.
+
+Hit areas: 28 px visual, 36 px effective, **44 px under `(pointer: coarse)`**
+(`--size-hit-effective`); small controls (toggle, checkbox, chip, segmented control) extend
+with a `::before` on the React Aria element, never on the input, and only in the block
+direction so neighbours in a row cannot collide. Raw `:hover` tints sit behind
+`@media (hover: hover)` so a tap on a touch screen never leaves a row tinted.
+
+Screen readers: the collapsed strip and live activities are one `role="status"` region. It is
+`aria-live="off"` by default — a track change every few minutes is noise for most listeners —
+and becomes `polite` when Settings → Appearance → *Announce notices* is on, so a track change
+or "AirPods connected" is read without stealing focus; HUD levels arrive as notices through
+the same region and follow the same switch. The expanded panel is `role="dialog"
+aria-modal="false"` labelled by the module title; the module bar is `role="tablist"`. A figure
+whose visible text is not a sentence (a bare `60%`) renders `aria-hidden` next to a `.sr-only`
+sentence rather than an `aria-label` on a span. A list that can scroll and has no focusable
+children (the calendar agenda) is a labelled tab stop with the focus ring. Nothing inside the
+notch ever traps focus.
+
+Every panel and pane has a Storybook story with a `PseudoRtl` variant; the test-runner's axe
+pass over both Storybooks is the automated half, the manual half is
+[qa/checklists/accessibility](qa/checklists/accessibility.md).
 
 ## Writing
 

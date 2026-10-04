@@ -80,8 +80,10 @@
   border-radius: var(--radius-control);
 }
 
-.code-hosting-row:hover {
-  background: var(--surface-1);
+@media (hover: hover) {
+  .code-hosting-row:hover {
+    background: var(--surface-1);
+  }
 }
 
 /* The initial stands where the plan draws an avatar: the notch never loads remote images. */
@@ -140,7 +142,7 @@
 }
 
 .code-hosting-row__meta[data-checks='failure'] {
-  color: var(--accent-red);
+  color: var(--text-destructive);
 }
 
 .code-hosting-row__meta[data-checks='success'] {

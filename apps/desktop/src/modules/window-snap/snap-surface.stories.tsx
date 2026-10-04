@@ -170,3 +170,8 @@ export const NarrowPanel: Story = {
 export const ReducedMotion: Story = {
   globals: { reduceMotion: 'on' },
 };
+
+/** The mirrored-English pseudo-locale (ar-XB): longer strings, right-to-left layout. */
+export const PseudoRtl: Story = {
+  globals: { locale: 'ar-XB' },
+};

@@ -43,8 +43,10 @@
   border-radius: var(--radius-control);
 }
 
-.bt-row:hover {
-  background: var(--surface-1);
+@media (hover: hover) {
+  .bt-row:hover {
+    background: var(--surface-1);
+  }
 }
 
 .bt-row__content {
@@ -61,7 +63,7 @@
 }
 
 .bt-error {
-  color: var(--accent-red);
+  color: var(--text-destructive);
 }
 
 .bt-empty {
