@@ -1,8 +1,9 @@
 // Performance harness (docs/09-testing-qa.md "Performance harness", docs/11-ci-cd.md
 // "Performance gates"). Launches the built app with a scratch profile, measures cold start,
-// idle CPU and memory of the whole process tree and — in full mode — the strip ↔ panel morph
-// frame rate, compares with the PRD budgets and writes JSON plus the markdown the `app` job
-// posts on the PR. Exit code 1 on any budget breach or when nothing could be measured.
+// steady-state idle CPU and memory of the whole process tree and — in full mode — the
+// strip ↔ panel morph frame rate, compares with the PRD budgets and writes JSON plus the
+// markdown the `app` job posts on the PR. Exit code 1 on any budget breach or when nothing
+// could be measured.
 //
 //   node scripts/perf/index.mjs --smoke|--full [--out file.json] [--markdown file.md]
 //        [--exe path\to\muna.exe] [--baseline earlier.json] [--morphs N] [--verbose]
@@ -17,6 +18,13 @@ const { flags, options } = parseArgs();
 const mode = flags.has('full') ? 'full' : 'smoke';
 const plan = planFor(mode);
 if (options.has('morphs')) plan.morphs = Number(options.get('morphs'));
+if (plan.memoryAfterSeconds - plan.warmupSeconds < 2 * plan.cpuSeconds) {
+  // The gated steady state (last `cpuSeconds`) must not overlap the settling phase (first
+  // `cpuSeconds`); a plan that breaks this measures the trim it is meant to exclude.
+  throw new Error(
+    `perf plan ${plan.mode}: memoryAfterSeconds (${plan.memoryAfterSeconds}) - warmupSeconds (${plan.warmupSeconds}) must be at least 2 × cpuSeconds (${plan.cpuSeconds})`,
+  );
+}
 const verbose = flags.has('verbose');
 const exe = options.has('exe')
   ? {
@@ -159,6 +167,14 @@ async function main() {
       notes.push(
         'The shell never asked WebView2 for the low memory target: strip content, a focused settings window or cursor activity kept it at normal, so the memory value is the last sample.',
       );
+    }
+    if (idle.idleCpu?.steadyState) {
+      const { steadyState, settling, windowSeconds } = idle.idleCpu;
+      notes.push(
+        `Idle CPU gates on the steady state: the median of the ${windowSeconds} s windows over ${steadyState.fromSeconds}–${steadyState.toSeconds} s, after WebView2 has finished the work its memory trim sets off${settling ? `; the settling phase (${settling.fromSeconds}–${settling.toSeconds} s) is reported for comparison and not gated` : ''}.`,
+      );
+    } else {
+      notes.push('Idle CPU could not be measured: no steady-state window was sampled.');
     }
     if (exe.profile === 'debug') {
       notes.push(

@@ -7,7 +7,14 @@ import path from 'node:path';
 import { createInterface } from 'node:readline';
 
 import { repoRoot } from '../lib.mjs';
-import { cpuPercent, parseMemoryTargetLine, parseMorphLine, parseReadyLine } from './report.mjs';
+import {
+  cpuPercent,
+  cpuWindows,
+  idleCpuSummary,
+  parseMemoryTargetLine,
+  parseMorphLine,
+  parseReadyLine,
+} from './report.mjs';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -273,54 +280,86 @@ function totals(sample) {
 }
 
 /**
- * Idle window: parks the cursor away from the notch, snapshots CPU time at the start and end
- * of `cpuSeconds`, and samples memory every `memorySampleSeconds` until `memoryAfterSeconds`
- * (counted from launch; `elapsedSeconds` is how far the run already is).
+ * Idle phase: parks the cursor away from the notch and samples the tree every
+ * `memorySampleSeconds` until `memoryAfterSeconds` (counted from launch; `elapsedSeconds` is
+ * how far the run already is). Every sample is a memory sample and, with its per-process CPU
+ * times, the end of one CPU window; the first sample is the CPU baseline only. The gated idle
+ * CPU is the median window of the last `cpuSeconds` (the steady state, after WebView2's
+ * memory trim has settled) and the first `cpuSeconds` are reported as the settling phase —
+ * see `idleCpuSummary` in `report.mjs` and docs/09 "Performance harness".
  */
 export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
   await probe.cursor(host.screenWidth * 0.1, host.screenHeight - 120);
   const treeNow = async () => (await probe.tree(app.pid)).map((p) => p.pid);
   const memorySamples = [];
-  const takeMemory = async (atSeconds) => {
+  const cpuSamples = [];
+  const percent = (value) => (value === null ? '—' : value.toFixed(2));
+  const take = async (atSeconds) => {
     const sample = await probe.sample(await treeNow());
+    const wallMs = performance.now();
+    const previous = cpuSamples.at(-1) ?? null;
+    cpuSamples.push({
+      atSeconds,
+      wallMs,
+      processes: sample.map((p) => ({ pid: p.pid, cpuMs: p.cpuMs })),
+    });
+    if (previous === null) return sample;
     const sum = totals(sample);
     const memoryTarget = app.memoryTarget;
     memorySamples.push({ atSeconds, memoryTarget, ...sum });
+    const cpu = cpuPercent(
+      previous.processes,
+      sample,
+      wallMs - previous.wallMs,
+      host.logicalProcessors,
+    );
     log(
-      `memory at ${String(atSeconds).padStart(3)} s: private ${sum.privateWorkingSetMb.toFixed(1)} MB, working set ${sum.workingSetMb.toFixed(1)} MB over ${sum.processes} processes, ${memoryTarget} target`,
+      `at ${String(atSeconds).padStart(3)} s: CPU ${percent(cpu.raw)} % of one core (${percent(cpu.normalised)} % normalised) since ${previous.atSeconds} s · private ${sum.privateWorkingSetMb.toFixed(1)} MB, working set ${sum.workingSetMb.toFixed(1)} MB over ${sum.processes} processes, ${memoryTarget} target`,
     );
     return sample;
   };
 
-  const before = await probe.sample(await treeNow());
-  const cpuStart = performance.now();
-  log(`sampling CPU for ${plan.cpuSeconds} s over ${before.length} processes…`);
   let elapsed = elapsedSeconds;
-  const cpuEnd = elapsed + plan.cpuSeconds;
-  while (elapsed < cpuEnd) {
-    const step = Math.min(plan.memorySampleSeconds, cpuEnd - elapsed);
-    await sleep(step * 1000);
-    elapsed += step;
-    if (elapsed < cpuEnd) await takeMemory(elapsed);
-  }
-  const after = await probe.sample(await treeNow());
-  const wallMs = performance.now() - cpuStart;
-  const cpu = cpuPercent(before, after, wallMs, host.logicalProcessors);
+  let lastSample = await take(elapsed);
   log(
-    `idle CPU: ${cpu.normalised?.toFixed(3)} % of ${host.logicalProcessors} logical processors (${cpu.raw?.toFixed(2)} % of one core) over ${(wallMs / 1000).toFixed(1)} s`,
+    `sampling CPU and memory every ${plan.memorySampleSeconds} s until ${plan.memoryAfterSeconds} s over ${lastSample.length} processes (idle CPU gates on the last ${plan.cpuSeconds} s)…`,
   );
-  let lastSample = await takeMemory(elapsed);
   while (elapsed < plan.memoryAfterSeconds) {
     const step = Math.min(plan.memorySampleSeconds, plan.memoryAfterSeconds - elapsed);
     await sleep(step * 1000);
     elapsed += step;
-    lastSample = await takeMemory(elapsed);
+    lastSample = await take(elapsed);
   }
+
+  const idleCpu = idleCpuSummary(cpuWindows(cpuSamples, host.logicalProcessors), plan);
+  const steady = idleCpu?.steadyState ?? null;
+  const settling = idleCpu?.settling ?? null;
+  if (steady) {
+    log(
+      `idle CPU, steady state ${steady.fromSeconds}–${steady.toSeconds} s: median ${steady.median.normalised.toFixed(3)} % of ${host.logicalProcessors} logical processors (${steady.median.raw.toFixed(2)} % of one core), mean ${steady.mean.raw.toFixed(2)} %, busiest window ${steady.max.raw.toFixed(2)} % of one core`,
+    );
+  }
+  if (settling) {
+    log(
+      `idle CPU, settling ${settling.fromSeconds}–${settling.toSeconds} s: mean ${settling.mean.normalised.toFixed(3)} % normalised (${settling.mean.raw.toFixed(2)} % of one core), not gated`,
+    );
+  }
+
+  // Per-process CPU time over each phase: `null` when the process appeared after the phase
+  // ended, counted from zero when it appeared during it (like `cpuPercent`).
+  const cpuAt = (atSeconds) => {
+    const sample = cpuSamples.find((s) => s.atSeconds === atSeconds);
+    return new Map((sample?.processes ?? []).map((p) => [p.pid, p.cpuMs]));
+  };
+  const spent = (from, to, pid) =>
+    to.has(pid) ? Math.round((to.get(pid) - (from.get(pid) ?? 0)) * 10) / 10 : null;
+  const steadyFrom = steady ? cpuAt(steady.fromSeconds) : new Map();
+  const steadyTo = steady ? cpuAt(steady.toSeconds) : new Map();
+  const settlingFrom = settling ? cpuAt(settling.fromSeconds) : new Map();
+  const settlingTo = settling ? cpuAt(settling.toSeconds) : new Map();
   const last = totals(lastSample);
-  const cpuBefore = new Map(before.map((p) => [p.pid, p.cpuMs]));
-  const cpuAfter = new Map(after.map((p) => [p.pid, p.cpuMs]));
   return {
-    cpu: { ...cpu, wallMs: Math.round(wallMs) },
+    idleCpu,
     memorySamples,
     workingSetMb: Math.round(last.workingSetMb * 10) / 10,
     processes: last.processes,
@@ -329,10 +368,8 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
       name: p.name,
       privateWorkingSetMb: p.privateWorkingSetMb,
       workingSetMb: p.workingSetMb,
-      // CPU time spent during the idle window; `null` when the process appeared afterwards.
-      idleCpuMs: cpuAfter.has(p.pid)
-        ? Math.round((cpuAfter.get(p.pid) - (cpuBefore.get(p.pid) ?? 0)) * 10) / 10
-        : null,
+      idleCpuMs: spent(steadyFrom, steadyTo, p.pid),
+      settlingCpuMs: spent(settlingFrom, settlingTo, p.pid),
     })),
     elapsedSeconds: elapsed,
   };

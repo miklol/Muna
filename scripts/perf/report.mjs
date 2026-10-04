@@ -12,7 +12,8 @@ export const budgets = Object.freeze({
   idleCpuPercent: {
     max: 0.3,
     unit: '%',
-    description: 'Idle CPU, whole process tree, normalised to all logical processors',
+    description:
+      'Idle CPU at steady state, whole process tree, normalised to all logical processors',
   },
   privateWorkingSetMb: {
     max: 120,
@@ -27,10 +28,13 @@ export const budgets = Object.freeze({
 });
 
 /**
- * What each mode measures (docs/11-ci-cd.md "Performance gates": the PR smoke waits 5 s,
- * samples CPU for 30 s and keeps sampling memory until the shell's idle trim — 30 s after the
- * cursor left the notch — has settled; the nightly run uses the full windows from docs/09).
- * Durations in seconds.
+ * What each mode measures (docs/11-ci-cd.md "Performance gates": the PR smoke waits 5 s and
+ * then samples the tree every `memorySampleSeconds` until `memoryAfterSeconds` — past the
+ * shell's idle trim, 30 s after the cursor left the notch; the nightly run uses the full
+ * windows from docs/09). CPU comes from the same samples: the gated idle CPU is the steady
+ * state, the last `cpuSeconds` of the run, and the first `cpuSeconds` after the warm-up are
+ * reported as the settling phase, so `memoryAfterSeconds - warmupSeconds` must be at least
+ * `2 * cpuSeconds` for the two not to overlap (`idleCpuSummary`). Durations in seconds.
  */
 export function planFor(mode) {
   if (mode === 'full') {
@@ -124,6 +128,70 @@ export function cpuPercent(before, after, wallMs, logicalProcessors) {
   }
   const raw = (deltaMs / wallMs) * 100;
   return { normalised: raw / logicalProcessors, raw };
+}
+
+/**
+ * CPU of the tree between consecutive idle samples. A sample is
+ * `{ atSeconds, wallMs, processes: [{ pid, cpuMs }] }` — `atSeconds` the nominal time since
+ * launch, `wallMs` a monotonic clock reading taken with it — and a window spans two
+ * consecutive samples, so the per-process CPU times the memory samples already carry give
+ * the CPU curve for free.
+ */
+export function cpuWindows(samples, logicalProcessors) {
+  const windows = [];
+  for (let i = 1; i < samples.length; i += 1) {
+    const from = samples[i - 1];
+    const to = samples[i];
+    const wallMs = to.wallMs - from.wallMs;
+    windows.push({
+      fromSeconds: from.atSeconds,
+      toSeconds: to.atSeconds,
+      wallMs: Math.round(wallMs),
+      ...cpuPercent(from.processes, to.processes, wallMs, logicalProcessors),
+    });
+  }
+  return windows;
+}
+
+/**
+ * Idle CPU from the per-window curve. The gated value is the **median** of the windows in the
+ * last `plan.cpuSeconds` of the idle phase — the steady state, after WebView2 has finished the
+ * work its memory trim sets off — so one busy window (a GC, a trim, a runner hiccup) does not
+ * decide the gate while a timer that never stops, present in every window, still does; the
+ * mean and the busiest window are reported next to it for the periodic work a median hides.
+ * The first `plan.cpuSeconds` after the warm-up are summarised as the `settling` phase, which
+ * is what the gate used to measure. `null` without windows; a phase is `null` when no window
+ * falls inside it.
+ */
+export function idleCpuSummary(windows, plan) {
+  const measured = windows.filter((w) => w.normalised !== null);
+  if (measured.length === 0) return null;
+  const phase = (subset) => {
+    if (subset.length === 0) return null;
+    const normalised = subset.map((w) => w.normalised);
+    const raw = subset.map((w) => w.raw);
+    const mean = (values) => values.reduce((sum, v) => sum + v, 0) / values.length;
+    return {
+      fromSeconds: subset[0].fromSeconds,
+      toSeconds: subset[subset.length - 1].toSeconds,
+      windows: subset.length,
+      median: { normalised: median(normalised), raw: median(raw) },
+      mean: { normalised: mean(normalised), raw: mean(raw) },
+      max: { normalised: Math.max(...normalised), raw: Math.max(...raw) },
+    };
+  };
+  const start = measured[0].fromSeconds;
+  const end = measured[measured.length - 1].toSeconds;
+  const steadyState = phase(measured.filter((w) => w.fromSeconds >= end - plan.cpuSeconds));
+  const settling = phase(measured.filter((w) => w.toSeconds <= start + plan.cpuSeconds));
+  return {
+    windowSeconds: plan.memorySampleSeconds,
+    steadyState,
+    settling,
+    overlap:
+      steadyState !== null && settling !== null && settling.toSeconds > steadyState.fromSeconds,
+    windows: measured,
+  };
 }
 
 /**
@@ -244,6 +312,18 @@ const statusWord = {
   'informational-over': '**over budget**, reported (debug build)',
 };
 
+/** The idle CPU detail: the gated steady state with its spread, then the settling phase. */
+function describeIdleCpu(measurements, idleCpu) {
+  const steady = idleCpu?.steadyState;
+  if (!steady) return `idle CPU ${round(measurements.idleCpuRawPercent, 2)} % of one core`;
+  const span = (phase) => `${phase.fromSeconds}–${phase.toSeconds} s`;
+  let text = `idle CPU ${round(steady.median.raw, 2)} % of one core (median of ${steady.windows} × ${idleCpu.windowSeconds} s windows over ${span(steady)}; mean ${round(steady.mean.raw, 2)} %, busiest window ${round(steady.max.raw, 2)} %)`;
+  if (idleCpu.settling) {
+    text += `, settling ${round(idleCpu.settling.mean.raw, 2)} % over ${span(idleCpu.settling)} (not gated)`;
+  }
+  return text;
+}
+
 /**
  * PR comment / nightly summary. Ends with the `<!-- muna-perf-report -->` marker the `app`
  * job edits in place. `baseline` is the JSON of an earlier run (same shape) or `null`.
@@ -282,7 +362,7 @@ export function renderMarkdown(report, baseline = null) {
       details.push(`first launch of this binary ${measurements.firstLaunchMs} ms (not gated)`);
     }
     if (measurements.idleCpuRawPercent !== null && measurements.idleCpuRawPercent !== undefined) {
-      details.push(`idle CPU ${round(measurements.idleCpuRawPercent, 2)} % of one core`);
+      details.push(describeIdleCpu(measurements, report.idleCpu));
     }
     if (measurements.workingSetMb !== null && measurements.workingSetMb !== undefined) {
       details.push(`working set ${round(measurements.workingSetMb, 1)} MB`);
@@ -303,6 +383,12 @@ export function renderMarkdown(report, baseline = null) {
       );
     }
     if (details.length > 0) lines.push(`Details: ${details.join(' · ')}.`, '');
+    if (baseline && report.idleCpu && !baseline.idleCpu) {
+      lines.push(
+        'The baseline predates the steady-state idle CPU method, so its idle CPU delta compares the settling phase of that run with the steady state of this one.',
+        '',
+      );
+    }
   }
   if (host) {
     lines.push(
@@ -336,18 +422,28 @@ export function startupBreakdown(tree, appPid) {
   return { webviewBrowserAtMs: firstOf('browser'), firstRendererAtMs: firstOf('renderer') };
 }
 
-/** Assembles the JSON report from raw results; `null` fields mean "not measured". */
+/**
+ * Assembles the JSON report from raw results; `null` fields mean "not measured". `results.idleCpu`
+ * is an `idleCpuSummary` (the steady-state median gates, the mean and the settling phase are
+ * reported); `results.cpu` is the pre-2026-10 shape `{ normalised, raw }` of a single window,
+ * still accepted so older runs can be re-rendered.
+ */
 export function buildReport({ mode, plan, exe, host, results, notes = [], generatedAt }) {
   const memory = memorySummary(results.memorySamples ?? []);
   const morphs = morphSummary(results.morphs ?? []);
+  const idleCpu = results.idleCpu ?? null;
+  const steady = idleCpu?.steadyState ?? null;
   const measurements = {
     startupMs: results.startupMs ?? null,
     firstLaunchMs: results.firstLaunchMs ?? null,
     sinceMainMs: results.sinceMainMs ?? null,
     webviewBrowserAtMs: results.webviewBrowserAtMs ?? null,
     firstRendererAtMs: results.firstRendererAtMs ?? null,
-    idleCpuPercent: round(results.cpu?.normalised ?? null, 4),
-    idleCpuRawPercent: round(results.cpu?.raw ?? null, 3),
+    idleCpuPercent: round(steady ? steady.median.normalised : (results.cpu?.normalised ?? null), 4),
+    idleCpuRawPercent: round(steady ? steady.median.raw : (results.cpu?.raw ?? null), 3),
+    idleCpuMeanPercent: round(steady?.mean.normalised ?? null, 4),
+    idleCpuMaxPercent: round(steady?.max.normalised ?? null, 4),
+    settlingCpuPercent: round(idleCpu?.settling?.mean.normalised ?? null, 4),
     privateWorkingSetMb: memory ? round(memory.idle, 1) : null,
     privateWorkingSetBeforeTrimMb: memory?.normal ? round(memory.normal.median, 1) : null,
     memoryTrimObserved: memory ? memory.trimmed : null,
@@ -365,6 +461,7 @@ export function buildReport({ mode, plan, exe, host, results, notes = [], genera
     plan,
     budgets,
     measurements,
+    idleCpu,
     memory,
     morphs,
     processTree: results.processTree ?? [],

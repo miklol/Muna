@@ -140,14 +140,27 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    dates the WebView2 browser process (everything before it is the app's own start-up —
    platform watchers, profile, plugins) and the first renderer, both in ms after the app
    process was created.
-3. Park the cursor away from the notch. Warm up (smoke 5 s, full 30 s), then sample **idle CPU**
-   as the delta of `TotalProcessorTime` over every process of the tree (`muna.exe`, the OSD
-   watchdog, the WebView2 browser, renderer and utility processes) over the window (smoke
-   30 s, full 60 s), normalised to all logical processors like Task Manager → assert ≤ 0.3 %.
-   The one-core figure is reported alongside.
-4. **Memory**: private working set summed over the tree every 5 s (smoke, until 90 s) or 10 s
-   (full, until 300 s). The shell asks WebView2 for its low memory target 30 s after the cursor
-   left the notch while nothing on the strip animates ([modules/notch-shell.md](modules/notch-shell.md#memory-target));
+3. Park the cursor away from the notch. Warm up (smoke 5 s, full 30 s), then sample every
+   process of the tree (`muna.exe`, the OSD watchdog, the WebView2 browser, renderer and
+   utility processes) every 5 s (smoke, until 90 s) or 10 s (full, until 300 s), reading its
+   `TotalProcessorTime` and its private working set. Consecutive samples give the tree's
+   **idle CPU** per window over the measured wall time, normalised to all logical processors
+   like Task Manager (the one-core figure is reported alongside). The gated value is the
+   **median window of the steady state** — the last 30 s (smoke) or 60 s (full) of the phase
+   → assert ≤ 0.3 %. The first 30 s / 60 s after the warm-up are the **settling phase**: the
+   shell asks WebView2 for its low memory target 30 s after the cursor left the notch (step 4)
+   and Chromium's trim and what it sets off land in that window, so the phase is reported
+   (its mean, and the per-process split in `processTree[].settlingCpuMs` next to the
+   steady-state `idleCpuMs`) and not gated. The median keeps one busy window — a GC, the
+   trim, a runner hiccup — from deciding the gate while a timer that never stops, present in
+   every window, still fails it; the mean and the busiest window are reported for the
+   periodic work a median hides, and the whole curve is in the JSON (`idleCpu.windows`). The
+   plans keep the two phases apart (`memoryAfterSeconds − warmupSeconds ≥ 2 × cpuSeconds`,
+   checked by a test and when the harness starts); the runner measurements behind the rule
+   are in [11](11-ci-cd.md#performance-gates).
+4. **Memory**: the private working set summed over the tree, from the same samples. The shell
+   asks WebView2 for its low memory target 30 s after the cursor left the notch while nothing
+   on the strip animates ([modules/notch-shell.md](modules/notch-shell.md#memory-target));
    the gated value is the median of the samples taken at that target (the last sample when the
    trim never ran, with a note) → assert ≤ 120 MB. The pre-trim median is reported too.
 5. Full mode only: drive 20 expand/collapse cycles by drifting the cursor onto the strip below

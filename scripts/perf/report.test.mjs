@@ -4,8 +4,10 @@ import {
   budgets,
   buildReport,
   cpuPercent,
+  cpuWindows,
   evaluate,
   failedReport,
+  idleCpuSummary,
   median,
   memorySummary,
   morphSummary,
@@ -78,6 +80,78 @@ describe('statistics', () => {
     expect(cpuPercent(before, after, 0, 4)).toEqual({ normalised: null, raw: null });
   });
 
+  /** Smoke-shaped idle samples (5 s apart from 5 s to 90 s) with the given per-window CPU ms. */
+  const idleSamples = (windowCpuMs, { logicalProcessors = 4 } = {}) => {
+    const samples = [{ atSeconds: 5, wallMs: 1000, processes: [{ pid: 1, cpuMs: 0 }] }];
+    let cpuMs = 0;
+    windowCpuMs.forEach((ms, i) => {
+      cpuMs += ms;
+      samples.push({
+        atSeconds: 10 + 5 * i,
+        wallMs: 1000 + 5000 * (i + 1),
+        processes: [{ pid: 1, cpuMs }],
+      });
+    });
+    return { samples, logicalProcessors };
+  };
+
+  it('turns consecutive idle samples into CPU windows on the measured wall time', () => {
+    const windows = cpuWindows(
+      [
+        { atSeconds: 5, wallMs: 1000, processes: [{ pid: 1, cpuMs: 100 }] },
+        { atSeconds: 10, wallMs: 6250, processes: [{ pid: 1, cpuMs: 205 }] }, // 105 ms / 5.25 s
+        {
+          atSeconds: 15,
+          wallMs: 11_250,
+          processes: [
+            { pid: 1, cpuMs: 205 },
+            { pid: 2, cpuMs: 50 }, // appeared: counts from zero
+          ],
+        },
+      ],
+      4,
+    );
+    expect(windows).toHaveLength(2);
+    expect(windows[0]).toMatchObject({ fromSeconds: 5, toSeconds: 10, wallMs: 5250 });
+    expect(windows[0].raw).toBeCloseTo(2, 5);
+    expect(windows[0].normalised).toBeCloseTo(0.5, 5);
+    expect(windows[1]).toMatchObject({ fromSeconds: 10, toSeconds: 15, wallMs: 5000 });
+    expect(windows[1].raw).toBeCloseTo(1, 5);
+    expect(cpuWindows([], 4)).toEqual([]);
+  });
+
+  it('gates idle CPU on the median steady-state window and reports the settling phase', () => {
+    // 17 windows: the trim-era settling phase is busy (50 ms per 5 s = 1 % of one core), the
+    // steady state sits at 15 ms (0.3 % of one core) with one busy window in it.
+    const perWindow = [50, 50, 50, 50, 50, 50, 30, 20, 15, 15, 15, 15, 15, 150, 15, 15, 15];
+    const { samples, logicalProcessors } = idleSamples(perWindow);
+    const plan = planFor('smoke');
+    const summary = idleCpuSummary(cpuWindows(samples, logicalProcessors), plan);
+    expect(summary.windowSeconds).toBe(5);
+    expect(summary.windows).toHaveLength(17);
+    expect(summary.overlap).toBe(false);
+    expect(summary.steadyState).toMatchObject({ fromSeconds: 60, toSeconds: 90, windows: 6 });
+    expect(summary.steadyState.median.raw).toBeCloseTo(0.3, 5);
+    expect(summary.steadyState.median.normalised).toBeCloseTo(0.075, 5);
+    expect(summary.steadyState.mean.raw).toBeCloseTo((15 * 5 + 150) / 6 / 50, 5);
+    expect(summary.steadyState.max.raw).toBeCloseTo(3, 5);
+    expect(summary.settling).toMatchObject({ fromSeconds: 5, toSeconds: 35, windows: 6 });
+    expect(summary.settling.mean.raw).toBeCloseTo(1, 5);
+    expect(summary.settling.median.normalised).toBeCloseTo(0.25, 5);
+  });
+
+  it('idle CPU summary copes with short runs and nothing measured', () => {
+    expect(idleCpuSummary([], planFor('smoke'))).toBeNull();
+    const unmeasured = [{ fromSeconds: 5, toSeconds: 10, wallMs: 0, normalised: null, raw: null }];
+    expect(idleCpuSummary(unmeasured, planFor('smoke'))).toBeNull();
+    // Two windows only: both phases take what falls inside them and overlap is flagged.
+    const { samples, logicalProcessors } = idleSamples([20, 10]);
+    const short = idleCpuSummary(cpuWindows(samples, logicalProcessors), planFor('smoke'));
+    expect(short.steadyState).toMatchObject({ fromSeconds: 5, toSeconds: 15, windows: 2 });
+    expect(short.settling).toMatchObject({ fromSeconds: 5, toSeconds: 15, windows: 2 });
+    expect(short.overlap).toBe(true);
+  });
+
   it('summarises memory samples and morphs', () => {
     expect(memorySummary([])).toBeNull();
     expect(
@@ -130,19 +204,31 @@ describe('statistics', () => {
 });
 
 describe('plans and budgets', () => {
-  it('smoke waits 5 s, samples CPU 30 s and memory past the idle trim; full uses the docs/09 windows and drives morphs', () => {
+  it('smoke waits 5 s, gates CPU on the last 30 s of a 90 s idle phase; full uses the docs/09 windows and drives morphs', () => {
     expect(planFor('smoke')).toMatchObject({
       warmupSeconds: 5,
       cpuSeconds: 30,
       memoryAfterSeconds: 90,
+      memorySampleSeconds: 5,
       morphs: 0,
     });
     expect(planFor('full')).toMatchObject({
       warmupSeconds: 30,
       cpuSeconds: 60,
       memoryAfterSeconds: 300,
+      memorySampleSeconds: 10,
       morphs: 20,
     });
+  });
+
+  it('keeps the settling phase and the gated steady state apart in both plans', () => {
+    for (const mode of ['smoke', 'full']) {
+      const plan = planFor(mode);
+      expect(plan.memoryAfterSeconds - plan.warmupSeconds).toBeGreaterThanOrEqual(
+        2 * plan.cpuSeconds,
+      );
+      expect(plan.cpuSeconds % plan.memorySampleSeconds).toBe(0);
+    }
   });
 
   it('keeps the PRD budgets', () => {
@@ -204,10 +290,25 @@ describe('plans and budgets', () => {
 describe('reports', () => {
   const host = { os: 'Windows 11 Pro 10.0.26200', logicalProcessors: 32, memoryGb: 15.7 };
   const exe = { path: 'apps/desktop/src-tauri/target/debug/muna.exe', profile: 'debug' };
+  const phase = (fromSeconds, toSeconds, windows, { median, mean, max }) => ({
+    fromSeconds,
+    toSeconds,
+    windows,
+    median: { normalised: median / 32, raw: median },
+    mean: { normalised: mean / 32, raw: mean },
+    max: { normalised: max / 32, raw: max },
+  });
+  const idleCpu = {
+    windowSeconds: 5,
+    steadyState: phase(60, 90, 6, { median: 0.09, mean: 0.11, max: 0.2 }),
+    settling: phase(5, 35, 6, { median: 0.8, mean: 0.9, max: 1.3 }),
+    overlap: false,
+    windows: [],
+  };
   const results = {
     startupMs: 521,
     sinceMainMs: 511,
-    cpu: { normalised: 0.0028, raw: 0.09 },
+    idleCpu,
     memorySamples: [{ privateWorkingSetMb: 131.5 }, { privateWorkingSetMb: 118.24 }],
     workingSetMb: 475.1,
     processes: 7,
@@ -228,11 +329,16 @@ describe('reports', () => {
     expect(report.measurements).toMatchObject({
       startupMs: 521,
       idleCpuPercent: 0.0028,
+      idleCpuRawPercent: 0.09,
+      idleCpuMeanPercent: 0.0034,
+      idleCpuMaxPercent: 0.0063,
+      settlingCpuPercent: 0.0281,
       privateWorkingSetMb: 118.2,
       privateWorkingSetBeforeTrimMb: 124.9,
       memoryTrimObserved: false,
       morphFpsMin: null,
     });
+    expect(report.idleCpu).toBe(idleCpu);
     expect(report.evaluation.pass).toBe(true);
 
     const markdown = renderMarkdown(report);
@@ -240,11 +346,69 @@ describe('reports', () => {
     expect(markdown).toContain(
       '| Cold start to first strip paint | 521 ms | ≤ 1500 ms | — | reported (debug build) |',
     );
+    expect(markdown).toContain(
+      '| Idle CPU at steady state, whole process tree, normalised to all logical processors | 0.003 % | ≤ 0.3 % | — | pass |',
+    );
+    expect(markdown).toContain(
+      'idle CPU 0.09 % of one core (median of 6 × 5 s windows over 60–90 s; mean 0.11 %, busiest window 0.2 %), settling 0.9 % over 5–35 s (not gated)',
+    );
     expect(markdown).toContain('| Slowest strip ↔ panel morph | — | ≥ 58 fps | — | nightly |');
     expect(markdown).toContain('idle memory trim not observed');
     expect(markdown).toContain('- Debug build.');
     expect(markdown).toContain('no baseline');
+    expect(markdown).not.toContain('predates the steady-state');
     expect(markdown.trimEnd().endsWith('<!-- muna-perf-report -->')).toBe(true);
+  });
+
+  it('gates the steady-state median, not the settling phase', () => {
+    const busyStart = {
+      ...idleCpu,
+      steadyState: phase(60, 90, 6, { median: 0.3, mean: 0.5, max: 1.6 }),
+      settling: phase(5, 35, 6, { median: 10, mean: 12, max: 20 }),
+    };
+    const report = buildReport({
+      mode: 'smoke',
+      plan: planFor('smoke'),
+      exe,
+      host,
+      results: { ...results, idleCpu: busyStart },
+    });
+    expect(report.measurements.idleCpuPercent).toBeCloseTo(0.3 / 32, 4);
+    expect(report.measurements.settlingCpuPercent).toBeCloseTo(12 / 32, 4);
+    expect(report.evaluation.pass).toBe(true);
+
+    const over = buildReport({
+      mode: 'smoke',
+      plan: planFor('smoke'),
+      exe,
+      host,
+      results: {
+        ...results,
+        idleCpu: { ...idleCpu, steadyState: phase(60, 90, 6, { median: 12, mean: 12, max: 12 }) },
+      },
+    });
+    expect(over.evaluation.failed).toEqual(['idleCpuPercent']);
+  });
+
+  it('flags a baseline that predates the steady-state method and still accepts the old results shape', () => {
+    const legacy = buildReport({
+      mode: 'smoke',
+      plan: planFor('smoke'),
+      exe,
+      host,
+      results: { ...results, idleCpu: undefined, cpu: { normalised: 0.0315, raw: 1.008 } },
+      generatedAt: '2026-10-03T10:00:00.000Z',
+    });
+    expect(legacy.idleCpu).toBeNull();
+    expect(legacy.measurements.idleCpuPercent).toBe(0.0315);
+    expect(legacy.measurements.settlingCpuPercent).toBeNull();
+    expect(renderMarkdown(legacy)).toContain('idle CPU 1.01 % of one core ·');
+
+    const report = buildReport({ mode: 'smoke', plan: planFor('smoke'), exe, host, results });
+    const markdown = renderMarkdown(report, legacy);
+    expect(markdown).toContain('| 0.003 % | ≤ 0.3 % | -0.029 % | pass |');
+    expect(markdown).toContain('predates the steady-state idle CPU method');
+    expect(renderMarkdown(report, report)).not.toContain('predates the steady-state');
   });
 
   it('reports the first launch of a new binary as a detail without gating it', () => {
