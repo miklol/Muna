@@ -25,6 +25,12 @@ const RECENT_LOG_LINES = 40;
 const MORPH_TIMEOUT_MS = 6000;
 /** Cursor drift step while aiming at the strip: 1 px every 60 ms, well under hover-intent speed. */
 const DRIFT_INTERVAL_MS = 60;
+/**
+ * Dwell inside the notch window's bounds before the hover starts: the shell lifts the low
+ * memory target as soon as the cursor is inside the bounds and counts on a real approach
+ * taking about a quarter second to reach the strip (docs/modules/notch-shell.md#memory-target).
+ */
+const ENTRY_DWELL_MS = 400;
 /** The two ways the probe can move the cursor, by the Win32 call behind each. */
 const MOVER_NAMES = { input: 'SendInput', cursor: 'SetCursorPos' };
 
@@ -222,6 +228,11 @@ export class App {
   /** The last `max` log lines the app wrote (stdout and stderr), oldest first, with `atMs`. */
   recentLog(max = RECENT_LOG_LINES) {
     return this.#recent.slice(-max);
+  }
+
+  /** Milliseconds since the app was spawned, on the same clock as `atMs` in the log records. */
+  get elapsedMs() {
+    return Math.round(performance.now() - this.#startedAt);
   }
 
   get exited() {
@@ -432,16 +443,21 @@ export async function driveMorphs(app, probe, host, count, log) {
     return { morphs: [], notes, stall: null };
   }
   const point = stripProbePoint(primary);
+  // Where a real approach passes first: inside the notch window's bounds but under the resting
+  // strip, so the shell sees the cursor coming (60 Hz polling, normal memory target) before
+  // the hover begins — the lead time docs/modules/notch-shell.md#memory-target designs for.
+  const entry = { x: point.x, y: Math.round((primary.top + primary.bottom) / 2) };
   log(
-    `notch window ${describeRect(primary)} at ${primary.dpi} dpi, ex-style ${primary.exStyle ?? '?'}; probing ${Math.round(point.x)},${Math.round(point.y)}`,
+    `notch window ${describeRect(primary)} at ${primary.dpi} dpi, ex-style ${primary.exStyle ?? '?'}; entering at ${Math.round(entry.x)},${entry.y}, probing ${Math.round(point.x)},${Math.round(point.y)}`,
   );
   const away = { x: host.screenWidth * 0.1, y: host.screenHeight - 120 };
+  const approach = { entry, point };
   const morphs = [];
   const seen = app.morphs.length;
   let stall = null;
   let mover = 'input';
   for (let cycle = 0; cycle < count; cycle += 1) {
-    let expanded = await expandOnce(app, probe, point, mover);
+    let expanded = await expandOnce(app, probe, approach, mover);
     if (!expanded.ok && cycle === 0) {
       stall = await stallSnapshot(app, probe, point, 'expand', mover, expanded);
       notes.push(describeStall(stall));
@@ -449,7 +465,7 @@ export async function driveMorphs(app, probe, host, count, log) {
       await moveWith(probe, mover, away);
       await sleep(1500);
       const retryWith = mover === 'input' ? 'cursor' : 'input';
-      expanded = await expandOnce(app, probe, point, retryWith);
+      expanded = await expandOnce(app, probe, approach, retryWith);
       if (expanded.ok) {
         stall.recoveredBy = retryWith;
         notes.push(
@@ -489,6 +505,17 @@ export async function driveMorphs(app, probe, host, count, log) {
   }
   // Include morphs the shell reported on its own during the drive (e.g. hover reveals).
   const all = app.morphs.slice(seen).filter((m) => m.label === 'notch');
+  if (stall?.phase === 'expand') {
+    // A collapse as the first morph after the stall means the strip had expanded without an
+    // expand report: the morph completed inside one frame, which the sampler does not log.
+    const first = all.find((m) => m.atMs > stall.atMs);
+    stall.silentExpand = first !== undefined && !first.expanded;
+    if (stall.silentExpand) {
+      notes.push(
+        `The first morph the shell reported after the stall was a collapse (${Math.round(first.atMs / 1000)} s): the strip had expanded during the stalled attempt without an expand report, so that expand completed within a single frame.`,
+      );
+    }
+  }
   return { morphs: all.length >= morphs.length ? all : morphs, notes, stall };
 }
 
@@ -498,11 +525,14 @@ function moveWith(probe, mover, { x, y }) {
 }
 
 /**
- * One expand attempt: drifts the cursor across `point` with `mover` (`'input'` = SendInput,
- * `'cursor'` = SetCursorPos) until the shell reports the expand morph or the timeout passes.
- * Returns `{ ok, morph }` or `{ ok: false, error }`, plus the last move's answer.
+ * One expand attempt: enters the notch window at `entry`, dwells so the shell sees the cursor
+ * coming, then drifts across `point` with `mover` (`'input'` = SendInput, `'cursor'` =
+ * SetCursorPos) until the shell reports the expand morph or the timeout passes. Returns
+ * `{ ok, morph }` or `{ ok: false, error }`, plus the last move's answer.
  */
-async function expandOnce(app, probe, point, mover) {
+async function expandOnce(app, probe, { entry, point }, mover) {
+  await moveWith(probe, mover, entry).catch(() => {});
+  await sleep(ENTRY_DWELL_MS);
   const expand = app.waitForMorph((m) => m.label === 'notch' && m.expanded, MORPH_TIMEOUT_MS);
   const move = (x, y) => moveWith(probe, mover, { x, y });
   let dx = -6;
@@ -538,9 +568,11 @@ async function stallSnapshot(app, probe, point, phase, mover, attempt) {
     }
   };
   const requested = { x: Math.round(point.x), y: Math.round(point.y) };
+  const lastTarget = app.memoryTargets.at(-1) ?? null;
   return {
     phase,
     mover,
+    atMs: app.elapsedMs,
     error: attempt.error,
     requested,
     lastMove: attempt.lastMove,
@@ -549,6 +581,10 @@ async function stallSnapshot(app, probe, point, phase, mover, attempt) {
     foreground: await ask(() => probe.foreground()),
     windows: await ask(() => probe.windows()),
     memoryTarget: app.memoryTarget,
+    /** How long ago the shell last switched the webviews' memory target, and to what. */
+    memoryTargetChange: lastTarget
+      ? { target: lastTarget.target, agoMs: app.elapsedMs - lastTarget.atMs }
+      : null,
     morphsSoFar: app.morphs.length,
     recentLog: app.recentLog(),
   };
@@ -594,10 +630,13 @@ export function describeStall(stall) {
     )
     .slice(-3)
     .map((entry) => entry.line.replace(/\s+/g, ' ').slice(0, 120));
+  const target = stall.memoryTargetChange
+    ? `memory target ${stall.memoryTarget} (${stall.memoryTargetChange.target} requested ${(stall.memoryTargetChange.agoMs / 1000).toFixed(1)} s earlier)`
+    : `memory target ${stall.memoryTarget}`;
   return (
     `Stall diagnostics (${stall.phase}, via ${via}): asked for ${stall.requested.x},${stall.requested.y}, ${cursor}, ${moved}; ` +
     `under the point: ${describeWindow(stall.under)}; foreground: ${describeWindow(stall.foreground)}; ` +
-    `notch window ${notch}; memory target ${stall.memoryTarget}; ${stall.morphsSoFar} morph lines so far` +
+    `notch window ${notch}; ${target}; ${stall.morphsSoFar} morph lines so far` +
     (warnings.length ? `; shell warnings: ${warnings.join(' | ')}` : '; no shell warnings') +
     '.'
   );

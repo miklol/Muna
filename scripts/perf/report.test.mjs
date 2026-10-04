@@ -696,4 +696,23 @@ describe('stall notes', () => {
     expect(line).toContain('windows unknown (probe exited)');
     expect(line.endsWith('; no shell warnings.')).toBe(true);
   });
+
+  it('says when the memory target last changed', () => {
+    const line = describeStall({
+      phase: 'expand',
+      mover: 'input',
+      error: 'timeout',
+      requested: { x: 512, y: 3 },
+      lastMove: { ok: true, x: 512, y: 3 },
+      cursor: { ok: true, x: 512, y: 3 },
+      under: { hwnd: 0, className: '', pid: 0 },
+      foreground: { hwnd: 0, className: '', pid: 0 },
+      windows: [],
+      memoryTarget: 'normal',
+      memoryTargetChange: { target: 'normal', agoMs: 6250 },
+      morphsSoFar: 0,
+      recentLog: [],
+    });
+    expect(line).toContain('memory target normal (normal requested 6.3 s earlier)');
+  });
 });
