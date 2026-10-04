@@ -146,6 +146,7 @@ impl AppState {
         self.modules.notes.apply_settings(settings);
         self.modules.screen_time.apply_settings(settings);
         self.modules.ai_coding.apply_settings(settings);
+        self.modules.support.apply_settings(settings);
         let bindings = self.modules.keyboard_shortcuts.apply_settings(settings);
         for binding in bindings
             .iter()

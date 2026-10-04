@@ -133,5 +133,6 @@ Landed by `feat(onboarding): first-run welcome tour in the settings window (m1-e
   marking the tour seen and handing back, no second save for a profile that has seen it, and
   the `SettingsApp` gate (tour until onboarded, General → Show again). Rust: v3 → v4
   migration and the new default.
-- **Deferred.** Mica backdrop, per-pane reset (only "Reset all settings" exists), a
-  diagnostics bundle (the logs folder opens instead), hotkey editing, module-specific panes.
+- **Deferred.** Mica backdrop, per-pane reset (only "Reset all settings" exists), hotkey
+  editing. The diagnostics bundle lives in Settings → Support since M5-E1a
+  ([support](support.md)); About keeps _Open logs folder_.

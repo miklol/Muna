@@ -1,0 +1,122 @@
+/*
+ * Support panel (docs/modules/support.md): a version line, then one row per thing the user can
+ * do — help, feedback, diagnostics, what's new, repair, rate — and, one level down, the repairs
+ * or the bundled changelog. Composes tokens only; the primitives bring their own styles.
+ *
+ * Budget: the panel body has 284 px at most. Six 44 px rows and the version line overrun it by
+ * a hair, so the list scrolls inside the view rather than pushing the outcome line out.
+ */
+
+.support-panel {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.support-view {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-block-size: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.support-view__about {
+  flex: none;
+  padding-inline: var(--space-3);
+}
+
+.support-view__head {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+}
+
+.support-view__title {
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.support-view__scroll {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-block-size: 0;
+  padding: 0 var(--space-3) var(--space-2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.support-view__link {
+  align-self: flex-start;
+}
+
+.support-list {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.support-empty {
+  flex: 1 1 auto;
+}
+
+/* The bundled changelog: releases newest first, each with its groups of one-line notes. */
+.support-releases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.support-release {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.support-release__head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.support-release__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.support-release__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  list-style: disc;
+}
+
+.support-release__note {
+  display: list-item;
+  color: var(--text-1);
+}
+
+/* The outcome of the last command: the bundle's name, a finished repair, or why it failed. */
+.support-note {
+  flex: none;
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-2);
+}

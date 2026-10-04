@@ -408,6 +408,38 @@ fn replace_system_flyout_drives_suppression_once_per_change() {
     );
 }
 
+/// The Support module's repair (docs/modules/support.md): a release the cache would skip,
+/// then the setting applied afresh.
+#[test]
+fn repair_flyout_releases_unconditionally_then_reapplies_the_setting() {
+    let rig = rig();
+    rig.service.sync();
+    let on = settings_with(&HudSettings::default());
+    let off = settings_with(&HudSettings {
+        replace_system_flyout: false,
+        ..HudSettings::default()
+    });
+
+    rig.service.apply_settings(&on);
+    assert_eq!(rig.platform.osd_requests(), vec![true]);
+
+    rig.service.repair_flyout(&on);
+    assert_eq!(
+        rig.platform.osd_requests(),
+        vec![true, false, true],
+        "released, then suppressed again for a user who wants it replaced"
+    );
+    assert_eq!(rig.service.state().osd, OsdState::Suppressed);
+
+    rig.service.repair_flyout(&off);
+    assert_eq!(
+        rig.platform.osd_requests(),
+        vec![true, false, true, false],
+        "released once; nothing to re-apply when the setting is off"
+    );
+    assert_eq!(rig.service.state().osd, OsdState::Native);
+}
+
 #[test]
 fn a_build_without_a_flyout_window_reports_unavailable_and_keeps_going() {
     let rig = rig();

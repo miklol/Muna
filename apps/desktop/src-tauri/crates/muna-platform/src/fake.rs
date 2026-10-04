@@ -15,15 +15,15 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
-    Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemOsd,
-    SystemStats, WindowPlacement, Windowing,
+    Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemInfo,
+    SystemOsd, SystemStats, WindowPlacement, Windowing,
 };
 use crate::types::{
     AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
     BluetoothRadioState, BrightnessMonitor, DragOutcome, DragPayload, DropEffect, ForegroundWindow,
     GeoPosition, MediaCommand, MediaSession, MonitorInfo, Notification, NotificationAccess,
-    NotificationDelivery, OsdState, PowerSource, Rect, SystemSample, Thumbnail, TransferMode,
-    UserNotificationState, WindowHandle,
+    NotificationDelivery, OsdState, PowerSource, Rect, SystemDescription, SystemSample, Thumbnail,
+    TransferMode, UserNotificationState, WindowHandle,
 };
 
 const EVENT_CAPACITY: usize = 256;
@@ -148,6 +148,10 @@ struct State {
     /// Every Bluetooth request the fake received, in order.
     bluetooth_calls: Vec<BluetoothCall>,
     battery: BatteryState,
+    /// Scripted answer to `SystemInfo::describe`.
+    system: SystemDescription,
+    /// Scripted Desktop folder; `None` answers `NotFound`.
+    desktop_dir: Option<PathBuf>,
     monitors: Vec<MonitorInfo>,
     foreground: Option<ForegroundWindow>,
     /// Scripted answer to `Foreground::idle_for`.
@@ -258,6 +262,11 @@ impl Default for State {
                 source: PowerSource::Ac,
                 charging: false,
             },
+            system: SystemDescription {
+                os: "Fake OS 1.0".into(),
+                webview2: Some("0.0.0.0".into()),
+            },
+            desktop_dir: None,
             monitors: vec![MonitorInfo {
                 id: r"\\.\DISPLAY1".into(),
                 bounds: Rect::new(0, 0, 2560, 1440),
@@ -568,6 +577,17 @@ impl FakePlatform {
     pub fn set_battery(&self, battery: BatteryState) {
         self.state.lock().battery = battery;
         self.publish(PlatformEvent::BatteryChanged(battery));
+    }
+
+    /// Scripts what [`SystemInfo::describe`] answers.
+    pub fn set_system_description(&self, system: SystemDescription) {
+        self.state.lock().system = system;
+    }
+
+    /// Scripts the Desktop folder [`SystemInfo::desktop_dir`] answers; `None` answers
+    /// `NotFound`.
+    pub fn set_desktop_dir(&self, dir: Option<PathBuf>) {
+        self.state.lock().desktop_dir = dir;
     }
 
     pub fn set_monitors(&self, monitors: Vec<MonitorInfo>) {
@@ -1434,6 +1454,20 @@ impl Processes for FakePlatform {
     }
 }
 
+impl SystemInfo for FakePlatform {
+    fn describe(&self) -> PlatformResult<SystemDescription> {
+        Ok(self.state.lock().system.clone())
+    }
+
+    fn desktop_dir(&self) -> PlatformResult<PathBuf> {
+        self.state
+            .lock()
+            .desktop_dir
+            .clone()
+            .ok_or(PlatformError::NotFound("desktop folder".into()))
+    }
+}
+
 impl FileOps for FakePlatform {
     fn transfer(
         &self,
@@ -1620,6 +1654,10 @@ impl Platform for FakePlatform {
     }
 
     fn processes(&self) -> &dyn Processes {
+        self
+    }
+
+    fn system_info(&self) -> &dyn SystemInfo {
         self
     }
 

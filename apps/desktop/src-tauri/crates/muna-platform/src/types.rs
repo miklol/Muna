@@ -433,6 +433,17 @@ pub struct AppDescription {
     pub icon_png: Option<Vec<u8>>,
 }
 
+/// The machine as the Support module reports it (docs/modules/support.md): what a bug report
+/// needs and nothing that identifies the user.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemDescription {
+    /// The OS edition and build as Windows names them (`Windows 11 Pro 26200.1234`).
+    pub os: String,
+    /// The `WebView2` runtime version (`140.0.3485.54`); `None` when no runtime is installed.
+    pub webview2: Option<String>,
+}
+
 /// A native top-level window handle (`HWND`) as an integer, so the shell crate never depends
 /// on the `windows` crate. `0` is "no window".
 pub type WindowHandle = isize;

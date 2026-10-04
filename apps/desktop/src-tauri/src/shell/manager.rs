@@ -525,6 +525,15 @@ impl ShellManager {
         }
     }
 
+    /// The Support module's *Reset the reserved space* repair (docs/modules/support.md):
+    /// releases every `AppBar` and queues a reconcile, which reserves afresh wherever Reserved
+    /// mode wants one. Explorer restarts forget app bars while the model still believes them
+    /// held; this is the way back. Safe from any thread.
+    pub fn repair_app_bars(self: &Arc<Self>, app: &AppHandle) {
+        self.model.lock().release_app_bars(self.platform.as_ref());
+        self.request_reconcile(app);
+    }
+
     // --- effects --------------------------------------------------------------------------
 
     fn apply(self: &Arc<Self>, app: &AppHandle, effects: Vec<Effect>) {

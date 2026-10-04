@@ -24,6 +24,7 @@ pub mod notifications;
 pub mod pomodoro;
 pub mod screen_time;
 pub mod shelf;
+pub mod support;
 pub mod system_monitor;
 pub mod todo;
 pub mod weather;
@@ -103,6 +104,7 @@ pub struct ModuleServices {
     pub notes: Arc<notes::NotesService>,
     pub screen_time: Arc<screen_time::ScreenTimeService>,
     pub ai_coding: Arc<ai_coding::AiCodingService>,
+    pub support: Arc<support::SupportService>,
 }
 
 impl ModuleServices {
@@ -212,6 +214,11 @@ impl ModuleServices {
                     ai_coding::AiCodingPaths::default()
                 },
             )),
+            support: Arc::new(support::SupportService::new(
+                Arc::clone(platform),
+                Arc::clone(clock),
+                profile_dir.map(Path::to_path_buf),
+            )),
         }
     }
 }
@@ -259,6 +266,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
             &services.screen_time,
         ))),
         Box::new(ai_coding::AiCodingModule(Arc::clone(&services.ai_coding))),
+        Box::new(support::SupportModule(Arc::clone(&services.support))),
     ]
 }
 
