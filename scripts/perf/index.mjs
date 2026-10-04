@@ -137,10 +137,12 @@ async function main() {
     const idle = await measureIdle(app, probe, host, plan, plan.warmupSeconds, log);
 
     let morphs = [];
+    let morphStall = null;
     if (plan.morphs > 0) {
       log(`driving ${plan.morphs} expand/collapse cycles…`);
       const driven = await driveMorphs(app, probe, host, plan.morphs, log);
       morphs = driven.morphs;
+      morphStall = driven.stall;
       notes.push(...driven.notes);
       if (morphs.length > 0) {
         // Memory after the morphs and collapse (docs/09 step 5).
@@ -194,6 +196,7 @@ async function main() {
         ...breakdown,
         ...idle,
         morphs,
+        morphStall,
       },
       notes,
     });

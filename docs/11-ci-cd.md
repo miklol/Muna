@@ -286,6 +286,11 @@ budgets. Gates are never lowered to unblock a PR.
   travels the strip's top sliver, so the cycles run whether the strip rests or peeks under a
   window's caption; the earlier centre-line path misses a peeking strip entirely, which
   reproduced the stall at cycle 1 that every nightly from 2026-09-30 to 2026-10-03 reported.
+  The 2026-10-04 run on the sliver path (37195896753) stalled at cycle 1 all the same, so a
+  stall now leaves evidence in the report (`morphStall` in the JSON, a note and the shell's
+  log tail in the markdown the `report` job posts: cursor position, the window under the
+  probe point, the foreground window, the notch's click-through bit) and is retried once
+  through `SendInput`; the gate does not change, a cycle that never morphs still fails.
   The workflow builds `--debug --no-bundle`, so today's nightly numbers describe the debug
   build; the 100-cycle, 10-minute idle, media-playing and 4K 150 % emulation passes and the
   release build are the target state, not yet implemented. Results are appended to the

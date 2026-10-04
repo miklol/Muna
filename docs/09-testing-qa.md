@@ -181,7 +181,14 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    ([modules/notch-shell.md](modules/notch-shell.md#implementation-notes-m1-e1)) — below the
    hover-intent velocity, waiting for the shell's `morph` log lines (frames, duration, longest
    frame, dropped) and parking the cursor again → assert the slowest morph ≥ 58 fps. Memory is
-   sampled once more after the last collapse.
+   sampled once more after the last collapse. The cursor moves through `SetCursorPos`. When
+   the first cycle does not expand within 6 s, the harness records a **stall snapshot** —
+   where the cursor really is, which window `WindowFromPoint` names at the probe point, the
+   foreground window (class, process, rect, styles; never its title), the notch window's
+   click-through bit and the shell's last 40 log lines — as `morphStall` in the JSON, a
+   one-line note in the markdown and the log tail in a folded block, then tries the cycle once
+   more through `SendInput`; if that works the remaining cycles use it and the notes say so.
+   The gate itself is unchanged: a cycle that never morphs still fails the run.
 6. Write the JSON report and the markdown the `app` job posts on the PR (with the
    `<!-- muna-perf-report -->` marker); exit 1 on any breach or when nothing was measured.
    `--baseline` renders a delta column against an earlier JSON. Which steps run on PRs

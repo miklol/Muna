@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { describeStall } from './harness.mjs';
 import {
   budgets,
   buildReport,
@@ -17,6 +18,7 @@ import {
   percentile,
   planFor,
   renderMarkdown,
+  renderStallLog,
   startupBreakdown,
   STRIP_PROBE_DEPTH_PX,
   stripProbePoint,
@@ -578,5 +580,120 @@ describe('reports', () => {
     expect(markdown).toContain('Binary missing.');
     expect(markdown).toContain('<!-- muna-perf-report -->');
     expect(report.evaluation.pass).toBe(false);
+  });
+
+  it('keeps a morph stall snapshot in the JSON and folds its shell log into the markdown', () => {
+    const stall = {
+      phase: 'expand',
+      mover: 'cursor',
+      error: 'no matching morph within 6000 ms',
+      requested: { x: 512, y: 3 },
+      lastMove: { ok: true, x: 512, y: 3 },
+      cursor: { ok: true, x: 512, y: 3 },
+      under: { hwnd: 1, className: 'MunaNotch', pid: 7, processName: 'muna', clickThrough: false },
+      foreground: { hwnd: 0, className: '', pid: 0 },
+      windows: [],
+      memoryTarget: 'low',
+      morphsSoFar: 0,
+      recentLog: [
+        { atMs: 1000, line: READY },
+        { atMs: 60000, line: MEMORY_TARGET },
+      ],
+    };
+    const report = buildReport({ mode: 'full', plan: planFor('full'), exe, host, results });
+    expect(report.morphStall).toBeNull();
+    expect(renderMarkdown(report)).not.toContain('<details>');
+
+    const stalled = buildReport({
+      mode: 'full',
+      plan: planFor('full'),
+      exe,
+      host,
+      results: { ...results, morphStall: stall },
+      notes: ['Stall diagnostics (expand, via SetCursorPos): cursor at 512,3.'],
+    });
+    expect(stalled.morphStall).toBe(stall);
+    const markdown = renderMarkdown(stalled);
+    expect(markdown).toContain('- Stall diagnostics (expand, via SetCursorPos): cursor at 512,3.');
+    expect(markdown).toContain('<summary>Shell log at the expand stall (last 2 lines)</summary>');
+    expect(markdown).toContain(`  60000 ms  ${MEMORY_TARGET}`);
+    expect(markdown.indexOf('</details>')).toBeLessThan(
+      markdown.indexOf('<!-- muna-perf-report -->'),
+    );
+    const lastOnly = renderStallLog(stall, 1).join('\n');
+    expect(lastOnly).toContain('(last 1 lines)');
+    expect(lastOnly).toContain(MEMORY_TARGET);
+    expect(lastOnly).not.toContain(READY);
+    expect(renderStallLog({ ...stall, recentLog: [] })).toEqual([]);
+  });
+});
+
+describe('stall notes', () => {
+  it('describes a stall without window titles and names the input path', () => {
+    const line = describeStall({
+      phase: 'expand',
+      mover: 'input',
+      error: 'no matching morph within 6000 ms',
+      requested: { x: 512, y: 3 },
+      lastMove: { ok: true, x: 512, y: 3 },
+      cursor: { ok: true, x: 511, y: 3 },
+      under: {
+        hwnd: 9,
+        className: 'Chrome_WidgetWin_1',
+        pid: 4,
+        processName: 'msedge',
+        rect: { left: 0, top: 0, right: 1024, bottom: 768 },
+        caption: false,
+        popup: true,
+        clickThrough: false,
+        topmost: false,
+      },
+      foreground: { hwnd: 0, className: '', pid: 0 },
+      windows: [
+        {
+          left: 312,
+          top: 0,
+          right: 712,
+          bottom: 38,
+          visible: true,
+          clickThrough: true,
+          dpi: 96,
+        },
+      ],
+      memoryTarget: 'low',
+      morphsSoFar: 2,
+      recentLog: [
+        { atMs: 10, line: '[INFO] shell ready label="notch" since_start_ms=771' },
+        { atMs: 20, line: '[WARN] set_click_through failed hwnd=9 error=Access is denied' },
+      ],
+    });
+    expect(line).toBe(
+      'Stall diagnostics (expand, via SendInput): asked for 512,3, cursor at 511,3, last move ok; ' +
+        'under the point: Chrome_WidgetWin_1 (msedge) 0,0–1024,768 [popup]; foreground: none; ' +
+        'notch window 312,0–712,38 click-through; memory target low; 2 morph lines so far; ' +
+        'shell warnings: [WARN] set_click_through failed hwnd=9 error=Access is denied.',
+    );
+  });
+
+  it('reports probe failures instead of throwing', () => {
+    const line = describeStall({
+      phase: 'collapse',
+      mover: 'cursor',
+      error: 'timeout',
+      requested: { x: 100, y: 600 },
+      lastMove: null,
+      cursor: { error: 'probe exited' },
+      under: { error: 'probe exited' },
+      foreground: { error: 'probe exited' },
+      windows: { error: 'probe exited' },
+      memoryTarget: 'normal',
+      morphsSoFar: 1,
+      recentLog: [],
+    });
+    expect(line).toContain('cursor unknown (probe exited)');
+    expect(line).toContain('no move was answered');
+    expect(line).toContain('under the point: probe error: probe exited');
+    expect(line).toContain('windows unknown (probe exited)');
+    expect(line.endsWith('; no shell warnings.')).toBe(true);
   });
 });

@@ -19,6 +19,13 @@ import {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** How many of the app's log lines the harness keeps for a stall snapshot. */
+const RECENT_LOG_LINES = 40;
+/** How long one morph (expand or collapse) may take to be reported before the cycle stalls. */
+const MORPH_TIMEOUT_MS = 6000;
+/** Cursor drift step while aiming at the strip: 1 px every 60 ms, well under hover-intent speed. */
+const DRIFT_INTERVAL_MS = 60;
+
 /** The binary `pnpm --filter @muna/desktop tauri build --debug --no-bundle` produces. */
 export function defaultExe() {
   const target = path.join(repoRoot, 'apps', 'desktop', 'src-tauri', 'target');
@@ -118,6 +125,16 @@ export class Probe {
     return this.#send('cursor');
   }
 
+  /** Absolute mouse move through `SendInput` (enters the input stack, unlike `cursor`). */
+  input(x, y) {
+    return this.#send(`input ${Math.round(x)} ${Math.round(y)}`);
+  }
+
+  /** The window `WindowFromPoint` names at a physical point (click-through windows are skipped). */
+  point(x, y) {
+    return this.#send(`point ${Math.round(x)} ${Math.round(y)}`);
+  }
+
   foreground() {
     return this.#send('foreground');
   }
@@ -142,6 +159,7 @@ export class App {
   #exitCode = null;
   #onMorph = new Set();
   #onReady = new Set();
+  #recent = [];
   ready = [];
   morphs = [];
   /** `webview memory target` transitions with `atMs`; the last one is the current target. */
@@ -164,6 +182,8 @@ export class App {
       createInterface({ input: stream }).on('line', (line) => {
         const at = performance.now() - this.#startedAt;
         log?.(line);
+        this.#recent.push({ atMs: Math.round(at), line });
+        if (this.#recent.length > RECENT_LOG_LINES) this.#recent.shift();
         const ready = parseReadyLine(line);
         if (ready) {
           const record = { ...ready, atMs: Math.round(at) };
@@ -195,6 +215,11 @@ export class App {
 
   get profile() {
     return this.#profile;
+  }
+
+  /** The last `max` log lines the app wrote (stdout and stderr), oldest first, with `atMs`. */
+  recentLog(max = RECENT_LOG_LINES) {
+    return this.#recent.slice(-max);
   }
 
   get exited() {
@@ -382,6 +407,14 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
  * a time (well under the hover-intent velocity limit) until the shell reports the expand
  * morph, then parks far away until the collapse morph is reported. Returns the morph records;
  * a cycle that does not morph within its timeout ends the loop with a note.
+ *
+ * The cursor moves through `SetCursorPos`, as a mouse driver does. When the first cycle does
+ * not expand, the drive records what the desktop looked like — where the cursor really is,
+ * which window `WindowFromPoint` names there, the foreground window, the notch window's
+ * click-through bit and the shell's last log lines — and tries the cycle once more through
+ * `SendInput`, which travels the input stack. The snapshot comes back as `stall` (kept in the
+ * JSON report) and the notes say which path worked, so a stall on a CI runner can be read
+ * instead of guessed.
  */
 export async function driveMorphs(app, probe, host, count, log) {
   const notes = [];
@@ -391,37 +424,53 @@ export async function driveMorphs(app, probe, host, count, log) {
     notes.push(
       'No placed notch window was found (desktop locked or notch parked); morphs were not driven.',
     );
-    return { morphs: [], notes };
+    return { morphs: [], notes, stall: null };
   }
-  const { x: centreX, y: stripY } = stripProbePoint(primary);
-  const awayX = host.screenWidth * 0.1;
-  const awayY = host.screenHeight - 120;
+  const point = stripProbePoint(primary);
+  log(
+    `notch window ${describeRect(primary)} at ${primary.dpi} dpi, ex-style ${primary.exStyle ?? '?'}; probing ${Math.round(point.x)},${Math.round(point.y)}`,
+  );
+  const away = { x: host.screenWidth * 0.1, y: host.screenHeight - 120 };
   const morphs = [];
   const seen = app.morphs.length;
+  let stall = null;
+  let mover = 'cursor';
   for (let cycle = 0; cycle < count; cycle += 1) {
-    const expand = app.waitForMorph((m) => m.label === 'notch' && m.expanded, 6000);
-    let dx = -6;
-    const drift = setInterval(() => {
-      dx += 1;
-      void probe.cursor(centreX + dx, stripY).catch(() => {});
-    }, 60);
-    try {
-      morphs.push(await expand);
-    } catch (error) {
-      clearInterval(drift);
+    let expanded = await expandOnce(app, probe, point, mover);
+    if (!expanded.ok && cycle === 0) {
+      stall = await stallSnapshot(app, probe, point, 'expand', mover, expanded);
+      notes.push(describeStall(stall));
+      // Let any hover state the first attempt may have started settle before the retry.
+      await probe.cursor(away.x, away.y);
+      await sleep(1500);
+      mover = 'input';
+      expanded = await expandOnce(app, probe, point, mover);
+      if (expanded.ok) {
+        stall.recoveredBy = mover;
+        notes.push(
+          'Cycle 1: the strip did not expand from SetCursorPos moves but did from the SendInput retry; the remaining cycles used SendInput.',
+        );
+      } else {
+        stall.retry = { mover, error: expanded.error, lastMove: expanded.lastMove };
+      }
+    }
+    if (!expanded.ok) {
       notes.push(
-        `Cycle ${cycle + 1}: the strip did not expand (${error.message}); stopped driving morphs.`,
+        `Cycle ${cycle + 1}: the strip did not expand (${expanded.error})${stall?.retry ? ', nor after the SendInput retry' : ''}; stopped driving morphs.`,
       );
       break;
-    } finally {
-      clearInterval(drift);
     }
+    morphs.push(expanded.morph);
     await sleep(400);
-    const collapse = app.waitForMorph((m) => m.label === 'notch' && !m.expanded, 6000);
-    await probe.cursor(awayX, awayY);
+    const collapse = app.waitForMorph((m) => m.label === 'notch' && !m.expanded, MORPH_TIMEOUT_MS);
+    await probe.cursor(away.x, away.y);
     try {
       morphs.push(await collapse);
     } catch (error) {
+      stall ??= await stallSnapshot(app, probe, away, 'collapse', 'cursor', {
+        error: error.message,
+        lastMove: null,
+      });
       notes.push(
         `Cycle ${cycle + 1}: the panel did not collapse (${error.message}); stopped driving morphs.`,
       );
@@ -434,5 +483,111 @@ export async function driveMorphs(app, probe, host, count, log) {
   }
   // Include morphs the shell reported on its own during the drive (e.g. hover reveals).
   const all = app.morphs.slice(seen).filter((m) => m.label === 'notch');
-  return { morphs: all.length >= morphs.length ? all : morphs, notes };
+  return { morphs: all.length >= morphs.length ? all : morphs, notes, stall };
+}
+
+/**
+ * One expand attempt: drifts the cursor across `point` with `mover` (`'cursor'` =
+ * SetCursorPos, `'input'` = SendInput) until the shell reports the expand morph or the timeout
+ * passes. Returns `{ ok, morph }` or `{ ok: false, error }`, plus the last move's answer.
+ */
+async function expandOnce(app, probe, point, mover) {
+  const expand = app.waitForMorph((m) => m.label === 'notch' && m.expanded, MORPH_TIMEOUT_MS);
+  const move = mover === 'input' ? (x, y) => probe.input(x, y) : (x, y) => probe.cursor(x, y);
+  let dx = -6;
+  let lastMove = null;
+  const drift = setInterval(() => {
+    dx += 1;
+    move(point.x + dx, point.y).then(
+      (answer) => {
+        lastMove = answer;
+      },
+      (error) => {
+        lastMove = { ok: false, error: error.message };
+      },
+    );
+  }, DRIFT_INTERVAL_MS);
+  try {
+    const morph = await expand;
+    return { ok: true, morph, lastMove };
+  } catch (error) {
+    return { ok: false, error: error.message, lastMove };
+  } finally {
+    clearInterval(drift);
+  }
+}
+
+/** What the desktop looked like when a morph did not arrive; every probe failure is recorded, not thrown. */
+async function stallSnapshot(app, probe, point, phase, mover, attempt) {
+  const ask = async (query) => {
+    try {
+      return await query();
+    } catch (error) {
+      return { error: error.message };
+    }
+  };
+  const requested = { x: Math.round(point.x), y: Math.round(point.y) };
+  return {
+    phase,
+    mover,
+    error: attempt.error,
+    requested,
+    lastMove: attempt.lastMove,
+    cursor: await ask(() => probe.cursorPosition()),
+    under: await ask(() => probe.point(requested.x, requested.y)),
+    foreground: await ask(() => probe.foreground()),
+    windows: await ask(() => probe.windows()),
+    memoryTarget: app.memoryTarget,
+    morphsSoFar: app.morphs.length,
+    recentLog: app.recentLog(),
+  };
+}
+
+function describeRect(rect) {
+  return `${rect.left},${rect.top}–${rect.right},${rect.bottom}`;
+}
+
+function describeWindow(window) {
+  if (!window || window.error) return window?.error ? `probe error: ${window.error}` : 'none';
+  if (!window.hwnd) return 'none';
+  const bits = [window.caption ? 'caption' : null, window.popup ? 'popup' : null];
+  if (window.clickThrough) bits.push('click-through');
+  if (window.topmost) bits.push('topmost');
+  const rect = window.rect ? ` ${describeRect(window.rect)}` : '';
+  return `${window.className || '?'} (${window.processName || `pid ${window.pid}`})${rect}${bits.filter(Boolean).length ? ` [${bits.filter(Boolean).join(', ')}]` : ''}`;
+}
+
+/** One readable line for the notes, from a `stallSnapshot`. */
+export function describeStall(stall) {
+  const via = stall.mover === 'input' ? 'SendInput' : 'SetCursorPos';
+  const moved =
+    stall.lastMove === null
+      ? 'no move was answered'
+      : stall.lastMove.error
+        ? `last move failed: ${stall.lastMove.error}`
+        : `last move ${stall.lastMove.ok ? 'ok' : 'returned false'}`;
+  const cursor = stall.cursor?.error
+    ? `cursor unknown (${stall.cursor.error})`
+    : `cursor at ${stall.cursor.x},${stall.cursor.y}`;
+  const notch = Array.isArray(stall.windows)
+    ? stall.windows
+        .map(
+          (w) =>
+            `${describeRect(w)}${w.visible ? '' : ' hidden'}${w.clickThrough ? ' click-through' : ' hit-testable'}`,
+        )
+        .join('; ') || 'no MunaNotch window'
+    : `windows unknown (${stall.windows?.error})`;
+  const warnings = stall.recentLog
+    .filter((entry) =>
+      /WARN|ERROR|cursor poll|click_through|memory target failed/i.test(entry.line),
+    )
+    .slice(-3)
+    .map((entry) => entry.line.replace(/\s+/g, ' ').slice(0, 120));
+  return (
+    `Stall diagnostics (${stall.phase}, via ${via}): asked for ${stall.requested.x},${stall.requested.y}, ${cursor}, ${moved}; ` +
+    `under the point: ${describeWindow(stall.under)}; foreground: ${describeWindow(stall.foreground)}; ` +
+    `notch window ${notch}; memory target ${stall.memoryTarget}; ${stall.morphsSoFar} morph lines so far` +
+    (warnings.length ? `; shell warnings: ${warnings.join(' | ')}` : '; no shell warnings') +
+    '.'
+  );
 }
