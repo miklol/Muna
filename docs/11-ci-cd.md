@@ -77,43 +77,62 @@ is granted to nobody; emergencies use the revert runbook below.
 | `v*` tags | Restrict creation to the `release-please` bot and the maintainer · block deletion · block updates (tags are immutable — a bad release gets a new patch version, never a moved tag) |
 | Workflows | `.github/workflows/**`, `.github/CODEOWNERS`, `.github/dependabot.yml`, `deny.toml`, `release-please-config.json`, `scripts/msix/**`, `scripts/version.mjs`, the design/motion contracts (`docs/05`, `docs/06`, `packages/ui/src/tokens/`) and the module contract (`docs/adr/**`, `packages/contracts/**`) are code-owned by the maintainer in [`.github/CODEOWNERS`](../.github/CODEOWNERS); changes need their explicit review |
 
+**As configured on 2026-10-04** (the repository went public, which lifted the plan limitation
+below): ruleset `main` (id 24442299) has every rule in the table except the review ones —
+`required_approving_review_count` is **0** and code-owner review is **off** — because the
+maintainer works alone with agents that open and land their own PRs, and a review requirement
+with no second human would stop every merge. Everything else holds: a pull request is the only
+way in, squash is the only merge method, the seven checks must pass on a branch that is up to
+date with `main`, conversations must be resolved, history is linear, force pushes and deletion
+are blocked, and nobody can bypass. The day a second maintainer joins, or the maintainer wants
+to review agent PRs before they land, set the count to 1 and code-owner review on
+(`gh api -X PUT repos/miklol/Muna/rulesets/24442299` with the `pull_request` parameters);
+the agents' rules below do not change. Ruleset `release tags` (id 24442305) matches
+`refs/tags/v*` and restricts creation, updates, deletion and force pushes to the repository
+admin role, which is the maintainer and the `RELEASE_PLEASE_TOKEN` acting as them.
+
 Repository settings that back the rules: squash-merge only (merge commits and rebase-merge
 disabled), auto-delete head branches, secret scanning + push protection on, Dependabot alerts
 and security updates on, "Require approval for all outside collaborators" for Actions on fork
 PRs, default workflow permissions **read**, "Allow GitHub Actions to create and approve pull
 requests" **off** (release-please uses a fine-grained PAT stored as `RELEASE_PLEASE_TOKEN`).
 
-**Plan limitation (recorded 2026-09-15 by the M0 closing PR).** On the GitHub Free plan a
-*private* repository cannot have rulesets, protected environments, secret scanning, push
-protection or private vulnerability reporting — the API answers `403 Upgrade to GitHub Pro or
-make this repository public`. Until the repository is public or on a paid plan, `main` is
-protected by convention only (squash-only merges, the required checks `ci.yml` reports, and
-the rules for agents below), and the `release` environment cannot get its required reviewer.
-Unprotected environments do work: `release-dry-run` was created on first use by the I9 dry
-run. Everything that needs no plan change is already in place — see the ticks below.
+**Plan limitation (recorded 2026-09-15 by the M0 closing PR; lifted 2026-10-04).** On the
+GitHub Free plan a *private* repository cannot have rulesets, protected environments, secret
+scanning, push protection or private vulnerability reporting — the API answers `403 Upgrade to
+GitHub Pro or make this repository public`. Until 2026-10-04 `main` was therefore protected
+by convention only (squash-only merges, the required checks `ci.yml` reports, and the rules
+for agents below); the repository went public that day and the rulesets, the protected
+`release` environment and the security features were switched on the same day — see the ticks
+below. Unprotected environments always worked: `release-dry-run` was created on first use by
+the I9 dry run.
 
 ### Bootstrap checklist (maintainer, once)
 
 Nothing in this list can be done from a PR; the repository owner performs it and ticks it in
-the M0 exit criteria. Ticks below were verified through the REST API on 2026-09-15; items
-marked *plan* wait for a public repository or a paid plan.
+the M0 exit criteria. Ticks below were verified through the REST API on 2026-09-15 and again
+on 2026-10-04, the day the repository went public; what remains needs the maintainer's own
+credentials.
 
-- [ ] *plan* Ruleset `main` as in the table above; required checks `changes`, `pr-title`,
-      `docs`, `web`, `rust`, `deps`, `app` (all seven have reported since PR #3)
-- [ ] *plan* Ruleset `v*` tags: restrict creation, block deletion and updates
+- [x] Ruleset `main` as in the table above; required checks `changes`, `pr-title`,
+      `docs`, `web`, `rust`, `deps`, `app` (all seven have reported since PR #3) — created
+      2026-10-04 with the review count at 0, see the note under the table
+- [x] Ruleset `v*` tags: restrict creation, block deletion and updates — created 2026-10-04
 - [x] Merge settings: squash only (merge commits and rebase-merge off), default squash message
       = PR title + body, auto-delete branches
-- [x] Actions settings: default permissions read-only, PR creation by Actions off. Fork-PR
-      approval is not a setting on private repositories (GitHub rejects it) — turn it on the
-      day the repository goes public
-- [ ] Security: Dependabot alerts and security updates **on**; *plan* secret scanning, push
-      protection, private vulnerability reporting
-- [ ] *plan* Environment `release`: required reviewer (maintainer), deployment tags `v*`,
-      secrets and variables from the [table](#secrets-and-environments); Azure federated
-      credential with subject `repo:miklol/Muna:environment:release`. (`release-dry-run`
-      exists — auto-created by the I9 dry run, no protection, no secrets, as designed)
+- [x] Actions settings: default permissions read-only, PR creation by Actions off, fork-PR
+      approval required for all external contributors (verified 2026-10-04)
+- [x] Security: Dependabot alerts and security updates, secret scanning, push protection and
+      private vulnerability reporting all **on** (verified 2026-10-04)
+- [ ] Environment `release`: created 2026-10-04 with the maintainer as required reviewer and
+      the deployment tag policy `v*`; **still missing** the secrets and variables from the
+      [table](#secrets-and-environments) and the Azure federated credential with subject
+      `repo:miklol/Muna:environment:release` — the maintainer's credentials, nothing an agent
+      can set. (`release-dry-run` exists — auto-created by the I9 dry run, no protection, no
+      secrets, as designed)
 - [ ] Repository secret `RELEASE_PLEASE_TOKEN`, repository variable `RELEASE_AUTOMATION=true`
-      (M0 has landed — set both now). Labels `ci:nightly`, `dependencies`, `ci`, `npm`,
+      (M0 has landed — set both now; the variable waits for the token, since release-please
+      runs as soon as it is `true`). Labels `ci:nightly`, `dependencies`, `ci`, `npm`,
       `cargo`, `perf-regression`, `flaky-test` exist
 - [ ] Verify `releases/latest/download/latest.json` resolves after the first stable release
 
