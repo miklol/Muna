@@ -113,6 +113,26 @@ leaves E4 a kickoff prompt rather than a branch.
   [05-design-system → Accessibility](../05-design-system.md#accessibility); QA:
   [checklists/accessibility](../qa/checklists/accessibility.md) (rows 1–19 need Narrator, a
   contrast theme and a touch screen on the maintainer's machine).
+- **M5-E2 Fidelity pass** — built on `m5-e2-fidelity`
+  ([#53](https://github.com/miklol/Muna/pull/53), base `m5-e3-accessibility`): the
+  [audit](../qa/fidelity-audit-2026-09-28.md) (mechanical sweeps,
+  Storybook contact sheets and probes, the running app) ranked 2 blocking, 12 should and 10
+  nit findings, then found 6 more while fixing. What it turned up was one class of defect:
+  the shell sizes a panel to its content (190–360), so every module that relied on the body
+  being 284 px — `flex: 1 1 0` rows, `block-size: 100%` boxes, lists with no bound — got
+  nothing (the dashboard's grid was 0 px tall in every build) or grew past the maximum and
+  was clipped. Modules now declare their heights (dashboard rows, mirror frame, translation
+  boxes, list bounds in code hosting, AI coding, notes, shelf, support), auto-fit their tiles
+  and cards at the 720 px minimum width (system monitor, health, weather), and the desktop
+  `PanelFrame` renders every panel story at that width with the shell's clamp, so the
+  Storybook axe run catches the class from now on. Also: segmented controls size to the
+  widest label (`inline-grid`), `paced()` in `@muna/ui/motion` for content-paced tweens,
+  radius / scrim / caption tokens where literals were, `-webkit-font-smoothing` and four
+  `will-change` hints gone, *Open settings* / *in Settings* copy in five catalogs. Deviations
+  from the kickoff: one session did both halves; the audit's mirror figure (240 max) became an
+  explicit 236 px frame. Doc: [05 › Spacing & sizing](../05-design-system.md#spacing--sizing)
+  (the *Panel body* row), [06 › Timings](../06-motion-spec.md#timings-non-spring) (*Paced
+  content*), each module doc's height budget.
 
 ### Order
 
@@ -237,6 +257,9 @@ translate), `mirror` (`getUserMedia` in WebView2; stop tracks on collapse; flip/
 (help links, diagnostics, feedback form opening GitHub issue template).
 
 ## M5-E2 · Fidelity pass — agent: `muna-design-reviewer` then `muna-ui-engineer`
+
+*Built — see [Progress](#progress). The audit, its decisions and the panel-height contract it
+clarified are in [qa/fidelity-audit-2026-09-28](../qa/fidelity-audit-2026-09-28.md).*
 
 ```text
 Audit every surface (strip forms, notices, HUD, panel of each module, dashboard, settings,

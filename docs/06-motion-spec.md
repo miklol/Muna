@@ -106,6 +106,7 @@ Motion.
 | Progress bars (media, pomodoro) | 1 s linear steps, interpolated with `interactive` on seek |
 | Waveform | 30 Hz sample, per-bar `interactive`; amplitude 4–20 px; frozen when paused |
 | Skeleton shimmer | 1.6 s linear loop, opacity 0.06 → 0.12; never on the strip |
+| Paced content (breath phase, countdown ring) | `paced(ms)`: a symmetric ease-in-out tween whose duration is the content's own — a 4 s inhale takes 4 s — with a 100 ms floor; the only non-spring tween a module may build itself |
 
 ## Content transition recipe
 

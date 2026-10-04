@@ -4,13 +4,14 @@
  * own styles.
  *
  * The panel body has 284 px at most (360 panel − 2 × 16 padding − 44 header); the toolbar takes
- * 28 + 8 and the status line 20 + 8, so the grid scrolls inside the 220 px left — two rows of
- * tiles — and the panel never asks the shell for more than its maximum height.
+ * 28 + 8 and the status line, with its 28 px buttons, 28 + 8, so the grid scrolls inside the
+ * 212 px left — two rows of tiles — and the panel never asks the shell for more than its
+ * maximum height.
  */
 
 .shelf-panel {
   --shelf-tile-picture: 64px;
-  --shelf-grid-max: 220px;
+  --shelf-grid-max: 212px;
 
   display: flex;
   flex-direction: column;
@@ -166,7 +167,7 @@
   display: grid;
   place-items: center;
   color: var(--text-2);
-  background: rgb(0 0 0 / 0.6);
+  background: var(--scrim);
   border-radius: var(--radius-thumb);
   opacity: 0;
   transition: opacity var(--muna-motion-toggle);

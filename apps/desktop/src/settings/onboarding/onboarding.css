@@ -84,7 +84,6 @@
   border-radius: var(--radius-control) var(--radius-control) 0 0;
   background: color-mix(in oklab, var(--text-1) 16%, transparent);
   box-shadow: inset 0 0 0 1px var(--hairline);
-  will-change: transform;
 }
 
 .onboarding-screen__titlebar {
@@ -119,7 +118,6 @@
   translate: -50% 0;
   inline-size: var(--onboarding-strip-width);
   block-size: var(--onboarding-strip-height);
-  will-change: transform;
 }
 
 .onboarding-screen__strip--island {

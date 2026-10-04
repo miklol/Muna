@@ -77,6 +77,8 @@ Pieces, in the order a bug report travels:
   level down and every outcome as one line of status text. Settings → Support has the update
   channel, _Check for updates_ (naming the newer version and pointing at GitHub), the system
   line, the bundle row with the size of the logs it will carry (`formatBytes`, locale-aware),
-  the logs folder and the two repairs. Settings → About keeps its _Open logs folder_.
+  the logs folder and the two repairs. Settings → About keeps its _Open logs folder_. The
+  list and the changelog scroll inside 220 px — five rows — so the version line and the
+  outcome line always fit in the 284 px body.
 
 QA: [checklist](../qa/checklists/support.md).

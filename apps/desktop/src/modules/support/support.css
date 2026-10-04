@@ -4,10 +4,15 @@
  * or the bundled changelog. Composes tokens only; the primitives bring their own styles.
  *
  * Budget: the panel body has 284 px at most. Six 44 px rows and the version line overrun it by
- * a hair, so the list scrolls inside the view rather than pushing the outcome line out.
+ * a hair, so the list (and the changelog) scroll inside `--support-scroll` — five rows, which
+ * leaves room for the view's head or version line and the outcome line below it — rather than
+ * pushing the outcome line out. The bound is explicit because the panel is content-sized:
+ * `flex: 0 1 auto` alone would let the list grow past the shell's maximum.
  */
 
 .support-panel {
+  --support-scroll: 220px;
+
   display: flex;
   flex-direction: column;
   block-size: 100%;
@@ -46,6 +51,8 @@
   flex: 0 1 auto;
   flex-direction: column;
   gap: var(--space-3);
+  box-sizing: border-box;
+  max-block-size: var(--support-scroll);
   min-block-size: 0;
   padding: 0 var(--space-3) var(--space-2);
   overflow-y: auto;
@@ -60,6 +67,7 @@
   display: flex;
   flex: 0 1 auto;
   flex-direction: column;
+  max-block-size: var(--support-scroll);
   min-block-size: 0;
   margin: 0;
   padding: 0;

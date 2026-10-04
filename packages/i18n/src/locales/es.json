@@ -1899,7 +1899,7 @@
       "modeOverlay": "Superpuesto",
       "modeReserved": "Reservado",
       "stripHeight": "Altura de la franja",
-      "stripHeightBody": "Compacta 26 px, Predeterminada 32 px, Cómoda 38 px.",
+      "stripHeightBody": "26, 32 o 38 px de alto.",
       "stripCompact": "Compacta",
       "stripDefault": "Predeterminada",
       "stripComfortable": "Cómoda"

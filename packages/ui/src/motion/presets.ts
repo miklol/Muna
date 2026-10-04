@@ -184,6 +184,25 @@ export const glyphCrossfadeTransition = {
   ease: [0.2, 0, 0, 1],
 } as const satisfies Transition;
 
+/** The shortest paced tween; below this a step would read as a jump. */
+export const pacedMinMs = 100;
+
+/** The paced curve: a symmetric ease-in-out (CSS `ease-in-out`). */
+export const pacedEase = [0.42, 0, 0.58, 1] as const;
+
+/**
+ * A paced tween (docs/06-motion-spec.md "Timings (non-spring)", "Paced content"): for content
+ * whose length *is* the animation — a breathing circle that grows over a four-second inhale, a
+ * countdown that drains over its remaining time. The length comes from the content, the curve
+ * comes from here (`pacedEase`, so a cycle starts and ends at rest), and the module never
+ * writes either. `ms` is clamped to at least `pacedMinMs` so a phase that is nearly over still
+ * eases instead of snapping.
+ */
+export const paced = (ms: number): Transition => ({
+  duration: Math.max(pacedMinMs, ms) / 1000,
+  ease: [...pacedEase],
+});
+
 /**
  * Module bar choreography (docs/06-motion-spec.md "Strip → panel" and "Panel → strip"): the
  * pill rises 12 px into place with `expand` 80 ms after the shape starts, and drops 8 px while

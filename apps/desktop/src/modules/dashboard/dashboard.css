@@ -2,12 +2,15 @@
  * Dashboard panel (docs/modules/dashboard.md): a toolbar line and a 2 × 4 grid of cards, each
  * one or two columns wide. Composes tokens only; the cards and controls bring their own styles.
  *
- * Budget: the panel body has 284 px at most. The toolbar is one 28 px icon button; the two
- * rows share what is left at an 8 px gap, so every card is 120 px tall — a 20 px header, an
- * 8 px gap and a 68 px body inside the card's 12 px padding. Widgets are sized to that body.
+ * Budget: the panel's height follows its content (190–360), so the grid declares its own rows:
+ * two of 120 px (`--dashboard-row`) at an 8 px gap under the 28 px toolbar, which is the
+ * 284 px body the shell allows at most. Every card is 120 px tall — a 20 px header, an 8 px
+ * gap and a 68 px body inside the card's 12 px padding. Widgets are sized to that body.
  */
 
 .dashboard {
+  --dashboard-row: 120px;
+
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -37,9 +40,9 @@
 
 .dashboard__grid {
   display: grid;
-  flex: 1 1 0;
+  flex: none;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, var(--dashboard-row));
   grid-auto-flow: row dense;
   gap: var(--space-2);
   margin: 0;
@@ -66,7 +69,11 @@
   cursor: grabbing;
 }
 
-/* The card fills its cell; the body takes the rest of the height so widgets can centre. */
+/*
+ * The card fills its cell; the body takes the rest of the height so widgets can centre, and is
+ * a size container so a widget can query its width (`@container (inline-size < 180px)`) for
+ * a compact variant on a narrow card at the minimum panel width.
+ */
 .dashboard__card {
   block-size: 100%;
   box-sizing: border-box;
@@ -77,6 +84,7 @@
   flex: 1 1 0;
   flex-direction: column;
   min-block-size: 0;
+  container-type: inline-size;
 }
 
 .dashboard__widget {

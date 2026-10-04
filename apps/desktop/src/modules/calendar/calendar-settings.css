@@ -7,7 +7,7 @@
   display: inline-block;
   inline-size: 10px;
   block-size: 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-thumb);
   background: var(--calendar-tint, var(--text-2));
 }
 

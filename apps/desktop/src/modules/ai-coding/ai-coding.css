@@ -5,8 +5,9 @@
  * show / dismiss buttons on the right; then the sessions that finished today. Composes tokens
  * only; the primitives bring their own styles.
  *
- * Budget: the panel body has 284 px at most. The header takes one icon-button height; the list
- * and *Recent* scroll together inside the rest.
+ * Budget: the panel's height follows its content (190–360), so the scroller bounds itself: the
+ * 284 px body the shell allows at most, minus this panel's 8 px padding, the 28 px head and the
+ * 8 px gap, is 240 px (`--ai-coding-scroll`); the list and *Recent* scroll together inside it.
  */
 
 .ai-coding-panel {
@@ -17,6 +18,8 @@
 }
 
 .ai-coding-sessions {
+  --ai-coding-scroll: 240px;
+
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -41,6 +44,7 @@
   flex-direction: column;
   gap: var(--space-2);
   min-block-size: 0;
+  max-block-size: var(--ai-coding-scroll);
   overflow-y: auto;
   scrollbar-width: thin;
 }

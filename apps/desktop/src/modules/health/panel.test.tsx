@@ -408,7 +408,7 @@ describe('HealthPanel', () => {
     expect(
       screen.getByText('Turn it on in Settings to track sitting and get break reminders.'),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
     expect(ipc.openSettings).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('region', { name: 'Goals' })).not.toBeInTheDocument();
   });
