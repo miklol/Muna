@@ -27,6 +27,7 @@ import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { persistSettings, useSettings } from '../../lib/settings';
 import { LanguageList } from './language-list';
 import { languageName } from './languages';
@@ -74,8 +75,8 @@ type View = 'translate' | 'source' | 'target';
  * the panel collapses or the module switches is cancelled.
  */
 export function TranslationPanel() {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const document = useSettings() ?? defaultSettings();
   const settings = readTranslationSettings(document);

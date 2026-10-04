@@ -13,6 +13,7 @@ import {
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { formatBytes, formatPercent, formatRate, formatTenths, share } from './format';
 import {
   NETWORK_RING_FLOOR_BYTES_PER_S,
@@ -256,11 +257,11 @@ function ProcessTable({ processes, locale }: ProcessTableProps) {
  * with the `interactive` preset, so a value moves rather than jumps.
  */
 export function SystemMonitorPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useSystemMonitorSubscription();
   const snapshot = useSystemMonitorStore((store) => store.snapshot);
   const peak = useSystemMonitorStore((store) => store.peakNetworkBytesPerS);
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   const gauges = buildGauges(snapshot, peak, { t, locale });
   const processes = snapshot?.processes ?? [];
 

@@ -17,7 +17,10 @@ use thiserror::Error;
 
 use crate::shell_settings::ShellSettings;
 
-pub const CURRENT_VERSION: u32 = 5;
+pub const CURRENT_VERSION: u32 = 6;
+
+/// Settings → General → Language: follow the Windows display language (v6).
+pub const SYSTEM_LANGUAGE: &str = "system";
 
 /// The keyboard-shortcuts module's namespace under `modules` (v5); the migration from v4 moves
 /// the shell's toggle hotkey there.
@@ -56,6 +59,9 @@ pub struct GeneralSettings {
     pub accent: String,
     /// The welcome tour was finished or skipped; the settings window shows it until then (v4).
     pub onboarded: bool,
+    /// UI language: `system` or a catalog tag (`de`, `pt-BR`); the UI resolves it, so an
+    /// unknown tag (a catalog that was dropped) behaves like `system` (v6).
+    pub language: String,
 }
 
 impl Default for GeneralSettings {
@@ -65,6 +71,7 @@ impl Default for GeneralSettings {
             reduced_motion: ReducedMotion::System,
             accent: "blue".into(),
             onboarded: false,
+            language: SYSTEM_LANGUAGE.into(),
         }
     }
 }
@@ -182,6 +189,14 @@ fn migrate(value: &mut Value, from: u32) {
             // shell's `toggleHotkey` becomes `bindings["shell.togglePanel"]` there — an empty
             // chord stays unbound — and leaves `shell`, whose struct rejects unknown fields.
             4 => migrate_toggle_hotkey(value),
+            // v6 (M5-E6): the UI language. Older files followed Windows, so they keep doing so.
+            5 => {
+                if let Some(general) = value.get_mut("general").and_then(Value::as_object_mut) {
+                    general
+                        .entry("language")
+                        .or_insert_with(|| Value::String(SYSTEM_LANGUAGE.into()));
+                }
+            }
             _ => unreachable!("migration from version {version} is not defined"),
         }
         version += 1;
@@ -343,7 +358,7 @@ mod tests {
     fn version_four_files_move_the_toggle_hotkey_into_the_shortcuts_namespace() {
         let json = r#"{"version":4,"general":{"launchAtLogin":false,"reducedMotion":"system","accent":"blue","onboarded":true},"shell":{"hideFromCaptures":false,"toggleHotkey":"ctrl+shift+m","defaults":{"enabled":true,"mode":"overlay","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{},"moduleOrder":[],"disabledModules":[]},"modules":{"media":{"showArtwork":false}}}"#;
         let settings = Settings::from_json(json).unwrap();
-        assert_eq!(settings.version, 5);
+        assert_eq!(settings.version, CURRENT_VERSION);
         assert_eq!(
             settings.modules[KEYBOARD_SHORTCUTS_KEY],
             serde_json::json!({ "bindings": { TOGGLE_PANEL_ACTION: "ctrl+shift+m" } })
@@ -351,6 +366,32 @@ mod tests {
         assert_eq!(
             settings.modules["media"],
             serde_json::json!({ "showArtwork": false })
+        );
+        assert_eq!(settings.general.language, SYSTEM_LANGUAGE);
+    }
+
+    #[test]
+    fn version_five_files_follow_windows_for_the_language_and_keep_the_rest() {
+        let json = r#"{"version":5,"general":{"launchAtLogin":true,"reducedMotion":"on","accent":"pink","onboarded":true},"shell":{"hideFromCaptures":false,"defaults":{"enabled":true,"mode":"overlay","shape":"notch","offsetX":0,"offsetY":0,"stripHeight":"default"},"monitors":{},"moduleOrder":[],"disabledModules":[]},"modules":{"keyboard-shortcuts":{"bindings":{"shell.togglePanel":"alt+f1"}}}}"#;
+        let settings = Settings::from_json(json).unwrap();
+        assert_eq!(settings.version, 6);
+        assert_eq!(settings.general.language, SYSTEM_LANGUAGE);
+        assert_eq!(settings.general.accent, "pink");
+        assert!(settings.general.onboarded);
+        assert_eq!(
+            settings.modules[KEYBOARD_SHORTCUTS_KEY],
+            serde_json::json!({ "bindings": { TOGGLE_PANEL_ACTION: "alt+f1" } })
+        );
+    }
+
+    #[test]
+    fn a_chosen_language_survives_a_round_trip_unchanged() {
+        let mut settings = Settings::default();
+        settings.general.language = "pt-BR".into();
+        let json = settings.to_json().unwrap();
+        assert_eq!(
+            Settings::from_json(&json).unwrap().general.language,
+            "pt-BR"
         );
     }
 

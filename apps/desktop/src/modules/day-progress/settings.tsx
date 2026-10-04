@@ -6,6 +6,7 @@ import {
 } from '@muna/contracts';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { Section, SliderRow, ToggleRow } from '../../settings/rows';
 import { useSettingsEditor } from '../../settings/settings-editor';
 
@@ -40,8 +41,8 @@ const clampEnd = (minutes: number, start: number): number =>
  * a day that ends after it starts.
  */
 export function DayProgressSettingsPane() {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { t } = useTranslation();
+  const locale = useLocale();
   const { settings, update } = useSettingsEditor();
   const day = readDayProgressSettings(settings);
 

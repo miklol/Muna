@@ -28,6 +28,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { type ReactNode, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { useMinuteNow } from '../../lib/minute-now';
 import { persistSettings, useSettings } from '../../lib/settings';
 import { type PendingKey, useNotificationsStore } from './notifications-store';
@@ -362,7 +363,7 @@ function AccessNotice({ snapshot, pending, error, send }: AccessNoticeProps) {
  * clock that moves the relative times while it is open.
  */
 export function NotificationsPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useNotificationsSubscription();
   const snapshot = useNotificationsStore((store) => store.snapshot);
   const fresh = useNotificationsStore((store) => store.fresh);
@@ -374,7 +375,7 @@ export function NotificationsPanel() {
   const document = useSettings() ?? defaultSettings();
   const reduceMotion = useReduceMotion();
   const enterSpring = useMotionPreset('content');
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   const nowMs = useMinuteNow().getTime();
 
   // Whatever was fresh before this opening is not any more; and nothing is once it closes.

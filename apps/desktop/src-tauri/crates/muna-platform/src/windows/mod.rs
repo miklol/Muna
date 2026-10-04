@@ -429,6 +429,10 @@ impl SystemInfo for WindowsPlatform {
     fn desktop_dir(&self) -> PlatformResult<PathBuf> {
         system_info::desktop_dir()
     }
+
+    fn region_format(&self) -> PlatformResult<String> {
+        system_info::region_format()
+    }
 }
 
 impl Windowing for WindowsPlatform {

@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppProviders } from '../app-providers';
+import { i18n } from '../lib/i18n';
 import { queryClient } from '../lib/query-client';
 import type { ModuleDefinition } from '../modules/registry';
 import { SettingsApp } from './settings-app';
@@ -53,6 +54,7 @@ const info: AppInfo = {
   version: '0.3.0',
   platform: 'fake',
   profileDir: 'C:\\Users\\me\\AppData\\Local\\Muna',
+  regionFormat: 'en-US',
 };
 
 const monitors: MonitorInfo[] = [
@@ -131,6 +133,9 @@ describe('SettingsApp', () => {
   afterEach(() => {
     cleanup();
     delete document.documentElement.dataset.accent;
+    void i18n.changeLanguage('en');
+    document.documentElement.removeAttribute('lang');
+    document.documentElement.removeAttribute('dir');
   });
 
   it('lists the built-in panes and opens General first', async () => {
@@ -303,6 +308,42 @@ describe('SettingsApp', () => {
     await waitFor(() => {
       expect(lastSaved().general.reducedMotion).toBe('system');
     });
+  });
+
+  it('switches the window language as soon as a tile is chosen, and back to Windows', async () => {
+    await renderSettings();
+    expect(screen.getByRole('radio', { name: 'Windows' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Windows' })).toHaveAccessibleDescription(
+      'Follows the Windows display language, currently English.',
+    );
+    expect(screen.getByRole('radio', { name: 'Deutsch' })).toHaveAccessibleDescription(
+      'Machine draft, not yet reviewed by a native speaker.',
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Deutsch' }));
+    await waitFor(() => {
+      expect(i18n.language).toBe('de');
+    });
+    expect(document.documentElement.lang).toBe('de');
+    expect(document.documentElement.dir).toBe('ltr');
+    expect(lastSaved().general.language).toBe('de');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Windows' }));
+    await waitFor(() => {
+      expect(i18n.language).toBe('en');
+    });
+    expect(document.documentElement.lang).toBe('en');
+    expect(lastSaved().general.language).toBe('system');
+  });
+
+  it('search finds the language tiles by a language name in its own spelling', async () => {
+    await renderSettings();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search settings' }), {
+      target: { value: 'francais' },
+    });
+    expect(navTitles()).toEqual(['General']);
+    expect(screen.getByRole('radio', { name: 'Français' })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Launch at login' })).toBeNull();
   });
 
   it('About shows the build, exports through Rust and resets after a confirmation', async () => {

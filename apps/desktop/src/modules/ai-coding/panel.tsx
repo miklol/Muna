@@ -16,6 +16,7 @@ import { motion } from 'motion/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLocale } from '../../lib/locale';
 import { useAiCodingStore } from './ai-coding-store';
 import {
   agentKey,
@@ -330,13 +331,13 @@ function Sessions({ snapshot, locale, onRefresh, note, ...actions }: SessionsPro
  * panel watches.
  */
 export function AiCodingPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useAiCodingSubscription();
   const snapshot = useAiCodingStore((store) => store.snapshot);
   const send = useAiCodingCommand();
   const reduceMotion = useReduceMotion();
   const enterSpring = useMotionPreset('content');
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   const [pending, setPending] = useState<string | null>(null);
   const [failure, setFailure] = useState<AiCodingFailure | null>(null);
 

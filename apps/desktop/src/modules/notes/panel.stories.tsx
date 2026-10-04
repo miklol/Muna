@@ -258,6 +258,11 @@ export const RTL: Story = {
   globals: { direction: 'rtl' },
 };
 
+/** Spike S3: the mirrored-English pseudo-locale; the list, the editor and the toolbar flip. */
+export const PseudoRtl: Story = {
+  globals: { locale: 'ar-XB' },
+};
+
 export const ReducedMotion: Story = {
   globals: { reduceMotion: 'on' },
 };

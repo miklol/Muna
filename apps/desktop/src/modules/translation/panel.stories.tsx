@@ -182,6 +182,12 @@ export const RTL: Story = {
   globals: { direction: 'rtl' },
 };
 
+/** Spike S3: the mirrored-English pseudo-locale, so a right-to-left catalog is read end to end. */
+export const PseudoRtl: Story = {
+  ...Finished,
+  globals: { locale: 'ar-XB' },
+};
+
 export const ReducedMotion: Story = {
   globals: { reduceMotion: 'on' },
 };

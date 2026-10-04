@@ -39,6 +39,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useDragOut } from '../../lib/drag-out';
 import './shelf.css';
+import { useLocale } from '../../lib/locale';
 import { formatSize, isLink, orderedItems, targetIds, useShelfStore } from './shelf-store';
 import { useShelfCommand, useShelfSubscription, useShelfThumbnail } from './use-shelf';
 
@@ -121,7 +122,7 @@ function ShelfTile({
   onFocus,
   ref,
 }: TileProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const reduceMotion = useReduceMotion();
   const layoutSpring = useMotionPreset('layout');
   const enterSpring = useMotionPreset('content');
@@ -143,7 +144,7 @@ function ShelfTile({
   const request = useMemo(() => ({ kind: 'shelf' as const, ids: idsKey.split('\n') }), [idsKey]);
   const dragging = useDragOut(dragRef, item.missing ? null : request);
 
-  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const locale = useLocale();
   let description: string;
   if (item.missing) {
     description = t('shelf.missing');
