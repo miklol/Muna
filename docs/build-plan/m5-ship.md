@@ -439,8 +439,9 @@ catalog test found no drift, which is the point of having it (#56).
 Carry-overs (listed against the M5 exit criteria in
 [07-roadmap → M5](../07-roadmap.md#m5--polish-p2-tail--10-4-weeks)): the whole of **E4** with
 the maintainer's secrets and workflows (signing route I11 since M0, the updater feed,
-`site.yml` for the Pages deploy); the 14-day nightly perf window and the 7-day soak on three
-machines, which need the budget and the hardware; the manual rows of the six M5 checklists
+`site.yml` for the Pages deploy); the 14-day nightly perf window, counting from the first green
+nightly on 2026-10-04 ([#70](https://github.com/miklol/Muna/pull/70)), and the 7-day soak on
+three machines, which needs the hardware; the manual rows of the six M5 checklists
 (mirror's spike S1 light-on / light-off rows, translation's live run against a real endpoint,
 the Windows Settings language pass, Narrator and the contrast themes on a touch screen);
 native-speaker review of the four machine-drafted locales; a screenshot gallery on the site
