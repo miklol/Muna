@@ -25,6 +25,8 @@ const RECENT_LOG_LINES = 40;
 const MORPH_TIMEOUT_MS = 6000;
 /** Cursor drift step while aiming at the strip: 1 px every 60 ms, well under hover-intent speed. */
 const DRIFT_INTERVAL_MS = 60;
+/** The two ways the probe can move the cursor, by the Win32 call behind each. */
+const MOVER_NAMES = { input: 'SendInput', cursor: 'SetCursorPos' };
 
 /** The binary `pnpm --filter @muna/desktop tauri build --debug --no-bundle` produces. */
 export function defaultExe() {
@@ -408,13 +410,16 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
  * morph, then parks far away until the collapse morph is reported. Returns the morph records;
  * a cycle that does not morph within its timeout ends the loop with a note.
  *
- * The cursor moves through `SetCursorPos`, as a mouse driver does. When the first cycle does
- * not expand, the drive records what the desktop looked like — where the cursor really is,
- * which window `WindowFromPoint` names there, the foreground window, the notch window's
+ * The cursor moves through `SendInput`, which travels the input stack like a real mouse. On
+ * the hosted runner (Windows Server 2025, session 2) `SetCursorPos` moves the cursor and the
+ * shell lifts click-through, yet WebView2 receives no mouse-move messages and the strip never
+ * expands — nightly run 37197808643 recorded exactly that. When the first cycle does not
+ * expand, the drive records what the desktop looked like — where the cursor really is, which
+ * window `WindowFromPoint` names there, the foreground window, the notch window's
  * click-through bit and the shell's last log lines — and tries the cycle once more through
- * `SendInput`, which travels the input stack. The snapshot comes back as `stall` (kept in the
- * JSON report) and the notes say which path worked, so a stall on a CI runner can be read
- * instead of guessed.
+ * the other mover (`SetCursorPos`). The snapshot comes back as `stall` (kept in the JSON
+ * report) and the notes say which path worked, so a stall on a CI runner can be read instead
+ * of guessed.
  */
 export async function driveMorphs(app, probe, host, count, log) {
   const notes = [];
@@ -434,40 +439,41 @@ export async function driveMorphs(app, probe, host, count, log) {
   const morphs = [];
   const seen = app.morphs.length;
   let stall = null;
-  let mover = 'cursor';
+  let mover = 'input';
   for (let cycle = 0; cycle < count; cycle += 1) {
     let expanded = await expandOnce(app, probe, point, mover);
     if (!expanded.ok && cycle === 0) {
       stall = await stallSnapshot(app, probe, point, 'expand', mover, expanded);
       notes.push(describeStall(stall));
       // Let any hover state the first attempt may have started settle before the retry.
-      await probe.cursor(away.x, away.y);
+      await moveWith(probe, mover, away);
       await sleep(1500);
-      mover = 'input';
-      expanded = await expandOnce(app, probe, point, mover);
+      const retryWith = mover === 'input' ? 'cursor' : 'input';
+      expanded = await expandOnce(app, probe, point, retryWith);
       if (expanded.ok) {
-        stall.recoveredBy = mover;
+        stall.recoveredBy = retryWith;
         notes.push(
-          'Cycle 1: the strip did not expand from SetCursorPos moves but did from the SendInput retry; the remaining cycles used SendInput.',
+          `Cycle 1: the strip did not expand from ${MOVER_NAMES[mover]} moves but did from the ${MOVER_NAMES[retryWith]} retry; the remaining cycles used ${MOVER_NAMES[retryWith]}.`,
         );
+        mover = retryWith;
       } else {
-        stall.retry = { mover, error: expanded.error, lastMove: expanded.lastMove };
+        stall.retry = { mover: retryWith, error: expanded.error, lastMove: expanded.lastMove };
       }
     }
     if (!expanded.ok) {
       notes.push(
-        `Cycle ${cycle + 1}: the strip did not expand (${expanded.error})${stall?.retry ? ', nor after the SendInput retry' : ''}; stopped driving morphs.`,
+        `Cycle ${cycle + 1}: the strip did not expand (${expanded.error})${stall?.retry ? `, nor after the ${MOVER_NAMES[stall.retry.mover]} retry` : ''}; stopped driving morphs.`,
       );
       break;
     }
     morphs.push(expanded.morph);
     await sleep(400);
     const collapse = app.waitForMorph((m) => m.label === 'notch' && !m.expanded, MORPH_TIMEOUT_MS);
-    await probe.cursor(away.x, away.y);
+    await moveWith(probe, mover, away);
     try {
       morphs.push(await collapse);
     } catch (error) {
-      stall ??= await stallSnapshot(app, probe, away, 'collapse', 'cursor', {
+      stall ??= await stallSnapshot(app, probe, away, 'collapse', mover, {
         error: error.message,
         lastMove: null,
       });
@@ -486,14 +492,19 @@ export async function driveMorphs(app, probe, host, count, log) {
   return { morphs: all.length >= morphs.length ? all : morphs, notes, stall };
 }
 
+/** Moves the cursor to `{ x, y }` with the given mover. */
+function moveWith(probe, mover, { x, y }) {
+  return mover === 'input' ? probe.input(x, y) : probe.cursor(x, y);
+}
+
 /**
- * One expand attempt: drifts the cursor across `point` with `mover` (`'cursor'` =
- * SetCursorPos, `'input'` = SendInput) until the shell reports the expand morph or the timeout
- * passes. Returns `{ ok, morph }` or `{ ok: false, error }`, plus the last move's answer.
+ * One expand attempt: drifts the cursor across `point` with `mover` (`'input'` = SendInput,
+ * `'cursor'` = SetCursorPos) until the shell reports the expand morph or the timeout passes.
+ * Returns `{ ok, morph }` or `{ ok: false, error }`, plus the last move's answer.
  */
 async function expandOnce(app, probe, point, mover) {
   const expand = app.waitForMorph((m) => m.label === 'notch' && m.expanded, MORPH_TIMEOUT_MS);
-  const move = mover === 'input' ? (x, y) => probe.input(x, y) : (x, y) => probe.cursor(x, y);
+  const move = (x, y) => moveWith(probe, mover, { x, y });
   let dx = -6;
   let lastMove = null;
   const drift = setInterval(() => {
@@ -559,7 +570,7 @@ function describeWindow(window) {
 
 /** One readable line for the notes, from a `stallSnapshot`. */
 export function describeStall(stall) {
-  const via = stall.mover === 'input' ? 'SendInput' : 'SetCursorPos';
+  const via = MOVER_NAMES[stall.mover] ?? stall.mover;
   const moved =
     stall.lastMove === null
       ? 'no move was answered'

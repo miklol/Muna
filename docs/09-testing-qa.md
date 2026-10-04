@@ -124,9 +124,12 @@ with Drop (M4). Hardware evidence is measured with
 `scripts/dev.ps1 -HitTest -FullMotion` and the `morph` lines in `%LOCALAPPDATA%\Muna\logs`;
 numbers are recorded in
 [notch-shell.md → Implementation notes](modules/notch-shell.md#implementation-notes-m1-e1).
-When driving the notch with synthetic input (`SetCursorPos`), nudge the cursor once after the
-shell has made the window interactive: Windows sends no `WM_MOUSEMOVE` for a cursor that is
-already resting there, whereas a real mouse always does.
+When driving the notch with synthetic input, move the cursor through `SendInput` rather than
+`SetCursorPos`: on a hosted runner `SetCursorPos` moves the cursor without the mouse-move
+messages WebView2 needs, so the strip never reacts (the perf harness learnt this the hard way,
+see step 5 below). Either way, nudge the cursor once after the shell has made the window
+interactive: Windows sends no `WM_MOUSEMOVE` for a cursor that is already resting there,
+whereas a real mouse always does.
 
 ## Performance harness (`scripts/perf`)
 
@@ -181,14 +184,19 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    ([modules/notch-shell.md](modules/notch-shell.md#implementation-notes-m1-e1)) — below the
    hover-intent velocity, waiting for the shell's `morph` log lines (frames, duration, longest
    frame, dropped) and parking the cursor again → assert the slowest morph ≥ 58 fps. Memory is
-   sampled once more after the last collapse. The cursor moves through `SetCursorPos`. When
-   the first cycle does not expand within 6 s, the harness records a **stall snapshot** —
-   where the cursor really is, which window `WindowFromPoint` names at the probe point, the
-   foreground window (class, process, rect, styles; never its title), the notch window's
-   click-through bit and the shell's last 40 log lines — as `morphStall` in the JSON, a
-   one-line note in the markdown and the log tail in a folded block, then tries the cycle once
-   more through `SendInput`; if that works the remaining cycles use it and the notes say so.
-   The gate itself is unchanged: a cycle that never morphs still fails the run.
+   sampled once more after the last collapse. The cursor moves through `SendInput`, which
+   travels the input stack like a real mouse: on the hosted runner (Windows Server 2025)
+   `SetCursorPos` moves the cursor and the shell lifts click-through, yet WebView2 receives no
+   mouse-move messages and the strip never expands — nightly run
+   [37197808643](https://github.com/miklol/Muna/actions/runs/37197808643) recorded exactly
+   that, and its `SendInput` retry then ran all 20 cycles. When the first cycle does not expand
+   within 6 s, the harness records a **stall snapshot** — where the cursor really is, which
+   window `WindowFromPoint` names at the probe point, the foreground window (class, process,
+   rect, styles; never its title), the notch window's click-through bit and the shell's last
+   40 log lines — as `morphStall` in the JSON, a one-line note in the markdown and the log
+   tail in a folded block, then tries the cycle once more through `SetCursorPos`; if that
+   works the remaining cycles use it and the notes say so. The gate itself is unchanged: a
+   cycle that never morphs still fails the run.
 6. Write the JSON report and the markdown the `app` job posts on the PR (with the
    `<!-- muna-perf-report -->` marker); exit 1 on any breach or when nothing was measured.
    `--baseline` renders a delta column against an earlier JSON. Which steps run on PRs
