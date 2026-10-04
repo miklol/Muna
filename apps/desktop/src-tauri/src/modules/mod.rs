@@ -29,6 +29,7 @@ pub mod shelf;
 pub mod support;
 pub mod system_monitor;
 pub mod todo;
+pub mod translation;
 pub mod weather;
 pub mod window_snap;
 
@@ -108,6 +109,7 @@ pub struct ModuleServices {
     pub ai_coding: Arc<ai_coding::AiCodingService>,
     pub health: Arc<health::HealthService>,
     pub mirror: Arc<mirror::MirrorService>,
+    pub translation: Arc<translation::TranslationService>,
     pub support: Arc<support::SupportService>,
 }
 
@@ -215,6 +217,9 @@ impl ModuleServices {
                 Arc::new(health::LocalZone),
             )),
             mirror: Arc::new(mirror::MirrorService::new()),
+            translation: Arc::new(translation::TranslationService::with_http(Arc::clone(
+                platform,
+            ))),
             support: Arc::new(support::SupportService::new(
                 Arc::clone(platform),
                 Arc::clone(clock),
@@ -295,6 +300,9 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         Box::new(ai_coding::AiCodingModule(Arc::clone(&services.ai_coding))),
         Box::new(health::HealthModule(Arc::clone(&services.health))),
         Box::new(mirror::MirrorModule(Arc::clone(&services.mirror))),
+        Box::new(translation::TranslationModule(Arc::clone(
+            &services.translation,
+        ))),
         Box::new(support::SupportModule(Arc::clone(&services.support))),
     ]
 }

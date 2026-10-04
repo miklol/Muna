@@ -263,6 +263,25 @@ import {
   writeTodoSettings,
   writeWeatherSettings,
   writeWindowSnapSettings,
+  TRANSLATION_AUTO,
+  TRANSLATION_BOUNDS,
+  TRANSLATION_PROVIDER_DEFAULTS,
+  TRANSLATION_PROVIDERS,
+  TRANSLATION_SETTINGS_KEY,
+  type TranslationSettings,
+  defaultTranslationSettings,
+  readTranslationSettings,
+  translateErrorSchema,
+  translateRequestSchema,
+  translationChangedSchema,
+  translationChunkEventSchema,
+  translationChunkSchema,
+  translationEndpointOf,
+  translationHostOf,
+  translationModelOf,
+  translationSettingsSchema,
+  translationSnapshotSchema,
+  writeTranslationSettings,
 } from './schemas';
 
 describe('settings schema', () => {
@@ -2595,6 +2614,116 @@ describe('mirror schemas', () => {
       modules: { [MIRROR_SETTINGS_KEY]: { enabled: true, future: 1 } },
     };
     expect(readMirrorSettings(future).enabled).toBe(true);
+  });
+});
+
+describe('translation schemas', () => {
+  it('defaults the namespace to off, OpenAI, auto → English, and round-trips it', () => {
+    expect(defaultTranslationSettings()).toEqual({
+      enabled: false,
+      provider: 'openai',
+      endpoint: '',
+      model: '',
+      source: 'auto',
+      target: 'en',
+    });
+    expect(readTranslationSettings(defaultSettings())).toEqual(defaultTranslationSettings());
+    const chosen: TranslationSettings = {
+      enabled: true,
+      provider: 'ollama',
+      endpoint: 'http://desk.local:11434',
+      model: 'gemma3',
+      source: 'fr',
+      target: 'ja',
+    };
+    const doc = writeTranslationSettings(defaultSettings(), chosen);
+    expect(readTranslationSettings(doc)).toEqual(chosen);
+    expect(doc.modules[TRANSLATION_SETTINGS_KEY]).toEqual(chosen);
+    expect(translationSettingsSchema.parse({ enabled: true })).toEqual({
+      ...defaultTranslationSettings(),
+      enabled: true,
+    });
+    expect(TRANSLATION_PROVIDERS).toEqual(['openai', 'ollama']);
+    expect(TRANSLATION_AUTO).toBe('auto');
+  });
+
+  it('trims and bounds the fields and repairs blank tags, like the Rust clamp', () => {
+    expect(
+      translationSettingsSchema.parse({
+        endpoint: '  http://127.0.0.1:11434/  ',
+        model: ' x '.repeat(400),
+        source: '   ',
+        target: '',
+      }),
+    ).toMatchObject({
+      endpoint: 'http://127.0.0.1:11434/',
+      source: 'auto',
+      target: 'en',
+    });
+    expect(
+      translationSettingsSchema.parse({ model: 'm'.repeat(TRANSLATION_BOUNDS.field.max + 5) })
+        .model,
+    ).toHaveLength(TRANSLATION_BOUNDS.field.max);
+    expect(
+      translationSettingsSchema.parse({ target: 't'.repeat(TRANSLATION_BOUNDS.tag.max + 5) })
+        .target,
+    ).toHaveLength(TRANSLATION_BOUNDS.tag.max);
+  });
+
+  it('resolves the effective endpoint, model and host per provider', () => {
+    const defaults = defaultTranslationSettings();
+    expect(translationEndpointOf(defaults)).toBe('https://api.openai.com/v1');
+    expect(translationModelOf(defaults)).toBe('gpt-4o-mini');
+    const ollama: TranslationSettings = { ...defaults, provider: 'ollama' };
+    expect(translationEndpointOf(ollama)).toBe('http://127.0.0.1:11434');
+    expect(translationModelOf(ollama)).toBe('llama3.2');
+    expect(TRANSLATION_PROVIDER_DEFAULTS.openai.needsKey).toBe(true);
+    expect(TRANSLATION_PROVIDER_DEFAULTS.ollama.needsKey).toBe(false);
+    expect(
+      translationEndpointOf({ ...defaults, endpoint: ' https://openrouter.ai/api/v1// ' }),
+    ).toBe('https://openrouter.ai/api/v1');
+    expect(translationModelOf({ ...defaults, model: '  gpt-4.1  ' })).toBe('gpt-4.1');
+    expect(translationHostOf('https://api.openai.com/v1')).toBe('api.openai.com');
+    expect(translationHostOf('http://127.0.0.1:11434')).toBe('127.0.0.1:11434');
+    expect(translationHostOf('not a url')).toBe('not a url');
+  });
+
+  it('refuses a wrong type and falls back to the defaults for a broken entry', () => {
+    expect(translationSettingsSchema.safeParse({ enabled: 'yes' }).success).toBe(false);
+    expect(translationSettingsSchema.safeParse({ provider: 'deepl' }).success).toBe(false);
+    const broken: Settings = {
+      ...defaultSettings(),
+      modules: { [TRANSLATION_SETTINGS_KEY]: { model: 3 } },
+    };
+    expect(readTranslationSettings(broken)).toEqual(defaultTranslationSettings());
+    const future: Settings = {
+      ...defaultSettings(),
+      modules: { [TRANSLATION_SETTINGS_KEY]: { enabled: true, future: 1 } },
+    };
+    expect(readTranslationSettings(future).enabled).toBe(true);
+  });
+
+  it('round-trips the snapshot, the chunks and the request', () => {
+    const snapshot = {
+      enabled: true,
+      provider: 'openai',
+      endpoint: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+      hasKey: true,
+      needsKey: true,
+      active: 1,
+    };
+    expect(translationSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+    expect(translationChangedSchema.parse({ snapshot })).toEqual({ snapshot });
+    const chunk = { requestId: 7, text: 'Guten', done: false, error: null };
+    expect(translationChunkEventSchema.parse({ chunk })).toEqual({ chunk });
+    const last = { requestId: 7, text: '', done: true, error: 'rateLimited' };
+    expect(translationChunkSchema.parse(last)).toEqual(last);
+    expect(translationChunkSchema.safeParse({ ...last, error: 'boom' }).success).toBe(false);
+    expect(translateErrorSchema.options).toHaveLength(11);
+    const request = { text: 'Hello', source: null, target: 'de' };
+    expect(translateRequestSchema.parse(request)).toEqual(request);
+    expect(translateRequestSchema.safeParse({ text: 1 }).success).toBe(false);
   });
 });
 

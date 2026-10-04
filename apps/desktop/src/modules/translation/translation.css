@@ -1,0 +1,194 @@
+/*
+ * Translation panel (docs/modules/translation.md): the language pair in the head, the text to
+ * translate, the answer under it, and a footer that names where the text goes and carries
+ * *Translate*. The two text boxes share the body height equally; each scrolls inside itself.
+ * The language picker takes the panel over: a search field, then the list scrolling under it.
+ * Composes tokens only; the primitives bring their own styles.
+ */
+
+.translation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  block-size: 100%;
+  min-block-size: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.translation-head {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+}
+
+.translation-head__glyph {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent-blue);
+}
+
+.translation-head__title {
+  flex: 0 1 auto;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.translation-head__spacer {
+  flex: 1 1 auto;
+}
+
+/* A language button keeps to one line and yields before the settings button does. */
+.translation-pair__language {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 11em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.translation-source {
+  flex: 1 1 0;
+  min-block-size: 0;
+}
+
+/* The answer sits in a box like the source's, in the same type, and scrolls when it is long. */
+.translation-output {
+  flex: 1 1 0;
+  min-block-size: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+
+.translation-output:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.translation-output__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.translation-foot {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: var(--size-icon-button);
+}
+
+.translation-foot__note {
+  flex: 1 1 auto;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.translation-state {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+/* The language list: the search stays put, the rows scroll under it. */
+.translation-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 0;
+}
+
+.translation-list__search {
+  flex: none;
+}
+
+.translation-list__rows {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  min-block-size: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+
+.translation-list__item {
+  display: block;
+}
+
+.translation-list__row {
+  min-block-size: 36px;
+}
+
+.translation-list__check {
+  display: inline-flex;
+  color: var(--accent-blue);
+}
+
+.translation-list__empty {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+/*
+ * The dashboard card (docs/modules/dashboard.md "Widgets"): the glyph on the side the reading
+ * order starts, the language pair and the state beside it.
+ */
+.translation-widget {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.translation-widget__glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 32px;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+
+.translation-widget[data-enabled] .translation-widget__glyph {
+  color: var(--accent-blue);
+}
+
+.translation-widget__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+/* Settings → Translation: the endpoint, model and key fields sit in the row's trailing slot. */
+.translation-settings__field {
+  inline-size: 16rem;
+  max-inline-size: 100%;
+}
+
+.translation-settings__key {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* The inline picker under a language row keeps to a readable height and scrolls. */
+.translation-settings__list {
+  flex: none;
+  max-block-size: 18rem;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
