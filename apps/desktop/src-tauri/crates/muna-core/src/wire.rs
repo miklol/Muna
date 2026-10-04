@@ -5,7 +5,7 @@
 //! ±2^53 — Unix milliseconds, sort orders — are held exactly by a JavaScript `number`, so a
 //! field can stay `i64` in Rust and SQLite and still export as a plain `number`:
 //!
-//! ```ignore
+//! ```text
 //! #[specta(type = Int53)]
 //! pub created_at_ms: i64,
 //! #[specta(type = Option<Int53>)]
@@ -20,7 +20,7 @@
 //! parsed from JSON, which cannot spell `NaN`, or clamped before it crosses — exports as a plain
 //! `number` through [`Finite`]:
 //!
-//! ```ignore
+//! ```text
 //! #[specta(type = Finite)]
 //! pub temperature_c: f64,
 //! #[specta(type = Option<Finite>)]
