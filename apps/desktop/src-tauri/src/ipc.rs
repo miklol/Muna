@@ -41,6 +41,7 @@ use crate::modules::keyboard_shortcuts::{
     KeyboardShortcutsSettings, RegisterError, actions as hotkey_actions,
 };
 use crate::modules::media::{self, MediaSink, MediaSnapshot, MediaState};
+use crate::modules::mirror::PreviewSink;
 use crate::modules::notes::{
     Note, NoteContent, NoteDraft, NotesCommand, NotesError, NotesSink, NotesSnapshot,
 };
@@ -63,6 +64,7 @@ use crate::modules::weather::{
 };
 use crate::modules::window_snap::{SnapError, SnapZoneRef};
 use crate::shell::manager::ShellManager;
+use crate::shell::memory_target::Hold;
 use crate::shell::model::ShellLayout;
 use crate::shell::yield_rules::YieldState;
 use crate::state::AppState;
@@ -2237,6 +2239,45 @@ async fn health_command(
         .map_err(|error| IpcError::new("platform.os", error))
 }
 
+// --- mirror -------------------------------------------------------------------------------
+
+/// Lifts the low memory target while a camera preview is decoding frames somewhere
+/// (docs/modules/mirror.md); the frames themselves never leave the webview.
+pub struct MirrorPreviewSink {
+    app: AppHandle,
+    shell: Option<Arc<ShellManager>>,
+}
+
+impl std::fmt::Debug for MirrorPreviewSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MirrorPreviewSink").finish_non_exhaustive()
+    }
+}
+
+impl MirrorPreviewSink {
+    #[must_use]
+    pub fn new(app: AppHandle, shell: Option<Arc<ShellManager>>) -> Self {
+        Self { app, shell }
+    }
+}
+
+impl PreviewSink for MirrorPreviewSink {
+    fn previewing(&self, active: bool) {
+        if let Some(shell) = &self.shell {
+            shell.set_memory_hold(&self.app, Hold::MirrorPreview, active);
+        }
+    }
+}
+
+/// Tells the module a camera preview in this window started (`true`) or stopped (`false`), so
+/// the renderer keeps its normal memory target while frames are decoded. The page owns the
+/// stream; Rust never sees a frame (docs/modules/mirror.md).
+#[tauri::command]
+#[specta::specta]
+fn mirror_watch(window: WebviewWindow, state: State<'_, Shared>, watching: bool) {
+    state.modules.mirror.watch(window.label(), watching);
+}
+
 // --- support ------------------------------------------------------------------------------
 
 /// Snapshot of the Support module (docs/modules/support.md); emitted after a diagnostics
@@ -2787,6 +2828,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             ai_coding_command,
             get_health_snapshot,
             health_command,
+            mirror_watch,
             get_support_snapshot,
             support_command,
             support_open,

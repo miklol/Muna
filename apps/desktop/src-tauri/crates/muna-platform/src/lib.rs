@@ -11,6 +11,7 @@
 pub mod error;
 pub mod events;
 pub mod fake;
+pub mod permissions;
 pub mod traits;
 pub mod types;
 
@@ -23,6 +24,7 @@ pub use fake::{
     BluetoothCall, DragCall, FakePlatform, FileOpsCall, NotificationCall, PlacementCall,
     WindowingCall,
 };
+pub use permissions::{PermissionDecision, PermissionPolicy, WebPermission};
 pub use traits::{
     AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
     Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemInfo,

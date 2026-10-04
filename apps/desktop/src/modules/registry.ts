@@ -13,6 +13,7 @@ import { healthModule } from './health';
 import { hudModule } from './hud';
 import { keyboardShortcutsModule } from './keyboard-shortcuts';
 import { mediaModule } from './media';
+import { mirrorModule } from './mirror';
 import { notesModule } from './notes';
 import { notificationsModule } from './notifications';
 import { pomodoroModule } from './pomodoro';
@@ -187,6 +188,7 @@ export const modules: readonly ModuleDefinition[] = [
   screenTimeModule,
   aiCodingModule,
   healthModule,
+  mirrorModule,
   supportModule,
 ];
 

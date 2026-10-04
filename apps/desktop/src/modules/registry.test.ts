@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { dropModuleOf, findModule, modules, snapModuleOf } from './registry';
 
 describe('module registry', () => {
-  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf, window snap, code hosting, notes, screen time and AI coding (M4), then health and support (M5)', () => {
+  it('registers the dashboard first (M3-E9), then the media and HUD modules (M2), the calendar, notifications, to-do, pomodoro, system monitor, Bluetooth, weather and day-progress modules (M3), keyboard shortcuts, drop actions, the shelf, window snap, code hosting, notes, screen time and AI coding (M4), then health, mirror and support (M5)', () => {
     expect(modules.map((module) => module.id)).toEqual([
       'dashboard',
       'media',
@@ -25,6 +25,7 @@ describe('module registry', () => {
       'screen-time',
       'ai-coding',
       'health',
+      'mirror',
       'support',
     ]);
     expect(findModule('dashboard')?.titleKey).toBe('dashboard.title');
@@ -75,6 +76,10 @@ describe('module registry', () => {
     expect(findModule('health')?.titleKey).toBe('health.title');
     expect(findModule('health')?.settings).toBeDefined();
     expect(findModule('health')?.panel).toBeDefined();
+    expect(findModule('mirror')?.titleKey).toBe('mirror.title');
+    expect(findModule('mirror')?.settings).toBeDefined();
+    expect(findModule('mirror')?.panel).toBeDefined();
+    expect(findModule('mirror')?.actions).toBeUndefined();
     expect(findModule('support')?.titleKey).toBe('support.title');
     expect(findModule('support')?.settings).toBeDefined();
     expect(findModule('support')?.panel).toBeDefined();
@@ -143,6 +148,7 @@ describe('module registry', () => {
       'screen-time',
       'ai-coding',
       'health',
+      'mirror',
     ]);
   });
 
