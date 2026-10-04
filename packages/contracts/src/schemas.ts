@@ -8,6 +8,13 @@ import { z } from 'zod';
 import type {
   Account,
   Activity,
+  AiAgent,
+  AiCodingChanged,
+  AiCodingCommand,
+  AiCodingSnapshot,
+  AiSession,
+  AiStatus,
+  AiWaiting,
   AppCategory,
   AppUsage,
   CategoryUsage,
@@ -59,6 +66,7 @@ import type {
   PomodoroPhase,
   Provider,
   PullRequest,
+  ReceiverState,
   ReducedMotion,
   ReviewDecision,
   ScreenTimeChanged,
@@ -85,6 +93,7 @@ import type {
   Tracking,
   Trailing,
   TransferMode,
+  WaitingKind,
   YieldState,
 } from './bindings';
 
@@ -219,6 +228,7 @@ export const glyphSchema = z.enum([
   'shelf',
   'pullRequest',
   'xCircle',
+  'terminal',
 ]) satisfies z.ZodType<Glyph>;
 
 /** What a drop action does with the items (docs/modules/drop-actions.md "Tiles"). */
@@ -282,6 +292,7 @@ export const trailingSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('level'), percent, muted: z.boolean() }),
   z.object({ kind: z.literal('time'), atMs: z.number().int() }),
   z.object({ kind: z.literal('count'), value: z.number().int().min(0) }),
+  z.object({ kind: z.literal('decision'), session: z.string().min(1) }),
 ]) satisfies z.ZodType<Trailing>;
 
 export const pomodoroPhaseSchema = z.enum([
@@ -325,6 +336,7 @@ export const stripMessageSchema = z.discriminatedUnion('kind', [
     app: z.string(),
     minutes: z.number().int().min(1),
   }),
+  z.object({ kind: z.literal('agentWaiting'), agent: z.string(), tool: z.string().nullable() }),
 ]) satisfies z.ZodType<StripMessage>;
 
 export const activitySchema = z.object({
@@ -2054,3 +2066,139 @@ export const limitProgress = (app: Pick<AppUsage, 'totalMs' | 'limitMinutes'>): 
  */
 export const weekScaleMs = (week: readonly DayUsage[]): number =>
   Math.max(60_000, ...week.map((day) => day.totalMs));
+
+/** The key of the AI coding module's namespace; also its module id. */
+export const AI_CODING_SETTINGS_KEY = 'ai-coding';
+
+/** How many consecutive ports the receiver tries after the configured one. */
+export const AI_CODING_PORT_ATTEMPTS = 10;
+
+/** The loopback port the receiver asks for first (mirrors `ai_coding::settings::DEFAULT_PORT`). */
+export const AI_CODING_DEFAULT_PORT = 47_391;
+
+/** Mirrors `ai_coding::settings::PORT_RANGE`: no privileged ports, room for the retries. */
+export const AI_CODING_BOUNDS = {
+  port: { min: 1024, max: 65_535 - AI_CODING_PORT_ATTEMPTS },
+} as const;
+
+/** How many finished sessions *Recent* keeps (mirrors `ai_coding::RECENT_MAX`). */
+export const AI_CODING_RECENT_MAX = 20;
+
+/** How long a finished session stays in *Recent* (mirrors `ai_coding::RECENT_FOR`). */
+export const AI_CODING_RECENT_FOR_MS = 24 * 60 * 60_000;
+
+/**
+ * Mirrors `modules::ai_coding::AiCodingSettings`: defaults for missing fields, the port clamped
+ * to its range, and a wrong type fails the whole entry, like the Rust side.
+ */
+export const aiCodingSettingsSchema = z.object({
+  /** Watch coding agents at all; off clears the panel and answers hooks with 503. */
+  enabled: z.boolean().default(true),
+  /** The loopback port the hook receiver binds. */
+  port: clampedInt(AI_CODING_BOUNDS.port, AI_CODING_DEFAULT_PORT),
+  /** Follow GitHub Copilot CLI sessions from its session-state folder. */
+  copilotCli: z.boolean().default(true),
+  /** Show a strip notice (with Allow / Deny when offered) when a session stops for the user. */
+  waitingNotice: z.boolean().default(true),
+});
+export type AiCodingSettings = z.infer<typeof aiCodingSettingsSchema>;
+
+export const defaultAiCodingSettings = (): AiCodingSettings => aiCodingSettingsSchema.parse({});
+
+/** Reads the AI coding namespace; a missing or malformed entry yields the defaults. */
+export const readAiCodingSettings = (settings: Settings): AiCodingSettings => {
+  const parsed = aiCodingSettingsSchema.safeParse(settings.modules[AI_CODING_SETTINGS_KEY] ?? {});
+  return parsed.success ? parsed.data : defaultAiCodingSettings();
+};
+
+/** Returns a new document with the AI coding namespace replaced. */
+export const writeAiCodingSettings = (
+  settings: Settings,
+  aiCoding: AiCodingSettings,
+): Settings => ({
+  ...settings,
+  modules: { ...settings.modules, [AI_CODING_SETTINGS_KEY]: aiCoding },
+});
+
+/** The agents the module knows, in the order the panel's legend lists them. */
+export const AI_AGENTS = ['claude', 'copilot', 'generic'] as const satisfies readonly AiAgent[];
+
+export const aiAgentSchema = z.enum(AI_AGENTS) satisfies z.ZodType<AiAgent>;
+
+export const aiStatusSchema = z.enum(['running', 'waiting', 'done']) satisfies z.ZodType<AiStatus>;
+
+export const waitingKindSchema = z.enum([
+  'permission',
+  'input',
+  'idle',
+]) satisfies z.ZodType<WaitingKind>;
+
+/** Why a session stopped for the user, and whether Allow / Deny still reach the agent. */
+export const aiWaitingSchema = z.object({
+  kind: waitingKindSchema,
+  tool: z.string().nullable(),
+  detail: z.string().nullable(),
+  decidable: z.boolean(),
+  sinceMs: epochMs,
+}) satisfies z.ZodType<AiWaiting>;
+
+/** One session as the panel shows it (docs/modules/ai-coding.md, *Reference*). */
+export const aiSessionSchema = z.object({
+  id: z.string().min(1),
+  agent: aiAgentSchema,
+  project: z.string().nullable(),
+  branch: z.string().nullable(),
+  model: z.string().nullable(),
+  status: aiStatusSchema,
+  waiting: aiWaitingSchema.nullable(),
+  task: z.string().nullable(),
+  file: z.string().nullable(),
+  startedAtMs: epochMs,
+  updatedAtMs: epochMs,
+  messages: z.number().int().min(0).nullable(),
+  tokens: z.number().int().min(0).nullable(),
+  canFocus: z.boolean(),
+}) satisfies z.ZodType<AiSession>;
+
+/** The hook receiver as the settings pane shows it. */
+export const receiverStateSchema = z.object({
+  port: z.number().int().min(1).max(65_535),
+  listening: z.boolean(),
+  hookUrl: z.string().min(1),
+  claudeHooksInstalled: z.boolean(),
+}) satisfies z.ZodType<ReceiverState>;
+
+/** What `commands.getAiCodingSnapshot` returns and `events.aiCodingChanged` carries. */
+export const aiCodingSnapshotSchema = z.object({
+  enabled: z.boolean(),
+  sessions: z.array(aiSessionSchema),
+  recent: z.array(aiSessionSchema).max(AI_CODING_RECENT_MAX),
+  receiver: receiverStateSchema,
+  generatedAtMs: epochMs,
+}) satisfies z.ZodType<AiCodingSnapshot>;
+
+export const aiCodingChangedSchema = z.object({
+  snapshot: aiCodingSnapshotSchema,
+}) satisfies z.ZodType<AiCodingChanged>;
+
+/** The argument of `commands.aiCodingCommand`. */
+export const aiCodingCommandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('refresh') }),
+  z.object({ kind: z.literal('allow'), session: z.string().min(1) }),
+  z.object({ kind: z.literal('deny'), session: z.string().min(1) }),
+  z.object({ kind: z.literal('focus'), session: z.string().min(1) }),
+  z.object({ kind: z.literal('dismiss'), session: z.string().min(1) }),
+  z.object({ kind: z.literal('installClaudeHooks') }),
+  z.object({ kind: z.literal('removeClaudeHooks') }),
+]) satisfies z.ZodType<AiCodingCommand>;
+
+/**
+ * The sessions that want the user right now, decidable first, in the snapshot's order: what
+ * the widget counts and the panel pins to the top.
+ */
+export const waitingSessions = (sessions: readonly AiSession[]): readonly AiSession[] =>
+  sessions.filter((session) => session.status === 'waiting');
+
+/** The sessions still working, in the snapshot's order. */
+export const runningSessions = (sessions: readonly AiSession[]): readonly AiSession[] =>
+  sessions.filter((session) => session.status === 'running');

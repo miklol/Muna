@@ -25,6 +25,7 @@ mod monitors;
 mod notifications;
 mod placement;
 mod power;
+mod processes;
 mod pump;
 mod radio;
 mod system_stats;
@@ -47,8 +48,8 @@ use crate::error::{PlatformError, PlatformResult};
 use crate::events::PlatformEvent;
 use crate::traits::{
     AppBar, AppInfo, Audio, Autostart, Bluetooth, Brightness, DragSource, FileOps, Foreground,
-    Location, Media, Monitors, Notifications, Platform, Power, Secrets, SystemOsd, SystemStats,
-    WindowPlacement, Windowing,
+    Location, Media, Monitors, Notifications, Platform, Power, Processes, Secrets, SystemOsd,
+    SystemStats, WindowPlacement, Windowing,
 };
 use crate::types::{
     AppDescription, AudioDevice, AutostartMechanism, BatteryState, BluetoothDevice,
@@ -401,6 +402,24 @@ impl AppInfo for WindowsPlatform {
     }
 }
 
+impl Processes for WindowsPlatform {
+    fn is_running(&self, pid: u32) -> PlatformResult<bool> {
+        processes::is_running(pid)
+    }
+
+    fn main_window(&self, pid: u32) -> PlatformResult<Option<WindowHandle>> {
+        processes::main_window(pid)
+    }
+
+    fn owner_of_local_port(&self, port: u16) -> PlatformResult<Option<u32>> {
+        processes::owner_of_local_port(port)
+    }
+
+    fn focus(&self, window: WindowHandle) -> PlatformResult<()> {
+        processes::focus(window)
+    }
+}
+
 impl Windowing for WindowsPlatform {
     fn extended_style(&self, window: WindowHandle) -> PlatformResult<u32> {
         window::extended_style(window)
@@ -610,6 +629,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn app_info(&self) -> &dyn AppInfo {
+        self
+    }
+
+    fn processes(&self) -> &dyn Processes {
         self
     }
 

@@ -95,7 +95,13 @@
       "reviewRequested": "Review requested: {{title}}",
       "checksPassed": "Checks passed: {{title}}",
       "checksFailed": "Checks failed: {{title}}",
-      "screenTimeLimit": "{{app}} · {{limit}} limit reached"
+      "screenTimeLimit": "{{app}} · {{limit}} limit reached",
+      "agentWaiting": "{{agent}} is waiting for you",
+      "agentPermission": "{{agent}} wants to run {{tool}}"
+    },
+    "decision": {
+      "allow": "Allow",
+      "deny": "Deny"
     },
     "duration": {
       "hours": "{{count}} h",
@@ -132,7 +138,11 @@
       "reviewRequested": "Your review is requested on {{title}}",
       "checksPassed": "Checks passed on {{title}}",
       "checksFailed": "Checks failed on {{title}}",
-      "screenTimeLimit": "{{app}} reached its daily limit of {{limit}}"
+      "screenTimeLimit": "{{app}} reached its daily limit of {{limit}}",
+      "agentWaiting": "{{agent}} is waiting for you",
+      "agentPermission": "{{agent}} wants to run {{tool}}",
+      "agentDecision": "{{agent}} wants to run {{tool}}, allow or deny",
+      "decision": "Allow or deny"
     },
     "glyph": {
       "battery": "Battery",
@@ -165,7 +175,8 @@
       "drive": "Drive",
       "shelf": "Shelf",
       "pullRequest": "Pull request",
-      "xCircle": "Failed"
+      "xCircle": "Failed",
+      "terminal": "Coding agent"
     }
   },
   "spike": {
@@ -1280,6 +1291,122 @@
       "clearQuestion": "Delete all screen time history?",
       "clearConfirm": "Clear",
       "cancel": "Cancel"
+    }
+  },
+  "aiCoding": {
+    "title": "AI coding",
+    "agent": {
+      "claude": "Claude Code",
+      "copilot": "GitHub Copilot",
+      "generic": "Coding agent"
+    },
+    "status": {
+      "running": "Running",
+      "waiting": "Waiting",
+      "done": "Done"
+    },
+    "waiting": {
+      "permission": "Wants to run {{tool}}",
+      "permissionNoTool": "Wants your permission",
+      "input": "Waiting for your prompt",
+      "idle": "Idle for a while"
+    },
+    "duration": {
+      "hoursMinutes": "{{hours}} h {{minutes}} min",
+      "hours": "{{hours}} h",
+      "minutes": "{{minutes}} min",
+      "seconds": "{{seconds}} s"
+    },
+    "header": {
+      "active_one": "{{count}} active",
+      "active_other": "{{count}} active",
+      "waiting_one": "{{count}} waiting",
+      "waiting_other": "{{count}} waiting",
+      "refresh": "Refresh",
+      "settings": "AI coding settings"
+    },
+    "row": {
+      "cli": "CLI",
+      "noProject": "No folder",
+      "describe": "{{agent}}, {{project}}, {{status}}",
+      "messages_one": "{{count}} msg",
+      "messages_other": "{{count}} msgs",
+      "tokens": "{{count}} tok",
+      "running": "running for {{duration}}",
+      "waitingFor": "waiting for {{duration}}",
+      "allow": "Allow",
+      "deny": "Deny",
+      "show": "Show",
+      "showLabel": "Bring the terminal of {{project}} forward",
+      "dismiss": "Dismiss",
+      "dismissLabel": "Dismiss {{project}}",
+      "decided": "Answer sent"
+    },
+    "recent": {
+      "label": "Recent",
+      "finished": "Finished {{time}}"
+    },
+    "sessions": "Sessions",
+    "empty": {
+      "off": {
+        "title": "AI coding is off",
+        "body": "Turn it on in Settings to see your coding agents here.",
+        "action": "Open settings"
+      },
+      "none": {
+        "title": "No agents running",
+        "body": "Start Claude Code or GitHub Copilot CLI in a terminal and its session shows up here."
+      },
+      "hooks": {
+        "title": "No agents running",
+        "body": "Copilot CLI sessions show up on their own. For Claude Code, install its hooks in Settings.",
+        "action": "Open settings"
+      }
+    },
+    "widget": {
+      "label": "AI coding",
+      "off": "Off",
+      "empty": "No agents",
+      "running_one": "{{count}} running",
+      "running_other": "{{count}} running",
+      "waiting_one": "{{count}} waiting",
+      "waiting_other": "{{count}} waiting"
+    },
+    "error": {
+      "unknown": "That session has ended.",
+      "notWaiting": "That session is not waiting any more.",
+      "noProfile": "There is no user profile folder to write the hooks into.",
+      "hooksFile": "Claude Code's settings file could not be changed. Check that it is valid JSON and try again.",
+      "io": "The file could not be written. Try again.",
+      "failed": "That did not work. Try again."
+    },
+    "settings": {
+      "section": "Agents",
+      "privacy": "Sessions are read from the agents' own files on this PC and hooks arrive on 127.0.0.1 only. Prompts stay in the panel; nothing is logged or sent anywhere.",
+      "enabled": "Watch coding agents",
+      "enabledBody": "Shows Claude Code and GitHub Copilot CLI sessions in the panel and says when one waits for you.",
+      "copilotCli": "GitHub Copilot CLI",
+      "copilotCliBody": "Follows sessions from its session-state folder. Nothing to install.",
+      "waitingNotice": "Announce waiting agents",
+      "waitingNoticeBody": "The strip says when an agent stops for you, with Allow and Deny when it offers a decision.",
+      "receiver": "Hook receiver",
+      "receiverBody": "Agents post their hooks to Muna over loopback. The panel needs this for Claude Code and for other agents; Copilot CLI works without it.",
+      "port": "Port",
+      "portBody": "Between {{min}} and {{max}}. When the port is taken, the next ten are tried and the live one is shown below.",
+      "listening": "Listening on port {{port}}",
+      "notListening": "Not listening",
+      "notListeningBody": "The module is off or the port could not be bound.",
+      "hookUrl": "Hook URL",
+      "hookUrlBody": "Where Claude Code posts. Other agents use the same address with /hooks/generic.",
+      "claude": "Claude Code hooks",
+      "claudeInstalledBody": "Written into Claude Code's settings file. Sessions started after this send their events here.",
+      "claudeMissingBody": "Adds HTTP hooks to Claude Code's settings so its sessions and permission prompts reach Muna. Nothing else in the file changes.",
+      "install": "Install hooks",
+      "remove": "Remove hooks",
+      "installed": "Hooks installed. Sessions started from now on show up here.",
+      "removed": "Hooks removed.",
+      "generic": "Other agents",
+      "genericBody": "Any tool can post JSON to the hook URL with the bearer token written in Claude Code's settings file. The shape is documented in docs/modules/ai-coding.md."
     }
   },
   "settings": {

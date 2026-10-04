@@ -8,6 +8,7 @@
 //! `start` is synchronous and spawns whatever tasks the module needs: the trait must stay
 //! dyn-compatible for the registry, which `async fn` in traits is not yet.
 
+pub mod ai_coding;
 pub mod bluetooth;
 pub mod calendar;
 pub mod code_hosting;
@@ -101,6 +102,7 @@ pub struct ModuleServices {
     pub code_hosting: Arc<code_hosting::CodeHostingService>,
     pub notes: Arc<notes::NotesService>,
     pub screen_time: Arc<screen_time::ScreenTimeService>,
+    pub ai_coding: Arc<ai_coding::AiCodingService>,
 }
 
 impl ModuleServices {
@@ -198,6 +200,18 @@ impl ModuleServices {
                 Arc::clone(clock),
                 Arc::new(screen_time::LocalZone),
             )),
+            // Tests pass no profile and get no user folders to read.
+            ai_coding: Arc::new(ai_coding::AiCodingService::new(
+                Arc::clone(platform),
+                Arc::clone(hub),
+                Arc::clone(store),
+                Arc::clone(clock),
+                if profile_dir.is_some() {
+                    ai_coding::AiCodingPaths::from_profile()
+                } else {
+                    ai_coding::AiCodingPaths::default()
+                },
+            )),
         }
     }
 }
@@ -244,6 +258,7 @@ pub fn backends(services: &ModuleServices) -> Vec<Box<dyn ModuleBackend>> {
         Box::new(screen_time::ScreenTimeModule(Arc::clone(
             &services.screen_time,
         ))),
+        Box::new(ai_coding::AiCodingModule(Arc::clone(&services.ai_coding))),
     ]
 }
 

@@ -4,7 +4,8 @@
  * needs first; M1-E4 added the panel chrome, the module bar and the shared controls; M1-E2 the
  * strip's slot renderers; M1-E3 the search field; M1-E5 the option tiles; M2-E2 the media
  * pieces (album art, marquee, waveform); M2-E3 the HUD level track; M3-E2 the checkbox and
- * text field; M3-E1 the month grid; M4-E7 the text area; M4-E8 the segmented ring.
+ * text field; M3-E1 the month grid; M4-E7 the text area; M4-E8 the segmented ring; M4-E5 the
+ * decision buttons.
  */
 export { AlbumArt, type AlbumArtProps, paletteVars } from './album-art';
 export { BatteryGlyph, type BatteryGlyphProps, batteryLevels, batteryTint } from './battery-glyph';
@@ -12,6 +13,7 @@ export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
 export { Checkbox, type CheckboxProps } from './checkbox';
 export { Chip, type ChipProps, type SelectableChipProps, type StaticChipProps } from './chip';
+export { DecisionButtons, type DecisionButtonsProps } from './decision-buttons';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ErrorState, type ErrorStateProps } from './error-state';
 export { Hairline, type HairlineProps } from './hairline';

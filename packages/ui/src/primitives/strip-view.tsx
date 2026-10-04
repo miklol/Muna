@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { contentExitTransition, contentRecipe, glyphCrossfadeTransition } from '../motion/presets';
 import { useMotionPreset, useReduceMotion } from '../motion/reduced-motion';
 import { BatteryGlyph } from './battery-glyph';
+import { DecisionButtons } from './decision-buttons';
 import { LevelTrack } from './level-track';
 import { Ring } from './ring';
 import { cx, type Tint, tintStyle } from './shared';
@@ -60,6 +61,22 @@ export type StripSlotContent =
       valueText?: string | null | undefined;
       onChange?: ((percent: number) => void) | undefined;
       onChangeEnd?: ((percent: number) => void) | undefined;
+    }
+  /**
+   * *Allow* / *Deny* for a coding agent's permission prompt (docs/modules/ai-coding.md): two
+   * 20 px pills that appear with `reveal`, like the level track. Wider than a slot; the strip
+   * keeps its wide form while this shows so both have room.
+   */
+  | {
+      kind: 'decision';
+      /** Names the pair for assistive technology ("Allow or deny"). */
+      label: string;
+      allowLabel: string;
+      denyLabel: string;
+      onAllow: () => void;
+      onDeny: () => void;
+      /** The answer is on its way: both pills stop taking presses. */
+      isDisabled?: boolean | undefined;
     };
 
 export interface StripViewProps {
@@ -107,6 +124,8 @@ const slotKey = (content: StripSlotContent | null | undefined): string => {
       return 'waveform';
     case 'level':
       return 'level';
+    case 'decision':
+      return 'decision';
   }
 };
 
@@ -206,6 +225,18 @@ function SlotContent({ content }: { content: StripSlotContent }) {
           className="muna-strip__level"
         />
       );
+    case 'decision':
+      return (
+        <DecisionButtons
+          aria-label={content.label}
+          allowLabel={content.allowLabel}
+          denyLabel={content.denyLabel}
+          onAllow={content.onAllow}
+          onDeny={content.onDeny}
+          isDisabled={content.isDisabled ?? false}
+          className="muna-strip__decision"
+        />
+      );
   }
 }
 
@@ -223,13 +254,14 @@ interface SlotProps {
 /**
  * One slot. Content enters by sliding from the strip's centre (`notice`, with its overshoot:
  * something arrived) and leaves the same way (`collapse`, no bounce), masked by the slot box.
- * The HUD level is the exception: it appears with `reveal` — a control coming up, not news.
+ * The HUD level and the decision pair are the exceptions: they appear with `reveal` — a
+ * control coming up, not news.
  */
 function Slot({ side, content, itemId, enter, reveal, exit, reduceMotion }: SlotProps) {
   // Toward the centre: the leading slot's content starts to its right, the trailing to its left.
   const offset = side === 'leading' ? stripSlotOffsetPx : -stripSlotOffsetPx;
   const hidden = reduceMotion ? { opacity: 0, x: 0 } : { opacity: 0, x: offset };
-  const arrive = content?.kind === 'level' ? reveal : enter;
+  const arrive = content?.kind === 'level' || content?.kind === 'decision' ? reveal : enter;
   return (
     <span className="muna-strip__slot" data-slot={side}>
       <AnimatePresence mode="popLayout" initial={false}>

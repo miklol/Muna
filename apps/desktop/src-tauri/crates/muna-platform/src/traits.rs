@@ -189,6 +189,27 @@ pub trait AppInfo: Send + Sync {
     fn describe(&self, executable: &Path, icon_size: u32) -> PlatformResult<AppDescription>;
 }
 
+/// Other processes on the desktop (docs/modules/ai-coding.md): whether a CLI session's process
+/// is still alive and which window to bring forward when the user wants to answer it. Every
+/// method is a handful of cheap Win32 calls; `main_window` walks the process tree once.
+pub trait Processes: Send + Sync {
+    /// `true` while a process with `pid` exists and has not exited. A process that exists but
+    /// cannot be opened (another user's, protected) counts as running.
+    fn is_running(&self, pid: u32) -> PlatformResult<bool>;
+    /// The visible top-level window of `pid` or, failing that, of its nearest ancestor: a CLI
+    /// runs inside a terminal host, so the terminal's window is what the user sees. `None` when
+    /// neither the process nor its ancestors own a window.
+    fn main_window(&self, pid: u32) -> PlatformResult<Option<WindowHandle>>;
+    /// The process that owns the loopback TCP connection whose *local* port is `port` — the
+    /// client side of a request Muna just accepted, so a hook payload without a pid can still
+    /// be traced to the CLI that sent it. `None` when no connection uses the port.
+    fn owner_of_local_port(&self, port: u16) -> PlatformResult<Option<u32>>;
+    /// Brings `window` to the foreground, restoring it first when minimised. Windows only lets
+    /// the process that owns the foreground (or was just clicked) do this, so callers act on a
+    /// click in the notch and treat a refusal as "nothing happened".
+    fn focus(&self, window: WindowHandle) -> PlatformResult<()>;
+}
+
 /// Native affinities of the notch windows (ADR-0002). The windows themselves are created by
 /// Tauri; these calls adjust what Tauri does not expose. Every method is cheap and may be
 /// called from any thread: positioning uses `SWP_ASYNCWINDOWPOS` so a caller never blocks on
@@ -348,6 +369,7 @@ pub trait Platform: Send + Sync {
     fn monitors(&self) -> &dyn Monitors;
     fn foreground(&self) -> &dyn Foreground;
     fn app_info(&self) -> &dyn AppInfo;
+    fn processes(&self) -> &dyn Processes;
     fn windowing(&self) -> &dyn Windowing;
     fn app_bar(&self) -> &dyn AppBar;
     fn autostart(&self) -> &dyn Autostart;
