@@ -198,7 +198,7 @@ satisfied.
 | Design tokens | Vitest snapshot of `tokens.css` | Snapshot changes only with a docs change in the same PR | `web` |
 | i18n | `scripts/i18n-check.mjs` | No missing/unused keys in `en`; other locales may lag | `web` |
 | Shell scenarios | Playwright S1–S14 | All pass on Windows Server 2022 image; 1 automatic retry allowed for Playwright only | `app` |
-| Perf smoke | `scripts/perf --smoke` | Startup < 1.5 s (gates release builds; reported for the debug build the job makes), idle CPU ≤ 0.3 %, RSS ≤ 120 MB (PRD budgets) | `app` |
+| Perf smoke | `scripts/perf --smoke` | Startup < 1.5 s (gates release builds; reported for the debug build the job makes), idle CPU ≤ 0.3 % (median window of the 60–90 s steady state), RSS ≤ 120 MB (PRD budgets) | `app` |
 | Bundle size | `scripts/bundle-size.mjs` | Frontend JS ≤ 1.2 MB gzipped; exe ≤ 12 MB; MSIX ≤ 20 MB | `app`, `release` |
 | Licences | `cargo deny check licenses`, `license-checker-rseidelsohn` | Allow: MIT, Apache-2.0, BSD-2/3, ISC, MPL-2.0, Zlib, Unicode-3.0, CC0-1.0, OFL-1.1 (fonts). Deny: GPL, AGPL, LGPL, SSPL, BUSL, unknown | `deps` |
 | Vulnerabilities | `cargo deny check advisories`, `pnpm audit --prod` | No high/critical without a documented exception in `deny.toml` / `.pnpm-audit.json` with an expiry date | `deps`, nightly |
@@ -213,8 +213,9 @@ budgets. Gates are never lowered to unblock a PR.
 - **PR (`app`)**: `pnpm -w perf:smoke -- --out perf-smoke.json --markdown perf-smoke.md`
   starts the debug build the job just made once to take the first-launch number (the OS's
   one-time cost for a binary it has not seen; reported, not gated), restarts it on the same
-  profile and measures cold start, waits 5 s, samples 30 s of
-  idle CPU and keeps sampling memory until the shell's idle trim has settled (90 s), and the
+  profile and measures cold start, waits 5 s, then samples CPU and memory every 5 s until
+  90 s — past the shell's idle trim — gating idle CPU on the steady state (the median 5 s
+  window over 60–90 s) and reporting the settling phase (5–35 s) next to it, and the
   job posts the markdown as a PR comment (edited in place through its
   `<!-- muna-perf-report -->` marker; skipped on fork PRs). Breaching a PRD budget fails the
   check, with one rule for the build profile: the 1.5 s start-up budget describes the shipped
@@ -234,9 +235,25 @@ budgets. Gates are never lowered to unblock a PR.
   fills in when the run is given `--baseline <json>`; the
   automatic delta against the last `main` run is not wired yet (the `perf-smoke.json` artifact
   of every run is kept so it can be).
+- **Idle CPU window**: the gate reads the steady state because the runner's first half-minute
+  measures WebView2, not the PR. The 21 stack PRs landed on 2026-10-02/03 changed nothing
+  that runs while idle, yet their 5–35 s windows measured 0.34–1.26 % of one core on the
+  4-vCPU runner; `muna.exe`'s own share was constant at ≈ 94 ms per 30 s (0.08 % normalised)
+  and the spread sat in the WebView2 browser and renderer processes while the shell's memory
+  trim — requested 30 s after the cursor left the notch, so always inside that window — and
+  what it sets off ran: the run that failed the 0.3 % gate at 0.3145 % spent 141 ms in each
+  of them against 16 and 78 ms in a green run minutes earlier. Gating on the median 5 s
+  window of 60–90 s (nightly: 10 s windows over 240–300 s) measures the idle load the PRD
+  budget describes and keeps one busy window from deciding a PR; the settling phase, the
+  mean and the busiest window stay in the report so a regression there is still visible, the
+  per-window curve is in `perf-smoke.json` (`idleCpu.windows`) and the per-process split for
+  both phases in `processTree`. A `--baseline` JSON from before this method is flagged in the
+  comment, since its idle value is a settling-phase number ([09](09-testing-qa.md#performance-harness-scriptsperf)
+  step 3 has the procedure).
 - **Nightly**: `perf:full` — the harness's full plan from
-  [09](09-testing-qa.md#performance-harness-scriptsperf): 30 s warm-up, 60 s idle CPU, memory
-  to 300 s, 20 cursor-driven expand/collapse cycles with the shell's per-morph frame reports.
+  [09](09-testing-qa.md#performance-harness-scriptsperf): 30 s warm-up, CPU and memory
+  sampled every 10 s to 300 s with idle CPU gated on the 240–300 s steady state, 20
+  cursor-driven expand/collapse cycles with the shell's per-morph frame reports.
   The workflow builds `--debug --no-bundle`, so today's nightly numbers describe the debug
   build; the 100-cycle, 10-minute idle, media-playing and 4K 150 % emulation passes and the
   release build are the target state, not yet implemented. Results are appended to the

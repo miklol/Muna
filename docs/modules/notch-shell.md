@@ -178,8 +178,10 @@ applies.
   the trim takes the tree from 118–123 MB private working set to 58 MB at once and to
   17–24 MB about 20 s later, as WebView2 purges caches and trims working sets; the page
   stays responsive throughout (rAF latency 0.2–1 ms, two-frame paint 8–12 ms, JS heap
-  8.4 → 5.7 MB). Its cost lands in the idle CPU window as a one-off (≈ 0.3 % of one core over
-  30 s, 0.01 % normalised). Still to verify on hardware: the first morph after a trim
+  8.4 → 5.7 MB). Its cost lands in the perf harness's settling phase, which is reported and
+  not gated (≈ 0.3 % of one core over 30 s here, 0.01 % normalised; up to 1.3 % of one core
+  on the 4-vCPU runner, which is why the idle CPU gate reads the later steady state —
+  [11](../11-ci-cd.md#performance-gates)). Still to verify on hardware: the first morph after a trim
   (Low → Normal on hover, then 250 ms + 600 ms before the panel expands) holds ≥ 58 fps.
   The `webview memory target target=Low|Normal windows=N` log line marks every transition;
   the perf harness keys its idle memory value on it.
