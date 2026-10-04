@@ -112,10 +112,11 @@ has merged: the Actions budget ran out while #22 was open, so the required check
 3 s before a runner starts ("The job was not started because an Actions budget is preventing
 further use"). The stack waits in merge order — #22 media backend → #24 media UI → #25 HUD
 backend → #26 HUD UI → #27 perf harness, with #23 (autostart fix, on `main`) independent — and
-each PR carries a comment with its local parity run; once the budget is back,
-`gh run rerun --failed` on each run in that order, then squash-merge one at a time and let
-GitHub retarget the next
-PR's base to `main`.
+each PR carries a comment with its local parity run; once the budget is back, land the
+stack bottom-up with `scripts/land-stack.ps1` (it squash-merges one PR, retargets the next to
+`main`, rebases only that PR's own commits onto `main` and force-pushes it — a squash rewrites
+the parent's history, so a child that is merely retargeted shows the parent's changes as
+conflicts).
 
 The roadmap's M2 exit criteria carry their evidence but stay unticked: the now-playing and
 HUD criteria are measured on Spotify and Win11 25H2 only, the media-playing CPU window is

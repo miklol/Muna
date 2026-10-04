@@ -97,6 +97,10 @@ With the app running, `pwsh scripts/qa/notch-yield.ps1` drives the ten yield sce
 [docs/qa/checklists/notch-shell.md](docs/qa/checklists/notch-shell.md) (own test windows only;
 `-Scenario Y7,Y8`, `-Reserved`, `-Report out.md`) and exits with the number of failures.
 
+Stacked pull requests land bottom-up with `pwsh scripts/land-stack.ps1` (`-Plan` lists the
+chain, `-Simulate` replays the squash merges and rebases locally without touching GitHub); the
+procedure is in [docs/11-ci-cd.md](docs/11-ci-cd.md#branching-and-merging).
+
 ### Repository layout
 
 | Path | Package | What lives here |

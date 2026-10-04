@@ -272,12 +272,14 @@ its own diff; the run sits on the M3 close-out because nothing has merged since 
 | [#44](https://github.com/miklol/Muna/pull/44) | M4-E8 Screen time | #43 |
 | [#45](https://github.com/miklol/Muna/pull/45) | M4-E5 AI coding status | #44 |
 
-Merge from the bottom of the M2 stack upwards (#22 → … → #37 → #38 → … → #45), retargeting
-each PR to `main` as its base merges — GitHub does this on its own when the base branch is
-deleted. Every PR passes the parity commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`,
+Merge from the bottom of the M2 stack upwards (#22 → … → #37 → #38 → … → #45) with
+`scripts/land-stack.ps1`: squash-merge one PR, retarget its child to `main`, rebase only the
+child's own commits onto `main` and force-push it, then wait for the child's checks (a child
+that is merely retargeted shows its parent's changes as conflicts, because the squash rewrote
+them). Every PR passes the parity commands locally (`pnpm -w ci`, `ci:rust`, `ci:deps`,
 `ci:app`, the docs checks); the hosted checks have not run because the GitHub Actions budget
 is exhausted ("an Actions budget is preventing further use" on every job). When it is
-restored, `gh run rerun --failed <run id>` on each PR is enough.
+restored, the script reruns each never-started run once and stops on anything else.
 
 What the parity runs caught that the unit suites could not, for the record: a shell ↔ UI
 ready loop and a leaking morph sampler (M2-E4), and in M4-E5 a startup deadlock between the
