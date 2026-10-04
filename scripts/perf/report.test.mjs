@@ -18,6 +18,8 @@ import {
   planFor,
   renderMarkdown,
   startupBreakdown,
+  STRIP_PROBE_DEPTH_PX,
+  stripProbePoint,
 } from './report.mjs';
 
 const READY =
@@ -182,6 +184,30 @@ describe('statistics', () => {
       collapse: { count: 1, medianDurationMs: 300, minFps: 58 },
     });
     expect(morphSummary([])).toBeNull();
+  });
+
+  it('drives morphs through the top sliver, inside the strip whether it rests or peeks', () => {
+    // A 1680 × 720 physical notch window at 150 % on a 2560-wide display (the dev machine) and
+    // the runner's 1000 × 440 window at 100 %. The shell keeps PEEK_HEIGHT_PX = 6 logical px of
+    // the strip on screen while it peeks under a maximised window's caption.
+    const peekSliverPx = 6;
+    const stripHeightPx = 32;
+    for (const window of [
+      { left: 440, top: 0, right: 2120, bottom: 720, dpi: 144 },
+      { left: 12, top: 0, right: 1012, bottom: 440, dpi: 96 },
+    ]) {
+      const scale = window.dpi / 96;
+      const point = stripProbePoint(window);
+      expect(point.x).toBe((window.left + window.right) / 2);
+      expect(point.y).toBeGreaterThan(window.top);
+      expect(point.y).toBeLessThan(window.top + peekSliverPx * scale);
+      expect(point.y).toBeLessThan(window.top + stripHeightPx * scale);
+    }
+    expect(STRIP_PROBE_DEPTH_PX).toBe(3);
+    expect(stripProbePoint({ left: 440, top: 0, right: 2120, bottom: 720, dpi: 144 })).toEqual({
+      x: 1280,
+      y: 4.5,
+    });
   });
 
   it('gates memory on the median of the samples taken at the low target once the trim ran', () => {

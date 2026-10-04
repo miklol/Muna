@@ -222,6 +222,33 @@ export function memorySummary(samples) {
   };
 }
 
+/**
+ * How far under the window's top edge the cursor travels to reveal the strip, in logical px:
+ * the middle of the 6 px sliver (`PEEK_HEIGHT_PX`) the strip keeps on screen while it peeks.
+ */
+export const STRIP_PROBE_DEPTH_PX = 3;
+
+/**
+ * Where the cursor lands to reveal the strip of a placed notch window (physical px).
+ *
+ * The strip rests at the window's top centre (200 × 32 logical px for the default Notch
+ * shape), but a foreground window whose caption runs under it — a maximised terminal or
+ * browser, which is what a CI runner and most desks have — makes the shell *peek*: the strip
+ * slides up until only its bottom 6 px stay on screen and the band below clicks through to
+ * the app behind (docs/modules/notch-shell.md, "Peek hit-testing"). Hover intent still applies
+ * on that sliver, so a path 3 logical px under the top edge reveals and opens the strip
+ * whether it rests or peeks; the strip's centre line (14 px) misses the window entirely while
+ * it peeks, which reproduces the stall at cycle 1 that every nightly from 2026-09-30 to
+ * 2026-10-03 reported.
+ */
+export function stripProbePoint(window) {
+  const scale = window.dpi / 96;
+  return {
+    x: (window.left + window.right) / 2,
+    y: window.top + STRIP_PROBE_DEPTH_PX * scale,
+  };
+}
+
 /** Per-direction and overall morph statistics from parsed `morph` lines. */
 export function morphSummary(morphs) {
   if (morphs.length === 0) return null;

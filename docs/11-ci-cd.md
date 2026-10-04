@@ -282,7 +282,10 @@ budgets. Gates are never lowered to unblock a PR.
 - **Nightly**: `perf:full` — the harness's full plan from
   [09](09-testing-qa.md#performance-harness-scriptsperf): 30 s warm-up, CPU and memory
   sampled every 10 s to 300 s with idle CPU gated on the 240–300 s steady state, 20
-  cursor-driven expand/collapse cycles with the shell's per-morph frame reports.
+  cursor-driven expand/collapse cycles with the shell's per-morph frame reports. The cursor
+  travels the strip's top sliver, so the cycles run whether the strip rests or peeks under a
+  window's caption; the earlier centre-line path misses a peeking strip entirely, which
+  reproduced the stall at cycle 1 that every nightly from 2026-09-30 to 2026-10-03 reported.
   The workflow builds `--debug --no-bundle`, so today's nightly numbers describe the debug
   build; the 100-cycle, 10-minute idle, media-playing and 4K 150 % emulation passes and the
   release build are the target state, not yet implemented. Results are appended to the
