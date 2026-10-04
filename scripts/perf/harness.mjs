@@ -421,16 +421,19 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
  * morph, then parks far away until the collapse morph is reported. Returns the morph records;
  * a cycle that does not morph within its timeout ends the loop with a note.
  *
- * The cursor moves through `SendInput`, which travels the input stack like a real mouse. On
- * the hosted runner (Windows Server 2025, session 2) `SetCursorPos` moves the cursor and the
- * shell lifts click-through, yet WebView2 receives no mouse-move messages and the strip never
- * expands — nightly run 37197808643 recorded exactly that. When the first cycle does not
- * expand, the drive records what the desktop looked like — where the cursor really is, which
- * window `WindowFromPoint` names there, the foreground window, the notch window's
- * click-through bit and the shell's last log lines — and tries the cycle once more through
- * the other mover (`SetCursorPos`). The snapshot comes back as `stall` (kept in the JSON
- * report) and the notes say which path worked, so a stall on a CI runner can be read instead
- * of guessed.
+ * The cursor moves through `SendInput`, which travels the input stack like a real mouse; the
+ * cursor first enters the notch window's bounds under the strip and dwells there, as a real
+ * approach does, so the shell has lifted the low memory target before the hover begins. When
+ * the first cycle does not report an expand, the drive records what the desktop looked like —
+ * where the cursor really is, which window `WindowFromPoint` names there, the foreground
+ * window, the notch window's click-through bit, how long ago the memory target changed and
+ * the shell's last log lines — then tries the cycle again with the same mover and, failing
+ * that, through `SetCursorPos`. The snapshot comes back as `stall` (kept in the JSON report)
+ * and the notes say which attempt worked, so a stall on a CI runner can be read instead of
+ * guessed. On the hosted runner (Windows Server 2025, 4 vCPU, reduced motion, debug build) the
+ * first expand of the session completes within a single frame — the strip does open, but the
+ * sampler logs no morph for it — and the second attempt with the same mover reports normally
+ * (nightly runs 37197808643, 37198821548 and 37200725934 on this harness).
  */
 export async function driveMorphs(app, probe, host, count, log) {
   const notes = [];
@@ -461,24 +464,38 @@ export async function driveMorphs(app, probe, host, count, log) {
     if (!expanded.ok && cycle === 0) {
       stall = await stallSnapshot(app, probe, point, 'expand', mover, expanded);
       notes.push(describeStall(stall));
-      // Let any hover state the first attempt may have started settle before the retry.
-      await moveWith(probe, mover, away);
-      await sleep(1500);
-      const retryWith = mover === 'input' ? 'cursor' : 'input';
-      expanded = await expandOnce(app, probe, approach, retryWith);
-      if (expanded.ok) {
-        stall.recoveredBy = retryWith;
-        notes.push(
-          `Cycle 1: the strip did not expand from ${MOVER_NAMES[mover]} moves but did from the ${MOVER_NAMES[retryWith]} retry; the remaining cycles used ${MOVER_NAMES[retryWith]}.`,
-        );
-        mover = retryWith;
-      } else {
-        stall.retry = { mover: retryWith, error: expanded.error, lastMove: expanded.lastMove };
+      // Attempt 2 repeats the same mover (a cold first expand recovers here); attempt 3 goes
+      // through the other Win32 path in case the input stack is what fails.
+      const other = mover === 'input' ? 'cursor' : 'input';
+      for (const retryWith of [mover, other]) {
+        // Let any hover state the previous attempt started settle before the next one.
+        await moveWith(probe, mover, away).catch(() => {});
+        await sleep(1500);
+        expanded = await expandOnce(app, probe, approach, retryWith);
+        if (expanded.ok) {
+          const attempt = stall.retries.length + 2;
+          stall.recovery = { attempt, mover: retryWith };
+          notes.push(
+            retryWith === mover
+              ? `Cycle 1: the strip reported no expand on the first attempt but did on the second with the same ${MOVER_NAMES[mover]} moves; the remaining cycles ran as usual.`
+              : `Cycle 1: the strip reported no expand from ${MOVER_NAMES[mover]} moves, twice, but did when moved through ${MOVER_NAMES[retryWith]}; the remaining cycles used ${MOVER_NAMES[retryWith]}.`,
+          );
+          mover = retryWith;
+          break;
+        }
+        stall.retries.push({
+          mover: retryWith,
+          error: expanded.error,
+          lastMove: expanded.lastMove,
+        });
       }
     }
     if (!expanded.ok) {
+      const after = stall?.retries?.length
+        ? `, nor after ${stall.retries.length} more ${stall.retries.length === 1 ? 'attempt' : 'attempts'} (${stall.retries.map((r) => MOVER_NAMES[r.mover]).join(', ')})`
+        : '';
       notes.push(
-        `Cycle ${cycle + 1}: the strip did not expand (${expanded.error})${stall?.retry ? `, nor after the ${MOVER_NAMES[stall.retry.mover]} retry` : ''}; stopped driving morphs.`,
+        `Cycle ${cycle + 1}: the strip did not expand (${expanded.error})${after}; stopped driving morphs.`,
       );
       break;
     }
@@ -507,12 +524,14 @@ export async function driveMorphs(app, probe, host, count, log) {
   const all = app.morphs.slice(seen).filter((m) => m.label === 'notch');
   if (stall?.phase === 'expand') {
     // A collapse as the first morph after the stall means the strip had expanded without an
-    // expand report: the morph completed inside one frame, which the sampler does not log.
+    // expand report: the morph completed inside one frame, which the sampler does not log
+    // (apps/desktop/src/shell/morph-sampler.ts). A cold renderer and reduced motion's 150 ms
+    // tween make that likely on the hosted runner; the warm cycles that follow are measured.
     const first = all.find((m) => m.atMs > stall.atMs);
     stall.silentExpand = first !== undefined && !first.expanded;
     if (stall.silentExpand) {
       notes.push(
-        `The first morph the shell reported after the stall was a collapse (${Math.round(first.atMs / 1000)} s): the strip had expanded during the stalled attempt without an expand report, so that expand completed within a single frame.`,
+        `The first morph the shell reported after the stall was a collapse (${Math.round(first.atMs / 1000)} s): the strip had expanded during the stalled attempt without an expand report, so that first expand completed within a single frame and is not in the measured set.`,
       );
     }
   }
@@ -587,6 +606,10 @@ async function stallSnapshot(app, probe, point, phase, mover, attempt) {
       : null,
     morphsSoFar: app.morphs.length,
     recentLog: app.recentLog(),
+    /** Filled in by `driveMorphs`: failed retries, the attempt that worked, a silent expand. */
+    retries: [],
+    recovery: null,
+    silentExpand: null,
   };
 }
 

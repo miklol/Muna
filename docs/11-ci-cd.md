@@ -287,14 +287,23 @@ budgets. Gates are never lowered to unblock a PR.
   window's caption; the earlier centre-line path misses a peeking strip entirely, which
   reproduced the stall at cycle 1 that every nightly from 2026-09-30 to 2026-10-03 reported.
   The 2026-10-04 run on the sliver path (37195896753) stalled at cycle 1 all the same; with
-  stall diagnostics in the harness, run 37197808643 showed why: `SetCursorPos` moves the
-  cursor on the runner and the shell lifts click-through, but WebView2 gets no mouse-move
-  messages, so the cursor now travels through `SendInput` (the input stack) and that run's
-  retry completed all 20 cycles at ≥ 64 fps. A stall still leaves evidence in the report
-  (`morphStall` in the JSON, a note and the shell's log tail in the markdown the `report` job
-  posts: cursor position, the window under the probe point, the foreground window, the
-  notch's click-through bit) and is retried once through `SetCursorPos`; the gate does not
-  change, a cycle that never morphs still fails.
+  stall diagnostics in the harness, runs
+  [37197808643](https://github.com/miklol/Muna/actions/runs/37197808643),
+  [37198821548](https://github.com/miklol/Muna/actions/runs/37198821548) and
+  [37200725934](https://github.com/miklol/Muna/actions/runs/37200725934) showed why: the
+  cursor is where the harness put it, the shell has lifted click-through and the strip
+  opens, but the first expand of a cold session completes within a single frame on the
+  runner (4 vCPU, reduced motion, debug build) and the shell's morph sampler drops it as a
+  mount, so no `morph` line ever arrives — whichever mover goes first, `SendInput` or
+  `SetCursorPos`, and with a 400 ms approach through the window's bounds. The second attempt
+  reports normally. The harness therefore retries a stalled first cycle with the same mover
+  and then through `SetCursorPos`, and the report keeps the evidence (`morphStall` in the
+  JSON; in the markdown the `report` job posts, a note saying which attempt worked, whether
+  the stalled attempt was a silent expand, and the shell's log tail: cursor position, the
+  window under the probe point, the foreground window, the notch's click-through bit, the
+  memory target). The gate does not change — a cycle that never morphs still fails — and
+  the sampler reporting single-frame morphs instead of dropping them is shell work tracked in
+  [#71](https://github.com/miklol/Muna/issues/71).
   The workflow builds `--debug --no-bundle`, so today's nightly numbers describe the debug
   build; the 100-cycle, 10-minute idle, media-playing and 4K 150 % emulation passes and the
   release build are the target state, not yet implemented. Results are appended to the
