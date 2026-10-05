@@ -323,6 +323,10 @@ budgets. Gates are never lowered to unblock a PR.
 - **Pinning**: lockfiles committed (`pnpm-lock.yaml`, `Cargo.lock`); `packageManager` field in
   the root `package.json`; Rust toolchain pinned in `rust-toolchain.toml` (stable channel with
   an explicit version bumped deliberately); Node major pinned in `.node-version`.
+  `@types/node` follows that major and is bumped with it, never ahead (Dependabot ignores its
+  majors). Every workspace package declares it, so vitest's optional `@types/node` peer
+  resolves to one version and the workspace keeps a single vitest instance (otherwise the
+  jest-dom matchers augment the wrong copy).
 - **`cargo deny`** with `deny.toml` (licences allowlist above, `wildcards = "deny"`,
   `multiple-versions = "warn"`, advisory database) runs on every code PR in the `deps` job and
   again nightly, because advisories appear without a code change.
