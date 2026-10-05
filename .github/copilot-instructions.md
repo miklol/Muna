@@ -51,7 +51,9 @@ docs disagree, fix one and say which.
 ## CI/CD rules (docs/11-ci-cd.md)
 
 - `main` is protected; everything lands by squash-merged PR with all required checks green
-  (`changes`, `pr-title`, `docs`, `web`, `rust`, `deps`, `app`) and one human approval.
+  (`changes`, `pr-title`, `docs`, `web`, `rust`, `deps`, `app`). While the ruleset asks for no
+  approval, the coordinator session merges on green and the maintainer reviews after; workers
+  never merge (docs/11-ci-cd.md rule 5, process in docs/build-plan/README.md).
 - Never disable, skip, `continue-on-error`, retry-until-green or narrow a check to get green;
   never lower a budget or threshold unless the task is explicitly about it.
 - Do not edit `.github/workflows/release.yml`, `.github/CODEOWNERS`, `deny.toml`,

@@ -478,9 +478,15 @@ people, plus:
    error you can name.
 4. A PR is finished only when all required checks are green, the PR template is filled with
    evidence (recording, perf numbers, tests), the spec status is updated, and the roadmap
-   status table has an entry.
-5. Agent-authored PRs need one human approval; an agent never approves or merges. The
-   `muna-design-reviewer` and `muna-qa-engineer` reviews are advisory and do not replace it.
+   status table has an entry — written by the PR itself, or by the coordinator right after the
+   merge when workers run in parallel ([build plan](build-plan/README.md#how-to-run-the-work)).
+5. While the `main` ruleset asks for no approval ([protection rules](#protection-rules)), the
+   coordinator session squash-merges an agent-authored PR once every required check is green
+   and every conversation is resolved; workers never merge, and the maintainer reviews after
+   the merge. An agent never approves a PR, never merges past a red or pending check or a skip
+   other than the docs-only skips of the `changes` gate ([required checks](#required-checks)),
+   and never bypasses a rule. When the approval count goes back to 1, a human approves before
+   any merge. The `muna-design-reviewer` and `muna-qa-engineer` reviews are advisory.
 6. Commits carry the `Co-authored-by` trailer; PR titles follow the commit rules above; PR
    bodies name the agent and the kickoff prompt used.
 
