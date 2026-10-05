@@ -181,10 +181,11 @@ its chain is trusted machine-wide, so local tests register the loose layout inst
 which identity-dependent APIs work in the current process.
 
 Trunk-based: short-lived branches, squash-merged into `main` behind the required checks in
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml). PR titles are Conventional Commits and
-become the changelog; releases are cut by release-please and signed in the protected `release`
-environment. The full rulebook — protection rules, quality gates, secrets, runbooks and what
-agents may never do — is [docs/11-ci-cd.md](docs/11-ci-cd.md).
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) and
+[`.github/workflows/pr-title.yml`](.github/workflows/pr-title.yml). PR titles are Conventional
+Commits and become the changelog; releases are cut by release-please and signed in the protected
+`release` environment. The full rulebook — protection rules, quality gates, secrets, runbooks
+and what agents may never do — is [docs/11-ci-cd.md](docs/11-ci-cd.md).
 
 ## Stack
 

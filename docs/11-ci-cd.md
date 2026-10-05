@@ -140,7 +140,8 @@ credentials.
 
 | Workflow | Trigger | Runner | Purpose | Blocking |
 | ---------- | --------- | -------- | --------- | ---------- |
-| `ci.yml` | `pull_request`, `push` to `main` | ubuntu (changes, pr-title, docs, web, deps) + windows (rust, app) | Required checks | Yes |
+| `ci.yml` | `pull_request`, `push` to `main` | ubuntu (changes, docs, web, deps) + windows (rust, app) | Required checks except `pr-title` | Yes |
+| `pr-title.yml` | `pull_request` (`opened`, `edited`, `synchronize`, `reopened`) | ubuntu (pr-title) | Required check `pr-title`; re-runs on its own when the PR title is edited | Yes |
 | `nightly.yml` | `schedule` 03:00 UTC, `workflow_dispatch` | ubuntu (links, deps) + windows (perf, platform, nightly-zip) | Full perf harness, platform tests, external link check, dependency re-audit, unsigned nightly zip | No — opens/updates a `ci:nightly` issue |
 | `release.yml` | `push` tag `v*`, `workflow_dispatch` (dry run) | windows (build) + ubuntu (preflight, publish) | Build, sign, attest, publish (see [10](10-release-distribution.md#pipeline)) | Environment-gated |
 | `release-please.yml` | `push` to `main` (no-op until repository variable `RELEASE_AUTOMATION=true`) | ubuntu | Maintains the release PR (version bump + `CHANGELOG.md`); merging it creates the tag | — |
@@ -149,8 +150,10 @@ credentials.
 
 ```mermaid
 flowchart LR
-  PR[pull request] --> CI[ci.yml<br/>changes · pr-title · docs · web · rust · deps · app]
+  PR[pull request] --> CI[ci.yml<br/>changes · docs · web · rust · deps · app]
+  PR -->|also on title edits| PT[pr-title.yml<br/>pr-title]
   CI -->|all required green + review| M[main]
+  PT --> M
   M --> RP[release-please.yml<br/>release PR]
   M --> N[nightly.yml<br/>perf · platform · links · audit]
   RP -->|merge release PR| T[tag vX.Y.Z]
@@ -200,10 +203,15 @@ flowchart LR
 Job ids double as the required-status-check names in the `main` ruleset. Do not rename a job
 without updating the ruleset in the same change.
 
-| Check (`ci.yml` job) | Runner | Runs when | Contents |
-| ---------------------- | -------- | ----------- | ---------- |
+Six of the seven checks are jobs in `ci.yml`. `pr-title` is the only job in its own workflow,
+`pr-title.yml`, which also triggers on `edited`: fixing a PR's title re-runs `pr-title` alone,
+with no push or rebase, and leaves the rest of CI running. `ci.yml` deliberately does not
+listen for `edited`, because every title or body edit would cancel and restart the whole run.
+
+| Check (job id) | Runner | Runs when | Contents |
+| ---------------- | -------- | ----------- | ---------- |
 | `changes` | ubuntu | always | Probe: outputs `code` and `app` for the gates below |
-| `pr-title` | ubuntu | every PR | Conventional Commit title with an allowed type; subject starts lower-case |
+| `pr-title` | ubuntu | every PR, and again on every title edit (`pr-title.yml`) | Conventional Commit title with an allowed type; subject starts lower-case |
 | `docs` | ubuntu | every PR/push | `markdownlint-cli2` with `.markdownlint-cli2.jsonc`; `scripts/check-links.mjs` (relative links + heading anchors; deterministic, no network) |
 | `web` | ubuntu | code changed and `apps/desktop` exists | `pnpm install --frozen-lockfile`, `lint` (ESLint/Stylelint/Prettier), `typecheck`, `test` (Vitest incl. tokens snapshot, coverage report), `i18n:check`, `storybook:ci` (`build-storybook` + `test-storybook` with axe on every story) |
 | `rust` | windows | code changed and `apps/desktop` exists | web build (tauri-build embeds `frontendDist`), `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (fake platform), contracts drift (`contracts:generate` then `git diff --exit-code -- packages/contracts`; tauri-specta needs the Rust toolchain) |
@@ -506,7 +514,7 @@ people, plus:
 | `ci:nightly` issue opened | Open the run → for `perf`: bisect with `pnpm -w perf:smoke` across the listed commits, fix or revert, close with numbers; for `links`: fix or allowlist the URL in `.lycheeignore`; for `deps`: patch or record an exception (below); for `platform`: reproduce on the QA machine. Close the issue by hand when the next nightly is green. |
 | Signing failure in `release.yml` | Do not re-tag. Check the Azure federated credential (subject `repo:miklol/Muna:environment:release`) and certificate profile status → re-run the job → if the certificate is revoked, rotate, then bump patch and release again. |
 | Expired `RELEASE_PLEASE_TOKEN` | Release PR stops updating. Create a new fine-grained PAT, update the secret, re-run `release-please.yml` via `workflow_dispatch`. |
-| Dependabot PR fails CI | Never force-merge. If the failure is a genuine break, pin the dependency with a comment and an issue to unpin. |
+| Dependabot PR fails CI | Never force-merge. If only `pr-title` fails: Dependabot capitalises "Bump", so fix the title with `gh pr edit N --title "build(deps): bump …"`; `pr-title.yml` re-runs on the `edited` event, no rebase or push needed. If the failure is a genuine break, pin the dependency with a comment and an issue to unpin. |
 | Vulnerability alert (high/critical) | Patch within 7 days or record an exception in `deny.toml` / `.pnpm-audit.json` with a 30-day expiry and a linked issue. |
 | Runner image change breaks the shell suite | Pin the `runs-on` image (`windows-2022`) in the same PR, open an issue to unpin. |
 
