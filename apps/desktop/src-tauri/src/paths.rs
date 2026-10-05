@@ -9,6 +9,12 @@ const APP: &str = "Muna";
 /// Files that make a directory a Muna profile worth carrying over.
 const PROFILE_FILES: &[&str] = &["settings.json", "muna.db"];
 
+/// Everything the migration moves, in order. The database group goes first: the store runs in
+/// WAL mode (`muna_core::store`), so after an unclean exit `muna.db-wal` holds committed
+/// transactions that are not in `muna.db` yet, and a stray `-shm` next to a moved database
+/// is wrong too. `settings.json` goes last because it is what the next start reads first.
+const MIGRATED_FILES: &[&str] = &["muna.db", "muna.db-wal", "muna.db-shm", "settings.json"];
+
 /// `%LOCALAPPDATA%\miklol\Muna` on Windows. Falls back to a temp directory when the variable is
 /// missing (headless CI) so the app still starts.
 ///
@@ -34,24 +40,33 @@ fn local_app_data() -> PathBuf {
 /// Moves a legacy profile into `to` once: only when `to` has no profile files yet and the
 /// legacy folder has some. The legacy folder itself is left in place because, on an installed
 /// build, it is also the install directory. Returns the paths that were moved.
+///
+/// All or nothing: the files move in [`MIGRATED_FILES`] order and a rename that fails (the
+/// database held open by an older build still running, say — this runs before the
+/// single-instance guard) moves back what already moved, so the legacy profile stays whole
+/// and the next start tries again. Without that, `settings.json` in the new folder would
+/// mark the profile as migrated and orphan the database.
+///
+/// Copies the Shelf module made under the legacy folder (`shelf/`) are not carried over:
+/// the database records their absolute paths, so moving them would break every item.
 pub fn migrate_legacy_profile(from: &Path, to: &Path) -> std::io::Result<Vec<PathBuf>> {
-    let already = PROFILE_FILES.iter().any(|name| to.join(name).exists());
-    let source: Vec<PathBuf> = PROFILE_FILES
-        .iter()
-        .map(|name| from.join(name))
-        .filter(|path| path.is_file())
-        .collect();
-    if already || source.is_empty() || from == to {
+    let already = PROFILE_FILES.iter().any(|name| to.join(name).is_file());
+    let has_profile = PROFILE_FILES.iter().any(|name| from.join(name).is_file());
+    if already || !has_profile || from == to {
         return Ok(Vec::new());
     }
     std::fs::create_dir_all(to)?;
-    let mut moved = Vec::with_capacity(source.len() + 1);
-    for path in source {
-        let Some(name) = path.file_name() else {
+    let mut moved = Vec::with_capacity(MIGRATED_FILES.len() + 1);
+    for name in MIGRATED_FILES {
+        let source = from.join(name);
+        if !source.is_file() {
             continue;
-        };
+        }
         let target = to.join(name);
-        std::fs::rename(&path, &target)?;
+        if let Err(error) = std::fs::rename(&source, &target) {
+            move_back(&moved, from);
+            return Err(error);
+        }
         moved.push(target);
     }
     // Logs travel too, but a locked or missing folder must not fail the migration.
@@ -60,4 +75,14 @@ pub fn migrate_legacy_profile(from: &Path, to: &Path) -> std::io::Result<Vec<Pat
         moved.push(to.join("logs"));
     }
     Ok(moved)
+}
+
+/// Undoes a partial migration, newest move first. Best effort: a file that will not go back
+/// is reported by the caller's error for the rename that failed, and the next start retries.
+fn move_back(moved: &[PathBuf], from: &Path) {
+    for target in moved.iter().rev() {
+        if let Some(name) = target.file_name() {
+            drop(std::fs::rename(target, from.join(name)));
+        }
+    }
 }

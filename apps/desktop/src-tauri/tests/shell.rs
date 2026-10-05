@@ -103,3 +103,65 @@ fn legacy_profile_moves_once_and_leaves_the_install_dir_alone() {
     assert!(migrate_legacy_profile(&empty, &fresh).unwrap().is_empty());
     assert!(!fresh.exists());
 }
+
+#[test]
+fn wal_side_files_travel_with_the_database() {
+    let root = tempfile::tempdir().unwrap();
+    let from = root.path().join("Muna");
+    let to = root.path().join("miklol").join("Muna");
+    std::fs::create_dir_all(&from).unwrap();
+    for (name, bytes) in [
+        ("settings.json", "{}"),
+        ("muna.db", "db"),
+        ("muna.db-wal", "committed, not yet checkpointed"),
+        ("muna.db-shm", "index"),
+    ] {
+        std::fs::write(from.join(name), bytes).unwrap();
+    }
+
+    let moved = migrate_legacy_profile(&from, &to).unwrap();
+    assert_eq!(moved.len(), 4);
+    for name in ["muna.db", "muna.db-wal", "muna.db-shm", "settings.json"] {
+        assert!(to.join(name).is_file(), "{name} should have moved");
+        assert!(
+            !from.join(name).exists(),
+            "{name} should be gone from the source"
+        );
+    }
+    assert_eq!(
+        std::fs::read_to_string(to.join("muna.db-wal")).unwrap(),
+        "committed, not yet checkpointed"
+    );
+}
+
+#[test]
+fn a_failure_midway_leaves_the_legacy_profile_whole() {
+    let root = tempfile::tempdir().unwrap();
+    let from = root.path().join("Muna");
+    let to = root.path().join("miklol").join("Muna");
+    std::fs::create_dir_all(&from).unwrap();
+    std::fs::write(from.join("muna.db"), "db").unwrap();
+    std::fs::write(from.join("muna.db-wal"), "wal").unwrap();
+    std::fs::write(from.join("settings.json"), "{}").unwrap();
+    // A directory where `settings.json` must land makes its rename fail after the database
+    // group has already moved.
+    std::fs::create_dir_all(to.join("settings.json")).unwrap();
+
+    assert!(migrate_legacy_profile(&from, &to).is_err());
+    for name in ["muna.db", "muna.db-wal", "settings.json"] {
+        assert!(
+            from.join(name).is_file(),
+            "{name} should be back in the source"
+        );
+        assert!(
+            !to.join(name).is_file(),
+            "{name} should not be left in the target"
+        );
+    }
+    assert_eq!(std::fs::read_to_string(from.join("muna.db")).unwrap(), "db");
+
+    // Once the obstacle is gone the next start migrates everything.
+    std::fs::remove_dir(to.join("settings.json")).unwrap();
+    assert_eq!(migrate_legacy_profile(&from, &to).unwrap().len(), 3);
+    assert!(to.join("muna.db-wal").is_file() && to.join("settings.json").is_file());
+}
