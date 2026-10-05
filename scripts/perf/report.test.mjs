@@ -627,7 +627,7 @@ describe('reports', () => {
     expect(renderStallLog({ ...stall, recentLog: [] })).toEqual([]);
   });
 
-  it('keeps a frameless cold expand apart and fails a frameless morph in the measured set (#71)', () => {
+  it('keeps the cold expand apart and fails a frameless morph in the measured set (#71)', () => {
     const frameless = parseMorphLine(
       MORPH.replace(
         'expanded=false fps=153 frames=61 duration_ms=399 max_frame_ms=22',
@@ -639,7 +639,7 @@ describe('reports', () => {
       { expanded: true, fps: 70, frames: 9, durationMs: 128, maxFrameMs: 15, dropped: 0 },
       { expanded: false, fps: 74, frames: 10, durationMs: 135, maxFrameMs: 15, dropped: 0 },
     ];
-    const coldExpand = { durationMs: 180, maxFrameMs: 180, atMs: 321000 };
+    const coldExpand = { fps: 40, frames: 7, durationMs: 175, maxFrameMs: 80, atMs: 321000 };
     const booked = buildReport({
       mode: 'full',
       plan: planFor('full'),
@@ -650,7 +650,9 @@ describe('reports', () => {
     expect(booked.coldExpand).toEqual(coldExpand);
     expect(booked.measurements.morphFpsMin).toBe(70);
     expect(booked.evaluation.failed).not.toContain('morphFpsMin');
-    expect(renderMarkdown(booked)).toContain('cold first expand in one frame, 180 ms (not gated)');
+    expect(renderMarkdown(booked)).toContain(
+      'cold first expand 40 fps, 7 frames over 175 ms (not gated)',
+    );
 
     const measured = buildReport({
       mode: 'full',
@@ -798,6 +800,7 @@ describe('morph drive', () => {
   };
   const host = { screenWidth: 1024, screenHeight: 768 };
   const warm = { fps: 70, frames: 9, durationMs: 128, maxFrameMs: 15 };
+  const slow = { fps: 40, frames: 7, durationMs: 175, maxFrameMs: 80 };
   const frameless = { fps: 0, frames: 0, durationMs: 180, maxFrameMs: 180 };
 
   const drive = async (expands, count) => {
@@ -812,21 +815,23 @@ describe('morph drive', () => {
     }
   };
 
-  it('books a frameless first expand as the cold expand and measures the cycles after it (#71)', async () => {
-    const driven = await drive([frameless, warm, warm], 2);
-    expect(driven.coldExpand).toEqual({ durationMs: 180, maxFrameMs: 180, atMs: 0 });
+  it('books the first expand as the cold expand and measures the cycles after it (#71)', async () => {
+    const driven = await drive([slow, warm, warm], 2);
+    expect(driven.coldExpand).toEqual({ ...slow, atMs: 0 });
     expect(driven.morphs.filter((m) => m.expanded)).toEqual([
       expect.objectContaining(warm),
       expect.objectContaining(warm),
     ]);
-    expect(driven.morphs.every((m) => m.frames > 0)).toBe(true);
+    // The cold cycle's collapse stays gated: 2 expands, 3 collapses.
+    expect(driven.morphs.filter((m) => !m.expanded)).toHaveLength(3);
+    expect(morphSummary(driven.morphs).minFps).toBe(70);
     expect(driven.stall).toBeNull();
     expect(driven.notes.join('\n')).toContain('`coldExpand`');
   });
 
   it('keeps a frameless expand after the first cycle in the measured set', async () => {
-    const driven = await drive([warm, frameless], 2);
-    expect(driven.coldExpand).toBeNull();
+    const driven = await drive([warm, frameless, warm], 2);
+    expect(driven.coldExpand).toEqual({ ...warm, atMs: 0 });
     expect(morphSummary(driven.morphs).minFps).toBe(0);
   });
 });

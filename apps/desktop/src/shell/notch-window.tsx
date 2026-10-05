@@ -365,6 +365,8 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const snapRef = useRef<HTMLDivElement>(null);
   const speed = useRef(new SpeedTracker());
   const sampler = useRef(new MorphSampler());
+  /** The Motion definition whose animation is being sampled, and the radius it moves to. */
+  const sampled = useRef<{ definition: unknown; radius: number } | null>(null);
   const lastPublished = useRef<ShapeRect[]>([]);
 
   // S2 spike (docs/spikes/m4-drag.md): `MUNA_SPIKE=drag` arms a drag-out of a file from the
@@ -858,17 +860,29 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     publishShapes(morphing);
   }, [morphing, publishShapes]);
 
-  const onMorphStart = () => {
+  const onMorphStart = (definition: unknown) => {
     // Under reduced motion Motion snaps the layout values and tweens only the radius
-    // (docs/modules/notch-shell.md, Implementation notes M1-E1): a morph that leaves the
-    // radius where it shows is instant, and its sample has no frame to count.
+    // (docs/modules/notch-shell.md, Implementation notes M1-E1). A retarget that keeps the
+    // radius — the panel's height measured after its first mount (#71) — snaps, and the tween
+    // in flight goes on being sampled as the same morph.
+    if (reduceMotion && sampler.current.active && sampled.current?.radius === radius) {
+      return;
+    }
+    // A morph that leaves the radius where it shows is instant: its sample has no frame.
     const shownRadius = shellRef.current?.style.getPropertyValue(notchMorphRadiusVar);
+    sampled.current = { definition, radius };
     sampler.current.start(!reduceMotion || shownRadius !== `${String(radius)}px`);
   };
 
-  const onMorphComplete = () => {
+  const onMorphComplete = (definition: unknown) => {
     setSettledGeometry(currentGeometry);
-    // The sampler drops instant morphs and keeps a tween a long task swallowed (`frames: 0`).
+    // Only the sampled animation ends the sample: a snapped retarget completes at once, and an
+    // older animation that outlives the one that replaced it is not the morph being sampled.
+    if (definition !== sampled.current?.definition) {
+      return;
+    }
+    sampled.current = null;
+    // The sampler drops instant morphs and keeps a tween that drew no frame (`frames: 0`).
     const report = sampler.current.stop(largeShown);
     if (report !== null) {
       setLastMorph(report);
@@ -982,9 +996,9 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
       : t(activeModule.titleKey);
   const ActivePanel = activeModule?.panel;
   const bodyKey = paletteOpen ? 'palette' : (activeModule?.id ?? 'empty');
-  // The panel's first render after a quiet spell is a long task that can swallow the whole
-  // expand (#71). While hover intent runs, React pre-renders the panel hidden — idle priority,
-  // no effects, no layout — so the expand that follows mounts warm code.
+  // The panel's first render after a quiet spell is a long task inside the expand (#71). While
+  // hover intent runs, React pre-renders the panel hidden — idle priority, no effects, no
+  // layout — so the expand that follows mounts warm code.
   const warmPanel =
     !panelShown &&
     (state === 'hoverReveal' ||

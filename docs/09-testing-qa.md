@@ -194,18 +194,23 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    log lines — as `morphStall` in the JSON, a one-line note in the markdown and the log tail
    in a folded block, then tries the cycle again with the same mover and, failing that,
    through `SetCursorPos`; the notes say which attempt worked. On the hosted runner (4 vCPU,
-   reduced motion, debug build) the **first expand of a cold session completed within a single
-   frame**: the strip opened, the sampler logged no morph for it (`frames = 0` was treated as
-   a mount), and the second attempt reported normally — nightly runs
+   reduced motion, debug build) the **first expand of a session went unreported**: the strip
+   opened, the sampler logged no morph for it, and the second attempt reported normally —
+   nightly runs
    [37197808643](https://github.com/miklol/Muna/actions/runs/37197808643),
    [37198821548](https://github.com/miklol/Muna/actions/runs/37198821548) and
    [37200725934](https://github.com/miklol/Muna/actions/runs/37200725934) show it whichever
-   mover goes first and with the dwell in place. Since
-   [#71](https://github.com/miklol/Muna/issues/71) the shell pre-renders the panel while hover
-   intent runs, so that expand animates, and the sampler reports a tween that drew no frame as
-   `fps=0 frames=0` with its wall duration. When cycle 1's expand still arrives frameless, the
-   harness reports it as **`coldExpand`** (duration, longest frame, `atMs`) apart from the
-   gated morphs, with a note, and runs cycle 1 again, so the 20 measured cycles follow it. A
+   mover goes first and with the dwell in place. The cause
+   ([#71](https://github.com/miklol/Muna/issues/71)): the panel's height is measured only once
+   it mounts, so the first expand is retargeted mid-morph; under reduced motion the retarget
+   restarted the sample, which ended at once with no frame and was dropped, and the radius
+   tween then finished with nothing to report. The shell now keeps a reduced-motion retarget
+   that leaves the radius target alone in the same sample, ended only by the motion that
+   started it; it also pre-renders the panel while hover intent runs and reports a tween that
+   drew no frame as `fps=0 frames=0` with its wall duration. The harness reports cycle 1's
+   expand, which meets a cold renderer, as **`coldExpand`** (fps, frames, duration, longest
+   frame, `atMs`) apart from the gated morphs, with a note, and runs cycle 1 again, so the 20
+   measured cycles follow it; that cycle's collapse is a warm morph and stays gated. A
    frameless expand in any later cycle stays in the measured set, where its 0 fps fails the
    gate, and a cycle that never morphs still fails the run; the stall snapshot, the retries
    and `silentExpand` stay as the safety net.

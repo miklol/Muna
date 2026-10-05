@@ -431,9 +431,10 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
  * that, through `SetCursorPos`. The snapshot comes back as `stall` (kept in the JSON report)
  * and the notes say which attempt worked, so a stall on a CI runner can be read instead of
  * guessed. On the hosted runner (Windows Server 2025, 4 vCPU, reduced motion, debug build) the
- * first expand of the session could complete within a single frame, unreported (nightly runs
- * 37197808643, 37198821548 and 37200725934); the shell now reports such a morph with
- * `frames: 0`, and a cycle-1 one comes back as `coldExpand`, apart from the measured morphs.
+ * first expand of the session went unreported (nightly runs 37197808643, 37198821548,
+ * 37200725934 and 37301497415): the panel's height, measured once it mounts, retargets the
+ * shell mid-morph, and the shell used to drop that sample (#71). Cycle 1's expand comes back
+ * as `coldExpand`, reported apart from the measured morphs.
  */
 export async function driveMorphs(app, probe, host, count, log) {
   const notes = [];
@@ -500,16 +501,17 @@ export async function driveMorphs(app, probe, host, count, log) {
       );
       break;
     }
-    // The session's first expand can complete inside one frame — a long first render swallows
-    // the tween — and the shell reports it with `frames: 0` (#71). It is booked apart as
-    // `coldExpand` and the cycle runs again, so `count` measured cycles follow it; a frameless
-    // expand in any later cycle stays measured, and its 0 fps fails the gate.
-    const cold = coldExpand === null && morphs.length === 0 && expanded.morph.frames === 0;
+    // The session's first expand meets a cold renderer: the panel's first render and the
+    // retarget to its measured height land inside it (#71). It is booked apart as
+    // `coldExpand` — reported, not gated — and the cycle runs again, so `count` measured
+    // cycles follow it. Its collapse is a warm morph and stays gated, as before #71
+    // (collapses then number one more than expands).
+    const cold = coldExpand === null;
     if (cold) {
-      const { durationMs, maxFrameMs, atMs } = expanded.morph;
-      coldExpand = { morph: expanded.morph, durationMs, maxFrameMs, atMs };
+      const { fps, frames, durationMs, maxFrameMs, atMs } = expanded.morph;
+      coldExpand = { morph: expanded.morph, fps, frames, durationMs, maxFrameMs, atMs };
       notes.push(
-        `Cycle 1: the session's first expand completed inside one frame (${durationMs} ms with no frame drawn), so it is reported as \`coldExpand\` and not gated; ${count} measured cycles followed it.`,
+        `Cycle 1: the session's first expand ran at ${fps} fps (${frames} frames over ${durationMs} ms, longest frame ${maxFrameMs} ms); it is reported as \`coldExpand\` and not gated, its collapse is measured, and ${count} measured cycles followed it.`,
       );
     } else {
       morphs.push(expanded.morph);
@@ -530,7 +532,7 @@ export async function driveMorphs(app, probe, host, count, log) {
       break;
     }
     const expandText = cold
-      ? `cold expand in one frame (${coldExpand.durationMs} ms)`
+      ? `cold expand ${coldExpand.fps} fps (not gated)`
       : `expand ${expanded.morph.fps} fps`;
     log(`cycle ${cycle + 1}/${count}: ${expandText}, collapse ${morphs.at(-1).fps} fps`);
     if (cold) cycle -= 1;
@@ -540,8 +542,8 @@ export async function driveMorphs(app, probe, host, count, log) {
   const all = app.morphs.slice(seen).filter((m) => m.label === 'notch' && m !== coldExpand?.morph);
   if (stall?.phase === 'expand') {
     // A collapse as the first morph after the stall means the strip had expanded without an
-    // expand report. Since #71 the sampler reports a tween a long task swallowed, so this
-    // should not recur; the check stays to say so if it does.
+    // expand report. Since #71 the shell samples the first expand through its retarget, so
+    // this should not recur; the check stays to say so if it does.
     const first = all.find((m) => m.atMs > stall.atMs);
     stall.silentExpand = first !== undefined && !first.expanded;
     if (stall.silentExpand) {
@@ -551,6 +553,8 @@ export async function driveMorphs(app, probe, host, count, log) {
     }
   }
   const booked = coldExpand && {
+    fps: coldExpand.fps,
+    frames: coldExpand.frames,
     durationMs: coldExpand.durationMs,
     maxFrameMs: coldExpand.maxFrameMs,
     atMs: coldExpand.atMs,

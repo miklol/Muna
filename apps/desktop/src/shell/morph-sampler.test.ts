@@ -79,9 +79,13 @@ describe('MorphSampler', () => {
     // A tween ended within one frame of starting: a new target cut it short.
     now = 1000;
     sampler.start();
-    now = 1000 + SNAP_MIN_MS;
+    now = 1000 + SNAP_MIN_MS - 1;
     expect(sampler.stop(true)).toBeNull();
     expect(sampler.active).toBe(false);
+    // From SNAP_MIN_MS on, a frameless tween is a stall and is reported.
+    sampler.start();
+    now += SNAP_MIN_MS;
+    expect(sampler.stop(true)).toEqual(expect.objectContaining({ frames: 0, durationUs: 20000 }));
   });
 
   it('keeps timing a sampled morph from its start to its last frame', () => {

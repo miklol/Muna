@@ -292,20 +292,21 @@ budgets. Gates are never lowered to unblock a PR.
   [37198821548](https://github.com/miklol/Muna/actions/runs/37198821548) and
   [37200725934](https://github.com/miklol/Muna/actions/runs/37200725934) showed why: the
   cursor is where the harness put it, the shell has lifted click-through and the strip
-  opens, but the first expand of a cold session completed within a single frame on the
-  runner (4 vCPU, reduced motion, debug build) and the shell's morph sampler dropped it as a
-  mount, so no `morph` line arrived — whichever mover goes first, `SendInput` or
+  opens, but the shell's morph sampler dropped the first expand of the session on the
+  runner (4 vCPU, reduced motion, debug build), so no `morph` line arrived — whichever mover
+  goes first, `SendInput` or
   `SetCursorPos`, and with a 400 ms approach through the window's bounds. The second attempt
   reports normally. The harness therefore retries a stalled first cycle with the same mover
   and then through `SetCursorPos`, and the report keeps the evidence (`morphStall` in the
   JSON; in the markdown the `report` job posts, a note saying which attempt worked, whether
   the stalled attempt was a silent expand, and the shell's log tail: cursor position, the
   window under the probe point, the foreground window, the notch's click-through bit, the
-  memory target). Since [#71](https://github.com/miklol/Muna/issues/71) the shell pre-renders
-  the panel while hover intent runs and reports a tween that drew no frame with `frames=0`;
-  a frameless cycle-1 expand is reported as `coldExpand`, not gated, with the 20 measured
-  cycles after it. The gate does not change: a frameless expand in a later cycle, or a cycle
-  that never morphs, still fails.
+  memory target). Since [#71](https://github.com/miklol/Muna/issues/71) the shell samples the
+  first expand through the retarget to the panel's measured height, which had dropped it, and
+  reports a tween that drew no frame with `frames=0`; cycle 1's expand is reported as
+  `coldExpand`, not gated (its collapse is), with the 20 measured cycles after it. The gate
+  does not change: a frameless expand in a later cycle, or a cycle that never morphs, still
+  fails.
   The workflow builds `--debug --no-bundle`, so today's nightly numbers describe the debug
   build; the 100-cycle, 10-minute idle, media-playing and 4K 150 % emulation passes and the
   release build are the target state, not yet implemented. Results are appended to the

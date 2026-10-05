@@ -10,9 +10,9 @@ const DROPPED_FRAME_FACTOR = 1.5;
 export const MAX_SAMPLE_MS = 5000;
 /**
  * A morph meant to tween that completes before the sampler's first frame was swallowed by a
- * long task when it took longer than one 60 Hz frame plus slack; quicker, it was cut short
- * (a new target arrived) and says nothing about frame rate. The sampler does not know the
- * display's refresh, hence the fixed 20 ms.
+ * long task when it took at least one 60 Hz frame plus slack; quicker, it was cut short (a
+ * new target arrived) and says nothing about frame rate. The sampler does not know the
+ * display's refresh, hence the fixed 20 ms; a 120 or 240 Hz frame is shorter still.
  */
 export const SNAP_MIN_MS = 20;
 
@@ -83,7 +83,7 @@ export class MorphSampler {
     cancelAnimationFrame(sample.raf);
     this.#sample = null;
     const wallMs = performance.now() - sample.start;
-    if (sample.frames === 0 && (!sample.tweens || wallMs <= SNAP_MIN_MS)) {
+    if (sample.frames === 0 && (!sample.tweens || wallMs < SNAP_MIN_MS)) {
       return null;
     }
     const durationMs = sample.frames === 0 ? wallMs : sample.last - sample.start;
