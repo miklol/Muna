@@ -483,7 +483,8 @@ people, plus:
 5. While the `main` ruleset asks for no approval ([protection rules](#protection-rules)), the
    coordinator session squash-merges an agent-authored PR once every required check is green
    and every conversation is resolved; workers never merge, and the maintainer reviews after
-   the merge. An agent never approves a PR, never merges past a red, skipped or pending check,
+   the merge. An agent never approves a PR, never merges past a red or pending check or a skip
+   other than the docs-only skips of the `changes` gate ([required checks](#required-checks)),
    and never bypasses a rule. When the approval count goes back to 1, a human approves before
    any merge. The `muna-design-reviewer` and `muna-qa-engineer` reviews are advisory.
 6. Commits carry the `Co-authored-by` trailer; PR titles follow the commit rules above; PR
