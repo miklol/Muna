@@ -210,7 +210,10 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    reports cycle 1's expand, which meets a cold renderer, as **`coldExpand`** (fps, frames,
    duration, longest frame, `atMs`) apart from the gated morphs, with a note, and runs cycle 1
    again, so the 20 measured cycles follow it; that cycle's collapse is a warm morph and
-   stays gated. A frameless expand in any later cycle stays in the measured set, where its
+   stays gated. The exclusion is temporary: cycle 1's expand is not gated only until a
+   pre-warm brings it back in ([#81](https://github.com/miklol/Muna/issues/81)); then
+   `coldExpand` is `null` and cycle 1 is measured against ≥ 58 fps like the rest. A
+   frameless expand in any later cycle stays in the measured set, where its
    0 fps fails the gate, and a cycle that never morphs still fails the run; the stall
    snapshot, the retries and `silentExpand` stay as the safety net.
 6. Write the JSON report and the markdown the `app` job posts on the PR (with the

@@ -190,8 +190,9 @@ applies.
   renderer, so hover intent pre-renders the panel
   ([Implementation notes](#implementation-notes-m1-e1), "Morph and material"); the perf
   harness reports a session's first expand apart as `coldExpand`
-  ([#71](https://github.com/miklol/Muna/issues/71)). Still to verify on hardware: the first
-  morph after a trim
+  ([#71](https://github.com/miklol/Muna/issues/71)), not gated until a pre-warm brings it
+  back in ([#81](https://github.com/miklol/Muna/issues/81)). Still to verify on hardware:
+  the first morph after a trim
   (Low → Normal on hover, then 250 ms + 600 ms before the panel expands) holds ≥ 58 fps.
   The `webview memory target target=Low|Normal windows=N` log line marks every transition;
   the perf harness keys its idle memory value on it.
@@ -298,7 +299,11 @@ decided during M1-E1 and is the behaviour to test against.
   subscriptions still start on the real mount); the copy goes when the panel shows or the
   pointer leaves.
   Hover intent rather than the Low → Normal edge of the [memory target](#memory-target): it
-  also covers the first expand after launch, and needs no new event from Rust.
+  also covers the first expand after launch, and needs no new event from Rust. It is a
+  partial mitigation: the cold expand still runs at 39–49 fps on the nightly runner, so the
+  harness books it as `coldExpand` and does not gate it. That exclusion is temporary;
+  [#81](https://github.com/miklol/Muna/issues/81) tracks warming on the Low → Normal edge
+  to bring cycle 1 back under the ≥ 58 fps gate.
 - **Window size** is 1120 × 480 CSS px (`layout::WINDOW_LOGICAL`): panel max width plus the
   20 px shadow padding and the 8 % overshoot on each side, and the height of the tallest panel.
 - **Focus.** The window keeps `WS_EX_NOACTIVATE` until a text field inside the panel takes

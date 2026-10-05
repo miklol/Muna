@@ -434,7 +434,9 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
  * first expand of the session went unreported (nightly runs 37197808643, 37198821548,
  * 37200725934 and 37301497415): the panel's height, measured once it mounts, retargets the
  * shell mid-morph, and the shell used to drop that sample (#71). Cycle 1's expand comes back
- * as `coldExpand`, reported apart from the measured morphs.
+ * as `coldExpand`, reported apart from the measured morphs. The exclusion is temporary: it is
+ * not gated only until a pre-warm brings it back in (#81), when `coldExpand` goes back to
+ * `null` and cycle 1 is measured like the rest.
  */
 export async function driveMorphs(app, probe, host, count, log) {
   const notes = [];
@@ -503,15 +505,15 @@ export async function driveMorphs(app, probe, host, count, log) {
     }
     // The session's first expand meets a cold renderer: the panel's first render and the
     // retarget to its measured height land inside it (#71). It is booked apart as
-    // `coldExpand` — reported, not gated — and the cycle runs again, so `count` measured
-    // cycles follow it. Its collapse is a warm morph and stays gated, as before #71
-    // (collapses then number one more than expands).
+    // `coldExpand` — reported, not gated until #81 brings it back in — and the cycle runs
+    // again, so `count` measured cycles follow it. Its collapse is a warm morph and stays
+    // gated, as before #71 (collapses then number one more than expands).
     const cold = coldExpand === null;
     if (cold) {
       const { fps, frames, durationMs, maxFrameMs, atMs } = expanded.morph;
       coldExpand = { morph: expanded.morph, fps, frames, durationMs, maxFrameMs, atMs };
       notes.push(
-        `Cycle 1: the session's first expand ran at ${fps} fps (${frames} frames over ${durationMs} ms, longest frame ${maxFrameMs} ms); it is reported as \`coldExpand\` and not gated, its collapse is measured, and ${count} measured cycles followed it.`,
+        `Cycle 1: the session's first expand ran at ${fps} fps (${frames} frames over ${durationMs} ms, longest frame ${maxFrameMs} ms); it is reported as \`coldExpand\` and not gated until #81 brings it back in, its collapse is measured, and ${count} measured cycles followed it.`,
       );
     } else {
       morphs.push(expanded.morph);
@@ -532,7 +534,7 @@ export async function driveMorphs(app, probe, host, count, log) {
       break;
     }
     const expandText = cold
-      ? `cold expand ${coldExpand.fps} fps (not gated)`
+      ? `cold expand ${coldExpand.fps} fps (not gated until #81)`
       : `expand ${expanded.morph.fps} fps`;
     log(`cycle ${cycle + 1}/${count}: ${expandText}, collapse ${morphs.at(-1).fps} fps`);
     if (cold) cycle -= 1;

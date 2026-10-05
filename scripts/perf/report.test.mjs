@@ -651,7 +651,7 @@ describe('reports', () => {
     expect(booked.measurements.morphFpsMin).toBe(70);
     expect(booked.evaluation.failed).not.toContain('morphFpsMin');
     expect(renderMarkdown(booked)).toContain(
-      'cold first expand 40 fps, 7 frames over 175 ms (not gated)',
+      'cold first expand 40 fps, 7 frames over 175 ms (not gated until #81 brings it back in)',
     );
 
     const measured = buildReport({
@@ -826,7 +826,9 @@ describe('morph drive', () => {
     expect(driven.morphs.filter((m) => !m.expanded)).toHaveLength(3);
     expect(morphSummary(driven.morphs).minFps).toBe(70);
     expect(driven.stall).toBeNull();
-    expect(driven.notes.join('\n')).toContain('`coldExpand`');
+    expect(driven.notes.join('\n')).toContain(
+      'reported as `coldExpand` and not gated until #81 brings it back in',
+    );
   });
 
   it('keeps a frameless expand after the first cycle in the measured set', async () => {
