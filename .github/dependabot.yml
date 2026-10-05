@@ -36,6 +36,9 @@ updates:
       # Pinned deliberately; bump by hand together with the Tauri upgrade guide.
       - dependency-name: "@tauri-apps/*"
         update-types: [version-update:semver-major]
+      # Follows the Node major in .node-version; bump by hand with the runtime.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: cargo
     directory: /apps/desktop/src-tauri
