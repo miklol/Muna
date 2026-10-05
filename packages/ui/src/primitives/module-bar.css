@@ -11,10 +11,23 @@
   align-items: center;
   gap: var(--space-2);
   inline-size: var(--size-module-bar-width);
-  max-inline-size: 100%;
+
+  /*
+   * Never wider than the container or the viewport (minus the panel padding): a shrink-to-fit
+   * host resolves `100%` to the pill's own width, so the viewport term is what keeps the
+   * pill on screen in a 320 px work area. The slot count follows the measured width.
+   */
+  max-inline-size: min(100%, calc(100vw - 2 * var(--space-4)));
+  min-inline-size: 0;
   block-size: var(--size-module-bar-height);
   padding: 0 4px;
   border-radius: var(--radius-bar);
+
+  /*
+   * `--surface-2` on `--notch-black` (docs/05-design-system.md "Module bar"): the pill floats
+   * over a transparent window, so the black base must be painted here or white glyphs vanish
+   * on a light desktop.
+   */
   background: linear-gradient(var(--surface-2), var(--surface-2)) var(--notch-black);
   box-shadow: inset 0 0 0 1px var(--hairline);
   box-sizing: border-box;

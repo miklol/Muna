@@ -11,6 +11,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useCallback,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -126,12 +127,44 @@ const shiftSlots = (index: number, from: number, to: number): number => {
 };
 
 /**
+ * Border-box width of the bar as laid out, or `null` until measured. The bar's CSS caps it at
+ * its container, so on a narrow work area the measured width is what the slots must fit in.
+ * The observer is disconnected on unmount; nothing polls.
+ */
+const useMeasuredWidth = (ref: { readonly current: HTMLElement | null }): number | null => {
+  const [width, setWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (node === null) {
+      return;
+    }
+    const read = (next: number) => {
+      setWidth(next > 0 ? next : null);
+    };
+    read(node.offsetWidth);
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver((entries) => {
+      const box = entries[0]?.borderBoxSize[0];
+      read(box !== undefined ? box.inlineSize : node.offsetWidth);
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [ref]);
+  return width;
+};
+
+/**
  * Module bar (docs/05-design-system.md "Module bar", docs/06-motion-spec.md "Module switch"):
- * the 640 × 40 pill under the panel. A `tablist` of icon tabs; the active tab carries a
- * `--surface-3` pill that glides with the `switch` spring (shared `layoutId`). Arrow keys move
- * and activate, Home/End jump, Ctrl+Arrow reorders; dragging a tab past 4 px reorders with the
- * pointer (neighbours make room with the `layout` spring), Escape cancels. Icons scale to
- * 1.08 on hover with `toggle`.
+ * the 640 × 40 pill under the panel — narrower when the panel is, with the slot count following
+ * the measured width. A `tablist` of icon tabs; the active tab carries a `--surface-3` pill
+ * that glides with the `switch` spring (shared `layoutId`). Arrow keys move and activate,
+ * Home/End jump, Ctrl+Arrow reorders; dragging a tab past 4 px reorders with the pointer
+ * (neighbours make room with the `layout` spring), Escape cancels. Icons scale to 1.08 on
+ * hover with `toggle`.
  */
 export function ModuleBar({
   items,
@@ -143,6 +176,7 @@ export function ModuleBar({
   ...labelling
 }: ModuleBarProps) {
   const groupId = useId();
+  const barRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const indicatorTransition = useMotionPreset('switch');
   const layoutTransition = useMotionPreset('layout');
@@ -161,7 +195,10 @@ export function ModuleBar({
     return value;
   };
 
-  const capacity = moduleBarCapacity();
+  // Capacity follows the laid-out width; before the first measurement (and in jsdom, where
+  // boxes are 0 wide) the design-system default applies.
+  const measuredWidth = useMeasuredWidth(barRef);
+  const capacity = moduleBarCapacity(measuredWidth ?? moduleBarLayout.width);
   const activeIndex = items.findIndex((item) => item.id === activeId);
   const perPage = items.length > capacity ? capacity - 1 : Math.max(1, items.length);
   const [page, setPage] = useState(() =>
@@ -178,11 +215,26 @@ export function ModuleBar({
   const paged = moduleBarPage(items, page, capacity);
   const { visible } = paged;
   const overflowing = paged.pages > 1;
+  // The page the active tab lives on; a page without it still needs one tab in the tab order.
+  const activeOnPage = visible.some((item) => item.id === activeId);
 
   const updateDrag = (next: DragState | null) => {
     dragRef.current = next;
     setDrag(next);
   };
+
+  // A drag cannot survive a re-layout (the page or the slot pitch changed under the pointer):
+  // drop it and let every tab settle home rather than commit a stale index.
+  useEffect(() => {
+    const current = dragRef.current;
+    if (current !== null && !visible.some((item) => item.id === current.id)) {
+      for (const value of xValues.values()) {
+        value.set(0);
+      }
+      dragRef.current = null;
+      setDrag(null);
+    }
+  }, [visible, xValues]);
 
   const tabs = useCallback(
     (): HTMLButtonElement[] =>
@@ -355,6 +407,7 @@ export function ModuleBar({
   return (
     <LayoutGroup id={groupId}>
       <div
+        ref={barRef}
         className={cx('muna-module-bar', className)}
         data-dragging={drag?.active === true ? '' : undefined}
       >
@@ -375,7 +428,9 @@ export function ModuleBar({
                 role="tab"
                 aria-label={item.label}
                 aria-selected={isActive}
-                tabIndex={isActive || (activeIndex < 0 && index === 0) ? 0 : -1}
+                // Roving tabindex: the active tab, or the first tab of a page that does not
+                // hold it, so every page is reachable from the keyboard (not only the pager).
+                tabIndex={isActive || (!activeOnPage && index === 0) ? 0 : -1}
                 className="muna-module-bar__tab"
                 data-active={isActive ? '' : undefined}
                 data-dragged={isDragged ? '' : undefined}
