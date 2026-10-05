@@ -861,11 +861,14 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   }, [morphing, publishShapes]);
 
   const onMorphStart = (definition: unknown) => {
-    // Under reduced motion Motion snaps the layout values and tweens only the radius
-    // (docs/modules/notch-shell.md, Implementation notes M1-E1). A retarget that keeps the
-    // radius — the panel's height measured after its first mount (#71) — snaps, and the tween
-    // in flight goes on being sampled as the same morph.
-    if (reduceMotion && sampler.current.active && sampled.current?.radius === radius) {
+    // A retarget that keeps the radius — the panel's height measured after its first mount
+    // (#71) — goes on as the same morph. Under reduced motion it snaps (docs/modules/
+    // notch-shell.md, Implementation notes M1-E1) and the radius tween in flight ends the
+    // morph; a spring retarget replaces the motion in flight, so it ends the morph instead.
+    if (sampler.current.active && sampled.current?.radius === radius) {
+      if (!reduceMotion) {
+        sampled.current = { definition, radius };
+      }
       return;
     }
     // A morph that leaves the radius where it shows is instant: its sample has no frame.
@@ -894,6 +897,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   // here or its frame loop would keep the renderer awake for as long as the shell stays parked.
   useEffect(() => {
     if (parked) {
+      sampled.current = null;
       sampler.current.stop();
     }
   }, [parked]);

@@ -96,7 +96,12 @@ export class MorphSampler {
     };
   }
 
+  /**
+   * Whether a morph is being sampled. A sample older than [`MAX_SAMPLE_MS`] is a missed
+   * completion, not a morph in flight, so a new morph does not continue it.
+   */
   get active(): boolean {
-    return this.#sample !== null;
+    const sample = this.#sample;
+    return sample !== null && performance.now() - sample.start < MAX_SAMPLE_MS;
   }
 }

@@ -284,16 +284,19 @@ decided during M1-E1 and is the behaviour to test against.
   `max_frame_ms` and `dropped`, the duration spanning the first to the last frame. A morph
   that spans no frame is not reported when it was instant — a mount, or under reduced motion
   one that leaves the radius where it is — or cut short within 20 ms (`SNAP_MIN_MS`); a tween
-  that drew no frame is reported with `frames=0`, `fps=0` and its wall duration. Under reduced
-  motion a retarget that keeps the radius target — the panel's height, measured once it
-  mounts, arriving mid-expand — continues the sample, and only the motion that started a
-  sample ends it; before [#71](https://github.com/miklol/Muna/issues/71) the retarget
-  restarted the sample, dropped it as instant, and left a session's first expand unreported.
-  With the spring, a retarget still starts a new sample. While hover intent runs (`hoverReveal`,
-  or the pointer near a collapsed or peeking strip) the panel and module bar are pre-rendered
-  in a hidden React `Activity` — idle priority, no effects, `display: none` — so the expand
-  that follows mounts warm code (data fetches and subscriptions still start on the real
-  mount); the copy goes when the panel shows or the pointer leaves.
+  that drew no frame is reported with `frames=0`, `fps=0` and its wall duration. A retarget
+  that keeps the radius target — the panel's height, measured once it mounts, arriving
+  mid-expand — continues the sample rather than starting one. Under reduced motion the
+  retarget snaps and the radius tween in flight still ends the sample; a spring retarget
+  replaces the motion in flight, so its own completion ends it. Before
+  [#71](https://github.com/miklol/Muna/issues/71) the retarget restarted the sample; under
+  reduced motion it was dropped as instant, which left a session's first expand unreported,
+  and with the spring the report lost the frames before the retarget. While hover intent runs
+  (`hoverReveal`, or the pointer near a collapsed or peeking strip) the panel and module bar
+  are pre-rendered in a hidden React `Activity` — idle priority, no effects,
+  `display: none` — so the expand that follows mounts warm code (data fetches and
+  subscriptions still start on the real mount); the copy goes when the panel shows or the
+  pointer leaves.
   Hover intent rather than the Low → Normal edge of the [memory target](#memory-target): it
   also covers the first expand after launch, and needs no new event from Rust.
 - **Window size** is 1120 × 480 CSS px (`layout::WINDOW_LOGICAL`): panel max width plus the

@@ -969,44 +969,53 @@ describe('NotchWindow scenario suite', () => {
       expect(ipc.commands.reportMorph.mock.calls.at(-1)?.[0]).toMatchObject({ expanded: true });
     });
 
-    it('#71: under reduced motion the first expand is sampled whole, through the panel height arriving mid-morph', async () => {
-      const base = defaultSettings();
-      cacheSettings(queryClient, { ...base, general: { ...base.general, reducedMotion: 'on' } });
-      // As in the browser, the panel's height reaches the shell after the expand has started.
-      const observed: { node: Element; callback: ResizeObserverCallback }[] = [];
-      vi.stubGlobal(
-        'ResizeObserver',
-        class {
-          readonly #callback: ResizeObserverCallback;
-          constructor(callback: ResizeObserverCallback) {
-            this.#callback = callback;
-          }
-          observe(node: Element) {
-            observed.push({ node, callback: this.#callback });
-          }
-          unobserve = vi.fn();
-          disconnect = vi.fn();
-        },
-      );
-      try {
-        const { main } = renderNotch();
-        pointer(main, 'pointermove', ON_STRIP, 0);
-        await advance(600);
-        expect(stateOf(main)).toBe('expanded');
-        const panel = observed.find((o) => o.node.querySelector(':scope > [role="dialog"]'));
-        expect(panel).toBeDefined();
-        const entry = { borderBoxSize: [{ blockSize: 360, inlineSize: 0 }] };
-        act(() => {
-          panel?.callback([entry as unknown as ResizeObserverEntry], {} as ResizeObserver);
-        });
-        await settle();
-        const expands = ipc.commands.reportMorph.mock.calls.filter(([r]) => r.expanded);
-        expect(expands).toHaveLength(1);
-        expect(expands[0]?.[0].frames).toBeGreaterThan(5);
-      } finally {
-        vi.unstubAllGlobals();
-      }
-    });
+    it.each([
+      ['under reduced motion', 'on'],
+      ['with the spring', 'off'],
+    ] as const)(
+      '#71: %s the first expand is sampled whole, through the panel height arriving mid-morph',
+      async (_, reducedMotion) => {
+        const base = defaultSettings();
+        cacheSettings(queryClient, { ...base, general: { ...base.general, reducedMotion } });
+        // As in the browser, the panel's height reaches the shell after the expand has started.
+        const observed: { node: Element; callback: ResizeObserverCallback }[] = [];
+        vi.stubGlobal(
+          'ResizeObserver',
+          class {
+            readonly #callback: ResizeObserverCallback;
+            constructor(callback: ResizeObserverCallback) {
+              this.#callback = callback;
+            }
+            observe(node: Element) {
+              observed.push({ node, callback: this.#callback });
+            }
+            unobserve = vi.fn();
+            disconnect = vi.fn();
+          },
+        );
+        try {
+          const { main } = renderNotch();
+          pointer(main, 'pointermove', ON_STRIP, 0);
+          await advance(600);
+          expect(stateOf(main)).toBe('expanded');
+          const start = vi.spyOn(MorphSampler.prototype, 'start');
+          const panel = observed.find((o) => o.node.querySelector(':scope > [role="dialog"]'));
+          expect(panel).toBeDefined();
+          const entry = { borderBoxSize: [{ blockSize: 360, inlineSize: 0 }] };
+          act(() => {
+            panel?.callback([entry as unknown as ResizeObserverEntry], {} as ResizeObserver);
+          });
+          await settle();
+          // The retarget continues the expand's sample rather than starting one of its own.
+          expect(start).not.toHaveBeenCalled();
+          const expands = ipc.commands.reportMorph.mock.calls.filter(([r]) => r.expanded);
+          expect(expands).toHaveLength(1);
+          expect(expands[0]?.[0].frames).toBeGreaterThan(5);
+        } finally {
+          vi.unstubAllGlobals();
+        }
+      },
+    );
   });
 
   describe('drop actions (M4-E1)', () => {

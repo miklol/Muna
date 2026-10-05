@@ -204,16 +204,15 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    ([#71](https://github.com/miklol/Muna/issues/71)): the panel's height is measured only once
    it mounts, so the first expand is retargeted mid-morph; under reduced motion the retarget
    restarted the sample, which ended at once with no frame and was dropped, and the radius
-   tween then finished with nothing to report. The shell now keeps a reduced-motion retarget
-   that leaves the radius target alone in the same sample, ended only by the motion that
-   started it; it also pre-renders the panel while hover intent runs and reports a tween that
-   drew no frame as `fps=0 frames=0` with its wall duration. The harness reports cycle 1's
-   expand, which meets a cold renderer, as **`coldExpand`** (fps, frames, duration, longest
-   frame, `atMs`) apart from the gated morphs, with a note, and runs cycle 1 again, so the 20
-   measured cycles follow it; that cycle's collapse is a warm morph and stays gated. A
-   frameless expand in any later cycle stays in the measured set, where its 0 fps fails the
-   gate, and a cycle that never morphs still fails the run; the stall snapshot, the retries
-   and `silentExpand` stay as the safety net.
+   tween then finished with nothing to report. A retarget that keeps the radius target now
+   continues the sample; the shell also pre-renders the panel while hover intent runs and
+   reports a tween that drew no frame as `fps=0 frames=0` with its wall duration. The harness
+   reports cycle 1's expand, which meets a cold renderer, as **`coldExpand`** (fps, frames,
+   duration, longest frame, `atMs`) apart from the gated morphs, with a note, and runs cycle 1
+   again, so the 20 measured cycles follow it; that cycle's collapse is a warm morph and
+   stays gated. A frameless expand in any later cycle stays in the measured set, where its
+   0 fps fails the gate, and a cycle that never morphs still fails the run; the stall
+   snapshot, the retries and `silentExpand` stay as the safety net.
 6. Write the JSON report and the markdown the `app` job posts on the PR (with the
    `<!-- muna-perf-report -->` marker); exit 1 on any breach or when nothing was measured.
    `--baseline` renders a delta column against an earlier JSON. Which steps run on PRs

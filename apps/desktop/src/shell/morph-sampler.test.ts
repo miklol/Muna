@@ -105,6 +105,7 @@ describe('MorphSampler', () => {
     expect(pending).not.toBeNull();
     frame(MAX_SAMPLE_MS);
     expect(pending).toBeNull();
+    expect(sampler.active).toBe(false);
     // The report is still available to whoever stops the sample later.
     expect(sampler.stop(false)?.frames).toBe(2);
   });
