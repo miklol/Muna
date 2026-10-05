@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { describeStall } from './harness.mjs';
+import { describeStall, driveMorphs } from './harness.mjs';
 import {
   budgets,
   buildReport,
@@ -626,6 +626,44 @@ describe('reports', () => {
     expect(lastOnly).not.toContain(READY);
     expect(renderStallLog({ ...stall, recentLog: [] })).toEqual([]);
   });
+
+  it('keeps a frameless cold expand apart and fails a frameless morph in the measured set (#71)', () => {
+    const frameless = parseMorphLine(
+      MORPH.replace(
+        'expanded=false fps=153 frames=61 duration_ms=399 max_frame_ms=22',
+        'expanded=true fps=0 frames=0 duration_ms=180 max_frame_ms=180',
+      ),
+    );
+    expect(frameless).toMatchObject({ expanded: true, fps: 0, frames: 0, durationMs: 180 });
+    const warm = [
+      { expanded: true, fps: 70, frames: 9, durationMs: 128, maxFrameMs: 15, dropped: 0 },
+      { expanded: false, fps: 74, frames: 10, durationMs: 135, maxFrameMs: 15, dropped: 0 },
+    ];
+    const coldExpand = { durationMs: 180, maxFrameMs: 180, atMs: 321000 };
+    const booked = buildReport({
+      mode: 'full',
+      plan: planFor('full'),
+      exe,
+      host,
+      results: { ...results, morphs: warm, coldExpand },
+    });
+    expect(booked.coldExpand).toEqual(coldExpand);
+    expect(booked.measurements.morphFpsMin).toBe(70);
+    expect(booked.evaluation.failed).not.toContain('morphFpsMin');
+    expect(renderMarkdown(booked)).toContain('cold first expand in one frame, 180 ms (not gated)');
+
+    const measured = buildReport({
+      mode: 'full',
+      plan: planFor('full'),
+      exe,
+      host,
+      results: { ...results, morphs: [...warm, frameless] },
+    });
+    expect(measured.coldExpand).toBeNull();
+    expect(measured.measurements.morphFpsMin).toBe(0);
+    expect(measured.evaluation.failed).toContain('morphFpsMin');
+    expect(renderMarkdown(measured)).not.toContain('cold first expand');
+  });
 });
 
 describe('stall notes', () => {
@@ -714,5 +752,81 @@ describe('stall notes', () => {
       recentLog: [],
     });
     expect(line).toContain('memory target normal (normal requested 6.3 s earlier)');
+  });
+});
+
+describe('morph drive', () => {
+  /** A shell that expands while the cursor sits on the strip and collapses when it leaves. */
+  const fakeSession = (expands) => {
+    const listeners = new Set();
+    const app = {
+      morphs: [],
+      waitForMorph(predicate, timeoutMs) {
+        return new Promise((resolve, reject) => {
+          const listener = (record) => {
+            if (!predicate(record)) return;
+            listeners.delete(listener);
+            resolve(record);
+          };
+          listeners.add(listener);
+          setTimeout(
+            () => reject(new Error(`no matching morph within ${timeoutMs} ms`)),
+            timeoutMs,
+          );
+        });
+      },
+    };
+    const emit = (morph) => {
+      const record = { label: 'notch', dropped: 0, ...morph, atMs: app.morphs.length };
+      app.morphs.push(record);
+      for (const listener of [...listeners]) listener(record);
+    };
+    let open = false;
+    const move = async (_x, y) => {
+      if (!open && y < 10) {
+        open = true;
+        emit({ expanded: true, ...expands.shift() });
+      } else if (open && y > 500) {
+        open = false;
+        emit({ expanded: false, fps: 74, frames: 10, durationMs: 135, maxFrameMs: 15 });
+      }
+      return { ok: true };
+    };
+    const window = { left: 12, top: 0, right: 1012, bottom: 440, dpi: 96, visible: true };
+    const probe = { windows: async () => [window], input: move, cursor: move };
+    return { app, probe };
+  };
+  const host = { screenWidth: 1024, screenHeight: 768 };
+  const warm = { fps: 70, frames: 9, durationMs: 128, maxFrameMs: 15 };
+  const frameless = { fps: 0, frames: 0, durationMs: 180, maxFrameMs: 180 };
+
+  const drive = async (expands, count) => {
+    vi.useFakeTimers();
+    try {
+      const { app, probe } = fakeSession(expands);
+      const driven = driveMorphs(app, probe, host, count, () => {});
+      await vi.runAllTimersAsync();
+      return await driven;
+    } finally {
+      vi.useRealTimers();
+    }
+  };
+
+  it('books a frameless first expand as the cold expand and measures the cycles after it (#71)', async () => {
+    const driven = await drive([frameless, warm, warm], 2);
+    expect(driven.coldExpand).toEqual({ durationMs: 180, maxFrameMs: 180, atMs: 0 });
+    expect(driven.morphs.filter((m) => m.expanded)).toEqual([
+      expect.objectContaining(warm),
+      expect.objectContaining(warm),
+    ]);
+    expect(driven.morphs.every((m) => m.frames > 0)).toBe(true);
+    expect(driven.stall).toBeNull();
+    expect(driven.notes.join('\n')).toContain('`coldExpand`');
+  });
+
+  it('keeps a frameless expand after the first cycle in the measured set', async () => {
+    const driven = await drive([warm, frameless], 2);
+    expect(driven.coldExpand).toBeNull();
+    expect(morphSummary(driven.morphs).minFps).toBe(0);
   });
 });

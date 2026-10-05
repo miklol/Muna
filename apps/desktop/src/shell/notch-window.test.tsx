@@ -33,6 +33,7 @@ import { queryClient } from '../lib/query-client';
 import { cacheSettings } from '../lib/settings';
 import type { DropSurfaceProps, ModuleDefinition, SnapSurfaceProps } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
+import { MorphSampler } from './morph-sampler';
 import { NotchWindow } from './notch-window';
 import { shellSizes } from './shell-geometry';
 
@@ -915,6 +916,57 @@ describe('NotchWindow scenario suite', () => {
       await settle();
       expect(screen.queryByRole('tablist')).toBeNull();
       expect(lastRects()).toEqual([STRIP_REST]);
+    });
+
+    it('#71: hover intent pre-renders the panel hidden, without its effects, until it opens', async () => {
+      const mounted = vi.fn();
+      const WarmBody = () => {
+        useEffect(() => {
+          mounted();
+        }, []);
+        return <p>warm body</p>;
+      };
+      const { main } = renderNotch(undefined, [{ ...fakeModules[0]!, panel: WarmBody }]);
+      expect(screen.queryByText('warm body')).toBeNull();
+
+      pointer(main, 'pointermove', ON_STRIP, 0);
+      await advance(300);
+      expect(stateOf(main)).toBe('hoverReveal');
+      expect(screen.getByText('warm body')).not.toBeVisible();
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('tablist')).toBeNull();
+      expect(mounted).not.toHaveBeenCalled();
+
+      await advance(300);
+      expect(stateOf(main)).toBe('expanded');
+      expect(screen.getAllByText('warm body')).toHaveLength(1);
+      expect(within(main).getByRole('dialog')).toContainElement(screen.getByText('warm body'));
+      expect(mounted).toHaveBeenCalledTimes(1);
+
+      // Closed with the pointer still on the strip it warms again; once the pointer leaves it goes.
+      fireEvent.keyDown(window, { key: 'Escape' });
+      await settle();
+      expect(screen.getByText('warm body')).not.toBeVisible();
+      pointer(main, 'pointermove', FAR_AWAY, 2000);
+      await settle();
+      expect(screen.queryByText('warm body')).toBeNull();
+    });
+
+    it('#71: under reduced motion only a morph that moves the radius is sampled as a tween', async () => {
+      const base = defaultSettings();
+      cacheSettings(queryClient, { ...base, general: { ...base.general, reducedMotion: 'on' } });
+      const start = vi.spyOn(MorphSampler.prototype, 'start');
+      const { main } = renderNotch();
+      pointer(main, 'pointermove', ON_STRIP, 0);
+      await advance(250);
+      expect(stateOf(main)).toBe('hoverReveal');
+      expect(start).toHaveBeenLastCalledWith(false);
+
+      await advance(350);
+      expect(stateOf(main)).toBe('expanded');
+      expect(start).toHaveBeenLastCalledWith(true);
+      await settle();
+      expect(ipc.commands.reportMorph.mock.calls.at(-1)?.[0]).toMatchObject({ expanded: true });
     });
   });
 

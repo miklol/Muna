@@ -27,6 +27,7 @@ import {
 import { AnimatePresence, motion, type MotionStyle, type Transition } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  Activity,
   type FocusEvent as ReactFocusEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -163,6 +164,9 @@ export const wheelVolumeDelta = (deltaY: number): number => -Math.sign(deltaY) *
 const ignoreRefusal = () => {
   // The platform refused or the device vanished; the strip shows whatever is true next.
 };
+
+/** Handlers for the hidden panel pre-render, which never takes input. */
+const noop = () => undefined;
 
 /** S2 spike: a suppressed native drag lands in the app log for the driver (G5). */
 const dragSpikeHandlers: DragOutHandlers = {
@@ -855,14 +859,18 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   }, [morphing, publishShapes]);
 
   const onMorphStart = () => {
-    sampler.current.start();
+    // Under reduced motion Motion snaps the layout values and tweens only the radius
+    // (docs/modules/notch-shell.md, Implementation notes M1-E1): a morph that leaves the
+    // radius where it shows is instant, and its sample has no frame to count.
+    const shownRadius = shellRef.current?.style.getPropertyValue(notchMorphRadiusVar);
+    sampler.current.start(!reduceMotion || shownRadius !== `${String(radius)}px`);
   };
 
   const onMorphComplete = () => {
     setSettledGeometry(currentGeometry);
+    // The sampler drops instant morphs and keeps a tween a long task swallowed (`frames: 0`).
     const report = sampler.current.stop(largeShown);
-    // Mount and instant (reduced-motion) morphs span no frame: nothing worth logging.
-    if (report !== null && report.frames > 0) {
+    if (report !== null) {
       setLastMorph(report);
       reportMorph(report);
     }
@@ -974,6 +982,33 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
       : t(activeModule.titleKey);
   const ActivePanel = activeModule?.panel;
   const bodyKey = paletteOpen ? 'palette' : (activeModule?.id ?? 'empty');
+  // The panel's first render after a quiet spell is a long task that can swallow the whole
+  // expand (#71). While hover intent runs, React pre-renders the panel hidden — idle priority,
+  // no effects, no layout — so the expand that follows mounts warm code.
+  const warmPanel =
+    !panelShown &&
+    (state === 'hoverReveal' ||
+      (snapshot.pointerNear && (state === 'collapsed' || state === 'peek')));
+  const panelWarmup = useMemo(
+    () => (
+      <>
+        <Panel title={panelTitle} pinned={false} onPinChange={noop} onCollapse={noop}>
+          {panelBody ?? (ActivePanel === undefined ? <PanelEmptyState /> : <ActivePanel />)}
+        </Panel>
+        {hasModuleBar && (
+          <ModuleBar
+            aria-label={t('notch.modules')}
+            overflowLabel={t('notch.moreModules')}
+            items={moduleBarItems}
+            activeId={activeModule?.id ?? null}
+            onActivate={noop}
+            onReorder={noop}
+          />
+        )}
+      </>
+    ),
+    [ActivePanel, activeModule?.id, hasModuleBar, moduleBarItems, panelBody, panelTitle, t],
+  );
 
   return (
     <main
@@ -1167,6 +1202,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
           )}
         </AnimatePresence>
       )}
+      {warmPanel && <Activity mode="hidden">{panelWarmup}</Activity>}
       {hitTestOverlayEnabled && (
         <HitTestOverlay rects={publishedRects} state={state} morph={lastMorph} />
       )}

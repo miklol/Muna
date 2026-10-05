@@ -1507,7 +1507,8 @@ fn report_morph(window: WebviewWindow, state: State<'_, Shared>, report: MorphRe
     }
 }
 
-/// Average frames per second of a morph, rounded; `0` for an empty report.
+/// Average frames per second of a morph, rounded; `0` for an empty report and for a tween that
+/// drew no frame because a long task swallowed it (`frames: 0` with its wall duration, #71).
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn morph_fps(report: &MorphReport) -> u32 {
     if report.duration_us == 0 {
@@ -3090,4 +3091,26 @@ pub fn export_bindings(path: &Path) -> anyhow::Result<()> {
         path,
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const fn morph(frames: u32, duration_us: u32) -> MorphReport {
+        MorphReport {
+            expanded: true,
+            frames,
+            duration_us,
+            max_frame_us: duration_us,
+            dropped_frames: 0,
+        }
+    }
+
+    #[test]
+    fn a_frameless_tween_logs_zero_fps() {
+        assert_eq!(morph_fps(&morph(9, 128_000)), 70);
+        assert_eq!(morph_fps(&morph(0, 180_000)), 0);
+        assert_eq!(morph_fps(&morph(0, 0)), 0);
+    }
 }

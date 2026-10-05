@@ -409,6 +409,11 @@ export function renderMarkdown(report, baseline = null) {
         `${report.morphs.count} morphs, median ${round(report.morphs.medianFps, 0)} fps, longest frame ${report.morphs.maxFrameMs} ms, ${report.morphs.droppedFrames} dropped`,
       );
     }
+    if (report.coldExpand) {
+      details.push(
+        `cold first expand in one frame, ${report.coldExpand.durationMs} ms (not gated)`,
+      );
+    }
     if (details.length > 0) lines.push(`Details: ${details.join(' · ')}.`, '');
     if (baseline && report.idleCpu && !baseline.idleCpu) {
       lines.push(
@@ -517,6 +522,11 @@ export function buildReport({ mode, plan, exe, host, results, notes = [], genera
     rawMorphs: results.morphs ?? [],
     /** Desktop snapshot taken when a morph cycle stalled (`driveMorphs`); `null` when none did. */
     morphStall: results.morphStall ?? null,
+    /**
+     * The session's first expand when it completed inside one frame (#71), kept apart from the
+     * gated morphs: `{ durationMs, maxFrameMs, atMs }`, or `null` when it animated.
+     */
+    coldExpand: results.coldExpand ?? null,
     evaluation,
     notes,
   };

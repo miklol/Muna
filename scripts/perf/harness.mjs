@@ -431,9 +431,9 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
  * that, through `SetCursorPos`. The snapshot comes back as `stall` (kept in the JSON report)
  * and the notes say which attempt worked, so a stall on a CI runner can be read instead of
  * guessed. On the hosted runner (Windows Server 2025, 4 vCPU, reduced motion, debug build) the
- * first expand of the session completes within a single frame — the strip does open, but the
- * sampler logs no morph for it — and the second attempt with the same mover reports normally
- * (nightly runs 37197808643, 37198821548 and 37200725934 on this harness).
+ * first expand of the session could complete within a single frame, unreported (nightly runs
+ * 37197808643, 37198821548 and 37200725934); the shell now reports such a morph with
+ * `frames: 0`, and a cycle-1 one comes back as `coldExpand`, apart from the measured morphs.
  */
 export async function driveMorphs(app, probe, host, count, log) {
   const notes = [];
@@ -443,7 +443,7 @@ export async function driveMorphs(app, probe, host, count, log) {
     notes.push(
       'No placed notch window was found (desktop locked or notch parked); morphs were not driven.',
     );
-    return { morphs: [], notes, stall: null };
+    return { morphs: [], notes, stall: null, coldExpand: null };
   }
   const point = stripProbePoint(primary);
   // Where a real approach passes first: inside the notch window's bounds but under the resting
@@ -458,10 +458,11 @@ export async function driveMorphs(app, probe, host, count, log) {
   const morphs = [];
   const seen = app.morphs.length;
   let stall = null;
+  let coldExpand = null;
   let mover = 'input';
   for (let cycle = 0; cycle < count; cycle += 1) {
     let expanded = await expandOnce(app, probe, approach, mover);
-    if (!expanded.ok && cycle === 0) {
+    if (!expanded.ok && cycle === 0 && stall === null) {
       stall = await stallSnapshot(app, probe, point, 'expand', mover, expanded);
       notes.push(describeStall(stall));
       // Attempt 2 repeats the same mover (a cold first expand recovers here); attempt 3 goes
@@ -499,7 +500,20 @@ export async function driveMorphs(app, probe, host, count, log) {
       );
       break;
     }
-    morphs.push(expanded.morph);
+    // The session's first expand can complete inside one frame — a long first render swallows
+    // the tween — and the shell reports it with `frames: 0` (#71). It is booked apart as
+    // `coldExpand` and the cycle runs again, so `count` measured cycles follow it; a frameless
+    // expand in any later cycle stays measured, and its 0 fps fails the gate.
+    const cold = coldExpand === null && morphs.length === 0 && expanded.morph.frames === 0;
+    if (cold) {
+      const { durationMs, maxFrameMs, atMs } = expanded.morph;
+      coldExpand = { morph: expanded.morph, durationMs, maxFrameMs, atMs };
+      notes.push(
+        `Cycle 1: the session's first expand completed inside one frame (${durationMs} ms with no frame drawn), so it is reported as \`coldExpand\` and not gated; ${count} measured cycles followed it.`,
+      );
+    } else {
+      morphs.push(expanded.morph);
+    }
     await sleep(400);
     const collapse = app.waitForMorph((m) => m.label === 'notch' && !m.expanded, MORPH_TIMEOUT_MS);
     await moveWith(probe, mover, away);
@@ -515,27 +529,33 @@ export async function driveMorphs(app, probe, host, count, log) {
       );
       break;
     }
-    log(
-      `cycle ${cycle + 1}/${count}: expand ${morphs[morphs.length - 2].fps} fps, collapse ${morphs[morphs.length - 1].fps} fps`,
-    );
+    const expandText = cold
+      ? `cold expand in one frame (${coldExpand.durationMs} ms)`
+      : `expand ${expanded.morph.fps} fps`;
+    log(`cycle ${cycle + 1}/${count}: ${expandText}, collapse ${morphs.at(-1).fps} fps`);
+    if (cold) cycle -= 1;
     await sleep(600);
   }
   // Include morphs the shell reported on its own during the drive (e.g. hover reveals).
-  const all = app.morphs.slice(seen).filter((m) => m.label === 'notch');
+  const all = app.morphs.slice(seen).filter((m) => m.label === 'notch' && m !== coldExpand?.morph);
   if (stall?.phase === 'expand') {
     // A collapse as the first morph after the stall means the strip had expanded without an
-    // expand report: the morph completed inside one frame, which the sampler does not log
-    // (apps/desktop/src/shell/morph-sampler.ts). A cold renderer and reduced motion's 150 ms
-    // tween make that likely on the hosted runner; the warm cycles that follow are measured.
+    // expand report. Since #71 the sampler reports a tween a long task swallowed, so this
+    // should not recur; the check stays to say so if it does.
     const first = all.find((m) => m.atMs > stall.atMs);
     stall.silentExpand = first !== undefined && !first.expanded;
     if (stall.silentExpand) {
       notes.push(
-        `The first morph the shell reported after the stall was a collapse (${Math.round(first.atMs / 1000)} s): the strip had expanded during the stalled attempt without an expand report, so that first expand completed within a single frame and is not in the measured set.`,
+        `The first morph the shell reported after the stall was a collapse (${Math.round(first.atMs / 1000)} s): the strip had expanded during the stalled attempt without an expand report, so that first expand is not in the measured set.`,
       );
     }
   }
-  return { morphs: all.length >= morphs.length ? all : morphs, notes, stall };
+  const booked = coldExpand && {
+    durationMs: coldExpand.durationMs,
+    maxFrameMs: coldExpand.maxFrameMs,
+    atMs: coldExpand.atMs,
+  };
+  return { morphs: all.length >= morphs.length ? all : morphs, notes, stall, coldExpand: booked };
 }
 
 /** Moves the cursor to `{ x, y }` with the given mover. */
