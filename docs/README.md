@@ -80,7 +80,8 @@ progress, screen time, health, AI coding, translation, mirror, support) and the 
 ## Build plan
 
 [`build-plan/README.md`](build-plan/README.md) — paste-ready kickoff prompts per milestone and
-epic, mapped to the custom agents in [`../.github/agents`](../.github/agents). Toolchain, first
+epic, mapped to the custom agents in [`../.github/agents`](../.github/agents), and how a
+coordinator session runs them through parallel worker sessions. Toolchain, first
 run and everyday commands for the code itself: [root README › Development](../README.md#development).
 
 ## Reference
