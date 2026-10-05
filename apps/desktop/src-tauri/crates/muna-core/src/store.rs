@@ -1,5 +1,5 @@
 //! SQLite store for module data (clipboard history, notification history, …) at
-//! `%LOCALAPPDATA%\Muna\muna.db` (docs/03-architecture.md "Storage").
+//! `%LOCALAPPDATA%\miklol\Muna\muna.db` (docs/03-architecture.md "Storage").
 //!
 //! M0 ships the connection, pragmas and a `user_version` migration runner plus one
 //! key/value table used for app metadata. Modules add their own migrations in their

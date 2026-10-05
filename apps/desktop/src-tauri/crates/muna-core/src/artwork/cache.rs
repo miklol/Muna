@@ -1,4 +1,4 @@
-//! On-disk artwork cache (`%LOCALAPPDATA%\Muna\cache\art\<key>.json`): one prepared
+//! On-disk artwork cache (`%LOCALAPPDATA%\miklol\Muna\cache\art\<key>.json`): one prepared
 //! [`Artwork`] per key, evicted oldest-first past a fixed count. Everything is best effort — a
 //! cache that cannot be written just costs a decode.
 

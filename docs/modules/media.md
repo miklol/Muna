@@ -83,7 +83,7 @@ The backend landed in M2-E1; the UI, visualiser, lyrics and output device follow
   `AppUserModelId`s are keyed `App#2`. The fake scripts sessions and thumbnails per app.
 - `muna-core::artwork` — OS-agnostic image work: `art_key(title, artist, album)`, `prepare`
   (decode, downscale past 512 px to PNG, otherwise pass the bytes through with their real MIME,
-  three-swatch deterministic k-means palette) and `ArtCache` (`%LOCALAPPDATA%\Muna\cache\art\
+  three-swatch deterministic k-means palette) and `ArtCache` (`%LOCALAPPDATA%\miklol\Muna\cache\art\
   <key>.json`, oldest-first eviction, atomic writes). `muna-core` still knows nothing about
   `muna-platform` (crate boundary rule).
 - `muna::modules::media` — `MediaTracker` (pure reducer: scoring, art bookkeeping, strip

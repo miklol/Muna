@@ -48,7 +48,9 @@ The workflow lives at [`.github/workflows/release.yml`](../.github/workflows/rel
 2. `tauri build --no-bundle` → `muna.exe`; **sign the binary first** (Azure Artifact Signing via
    OIDC) so the packaged executable carries a signature, then `tauri bundle --bundles nsis` →
    NSIS installer (`bundle.windows.nsis`, `webviewInstallMode: downloadBootstrapper`,
-   `installMode: currentUser`).
+   `installMode: currentUser`). Per-user NSIS installs to `%LOCALAPPDATA%\Muna`, which is why
+   the profile lives one level down at `%LOCALAPPDATA%\miklol\Muna`: an uninstall must never
+   take `settings.json` and `muna.db` with it.
 3. `scripts/msix/build.mjs`: stage the built `apps/desktop/src-tauri/target/release/` output,
    render `AppxManifest.xml` and the external-location manifest from `scripts/msix/identity.json`
    (version, publisher, capabilities), `MakeAppx pack /nv` → `Muna_<ver>_x64.msix` and

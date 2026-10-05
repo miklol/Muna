@@ -121,7 +121,7 @@ the collapse settles, the Rust half that a notice published meanwhile queues and
 on resume. S14 is `morph-transition.test.ts` and
 `packages/ui/src/motion/reduced-motion.os.test.tsx`. S9 arrives with the HUD (M2) and S10
 with Drop (M4). Hardware evidence is measured with
-`scripts/dev.ps1 -HitTest -FullMotion` and the `morph` lines in `%LOCALAPPDATA%\Muna\logs`;
+`scripts/dev.ps1 -HitTest -FullMotion` and the `morph` lines in `%LOCALAPPDATA%\miklol\Muna\logs`;
 numbers are recorded in
 [notch-shell.md → Implementation notes](modules/notch-shell.md#implementation-notes-m1-e1).
 When driving the notch with synthetic input, nudge the cursor once after the shell has made
@@ -270,7 +270,7 @@ switches; the automated half is the axe pass in `storybook:ci`.
 Labels: `bug`, `jank`, `perf`, `crash`, `a11y`, `fidelity`, `platform:<api>`. Every bug needs a
 repro, Windows build, monitor setup and the diagnostics bundle (Settings → Diagnostics →
 Export: logs, settings, monitor topology, identity status). Crashes: `tauri-plugin-log` files
-under `%LOCALAPPDATA%\Muna\logs`, plus Windows Error Reporting dump if present.
+under `%LOCALAPPDATA%\miklol\Muna\logs`, plus Windows Error Reporting dump if present.
 
 ## Definition of done (per PR)
 

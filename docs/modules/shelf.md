@@ -44,7 +44,7 @@ Items live in Rust, the panel sees ids. Pieces, in the order an item flows:
   size, copied, added_at, sort_order)`; the same path is never parked twice (a second drop of
   a parked file counts as nothing new), snippets are named after their first line. With *Copy
   files into Shelf storage* on, each file is copied through `FileOps::transfer` into its own
-  folder under `%LOCALAPPDATA%\Muna\shelf\<hex time>-<n>\` first and the copy is the item;
+  folder under `%LOCALAPPDATA%\miklol\Muna\shelf\<hex time>-<n>\` first and the copy is the item;
   removing the item deletes that folder (and only a folder directly inside Shelf storage).
   Items expire by the `expiryDays` setting (0 = never, at most 365) through an hourly sweep on
   the module backend, once at start.

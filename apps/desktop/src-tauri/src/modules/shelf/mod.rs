@@ -134,7 +134,7 @@ pub struct ShelfService {
     platform: Arc<dyn Platform>,
     store: Arc<Store>,
     clock: Arc<dyn Clock>,
-    /// `%LOCALAPPDATA%\Muna\shelf`; `None` disables copies (tests without a profile).
+    /// `%LOCALAPPDATA%\miklol\Muna\shelf`; `None` disables copies (tests without a profile).
     storage_dir: Option<PathBuf>,
     settings: Mutex<ShelfSettings>,
     /// The module is in `shell.disabledModules`: the drop tile refuses items meanwhile.
