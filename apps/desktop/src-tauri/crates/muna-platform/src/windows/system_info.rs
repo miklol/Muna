@@ -10,6 +10,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::GetAvailableCoreWebView2Brows
 use windows::Win32::Globalization::GetUserDefaultLocaleName;
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::Shell::{FOLDERID_Desktop, KF_FLAG_DEFAULT, SHGetKnownFolderPath};
+use windows::core::{PCWSTR, PWSTR};
 
 use super::{last_error, os_error};
 use crate::error::{PlatformError, PlatformResult};
@@ -41,16 +42,12 @@ fn os_name() -> String {
 
 /// The Evergreen (or fixed-version) runtime the app would load, or `None` without one.
 fn webview2_version() -> PlatformResult<Option<String>> {
-    let mut version = webview2_core::PWSTR::null();
+    let mut version = PWSTR::null();
     // SAFETY: `version` is a valid out pointer for the call's duration; on success the loader
     // hands back a `CoTaskMemAlloc`'d NUL-terminated string that is ours to read once and free.
-    // The loader is built against `windows-core` 0.61, hence its own `PCWSTR`/`PWSTR` types.
     #[allow(unsafe_code)]
     unsafe {
-        match GetAvailableCoreWebView2BrowserVersionString(
-            webview2_core::PCWSTR::null(),
-            &raw mut version,
-        ) {
+        match GetAvailableCoreWebView2BrowserVersionString(PCWSTR::null(), &raw mut version) {
             Ok(()) => {}
             Err(error) if error.code().0 == E_FILE_NOT_FOUND => return Ok(None),
             Err(error) => {
