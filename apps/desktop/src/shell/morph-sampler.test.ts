@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MAX_SAMPLE_MS, MorphSampler } from './morph-sampler';
+import { MAX_SAMPLE_MS, MorphSampler, SNAP_MIN_MS } from './morph-sampler';
 
 // Deterministic frame loop: `frame(ms)` runs the pending callback at that timestamp.
 let pending: FrameRequestCallback | null = null;
@@ -54,6 +54,50 @@ describe('MorphSampler', () => {
     expect(new MorphSampler().stop()).toBeNull();
   });
 
+  it('reports a tween that a long task swallowed before its first frame, with its wall time', () => {
+    const sampler = new MorphSampler();
+    now = 1000;
+    sampler.start();
+    // Motion completed the morph in the frame turn the sampler's first callback would have run.
+    now = 1180;
+    expect(sampler.stop(true)).toEqual({
+      expanded: true,
+      frames: 0,
+      durationUs: 180_000,
+      maxFrameUs: 180_000,
+      droppedFrames: 0,
+    });
+    expect(pending).toBeNull();
+  });
+
+  it('drops a frameless morph that was instant or cut short', () => {
+    const sampler = new MorphSampler();
+    // Reduced motion snaps the layout values: nothing tweens, however long the frame took.
+    sampler.start(false);
+    now = 400;
+    expect(sampler.stop(false)).toBeNull();
+    // A tween ended within one frame of starting: a new target cut it short.
+    now = 1000;
+    sampler.start();
+    now = 1000 + SNAP_MIN_MS - 1;
+    expect(sampler.stop(true)).toBeNull();
+    expect(sampler.active).toBe(false);
+    // From SNAP_MIN_MS on, a frameless tween is a stall and is reported.
+    sampler.start();
+    now += SNAP_MIN_MS;
+    expect(sampler.stop(true)).toEqual(expect.objectContaining({ frames: 0, durationUs: 20000 }));
+  });
+
+  it('keeps timing a sampled morph from its start to its last frame', () => {
+    const sampler = new MorphSampler();
+    sampler.start(false);
+    frame(16);
+    frame(33);
+    // Completion lands after the last counted frame; the span stays the frames' own.
+    now = 45;
+    expect(sampler.stop(false)).toMatchObject({ frames: 2, durationUs: 33_000 });
+  });
+
   it('stops requesting frames by itself once a sample outlives any real morph', () => {
     const sampler = new MorphSampler();
     sampler.start();
@@ -61,6 +105,7 @@ describe('MorphSampler', () => {
     expect(pending).not.toBeNull();
     frame(MAX_SAMPLE_MS);
     expect(pending).toBeNull();
+    expect(sampler.active).toBe(false);
     // The report is still available to whoever stops the sample later.
     expect(sampler.stop(false)?.frames).toBe(2);
   });

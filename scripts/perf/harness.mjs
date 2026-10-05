@@ -431,9 +431,12 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
  * that, through `SetCursorPos`. The snapshot comes back as `stall` (kept in the JSON report)
  * and the notes say which attempt worked, so a stall on a CI runner can be read instead of
  * guessed. On the hosted runner (Windows Server 2025, 4 vCPU, reduced motion, debug build) the
- * first expand of the session completes within a single frame — the strip does open, but the
- * sampler logs no morph for it — and the second attempt with the same mover reports normally
- * (nightly runs 37197808643, 37198821548 and 37200725934 on this harness).
+ * first expand of the session went unreported (nightly runs 37197808643, 37198821548,
+ * 37200725934 and 37301497415): the panel's height, measured once it mounts, retargets the
+ * shell mid-morph, and the shell used to drop that sample (#71). Cycle 1's expand comes back
+ * as `coldExpand`, reported apart from the measured morphs. The exclusion is temporary: it is
+ * not gated only until a pre-warm brings it back in (#81), when `coldExpand` goes back to
+ * `null` and cycle 1 is measured like the rest.
  */
 export async function driveMorphs(app, probe, host, count, log) {
   const notes = [];
@@ -443,7 +446,7 @@ export async function driveMorphs(app, probe, host, count, log) {
     notes.push(
       'No placed notch window was found (desktop locked or notch parked); morphs were not driven.',
     );
-    return { morphs: [], notes, stall: null };
+    return { morphs: [], notes, stall: null, coldExpand: null };
   }
   const point = stripProbePoint(primary);
   // Where a real approach passes first: inside the notch window's bounds but under the resting
@@ -458,10 +461,11 @@ export async function driveMorphs(app, probe, host, count, log) {
   const morphs = [];
   const seen = app.morphs.length;
   let stall = null;
+  let coldExpand = null;
   let mover = 'input';
   for (let cycle = 0; cycle < count; cycle += 1) {
     let expanded = await expandOnce(app, probe, approach, mover);
-    if (!expanded.ok && cycle === 0) {
+    if (!expanded.ok && cycle === 0 && stall === null) {
       stall = await stallSnapshot(app, probe, point, 'expand', mover, expanded);
       notes.push(describeStall(stall));
       // Attempt 2 repeats the same mover (a cold first expand recovers here); attempt 3 goes
@@ -499,7 +503,21 @@ export async function driveMorphs(app, probe, host, count, log) {
       );
       break;
     }
-    morphs.push(expanded.morph);
+    // The session's first expand meets a cold renderer: the panel's first render and the
+    // retarget to its measured height land inside it (#71). It is booked apart as
+    // `coldExpand` — reported, not gated until #81 brings it back in — and the cycle runs
+    // again, so `count` measured cycles follow it. Its collapse is a warm morph and stays
+    // gated, as before #71 (collapses then number one more than expands).
+    const cold = coldExpand === null;
+    if (cold) {
+      const { fps, frames, durationMs, maxFrameMs, atMs } = expanded.morph;
+      coldExpand = { morph: expanded.morph, fps, frames, durationMs, maxFrameMs, atMs };
+      notes.push(
+        `Cycle 1: the session's first expand ran at ${fps} fps (${frames} frames over ${durationMs} ms, longest frame ${maxFrameMs} ms); it is reported as \`coldExpand\` and not gated until #81 brings it back in, its collapse is measured, and ${count} measured cycles followed it.`,
+      );
+    } else {
+      morphs.push(expanded.morph);
+    }
     await sleep(400);
     const collapse = app.waitForMorph((m) => m.label === 'notch' && !m.expanded, MORPH_TIMEOUT_MS);
     await moveWith(probe, mover, away);
@@ -515,27 +533,35 @@ export async function driveMorphs(app, probe, host, count, log) {
       );
       break;
     }
-    log(
-      `cycle ${cycle + 1}/${count}: expand ${morphs[morphs.length - 2].fps} fps, collapse ${morphs[morphs.length - 1].fps} fps`,
-    );
+    const expandText = cold
+      ? `cold expand ${coldExpand.fps} fps (not gated until #81)`
+      : `expand ${expanded.morph.fps} fps`;
+    log(`cycle ${cycle + 1}/${count}: ${expandText}, collapse ${morphs.at(-1).fps} fps`);
+    if (cold) cycle -= 1;
     await sleep(600);
   }
   // Include morphs the shell reported on its own during the drive (e.g. hover reveals).
-  const all = app.morphs.slice(seen).filter((m) => m.label === 'notch');
+  const all = app.morphs.slice(seen).filter((m) => m.label === 'notch' && m !== coldExpand?.morph);
   if (stall?.phase === 'expand') {
     // A collapse as the first morph after the stall means the strip had expanded without an
-    // expand report: the morph completed inside one frame, which the sampler does not log
-    // (apps/desktop/src/shell/morph-sampler.ts). A cold renderer and reduced motion's 150 ms
-    // tween make that likely on the hosted runner; the warm cycles that follow are measured.
+    // expand report. Since #71 the shell samples the first expand through its retarget, so
+    // this should not recur; the check stays to say so if it does.
     const first = all.find((m) => m.atMs > stall.atMs);
     stall.silentExpand = first !== undefined && !first.expanded;
     if (stall.silentExpand) {
       notes.push(
-        `The first morph the shell reported after the stall was a collapse (${Math.round(first.atMs / 1000)} s): the strip had expanded during the stalled attempt without an expand report, so that first expand completed within a single frame and is not in the measured set.`,
+        `The first morph the shell reported after the stall was a collapse (${Math.round(first.atMs / 1000)} s): the strip had expanded during the stalled attempt without an expand report, so that first expand is not in the measured set.`,
       );
     }
   }
-  return { morphs: all.length >= morphs.length ? all : morphs, notes, stall };
+  const booked = coldExpand && {
+    fps: coldExpand.fps,
+    frames: coldExpand.frames,
+    durationMs: coldExpand.durationMs,
+    maxFrameMs: coldExpand.maxFrameMs,
+    atMs: coldExpand.atMs,
+  };
+  return { morphs: all.length >= morphs.length ? all : morphs, notes, stall, coldExpand: booked };
 }
 
 /** Moves the cursor to `{ x, y }` with the given mover. */

@@ -186,7 +186,13 @@ applies.
   8.4 → 5.7 MB). Its cost lands in the perf harness's settling phase, which is reported and
   not gated (≈ 0.3 % of one core over 30 s here, 0.01 % normalised; up to 1.3 % of one core
   on the 4-vCPU runner, which is why the idle CPU gate reads the later steady state —
-  [11](../11-ci-cd.md#performance-gates)). Still to verify on hardware: the first morph after a trim
+  [11](../11-ci-cd.md#performance-gates)). The first expand after a trim meets a cold
+  renderer, so hover intent pre-renders the panel
+  ([Implementation notes](#implementation-notes-m1-e1), "Morph and material"); the perf
+  harness reports a session's first expand apart as `coldExpand`
+  ([#71](https://github.com/miklol/Muna/issues/71)), not gated until a pre-warm brings it
+  back in ([#81](https://github.com/miklol/Muna/issues/81)). Still to verify on hardware:
+  the first morph after a trim
   (Low → Normal on hover, then 250 ms + 600 ms before the panel expands) holds ≥ 58 fps.
   The `webview memory target target=Low|Normal windows=N` log line marks every transition;
   the perf harness keys its idle memory value on it.
@@ -276,8 +282,28 @@ decided during M1-E1 and is the behaviour to test against.
   panel material is applied when the panel shows and removed only once the collapse has
   settled at strip size, where both materials look alike. `morph-sampler.ts` samples each
   morph with `requestAnimationFrame` and `report_morph` logs `fps`, `frames`, `duration_ms`,
-  `max_frame_ms` and `dropped`; morphs that span no frame (mount, reduced motion) are not
-  reported.
+  `max_frame_ms` and `dropped`, the duration spanning the first to the last frame. A morph
+  that spans no frame is not reported when it was instant — a mount, or under reduced motion
+  one that leaves the radius where it is — or cut short within 20 ms (`SNAP_MIN_MS`); a tween
+  that drew no frame is reported with `frames=0`, `fps=0` and its wall duration. A retarget
+  that keeps the radius target — the panel's height, measured once it mounts, arriving
+  mid-expand — continues the sample rather than starting one. Under reduced motion the
+  retarget snaps and the radius tween in flight still ends the sample; a spring retarget
+  replaces the motion in flight, so its own completion ends it. Before
+  [#71](https://github.com/miklol/Muna/issues/71) the retarget restarted the sample; under
+  reduced motion it was dropped as instant, which left a session's first expand unreported,
+  and with the spring the report lost the frames before the retarget. While hover intent runs
+  (`hoverReveal`, or the pointer near a collapsed or peeking strip) the panel and module bar
+  are pre-rendered in a hidden React `Activity` — idle priority, no effects,
+  `display: none` — so the expand that follows mounts warm code (data fetches and
+  subscriptions still start on the real mount); the copy goes when the panel shows or the
+  pointer leaves.
+  Hover intent rather than the Low → Normal edge of the [memory target](#memory-target): it
+  also covers the first expand after launch, and needs no new event from Rust. It is a
+  partial mitigation: the cold expand still runs at 39–49 fps on the nightly runner, so the
+  harness books it as `coldExpand` and does not gate it. That exclusion is temporary;
+  [#81](https://github.com/miklol/Muna/issues/81) tracks warming on the Low → Normal edge
+  to bring cycle 1 back under the ≥ 58 fps gate.
 - **Window size** is 1120 × 480 CSS px (`layout::WINDOW_LOGICAL`): panel max width plus the
   20 px shadow padding and the 8 % overshoot on each side, and the height of the tallest panel.
 - **Focus.** The window keeps `WS_EX_NOACTIVATE` until a text field inside the panel takes

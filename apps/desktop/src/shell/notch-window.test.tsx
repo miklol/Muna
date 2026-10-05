@@ -33,6 +33,7 @@ import { queryClient } from '../lib/query-client';
 import { cacheSettings } from '../lib/settings';
 import type { DropSurfaceProps, ModuleDefinition, SnapSurfaceProps } from '../modules/registry';
 import { useAppStore } from '../store/app-store';
+import { MorphSampler } from './morph-sampler';
 import { NotchWindow } from './notch-window';
 import { shellSizes } from './shell-geometry';
 
@@ -916,6 +917,105 @@ describe('NotchWindow scenario suite', () => {
       expect(screen.queryByRole('tablist')).toBeNull();
       expect(lastRects()).toEqual([STRIP_REST]);
     });
+
+    it('#71: hover intent pre-renders the panel hidden, without its effects, until it opens', async () => {
+      const mounted = vi.fn();
+      const WarmBody = () => {
+        useEffect(() => {
+          mounted();
+        }, []);
+        return <p>warm body</p>;
+      };
+      const { main } = renderNotch(undefined, [{ ...fakeModules[0]!, panel: WarmBody }]);
+      expect(screen.queryByText('warm body')).toBeNull();
+
+      pointer(main, 'pointermove', ON_STRIP, 0);
+      await advance(300);
+      expect(stateOf(main)).toBe('hoverReveal');
+      expect(screen.getByText('warm body')).not.toBeVisible();
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('tablist')).toBeNull();
+      expect(mounted).not.toHaveBeenCalled();
+
+      await advance(300);
+      expect(stateOf(main)).toBe('expanded');
+      expect(screen.getAllByText('warm body')).toHaveLength(1);
+      expect(within(main).getByRole('dialog')).toContainElement(screen.getByText('warm body'));
+      expect(mounted).toHaveBeenCalledTimes(1);
+
+      // Closed with the pointer still on the strip it warms again; once the pointer leaves it goes.
+      fireEvent.keyDown(window, { key: 'Escape' });
+      await settle();
+      expect(screen.getByText('warm body')).not.toBeVisible();
+      pointer(main, 'pointermove', FAR_AWAY, 2000);
+      await settle();
+      expect(screen.queryByText('warm body')).toBeNull();
+    });
+
+    it('#71: under reduced motion only a morph that moves the radius is sampled as a tween', async () => {
+      const base = defaultSettings();
+      cacheSettings(queryClient, { ...base, general: { ...base.general, reducedMotion: 'on' } });
+      const start = vi.spyOn(MorphSampler.prototype, 'start');
+      const { main } = renderNotch();
+      pointer(main, 'pointermove', ON_STRIP, 0);
+      await advance(250);
+      expect(stateOf(main)).toBe('hoverReveal');
+      expect(start).toHaveBeenLastCalledWith(false);
+
+      await advance(350);
+      expect(stateOf(main)).toBe('expanded');
+      expect(start).toHaveBeenLastCalledWith(true);
+      await settle();
+      expect(ipc.commands.reportMorph.mock.calls.at(-1)?.[0]).toMatchObject({ expanded: true });
+    });
+
+    it.each([
+      ['under reduced motion', 'on'],
+      ['with the spring', 'off'],
+    ] as const)(
+      '#71: %s the first expand is sampled whole, through the panel height arriving mid-morph',
+      async (_, reducedMotion) => {
+        const base = defaultSettings();
+        cacheSettings(queryClient, { ...base, general: { ...base.general, reducedMotion } });
+        // As in the browser, the panel's height reaches the shell after the expand has started.
+        const observed: { node: Element; callback: ResizeObserverCallback }[] = [];
+        vi.stubGlobal(
+          'ResizeObserver',
+          class {
+            readonly #callback: ResizeObserverCallback;
+            constructor(callback: ResizeObserverCallback) {
+              this.#callback = callback;
+            }
+            observe(node: Element) {
+              observed.push({ node, callback: this.#callback });
+            }
+            unobserve = vi.fn();
+            disconnect = vi.fn();
+          },
+        );
+        try {
+          const { main } = renderNotch();
+          pointer(main, 'pointermove', ON_STRIP, 0);
+          await advance(600);
+          expect(stateOf(main)).toBe('expanded');
+          const start = vi.spyOn(MorphSampler.prototype, 'start');
+          const panel = observed.find((o) => o.node.querySelector(':scope > [role="dialog"]'));
+          expect(panel).toBeDefined();
+          const entry = { borderBoxSize: [{ blockSize: 360, inlineSize: 0 }] };
+          act(() => {
+            panel?.callback([entry as unknown as ResizeObserverEntry], {} as ResizeObserver);
+          });
+          await settle();
+          // The retarget continues the expand's sample rather than starting one of its own.
+          expect(start).not.toHaveBeenCalled();
+          const expands = ipc.commands.reportMorph.mock.calls.filter(([r]) => r.expanded);
+          expect(expands).toHaveLength(1);
+          expect(expands[0]?.[0].frames).toBeGreaterThan(5);
+        } finally {
+          vi.unstubAllGlobals();
+        }
+      },
+    );
   });
 
   describe('drop actions (M4-E1)', () => {
