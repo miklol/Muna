@@ -18,7 +18,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
     ICoreWebView2PermissionRequestedEventArgs, ICoreWebView2PermissionRequestedEventArgs3,
 };
 use webview2_com::{PermissionRequestedEventHandler, take_pwstr};
-use webview2_core::{Interface, PWSTR};
+use windows::core::{Interface, PWSTR};
 
 use crate::error::{PlatformError, PlatformResult};
 use crate::permissions::{PermissionDecision, PermissionPolicy, WebPermission};
@@ -57,7 +57,7 @@ pub fn set_memory_usage_target(
     }
 }
 
-fn com_error(api: &'static str, error: &webview2_core::Error) -> PlatformError {
+fn com_error(api: &'static str, error: &windows::core::Error) -> PlatformError {
     PlatformError::Os {
         api,
         code: error.code().0.cast_unsigned(),
@@ -104,7 +104,7 @@ unsafe fn decide(
     policy: &PermissionPolicy,
     sender: Option<&ICoreWebView2>,
     args: &ICoreWebView2PermissionRequestedEventArgs,
-) -> webview2_core::Result<()> {
+) -> windows::core::Result<()> {
     // SAFETY: see `install_permission_handler`; this is only ever called from the callback.
     unsafe {
         let mut kind = COREWEBVIEW2_PERMISSION_KIND::default();

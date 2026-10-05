@@ -85,7 +85,7 @@ R21 are new, from what the milestone measured and from what the fidelity audit f
   `--text-3` at 4.6 : 1; the Narrator and contrast-theme rows of
   [qa/checklists/accessibility](qa/checklists/accessibility.md) are still manual, so the score
   stays.
-- **R18 (Tauri 3).** On Tauri 2.11 stable; nothing from the 3.x alphas is in use.
+- **R18 (Tauri 3).** On Tauri 2.12 stable; nothing from the 3.x alphas is in use.
 - **R19 (Chromium switches).** The switches held through four milestones of runtime updates;
   the process count and the private working set above are within the W5 envelope. Unchanged.
 

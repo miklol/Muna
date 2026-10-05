@@ -16,11 +16,11 @@ tokio.workspace = true
 tracing.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-# webview2-com and its windows-core 0.61 track the versions wry uses so `ICoreWebView2Controller`
-# is the same type Tauri hands out from `with_webview`. The rename keeps the bare `windows_core`
-# path for 0.62, which `windows::core::implement` expands to.
-webview2-com = "0.38"
-webview2-core = { package = "windows-core", version = "0.61" }
+# webview2-com tracks the version wry uses so `ICoreWebView2Controller` is the same type Tauri
+# hands out from `with_webview`; bump it together with `tauri` (0.39 ↔ wry in Tauri 2.12), or
+# the shell stops compiling. Its windows-core is the 0.62 below.
+webview2-com = "0.39"
+# `windows::core::implement` expands to the bare `windows_core` path.
 windows-core = "0.62"
 # Same version `windows` 0.62 depends on; needed to name `IIterable<HSTRING>` for the
 # `DeviceWatcher` property list.

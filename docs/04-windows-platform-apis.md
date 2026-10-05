@@ -211,7 +211,9 @@ is not either.
 
 ## Known unknowns (re-verify in M0)
 
-- Whether Tauri 2.12 stable backports `noRedirectionBitmap`, or v3 is the only path.
+- ~~Whether Tauri 2.12 stable backports `noRedirectionBitmap`, or v3 is the only path.~~
+  Answered: Tauri 2.12 stable has `no_redirection_bitmap` on the window builders
+  (`WS_EX_NOREDIRECTIONBITMAP`); 2.11 did not. Not adopted yet.
 - Exact capability name for `AppointmentStore` system access (`appointmentsSystem` per API page).
 - Flyout window classes on future Windows builds; `GetWindowBand` availability.
 - `IDataTransferManagerInterop` from an unpackaged desktop process (community-confirmed only).
