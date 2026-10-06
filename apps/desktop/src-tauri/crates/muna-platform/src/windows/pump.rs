@@ -337,8 +337,11 @@ mod tests {
     /// process must reach the pump's subscribers as `MoveSizeChanged { started: true }`
     /// within one frame, and dropping the pump must join its thread. The other process is this
     /// test binary re-run as [`s3_helper_window`]; the drag is injected with `SendInput`, so
-    /// the cursor moves for a moment and is put back afterwards. Holds the desktop lock: a
-    /// system consent dialog raised by another test would dim the desktop and take the click.
+    /// the cursor moves for a moment and is put back afterwards. Holds the desktop lock so no
+    /// other input test shares the cursor. A system prompt would dim the desktop and take the
+    /// click for longer than any lock is held, so the one test that can raise one — location
+    /// consent — is an integration test, `tests/location.rs`, which cargo runs after this binary
+    /// (#89).
     #[test]
     #[cfg_attr(
         not(feature = "platform-tests"),
@@ -432,6 +435,7 @@ mod tests {
         use super::super::Pump;
         use crate::events::PlatformEvent;
         use crate::types::WindowHandle;
+        use crate::windows::foreground;
 
         const HELPER_CLASS: PCWSTR = w!("MunaS3Helper");
 
@@ -582,12 +586,36 @@ mod tests {
             String::from_utf16_lossy(&buffer[..usize::try_from(len).unwrap_or(0)])
         }
 
+        /// A window for the logs: handle, class, title, owning process and rectangle.
+        fn describe_window(hwnd: HWND) -> String {
+            let window = foreground::snapshot(hwnd);
+            let mut rect = RECT::default();
+            // SAFETY: `rect` is a valid, writable `RECT`; the result is checked below.
+            #[allow(unsafe_code)]
+            let placed = unsafe { GetWindowRect(hwnd, &raw mut rect) };
+            let place = match placed {
+                Ok(()) => format!(
+                    "[{}, {}, {}, {}]",
+                    rect.left, rect.top, rect.right, rect.bottom
+                ),
+                Err(error) => format!("unknown ({error})"),
+            };
+            format!(
+                "{:?} '{}' \"{}\" of {} at {place}",
+                hwnd.0,
+                class_name(hwnd),
+                window.title,
+                window.process_name
+            )
+        }
+
         /// Waits until the helper's caption is what a click at `target` would hit. Something
         /// else there — a system dialog, an OSD, a window the person at the machine moved — means
         /// the injected drag would land on it, so the test waits a little and otherwise fails
         /// naming the cover rather than clicking it.
         fn wait_until_uncovered(helper: &HelperWindow, target: POINT) {
             let deadline = Instant::now() + Duration::from_secs(10);
+            let mut reported = false;
             loop {
                 // SAFETY: a plain query with no preconditions.
                 #[allow(unsafe_code)]
@@ -595,14 +623,24 @@ mod tests {
                 if under.0 as isize == helper.hwnd {
                     return;
                 }
+                let cover = describe_window(under);
                 assert!(
                     Instant::now() < deadline,
-                    "the helper window is covered at ({}, {}) by {:?} '{}'",
+                    "the helper window is covered at ({}, {}) by {cover}",
                     target.x,
-                    target.y,
-                    under.0,
-                    class_name(under)
+                    target.y
                 );
+                if !reported {
+                    // Straight to the handle, past the harness's capture, so a run that passes
+                    // once the cover goes away still says what it was.
+                    let _ = writeln!(
+                        std::io::stderr(),
+                        "S3: helper covered at ({}, {}) by {cover}; waiting",
+                        target.x,
+                        target.y
+                    );
+                    reported = true;
+                }
                 std::thread::sleep(Duration::from_millis(250));
             }
         }
