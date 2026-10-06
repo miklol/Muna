@@ -1,6 +1,7 @@
-import { EmptyState, IconButton, PanelChrome } from '@muna/ui/primitives';
-import { LayoutGrid, Minimize2, Pin, PinOff } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { commands } from '@muna/contracts';
+import { Button, EmptyState, IconButton, PanelChrome, Text } from '@muna/ui/primitives';
+import { LayoutGrid, Minimize2, Pin, PinOff, SlidersHorizontal } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export interface PanelProps {
@@ -70,14 +71,65 @@ export function Panel({
   );
 }
 
-/** What the panel shows before any module is enabled. */
-export function PanelEmptyState() {
+/** Why the panel has no module to show. */
+export type PanelEmptyReason =
+  /** This build registers no modules at all: nothing the user can switch on. */
+  | 'none'
+  /** Modules exist but every one is turned off in Settings → Modules. */
+  | 'disabled';
+
+export interface PanelEmptyStateProps {
+  reason?: PanelEmptyReason;
+  /** Opens the settings window; defaults to the shell command. Tests inject a fake. */
+  openSettings?: () => Promise<void>;
+}
+
+/**
+ * What the panel shows without an active module. A build with no modules says so and offers
+ * nothing (an "enable" action would be a lie); modules turned off in Settings get a real
+ * *Open settings* action, with the failure shown inline rather than swallowed.
+ */
+export function PanelEmptyState({
+  reason = 'none',
+  openSettings = () => commands.openSettings(),
+}: PanelEmptyStateProps) {
   const { t } = useTranslation();
+  const [failed, setFailed] = useState(false);
+  if (reason === 'none') {
+    return (
+      <EmptyState
+        icon={<LayoutGrid strokeWidth={ICON_STROKE} />}
+        title={t('notch.empty.title')}
+        description={t('notch.empty.body')}
+      />
+    );
+  }
   return (
     <EmptyState
-      icon={<LayoutGrid strokeWidth={ICON_STROKE} />}
-      title={t('notch.empty.title')}
-      description={t('notch.empty.body')}
+      icon={<SlidersHorizontal strokeWidth={ICON_STROKE} />}
+      title={t('notch.empty.disabledTitle')}
+      description={
+        failed ? (
+          <Text as="span" role="alert" variant="footnote" tone="secondary">
+            {t('notch.empty.openSettingsFailed')}
+          </Text>
+        ) : (
+          t('notch.empty.disabledBody')
+        )
+      }
+      action={
+        <Button
+          variant="primary"
+          onPress={() => {
+            setFailed(false);
+            openSettings().catch(() => {
+              setFailed(true);
+            });
+          }}
+        >
+          {t('notch.empty.openSettings')}
+        </Button>
+      }
     />
   );
 }

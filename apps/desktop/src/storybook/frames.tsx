@@ -78,14 +78,18 @@ export interface PanelFrameProps {
   /** The panel header; a module's `titleKey` resolved by the story. */
   title: string;
   /**
-   * Panel size in CSS pixels. The defaults are what the shell lays out — `clamp(720, monitor −
-   * 80, 1000)` wide and the content's own height clamped to 190–360 (`shell-geometry`) — so a
-   * story shows the layout the app shows, and content the shell would clip is clipped here too.
+   * Panel size in CSS pixels. The defaults are what the shell lays out on a 1024 px-wide work
+   * area — `min(1000, monitor − 80)` wide, so 944 here, and the content's own height clamped to
+   * 190–360 (`shell-geometry`) — so a story shows the layout the app shows, and content the
+   * shell would clip is clipped here too. Pass `width` for a narrower work area.
    */
   width?: number;
   height?: number;
   children: ReactNode;
 }
+
+/** The work area the frames stand in for: the 1024 px-wide viewport the Storybook CI runs at. */
+const STORY_WORK_AREA_WIDTH = 1024;
 
 const clampPanelHeight = (natural: number): number =>
   Math.min(shellSizes.panelMaxHeight, Math.max(shellSizes.panelMinHeight, natural));
@@ -98,7 +102,7 @@ const clampPanelHeight = (natural: number): number =>
  */
 export function PanelFrame({
   title,
-  width = shellSizes.panelMinWidth,
+  width = Math.min(shellSizes.panelWidth, STORY_WORK_AREA_WIDTH - 80),
   height,
   children,
 }: PanelFrameProps) {

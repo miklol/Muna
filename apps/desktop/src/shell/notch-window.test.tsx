@@ -427,8 +427,8 @@ describe('NotchWindow scenario suite', () => {
     const rects = lastRects();
     expect(rects).toHaveLength(2);
     expect(rects[0]).toEqual(STRIP_REST);
-    // The padded panel: clamp(720, monitor − 80, 1000) wide and at least 190 tall, plus 2 × 30.
-    expect(rects[1]!.width).toBeGreaterThanOrEqual(shellSizes.panelMinWidth + 60);
+    // The padded panel: the shell's bound (1000 here) wide and at least 190 tall, plus 2 × 30.
+    expect(rects[1]!.width).toBeGreaterThanOrEqual(shellSizes.panelWidth + 60);
     expect(rects[1]!.height).toBeGreaterThanOrEqual(shellSizes.panelMinHeight + 60);
 
     // The spring settles: the mask comes back, one frame report reaches the shell's log and

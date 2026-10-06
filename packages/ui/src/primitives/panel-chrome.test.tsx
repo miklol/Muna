@@ -39,4 +39,19 @@ describe('PanelChrome', () => {
     );
     expect(screen.getByText('Footer').parentElement).toHaveClass('muna-panel__footer');
   });
+
+  it('keeps a long title and subtitle whole instead of truncating them', () => {
+    const title = 'A module title long enough to be cut off before it reaches the rail';
+    const subtitle = 'A subtitle that is also far too long for one line';
+    render(
+      <PanelChrome title={title} subtitle={subtitle}>
+        Body
+      </PanelChrome>,
+    );
+    const heading = screen.getByRole('heading', { level: 1, name: title });
+    // No one-line ellipsis class: the text wraps, so a sighted user can read all of it.
+    expect(heading).not.toHaveClass('muna-text--truncate-1');
+    expect(screen.getByText(subtitle)).not.toHaveClass('muna-text--truncate-1');
+    expect(screen.getByRole('dialog', { name: title })).toBeInTheDocument();
+  });
 });
