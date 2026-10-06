@@ -695,9 +695,12 @@ pub(crate) mod test_support {
 
     static DESKTOP: Mutex<()> = Mutex::new(());
 
-    /// Serialises the tests that inject input with the tests that can raise a system consent
-    /// dialog: `Shell_SystemDialog` dims the whole desktop (`Shell_SystemDim`) and takes every
-    /// click for as long as it is up, so a drag injected meanwhile never reaches its window.
+    /// Serialises the tests that inject input, so no two of them share the cursor. It cannot
+    /// keep them clear of a system prompt: the location consent dialog (`Shell_SystemDialog`)
+    /// dims the whole desktop (`Shell_SystemDim`) and takes every click for as long as it is
+    /// up, which is well after the test that raised it has returned and let go of any lock
+    /// (#89). Tests that can raise one live in `tests/location.rs`, a binary cargo runs after
+    /// this one, and no binary that runs later injects input.
     /// A poisoned lock only means an earlier holder panicked; the desktop is still usable.
     pub(crate) fn desktop() -> MutexGuard<'static, ()> {
         DESKTOP.lock().unwrap_or_else(PoisonError::into_inner)

@@ -2,10 +2,11 @@
 //! docs/04-windows-platform-apis.md "Devices & power").
 //!
 //! One fix per call: `Geolocator.RequestAccessAsync` answers from the Settings → Privacy →
-//! Location switches (a desktop app without package identity never sees a prompt; a packaged
-//! one is prompted on its first call), then `GetGeopositionAsync` waits for a position — with a
-//! timeout, because a machine whose only source is Wi-Fi positioning can report `Ready` and
-//! still never produce a fix.
+//! Location switches (a packaged app is prompted on its first call; so is an unpackaged one
+//! where Windows has not been told yet whether apps may use location — every fresh CI runner
+//! shows `PickerHost`'s "Let Windows and apps access your location?"), then
+//! `GetGeopositionAsync` waits for a position — with a timeout, because a machine whose only
+//! source is Wi-Fi positioning can report `Ready` and still never produce a fix.
 //!
 //! Both calls run on a short-lived thread of their own that initialises a COM apartment first.
 //! Measured on Win11: on a thread without one (a tokio blocking thread, say — the implicit MTA
@@ -152,36 +153,5 @@ mod tests {
     #[test]
     fn access_denied_hresult_is_the_win32_code() {
         assert_eq!(E_ACCESSDENIED.0.cast_unsigned(), 0x8007_0005);
-    }
-
-    /// Talks to the real OS; only meaningful on the nightly lab machine. Bounded by `THREAD_WAIT`
-    /// however the broker behaves, so a machine with no usable source still finishes. Expect the
-    /// full `ACCESS_WAIT` on the first run of a freshly linked binary: the access broker raises
-    /// the location consent dialog for an executable it has not seen before, which nobody
-    /// answers, and answers the same one in 10 ms from then on. That dialog dims the desktop
-    /// and takes every click, so the test holds the desktop lock for the tests that inject input.
-    #[test]
-    #[cfg_attr(
-        not(feature = "platform-tests"),
-        ignore = "requires a real Windows session"
-    )]
-    fn position_answers_or_says_why_not() {
-        // The parallel runner starts the input-injecting tests within milliseconds and they hold
-        // the desktop lock for a few seconds; the consent dialog this test can raise stays up
-        // well after the test returns, so let them go first.
-        std::thread::sleep(Duration::from_secs(1));
-        let _desktop = crate::windows::test_support::desktop();
-        match position() {
-            Ok(fix) => {
-                assert!((-90.0..=90.0).contains(&fix.latitude));
-                assert!((-180.0..=180.0).contains(&fix.longitude));
-            }
-            Err(
-                PlatformError::AccessDenied(_)
-                | PlatformError::Unsupported(_)
-                | PlatformError::Os { .. },
-            ) => {}
-            Err(other) => panic!("unexpected error: {other}"),
-        }
     }
 }

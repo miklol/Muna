@@ -116,11 +116,14 @@ What the run taught us:
   lab tests, the drag was never confirmed: `location::position_answers_or_says_why_not` had
   raised the Windows location consent dialog (`Shell_SystemDialog`) for the not-yet-seen test
   binary, which dims the whole desktop (`Shell_SystemDim`) and takes every click, and stays up
-  well after that test gives up. The kept test therefore holds a crate-wide desktop lock
-  (`windows::test_support::desktop()`) that the consent-raising test takes after a one-second
-  grace period so the input tests go first, and before every round it checks that
-  `WindowFromPoint` on the caption is the helper — failing by naming the cover rather than
-  clicking on whatever is there.
+  well after that test gives up. Before every round the kept test checks that
+  `WindowFromPoint` on the caption is the helper — failing by naming the cover, with its title
+  and process, rather than clicking on whatever is there. A crate-wide desktop lock
+  (`windows::test_support::desktop()`) that the consent-raising test took after a one-second
+  grace period was not enough: the dialog outlives the lock, so whenever the drag test started
+  late it ran under the dim ([#89](https://github.com/miklol/Muna/issues/89)). The location
+  test is now an integration test (`crates/muna-platform/tests/location.rs`), which cargo runs
+  after the lib's unit tests; the lock only keeps input tests from sharing the cursor.
 
 ### Consequences for Window snap (E3)
 
