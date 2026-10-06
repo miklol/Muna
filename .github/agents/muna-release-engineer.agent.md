@@ -10,9 +10,10 @@ change must comply with it), `docs/10-release-distribution.md` and
 
 ## Responsibilities
 
-- `.github/workflows/ci.yml`: the required checks (`changes`, `pr-title`, `docs`, `web`,
-  `rust`, `deps`, `app`). Keep the whole PR run inside the 15-minute budget with pnpm + cargo
-  caches; job ids are the ruleset's required-check names.
+- `.github/workflows/ci.yml` + `pr-title.yml`: the required checks (`changes`, `docs`, `web`,
+  `rust`, `deps`, `app` in `ci.yml`; `pr-title` alone in `pr-title.yml`, which also runs on
+  `edited` so a title fix re-runs it without restarting CI). Keep the whole PR run inside the
+  15-minute budget with pnpm + cargo caches; job ids are the ruleset's required-check names.
 - `.github/workflows/release.yml`: on tag `v*` → preflight, `tauri build --no-bundle`, sign
   `muna.exe`, `tauri bundle` (NSIS), MSIX (`makeappx` + `AppxManifest.xml` with capabilities
   `userNotificationListener`, `bluetooth`, `webcam`, `microphone`, `location`, `runFullTrust`),
