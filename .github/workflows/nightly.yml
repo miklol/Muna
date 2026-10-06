@@ -72,6 +72,8 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: apps/desktop/src-tauri
+          # Same build as CI's `app` job, so it may refill a missing `desktop` key, from main only.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           shared-key: desktop
       - run: pnpm install --frozen-lockfile
       # tauri hands what follows `--` to `cargo build`: build exactly Cargo.lock (#90).
@@ -101,6 +103,8 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: apps/desktop/src-tauri
+          # Restore only: platform-tests artifacts are not what the CI jobs build (#94).
+          save-if: false
           shared-key: desktop
       - run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-features --features platform-tests -- --include-ignored
 
@@ -146,6 +150,8 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: apps/desktop/src-tauri
+          # Restore only: release-profile artifacts are not what the CI jobs build (#94).
+          save-if: false
           shared-key: desktop
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @muna/desktop tauri build --no-bundle -- --locked

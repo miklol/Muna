@@ -121,6 +121,9 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: apps/desktop/src-tauri
+          # Restore only (#94): `app` saves the shared key first, so this job's save always lost
+          # the race after spending 4–6 min compressing its larger target dir (#82 timed out).
+          save-if: false
           shared-key: desktop
       # Build exactly the graph in Cargo.lock: a lockfile that no longer matches the manifests
       # (e.g. a lockfile-only bump) fails here, before anything compiles. `cargo fmt` has no
@@ -185,6 +188,9 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: apps/desktop/src-tauri
+          # The one writer of the `desktop` key, and only on main (#94): a PR's cache is only
+          # visible to that PR and evicts main's; PRs restore main's closest key instead.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           shared-key: desktop
       - name: Cargo.lock matches the manifests
         run: node scripts/check-cargo-lock.mjs

@@ -187,9 +187,16 @@ flowchart LR
   call the underlying CLI or the check moves to an ubuntu job.
 - Pass untrusted values (PR titles, branch names, commit SHAs) to scripts through `env:`,
   never by interpolating `${{ }}` inside `run:`.
-- Caching: pnpm store keyed on `pnpm-lock.yaml`; cargo via `Swatinem/rust-cache` keyed on
-  `Cargo.lock` and the job name; Playwright browsers are not needed (WebView2 is on the
-  runner). Cache misses must not fail a job.
+- Caching: pnpm store keyed on `pnpm-lock.yaml`; cargo via `Swatinem/rust-cache` under one
+  shared key, `desktop`, keyed on `Cargo.lock`, the toolchain and the runner OS (a lockfile
+  change restores the closest older entry and rebuilds the rest). **Only `main` saves it**, from
+  the `app` job (`save-if: ${{ github.ref == 'refs/heads/main' }}`); nightly `perf`, the same
+  build, may refill a missing key. The `rust` job and nightly `platform` and `nightly-zip`
+  only restore: their artifacts are not the shared build, and the `rust` job's save of its
+  larger target dir took 4–6 min and always lost the race to `app` (it timed out #82, see #94).
+  A PR's cache can only be restored by that PR and evicts `main`'s under the 10 GB repo limit,
+  so PRs never save. Playwright browsers are not needed (WebView2 is on the runner). Cache
+  misses must not fail a job.
 - Install with `pnpm install --frozen-lockfile`; a lockfile change is a reviewable diff.
 - Cargo builds the committed `Cargo.lock`, never a re-resolved one: every cargo command that
   resolves dependencies passes `--locked` (`tauri build … -- --locked`, which tauri forwards to
