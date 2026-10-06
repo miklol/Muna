@@ -191,6 +191,11 @@ flowchart LR
   `Cargo.lock` and the job name; Playwright browsers are not needed (WebView2 is on the
   runner). Cache misses must not fail a job.
 - Install with `pnpm install --frozen-lockfile`; a lockfile change is a reviewable diff.
+- Cargo builds the committed `Cargo.lock`, never a re-resolved one: every cargo command that
+  resolves dependencies passes `--locked` (`tauri build … -- -- --locked`, because pnpm drops
+  the first `--`; cargo-deny `arguments: --all-features --locked`), and the `rust` and `app`
+  jobs start with `scripts/check-cargo-lock.mjs`, which fails before anything compiles when the
+  lockfile no longer matches the manifests and annotates `Cargo.lock` with the fix.
 - Matrix only where it buys information (Windows Server 2022 vs 2025 images for the shell
   suite). Windows 10 cannot run on GitHub-hosted runners: it is covered by the QA matrix in
   [09](09-testing-qa.md#manual-qa-matrix-milestone-close) and, later, an opt-in self-hosted
@@ -214,9 +219,9 @@ listen for `edited`, because every title or body edit would cancel and restart t
 | `pr-title` | ubuntu | every PR, and again on every title edit (`pr-title.yml`) | Conventional Commit title with an allowed type; subject starts lower-case |
 | `docs` | ubuntu | every PR/push | `markdownlint-cli2` with `.markdownlint-cli2.jsonc`; `scripts/check-links.mjs` (relative links + heading anchors; deterministic, no network) |
 | `web` | ubuntu | code changed and `apps/desktop` exists | `pnpm install --frozen-lockfile`, `lint` (ESLint/Stylelint/Prettier), `typecheck`, `test` (Vitest incl. tokens snapshot, coverage report), `i18n:check`, `storybook:ci` (`build-storybook` + `test-storybook` with axe on every story) |
-| `rust` | windows | code changed and `apps/desktop` exists | web build (tauri-build embeds `frontendDist`), `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (fake platform), contracts drift (`contracts:generate` then `git diff --exit-code -- packages/contracts`; tauri-specta needs the Rust toolchain) |
-| `deps` | ubuntu | code changed and `apps/desktop` exists | `cargo deny check` (advisories, licences, bans, sources — Docker action, hence Linux), `pnpm audit --prod --audit-level high`, `licenses:check` |
-| `app` | windows | code changed and `apps/desktop` exists | `tauri build --debug --no-bundle`, `bundle:check`, Playwright shell scenario suite S1–S14 against the debug build, perf smoke (`perf:smoke`: startup, idle CPU, RSS) posted as a PR comment, upload debug exe + traces on failure |
+| `rust` | windows | code changed and `apps/desktop` exists | `Cargo.lock` matches the manifests (`scripts/check-cargo-lock.mjs`), web build (tauri-build embeds `frontendDist`), `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked` (fake platform), contracts drift (`contracts:generate` then `git diff --exit-code -- packages/contracts`; tauri-specta needs the Rust toolchain) |
+| `deps` | ubuntu | code changed and `apps/desktop` exists | `cargo deny --locked check` (advisories, licences, bans, sources — Docker action, hence Linux), `pnpm audit --prod --audit-level high`, `licenses:check` |
+| `app` | windows | code changed and `apps/desktop` exists | `Cargo.lock` matches the manifests, `tauri build --debug --no-bundle` with `--locked`, `bundle:check`, Playwright shell scenario suite S1–S14 against the debug build, perf smoke (`perf:smoke`: startup, idle CPU, RSS) posted as a PR comment, upload debug exe + traces on failure |
 
 Skipped `web`/`rust`/`deps`/`app` on a docs-only PR is by design; the ruleset treats them as
 satisfied.
@@ -333,9 +338,12 @@ budgets. Gates are never lowered to unblock a PR.
   minor+patch updates per ecosystem (`github-actions`, `npm`, `cargo`); majors arrive as
   separate PRs. Dependabot PRs pass the same checks; auto-merge is allowed only for
   `github-actions` and dev-dependency patch updates once CI is green.
-- **Pinning**: lockfiles committed (`pnpm-lock.yaml`, `Cargo.lock`); `packageManager` field in
-  the root `package.json`; Rust toolchain pinned in `rust-toolchain.toml` (stable channel with
-  an explicit version bumped deliberately); Node major pinned in `.node-version`.
+- **Pinning**: lockfiles committed (`pnpm-lock.yaml`, `Cargo.lock`) and built exactly as
+  committed (`--frozen-lockfile`, cargo `--locked`): a `Cargo.lock` that no longer satisfies the
+  `Cargo.toml` requirements fails `rust`, `app` and `deps` instead of being re-resolved;
+  `packageManager` field in the root `package.json`; Rust toolchain pinned in
+  `rust-toolchain.toml` (stable channel with an explicit version bumped deliberately); Node
+  major pinned in `.node-version`.
   `@types/node` follows that major and is bumped with it, never ahead (Dependabot ignores its
   majors). Every workspace package declares it, so vitest's optional `@types/node` peer
   resolves to one version and the workspace keeps a single vitest instance (otherwise the
@@ -454,7 +462,9 @@ pnpm -w docs:check    # = markdownlint-cli2 + node scripts/check-links.mjs      
 ```
 
 Until the scaffold exists, `docs:check` is `npx --yes markdownlint-cli2@0.23.2` and
-`node scripts/check-links.mjs`. Git hooks (lefthook: format + lint on staged files, PR-title
+`node scripts/check-links.mjs`. `ci:rust` and `ci:app` start with
+`node scripts/check-cargo-lock.mjs` and pass `--locked` like CI, so a stale `Cargo.lock` fails
+locally the same way. Git hooks (lefthook: format + lint on staged files, PR-title
 lint on `commit-msg`) are recommended but optional; CI is the arbiter.
 
 ### Root scripts the workflows call
@@ -515,7 +525,7 @@ people, plus:
 | `ci:nightly` issue opened | Open the run → for `perf`: bisect with `pnpm -w perf:smoke` across the listed commits, fix or revert, close with numbers; for `links`: fix or allowlist the URL in `.lycheeignore`; for `deps`: patch or record an exception (below); for `platform`: reproduce on the QA machine. Close the issue by hand when the next nightly is green. |
 | Signing failure in `release.yml` | Do not re-tag. Check the Azure federated credential (subject `repo:miklol/Muna:environment:release`) and certificate profile status → re-run the job → if the certificate is revoked, rotate, then bump patch and release again. |
 | Expired `RELEASE_PLEASE_TOKEN` | Release PR stops updating. Create a new fine-grained PAT, update the secret, re-run `release-please.yml` via `workflow_dispatch`. |
-| Dependabot PR fails CI | Never force-merge. If only `pr-title` fails: Dependabot capitalises "Bump", so fix the title with `gh pr edit N --title "build(deps): bump …"`; `pr-title.yml` re-runs on the `edited` event, no rebase or push needed. If the failure is a genuine break, pin the dependency with a comment and an issue to unpin. |
+| Dependabot PR fails CI | Never force-merge. If only `pr-title` fails: Dependabot capitalises "Bump", so fix the title with `gh pr edit N --title "build(deps): bump …"`; `pr-title.yml` re-runs on the `edited` event, no rebase or push needed. If `rust` and `app` fail at "Cargo.lock matches the manifests" (annotation "Cargo.lock is out of date") and `deps` fails in cargo-deny with "--locked was passed", the cargo bump changed only `Cargo.lock` because the requirement in `Cargo.toml` excludes the new version (typical for a major): raise that requirement in the `Cargo.toml` that declares the crate and push it to the Dependabot branch, as [#82](https://github.com/miklol/Muna/pull/82) did for zip 8; the lockfile then matches unchanged. Run `pnpm -w ci:rust` and `ci:deps`, and note in the PR that Dependabot no longer rebases a branch someone pushed to. Never drop `--locked` or re-resolve the lockfile back to the old version to get green. If the failure is a genuine break, pin the dependency with a comment and an issue to unpin. |
 | Vulnerability alert (high/critical) | Patch within 7 days or record an exception in `deny.toml` / `.pnpm-audit.json` with a 30-day expiry and a linked issue. |
 | Runner image change breaks the shell suite | Pin the `runs-on` image (`windows-2022`) in the same PR, open an issue to unpin. |
 
