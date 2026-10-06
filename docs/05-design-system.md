@@ -178,10 +178,10 @@ module via specta.
 | Island (collapsed) | 120 × 36 pill, 6–8 px top offset; hover reveal 160 × 40; expanded ≤ 380 × 340 |
 | Peek | 6 px tall, same width |
 | Wide strip | up to 420 wide during wide form |
-| Panel | width `clamp(720, monitor − 80, 1000)`; height by content, min 190, max 360 |
-| Panel padding | 16 all round (keeps card corners concentric); header 44 tall |
-| Panel body | what is left: 284 at most (360 − 2 × 16 − 44). Content-sized — a module declares the height of anything that must scroll or fill (a list's `max-block-size`, a grid's rows, a frame's height); `flex: 1 1 0` and `block-size: 100%` resolve to nothing here |
-| Module bar | 640 × 40, 12 px gap below panel; icons 20, gap 8, active pill 32 × 32 |
+| Panel | width `min(1000, monitor − 80, window width)` — a 320 px work area or 200 % zoom must not paint past the window; height by content, min 190, max 360, body scrolls beyond |
+| Panel padding | 16 all round (keeps card corners concentric); header min 44, grows when the title wraps |
+| Panel body | what is left: 284 at most (360 − 2 × 16 − 44) with a one-row header; a wrapped header leaves less. Content-sized — a module declares the height of anything that must scroll or fill (a list's `max-block-size`, a grid's rows, a frame's height); `flex: 1 1 0` and `block-size: 100%` resolve to nothing here |
+| Module bar | 640 × 40, never wider than the panel; the slot count follows the measured width. 12 px gap below panel; icons 20, gap 8, active pill 32 × 32 |
 | Icon button | 28 circle, icon 16; large 36 circle, icon 20 |
 | Chip | height 24, padding 0 10, icon 12, text 12/600 |
 | List row | height 44; leading icon 20; trailing value `--text-2` |
@@ -227,9 +227,11 @@ layouts hold.
 
 Rules: max two weights per surface; **prefer 600 over 700** (Inter Bold looks heavy at UI
 sizes; 700 is reserved for `--text-display`); secondary text is `--text-2`, never a smaller
-size at full white; truncate with ellipsis at one line for names, two lines for bodies
-(`text-wrap: pretty`, `-webkit-line-clamp: 2`); sentence case everywhere; no all-caps labels
-except 10 px ring labels (`letter-spacing: .06em`).
+size at full white; truncate with ellipsis at one line for names in lists and the strip, two
+lines for bodies (`text-wrap: pretty`, `-webkit-line-clamp: 2`) — except the panel title and
+subtitle, which wrap (`text-wrap: balance`) because a module name the user cannot read is
+worse than a taller header; sentence case everywhere; no all-caps labels except 10 px ring
+labels (`letter-spacing: .06em`).
 
 ### Iconography
 
@@ -292,8 +294,10 @@ Pure-CSS state changes (hover tint, press scale, chip select) transition with th
   "camera"). Text in the wide form is `--text-footnote` 600, white, one line, marquee only if
   overflowing after 1.5 s hover.
 - **HUD**: glyph 16 leading, 96 × 6 track, value optional as `--text-caption` tabular.
-- **Panel header**: title `--text-callout` left; right rail of 28 px icon buttons with 4 px gap;
-  ⤡ collapse is always the right-most.
+- **Panel header**: title `--text-callout` left, subtitle `--text-footnote` under it, both
+  wrapping (`text-wrap: balance`); chips beside them or on a row of their own; right rail of
+  28 px icon buttons with 8 px gap, so the 36 px hit areas don't overlap; ⤡ collapse is
+  always the right-most.
 - **Dashboard widgets**: S 1×1 (156 × 120), M 2×1, L 2×2 on a 12 px gap grid; header row
   12/600 `--text-2` + icon 14; values `--text-title3`.
 - **Settings**: Windows-native window; sidebar 220 wide with 32 px rows and 16 px icons;
