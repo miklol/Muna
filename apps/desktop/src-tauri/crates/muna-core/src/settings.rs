@@ -1,6 +1,6 @@
 //! Versioned JSON settings (docs/03-architecture.md "Storage").
 //!
-//! The file is `%LOCALAPPDATA%\Muna\settings.json`. Every file carries a `version`; loading an
+//! The file is `%LOCALAPPDATA%\miklol\Muna\settings.json`. Every file carries a `version`; loading an
 //! older version runs the migration chain, and unknown newer versions are refused rather than
 //! silently downgraded. Module settings live under `modules.<id>` as opaque JSON so modules
 //! own their own shape (ADR-0004).

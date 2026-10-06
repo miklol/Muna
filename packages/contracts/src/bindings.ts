@@ -2136,7 +2136,7 @@ export type ShelfItemKind =
 
 export type ShelfSettings = {
 	/**
-	 *  Copy dropped files into `%LOCALAPPDATA%\Muna\shelf` instead of referencing them, so
+	 *  Copy dropped files into `%LOCALAPPDATA%\miklol\Muna\shelf` instead of referencing them, so
 	 *  the item survives the original being moved or deleted.
 	 */
 	copyIntoStorage?: boolean,

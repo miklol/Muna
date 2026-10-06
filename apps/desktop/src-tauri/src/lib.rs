@@ -12,6 +12,7 @@ pub mod paths;
 pub mod shell;
 pub mod state;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -24,6 +25,28 @@ use state::AppState;
 /// Argument appended to the launch-at-login command line so the settings window stays hidden
 /// (`muna_platform::windows::AUTOSTART_ARG` mirrors it for the Windows implementation).
 pub const AUTOSTART_ARG: &str = "--autostart";
+
+/// One-time carry-over from `%LOCALAPPDATA%\Muna` (M0–M1), which the per-user installer now
+/// owns as the install directory, and the directory this session runs from. Before logging
+/// exists, so it reports on stderr and never fails the start: when the move does not go
+/// through, the session runs from the legacy folder so that nothing is written to the new one
+/// and the next start can retry (see [`paths::choose_profile_dir`]).
+fn carry_over_legacy_profile() -> PathBuf {
+    let profile_dir = paths::profile_dir();
+    let legacy_dir = paths::legacy_profile_dir();
+    let result = paths::migrate_legacy_profile(&legacy_dir, &profile_dir);
+    match &result {
+        Ok(moved) if !moved.is_empty() => {
+            eprintln!("moved the Muna profile to {}", profile_dir.display());
+        }
+        Ok(_) => {}
+        Err(error) => eprintln!(
+            "could not move the legacy Muna profile ({error}); running from {}",
+            legacy_dir.display()
+        ),
+    }
+    paths::choose_profile_dir(&result, legacy_dir, profile_dir)
+}
 
 /// Builds and runs the application. Never returns on success.
 ///
@@ -41,7 +64,7 @@ pub fn run() {
         eprintln!("failed to export tauri-specta bindings: {error}");
     }
 
-    let profile_dir = paths::profile_dir();
+    let profile_dir = carry_over_legacy_profile();
     let autostarted = std::env::args().skip(1).any(|arg| arg == AUTOSTART_ARG);
 
     // Managed state must exist before the config windows are created: wry pumps messages

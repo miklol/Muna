@@ -44,8 +44,14 @@ Items live in Rust, the panel sees ids. Pieces, in the order an item flows:
   size, copied, added_at, sort_order)`; the same path is never parked twice (a second drop of
   a parked file counts as nothing new), snippets are named after their first line. With *Copy
   files into Shelf storage* on, each file is copied through `FileOps::transfer` into its own
-  folder under `%LOCALAPPDATA%\Muna\shelf\<hex time>-<n>\` first and the copy is the item;
+  folder under `%LOCALAPPDATA%\miklol\Muna\shelf\<hex time>-<n>\` first and the copy is the item;
   removing the item deletes that folder (and only a folder directly inside Shelf storage).
+  Known limitation: copies made before the profile moved out of the install directory stay
+  under `%LOCALAPPDATA%\Muna\shelf` — the database records their absolute paths, so the profile
+  migration (`paths::migrate_legacy_profile`) leaves them where they are. There an uninstall
+  deletes them, and removing such an item keeps its folder because it is no longer directly
+  inside the current storage folder. Only development profiles predate the move (no public
+  release has shipped), so this is documented rather than fixed.
   Items expire by the `expiryDays` setting (0 = never, at most 365) through an hourly sweep on
   the module backend, once at start.
 - **Snapshot** (`get_shelf_snapshot`, `ShelfChanged { snapshot }` after every change): each

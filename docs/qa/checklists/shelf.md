@@ -39,7 +39,7 @@ fake platform; this checklist is the application, storage and visual side.
 | 17 | Drag a tile into an Outlook message | the file is attached |
 | 18 | Drag a tile into a Teams chat | the file is attached or uploaded |
 | 19 | Start a drag and release back over the strip | nothing is re-added; the count is unchanged; the panel still responds |
-| 20 | *Copy files into Shelf storage* on, drop a file, delete the original | the tile stays whole (tooltip *Copy in Shelf storage*); `%LOCALAPPDATA%\Muna\shelf` holds one folder per item |
+| 20 | *Copy files into Shelf storage* on, drop a file, delete the original | the tile stays whole (tooltip *Copy in Shelf storage*); `%LOCALAPPDATA%\miklol\Muna\shelf` holds one folder per item |
 | 21 | Remove that item | its folder under `shelf\` is gone; the original's location is untouched |
 | 22 | *Copy files into Shelf storage* on, drop a file from a read-only or disconnected location | a *Could not add to the Shelf* notice; nothing is parked; no stray folder |
 | 23 | Drop a large file (≥ 1 GB) with copies on | the copy finishes without the notch freezing; the tile appears when it is done |

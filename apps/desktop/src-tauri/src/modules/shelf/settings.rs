@@ -13,7 +13,7 @@ pub const MAX_EXPIRY_DAYS: u16 = 365;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ShelfSettings {
-    /// Copy dropped files into `%LOCALAPPDATA%\Muna\shelf` instead of referencing them, so
+    /// Copy dropped files into `%LOCALAPPDATA%\miklol\Muna\shelf` instead of referencing them, so
     /// the item survives the original being moved or deleted.
     pub copy_into_storage: bool,
     /// Remove items this many days after they arrived; `0` keeps them until removed.
