@@ -1,10 +1,11 @@
 # Glass UI research and implementation skill
 
-**Status:** Baseline findings implemented and re-measured. First submitted as
-[PR #60](https://github.com/miklol/Muna/pull/60), then split into independent PRs so each can
-be reviewed on its own: the profile-directory fix (`fix(shell): move the profile out of the
-NSIS install directory`), this document, the text-tone and module-bar fixes (`fix(ui)`), and
-the shell-geometry and panel-header fixes (`fix(shell)`). Native performance checks open.
+**Status:** Baseline findings implemented and re-measured. First submitted as one PR, then
+split so each part can be reviewed on its own: the profile-directory fix
+([#86](https://github.com/miklol/Muna/pull/86)), the module-bar fix
+([#88](https://github.com/miklol/Muna/pull/88)), the shell-geometry and panel-header fixes
+([#91](https://github.com/miklol/Muna/pull/91)), and this document. Native performance
+checks open.
 **Date:** 2026-09-28.
 **Baseline:** `9fe73bdc30be9ace0c5b43f7e59339f1b47a4f1f`.
 
@@ -461,17 +462,18 @@ The deliverable should be a few better primitives and clear rules, not a depende
 
 ### Inspection boundary and provenance
 
-The five user-provided local checkouts were inspected on 2026-09-28. No reference application
-was launched, built, installed, or modified. The findings here concern source-backed behavior
-and composition, not measured animation quality or a full product audit.
+Local checkouts of the five projects were inspected on 2026-09-28 at the revisions below. No
+reference application was launched, built, installed, or modified. The findings here concern
+source-backed behavior and composition, not measured animation quality or a full product
+audit.
 
-| Local folder under `C:\Users\Shega\Documents\GitHub` | Inspected revision | Root license |
+| Project | Inspected revision | Root license |
 | --- | --- | --- |
-| `DynamicNotch` | `f35eeb7b95ba4e54828d83c980bf01ef2ab11528` | GPL v3 text |
-| `boring.notch` | `d58240cc160d5e54da1a8a5925e095d067a8e1e0` | GPL v3 text |
-| `Nectar` | `42609f78e301f98ab4f85a2fa3efe09864979a7e` | GPL v3 text |
-| `bloom` | `0a298759c7df81fd82bd0bec65bf4a4004de293d` | GPL v3 text |
-| `MenuScores` | `318b96b6af462675c79f3659a8a312a0b8a858cc` | GPL v3 text |
+| [DynamicNotch](https://github.com/jackson-storm/DynamicNotch) | `f35eeb7b95ba4e54828d83c980bf01ef2ab11528` | GPL v3 text |
+| [boring.notch](https://github.com/TheBoredTeam/boring.notch) | `d58240cc160d5e54da1a8a5925e095d067a8e1e0` | GPL v3 text |
+| [Nectar](https://github.com/kua8/Nectar) | `42609f78e301f98ab4f85a2fa3efe09864979a7e` | GPL v3 text |
+| [bloom](https://github.com/SehajveerSingh2005/bloom) | `0a298759c7df81fd82bd0bec65bf4a4004de293d` | GPL v3 text |
+| [MenuScores](https://github.com/daniyalmaster693/MenuScores) | `318b96b6af462675c79f3659a8a312a0b8a858cc` | GPL v3 text |
 
 Paths in each repository's subsection are relative to that repository, not Muna. Line
 references apply to these revisions. Nectar explicitly describes its Bloom ancestry in
@@ -926,16 +928,18 @@ The expanded research did not install competing frameworks or assets and did not
 unchanged 147-test baseline. The existing baseline results above are retained, not claimed
 as new measurements of the proposed alternatives.
 
-Additional evidence was produced by the session artifact `glass-color-matrix.cjs`, with
-raw results in `glass-color-matrix.json`. From the repository root:
+Additional evidence comes from [`scripts/research/glass-color-matrix.mjs`](../../scripts/research/glass-color-matrix.mjs),
+a dependency-free script that reads the live tokens and prints the matrices (pass `--json` for
+the raw rows). From the repository root:
 
 ```powershell
-node 'C:\Users\Shega\.copilot\session-state\66dc86e8-da8f-4602-8d23-a33a05af9f12\files\glass-color-matrix.cjs'
+node scripts/research/glass-color-matrix.mjs
 ```
 
-It completed successfully: 30 text-pair calculations, 16 accent-label calculations, and
-three local font-file size measurements. Of the 30 text candidates, 13 meet 4.5:1 and 17 do
-not. These are synthetic token-pair checks, not 30 rendered component tests.
+At the time of writing it produced 30 text-pair calculations, 16 accent-label calculations,
+and three font-file size measurements. Of the 30 text candidates, 13 met 4.5:1 and 17 did
+not. These are synthetic token-pair checks of the committed token values, not 30 rendered
+component tests; rerunning after a token change gives the current state.
 
 Primary documentation and upstream license files were used to resolve unreliable search
 summaries, including the Rive/Lottie/GSAP licensing differences. A few documentation pages
@@ -961,21 +965,25 @@ of 17 ms on the prescribed native setup. Do not lower these budgets to make glas
 
 The eight baseline findings were implemented on 2026-09-28 after the research above, inside
 the existing stack and tokens. The baseline sections are left as recorded; this section is
-the after-state, measured with the same Storybook + Playwright + axe method.
+the after-state, measured with the same Storybook + Playwright + axe method. The changes
+landed as three PRs — [#86](https://github.com/miklol/Muna/pull/86) (profile directory),
+[#88](https://github.com/miklol/Muna/pull/88) (module bar) and
+[#91](https://github.com/miklol/Muna/pull/91) (shell geometry, panel header, empty state) —
+and one finding was resolved on `main` independently before the split, as the table says.
 
 ### What changed
 
 | Finding | Change | Where |
 | --- | --- | --- |
-| Module bar vanished on light backdrops | `--surface-2` is now painted over `--notch-black` inside the pill; the pill is capped at its container and the viewport | `packages/ui/src/primitives/module-bar.css` |
-| Tertiary text 3.71:1 | `Text tone="tertiary"` and search placeholders render `--text-2`; `--text-3` keeps its value but is reserved for disabled glyphs; the Tones story's axe exemption is removed | `text.css`, `text.tsx`, `search-field.css`, `text.stories.tsx`, `docs/05-design-system.md` |
-| 720 px panel floor overrides Rust's narrow bound | The floor is gone: strip, reveal, panel and module bar all fit `panelMaxWidth`, additionally capped by the notch window's measured client width | `apps/desktop/src/shell/shell-geometry.ts`, `notch-window.tsx` |
-| Fixed 16-slot module bar overflowed at 320 px | Capacity follows the bar's measured width (`ResizeObserver`, disconnected on unmount); an active drag is dropped if the layout changes under it; every page has a focusable tab, not only the pager | `module-bar.tsx`, new `Narrow` story |
-| Title/subtitle truncated with no reveal | Both wrap (`overflow-wrap: anywhere`, `text-wrap: balance`); the header grows past 44 px when needed | `panel-chrome.tsx`, `panel-chrome.css` |
-| Chips clipped behind the heading | Chips sit between heading and rail and wrap with the rail to a second row; ⤡ collapse stays right-most on its row | `panel-chrome.css` |
-| Rail hit areas overlapped by 4 px | Rail gap 4 → 8 px, so the 36 px effective targets are disjoint | `panel-chrome.css`, `docs/05-design-system.md` |
-| Blur on the full-width module wrapper | The module body enters with `enterFromLarge` (opacity + scale, no blur); the panel column is capped at `panelMaxHeight` and the chrome body scrolls | `notch-window.tsx`, `panel-chrome.css` |
-| Empty state told users nothing actionable | `PanelEmptyState` distinguishes a build with no modules (no action — nothing to enable) from all modules disabled (typed `commands.openSettings` with an inline `role="alert"` on failure) | `apps/desktop/src/shell/panel.tsx`, `packages/i18n/src/locales/en.json` |
+| Module bar vanished on light backdrops | `--surface-2` is now painted over `--notch-black` inside the pill (landed on `main` in parallel, M5-E3); the pill is capped at its container and the viewport (#88) | `packages/ui/src/primitives/module-bar.css` |
+| Tertiary text 3.71:1 | Resolved on `main` independently (M5-E3) by raising `--text-3` to 46 % (4.6:1 on the panel; light theme 55 %) and removing the Tones story's axe exemption. The alternative built here — tertiary renders `--text-2` — was dropped at the split because the token change supersedes it; see the colour matrix under [Deeper compositing measurements](#deeper-compositing-measurements) for why 46 % still fails on `--surface-3`/`--surface-4` | `packages/ui/src/tokens/tokens.css`, `docs/05-design-system.md` |
+| 720 px panel floor overrides Rust's narrow bound | The floor is gone: strip, reveal, panel and module bar all fit `panelMaxWidth`, additionally capped by the notch window's measured client width (#91) | `apps/desktop/src/shell/shell-geometry.ts`, `notch-window.tsx` |
+| Fixed 16-slot module bar overflowed at 320 px | Capacity follows the bar's measured width (`ResizeObserver`, disconnected on unmount); an active drag is dropped if the layout changes under it; every page has a focusable tab, not only the pager (#88) | `module-bar.tsx`, new `Narrow` story |
+| Title/subtitle truncated with no reveal | Both wrap (`overflow-wrap: anywhere`, `text-wrap: balance`); the header grows past 44 px when needed (#91) | `panel-chrome.tsx`, `panel-chrome.css` |
+| Chips clipped behind the heading | Chips sit between heading and rail and wrap with the rail to a second row; ⤡ collapse stays right-most on its row (#91) | `panel-chrome.css` |
+| Rail hit areas overlapped by 4 px | Rail gap 4 → 8 px, so the 36 px effective targets are disjoint (#91) | `panel-chrome.css` |
+| Blur on the full-width module wrapper | The module body enters with `enterFromLarge` (opacity + scale, no blur); the panel column is capped at `panelMaxHeight` and the chrome body scrolls (#91) | `notch-window.tsx`, `panel-chrome.css` |
+| Empty state told users nothing actionable | `PanelEmptyState` distinguishes a build with no modules (no action — nothing to enable) from all modules disabled (typed `commands.openSettings` with an inline `role="alert"` on failure) (#91) | `apps/desktop/src/shell/panel.tsx`, `packages/i18n/src/locales/*.json` |
 
 ### Measured after the change
 
@@ -1024,16 +1032,17 @@ produce a merge conflict; the one built here duplicated work rather than adding 
 specs in `docs/modules/*.md` are what this branch started from; the stack is where they are
 being implemented, module by module.
 
-What **does** carry forward from this branch, because `main` still lacks it (checked at the
-rebase point, `94c3784`):
+What **does** carry forward from this branch, because `main` still lacked it (checked at the
+rebase point, `94c3784`, and again at the split, `a3f1cdc`):
 
-| Fix on this branch | State on `main` |
-| --- | --- |
-| Readable tertiary text (`--text-2`), axe exemption removed | still `--text-3` at 3.7:1 |
-| Shell honours Rust's narrow `panelMaxWidth` | still a 720 px floor |
-| Panel title/subtitle wrap; chips whole; rail targets disjoint | still `truncate={1}` on both |
-| Profile moved out of the NSIS install directory, with one-time migration | still `%LOCALAPPDATA%\Muna` |
-| Module bar painted over `--notch-black` | **already fixed there** (same line; kept main's) |
+| Fix on this branch | State on `main` | Lands as |
+| --- | --- | --- |
+| Readable tertiary text, axe exemption removed | **fixed there** between the two checks (`--text-3` raised to 46 %, M5-E3) | dropped at the split |
+| Shell honours Rust's narrow `panelMaxWidth` | still a 720 px floor | #91 |
+| Panel title/subtitle wrap; chips whole; rail targets disjoint | still `truncate={1}` on both | #91 |
+| Module bar sized to its measured width; every page keyboard-reachable | still 640 px fixed | #88 |
+| Profile moved out of the NSIS install directory, with one-time migration | still `%LOCALAPPDATA%\Muna` | #86 |
+| Module bar painted over `--notch-black` | **already fixed there** (same line; kept main's) | — |
 
 The three reference-composition lessons the withdrawn module encoded — capability-aware
 transport (leave controls out, do not disable them), artwork continuity across a late
