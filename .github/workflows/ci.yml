@@ -189,9 +189,9 @@ jobs:
       - name: Cargo.lock matches the manifests
         run: node scripts/check-cargo-lock.mjs
       - run: pnpm install --frozen-lockfile
-      # pnpm drops the first `--`; tauri hands what follows the second one to `cargo build`.
+      # tauri hands what follows `--` to `cargo build`, so this builds exactly Cargo.lock.
       - name: Tauri debug build
-        run: pnpm --filter @muna/desktop tauri build --debug --no-bundle -- -- --locked
+        run: pnpm --filter @muna/desktop tauri build --debug --no-bundle -- --locked
       - name: Bundle size budget
         run: pnpm -w bundle:check
       - name: Shell scenario suite (Playwright S1–S14)

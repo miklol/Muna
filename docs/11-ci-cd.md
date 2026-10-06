@@ -192,8 +192,8 @@ flowchart LR
   runner). Cache misses must not fail a job.
 - Install with `pnpm install --frozen-lockfile`; a lockfile change is a reviewable diff.
 - Cargo builds the committed `Cargo.lock`, never a re-resolved one: every cargo command that
-  resolves dependencies passes `--locked` (`tauri build … -- -- --locked`, because pnpm drops
-  the first `--`; cargo-deny `arguments: --all-features --locked`), and the `rust` and `app`
+  resolves dependencies passes `--locked` (`tauri build … -- --locked`, which tauri forwards to
+  `cargo build`; cargo-deny `arguments: --all-features --locked`), and the `rust` and `app`
   jobs start with `scripts/check-cargo-lock.mjs`, which fails before anything compiles when the
   lockfile no longer matches the manifests and annotates `Cargo.lock` with the fix.
 - Matrix only where it buys information (Windows Server 2022 vs 2025 images for the shell

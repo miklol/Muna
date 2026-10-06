@@ -74,8 +74,8 @@ jobs:
           workspaces: apps/desktop/src-tauri
           shared-key: desktop
       - run: pnpm install --frozen-lockfile
-      # `--locked` builds exactly Cargo.lock (#90); pnpm drops the first `--`, tauri forwards the rest.
-      - run: pnpm --filter @muna/desktop tauri build --debug --no-bundle -- -- --locked
+      # tauri hands what follows `--` to `cargo build`: build exactly Cargo.lock (#90).
+      - run: pnpm --filter @muna/desktop tauri build --debug --no-bundle -- --locked
       - name: Perf harness (full)
         run: pnpm -w perf:full -- --out perf-nightly.json --markdown perf-nightly.md
       - uses: actions/upload-artifact@v7
@@ -148,7 +148,7 @@ jobs:
           workspaces: apps/desktop/src-tauri
           shared-key: desktop
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @muna/desktop tauri build --no-bundle -- -- --locked
+      - run: pnpm --filter @muna/desktop tauri build --no-bundle -- --locked
         env:
           MUNA_CHANNEL: nightly
       - shell: pwsh

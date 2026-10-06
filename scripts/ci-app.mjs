@@ -3,7 +3,7 @@ import { checkCargoLock } from './check-cargo-lock.mjs';
 import { run } from './lib.mjs';
 
 checkCargoLock();
-// pnpm drops the first `--`; tauri hands what follows the second one to `cargo build`.
+// tauri hands what follows `--` to `cargo build`, so this builds exactly Cargo.lock.
 run('pnpm', [
   '--filter',
   '@muna/desktop',
@@ -11,7 +11,6 @@ run('pnpm', [
   'build',
   '--debug',
   '--no-bundle',
-  '--',
   '--',
   '--locked',
 ]);
