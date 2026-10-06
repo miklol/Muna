@@ -785,6 +785,9 @@ impl ShellModel {
     /// - A mouse button going down while the cursor is outside every shape of a window is
     ///   reported as a press outside for that window: the window is click-through there, so
     ///   the UI cannot observe the press itself.
+    /// - The cursor leaving every shape of a window (the window turning click-through) is
+    ///   reported as a leave for that window. The webview's own `pointerleave` is lost when
+    ///   the element under a still cursor was replaced, as the expand replaces the strip (#75).
     pub fn poll_cursor(&mut self, cursor: (i32, i32), button_down: bool) -> CursorPoll {
         let pressed = button_down && !self.pointer_button_was_down;
         self.pointer_button_was_down = button_down;
@@ -801,6 +804,12 @@ impl ShellModel {
             }
             if let Some(ignore) = decision.set_ignore {
                 poll.toggles.push((window.hwnd, ignore));
+                if ignore {
+                    // The UI publishes an open panel padded by the margin its own `near` test
+                    // uses, so the window turns click-through only once the pointer is no longer
+                    // near the panel: the leave is never early. Shapes must keep covering that.
+                    poll.left.push(window.label.clone());
+                }
             }
             if pressed && window.hit_tester.is_ignoring() {
                 poll.pressed_outside.push(window.label.clone());
@@ -839,6 +848,8 @@ pub struct CursorPoll {
     pub toggles: Vec<(WindowHandle, bool)>,
     /// Labels of the windows that must receive `ShellPointerDownOutside`.
     pub pressed_outside: Vec<String>,
+    /// Labels of the windows the cursor just left (every shape): `ShellPointerLeft`.
+    pub left: Vec<String>,
     /// While a snap drag is tracked: the notch window under the cursor, if any.
     pub snap_over: Option<SnapOver>,
 }
@@ -849,6 +860,7 @@ impl Default for CursorPoll {
             rate: PollRate::Idle,
             toggles: Vec::new(),
             pressed_outside: Vec::new(),
+            left: Vec::new(),
             snap_over: None,
         }
     }

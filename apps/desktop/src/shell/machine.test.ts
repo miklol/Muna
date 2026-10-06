@@ -108,6 +108,16 @@ describe('transition (pure)', () => {
     expect(run([timer('hoverOut')], left.snapshot).snapshot.state).toBe('collapsed');
   });
 
+  it('a leave reported twice (webview, then the shell) arms the grace once', () => {
+    const left = run([{ type: 'pointerLeave' }], opened());
+    expect(left.effects).toEqual([
+      { type: 'startTimer', id: 'hoverOut', ms: timings.hoverOutGraceExpandedMs },
+    ]);
+    const again = run([{ type: 'pointerLeave' }], left.snapshot);
+    expect(again.effects).toEqual([]);
+    expect(again.snapshot).toEqual(left.snapshot);
+  });
+
   it('S4: a press outside collapses the open panel and the reveal, not a pinned panel', () => {
     expect(run([{ type: 'pressOutside' }], opened()).snapshot.state).toBe('collapsed');
     const revealed = run([hover(), timer('hoverIntent')]).snapshot;

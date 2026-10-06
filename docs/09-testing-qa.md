@@ -206,11 +206,17 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    restarted the sample, which ended at once with no frame and was dropped, and the radius
    tween then finished with nothing to report. A retarget that keeps the radius target now
    continues the sample; the shell also pre-renders the panel while hover intent runs and
-   reports a tween that drew no frame as `fps=0 frames=0` with its wall duration. The harness
+   reports a tween that drew no frame as `fps=0 frames=0` with its wall duration, as it does
+   a morph whose only frame began before the sample did: its span would be negative, the
+   shell would reject the report and the collapse would leave nothing in the log
+   ([#75](https://github.com/miklol/Muna/issues/75)). The harness
    reports cycle 1's expand, which meets a cold renderer, as **`coldExpand`** (fps, frames,
    duration, longest frame, `atMs`) apart from the gated morphs, with a note, and runs cycle 1
    again, so the 20 measured cycles follow it; that cycle's collapse is a warm morph and
-   stays gated. The exclusion is temporary: cycle 1's expand is not gated only until a
+   stays gated. The note is written once the drive ends and says what followed the cold
+   expand: whether its collapse was reported and how many measured cycles ran
+   ([#75](https://github.com/miklol/Muna/issues/75)). The exclusion is temporary: cycle 1's
+   expand is not gated only until a
    pre-warm brings it back in ([#81](https://github.com/miklol/Muna/issues/81)); then
    `coldExpand` is `null` and cycle 1 is measured against ≥ 58 fps like the rest. A
    frameless expand in any later cycle stays in the measured set, where its

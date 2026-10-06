@@ -516,6 +516,16 @@ pub struct ShellPointerDownOutside {
     pub label: String,
 }
 
+/// The cursor left every shape the notch `label` published, and the window turned
+/// click-through. The webview's own `pointerleave` does not arrive when the element under a
+/// still cursor was replaced first, as the expand replaces the strip with the panel (#75); the
+/// UI treats this as the pointer leaving.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellPointerLeft {
+    pub label: String,
+}
+
 /// One dragged item as the UI may know it (docs/modules/drop-actions.md): its name and kind,
 /// never its path.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -3042,6 +3052,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             ShellYieldChanged,
             HotkeyPressed,
             ShellPointerDownOutside,
+            ShellPointerLeft,
             DropEntered,
             DropMoved,
             DropLeft,

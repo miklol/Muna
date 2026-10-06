@@ -275,6 +275,16 @@ decided during M1-E1 and is the behaviour to test against.
 - **Press outside** is detected by Rust — a button rising edge while the cursor is outside
   every shape of a ready window emits `ShellPointerDownOutside { label }`, because the window
   is click-through there — and by the UI for a `pointerdown` on its own hover padding.
+- **Pointer leave** is reported by the webview (`pointerleave` on the window's root) and by
+  Rust: when a ready window turns click-through because the cursor left every shape it
+  published, the cursor poll emits `ShellPointerLeft { label }` and the UI sends the machine
+  the same `pointerLeave`. A leave while the pointer is already away changes nothing, so the
+  two reports arm the grace timer once. The webview alone is not enough
+  ([#75](https://github.com/miklol/Muna/issues/75)): the expand replaces the strip with the
+  panel under a still cursor, and when the cursor's next move leaves the window before Blink
+  has re-targeted the pointer — likely under load, as on a cold first expand on the 4-vCPU
+  runner — Blink clears `:hover` but dispatches no `pointerout` or `pointerleave` anywhere.
+  The machine then kept `pointerNear` and the panel stayed open until a press outside.
 - **Morph and material.** One `NotchSurface` morphs its real width, height and offset under
   the springs of `@muna/ui/motion`; `morph-transition.ts` picks the preset from the previous
   and the next state, and reduced motion swaps the spring for the 150 ms ease-out (Motion then
@@ -285,7 +295,12 @@ decided during M1-E1 and is the behaviour to test against.
   `max_frame_ms` and `dropped`, the duration spanning the first to the last frame. A morph
   that spans no frame is not reported when it was instant — a mount, or under reduced motion
   one that leaves the radius where it is — or cut short within 20 ms (`SNAP_MIN_MS`); a tween
-  that drew no frame is reported with `frames=0`, `fps=0` and its wall duration. A retarget
+  that drew no frame is reported with `frames=0`, `fps=0` and its wall duration. So is a morph
+  whose only frame began before the sample started: rAF stamps a frame with the time it
+  began, which precedes the start when the morph started inside a long task after that frame
+  was due. Its span would be negative, `report_morph` (unsigned fields) would reject it, and
+  the panel would collapse with nothing in the log
+  ([#75](https://github.com/miklol/Muna/issues/75)). A retarget
   that keeps the radius target — the panel's height, measured once it mounts, arriving
   mid-expand — continues the sample rather than starting one. Under reduced motion the
   retarget snaps and the radius tween in flight still ends the sample; a spring retarget

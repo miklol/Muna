@@ -1052,6 +1052,55 @@ fn s4_press_outside_the_shapes_is_reported_on_the_rising_edge_only() {
     );
 }
 
+/// #75: the cursor jumping from the open panel to far away is reported as a leave once, as the
+/// window turns click-through; the webview's own `pointerleave` is lost when the expand
+/// replaced the strip under a still cursor.
+#[test]
+fn leaving_every_shape_is_reported_once_per_leave() {
+    let (platform, mut model, now) = ready_model(ShellSettings::default());
+    let strip = ShapeRect {
+        x: 465,
+        y: 0,
+        width: 190,
+        height: 32,
+    };
+    let panel = ShapeRect {
+        x: 30,
+        y: 0,
+        width: 1060,
+        height: 420,
+    };
+    model.publish_shapes(&platform, PRIMARY_LABEL, &[strip, panel], now);
+    let over_panel = (720 + 560, 300);
+    let away = (100, 1300);
+
+    // The hit tester starts hit-testable and converges on its first sample: a cursor that was
+    // never over the window is reported as left once. The UI's machine ignores a leave from a
+    // pointer it never saw near, so this is harmless; it is not repeated.
+    assert_eq!(
+        model.poll_cursor(away, false).left,
+        vec![PRIMARY_LABEL.to_owned()]
+    );
+    assert!(model.poll_cursor(away, false).left.is_empty());
+
+    assert!(model.poll_cursor(over_panel, false).left.is_empty());
+    assert!(model.poll_cursor(over_panel, false).left.is_empty());
+    assert_eq!(
+        model.poll_cursor(away, false).left,
+        vec![PRIMARY_LABEL.to_owned()]
+    );
+    assert!(
+        model.poll_cursor(away, false).left.is_empty(),
+        "staying away is not a second leave"
+    );
+    assert!(model.poll_cursor(over_panel, false).left.is_empty());
+    assert_eq!(
+        model.poll_cursor((720 + 20, 300), false).left,
+        vec![PRIMARY_LABEL.to_owned()],
+        "back over the panel and out into the window's transparent area"
+    );
+}
+
 #[test]
 fn press_outside_is_reported_per_window_on_two_monitors() {
     let (platform, mut model, now) = ready_model(ShellSettings::default());

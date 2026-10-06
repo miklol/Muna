@@ -462,6 +462,8 @@ export async function driveMorphs(app, probe, host, count, log) {
   const seen = app.morphs.length;
   let stall = null;
   let coldExpand = null;
+  let coldNote = -1;
+  let measuredCycles = 0;
   let mover = 'input';
   for (let cycle = 0; cycle < count; cycle += 1) {
     let expanded = await expandOnce(app, probe, approach, mover);
@@ -507,14 +509,13 @@ export async function driveMorphs(app, probe, host, count, log) {
     // retarget to its measured height land inside it (#71). It is booked apart as
     // `coldExpand` — reported, not gated until #81 brings it back in — and the cycle runs
     // again, so `count` measured cycles follow it. Its collapse is a warm morph and stays
-    // gated, as before #71 (collapses then number one more than expands).
+    // gated, as before #71 (collapses then number one more than expands). Its note is written
+    // once the drive ends, so it says only what happened after it (#75).
     const cold = coldExpand === null;
     if (cold) {
       const { fps, frames, durationMs, maxFrameMs, atMs } = expanded.morph;
       coldExpand = { morph: expanded.morph, fps, frames, durationMs, maxFrameMs, atMs };
-      notes.push(
-        `Cycle 1: the session's first expand ran at ${fps} fps (${frames} frames over ${durationMs} ms, longest frame ${maxFrameMs} ms); it is reported as \`coldExpand\` and not gated until #81 brings it back in, its collapse is measured, and ${count} measured cycles followed it.`,
-      );
+      coldNote = notes.push('') - 1;
     } else {
       morphs.push(expanded.morph);
     }
@@ -537,8 +538,26 @@ export async function driveMorphs(app, probe, host, count, log) {
       ? `cold expand ${coldExpand.fps} fps (not gated until #81)`
       : `expand ${expanded.morph.fps} fps`;
     log(`cycle ${cycle + 1}/${count}: ${expandText}, collapse ${morphs.at(-1).fps} fps`);
-    if (cold) cycle -= 1;
+    if (cold) {
+      coldExpand.collapsed = true;
+      cycle -= 1;
+    } else {
+      measuredCycles += 1;
+    }
     await sleep(600);
+  }
+  if (coldExpand) {
+    const { fps, frames, durationMs, maxFrameMs } = coldExpand;
+    const plural = (n) => `${n} measured ${n === 1 ? 'cycle' : 'cycles'}`;
+    let after = '; its collapse was not reported, so no measured cycle followed it';
+    if (coldExpand.collapsed) {
+      after =
+        measuredCycles === count
+          ? `, its collapse is measured, and ${plural(count)} followed it`
+          : `, its collapse is measured, and ${measuredCycles} of the ${plural(count)} followed it`;
+    }
+    notes[coldNote] =
+      `Cycle 1: the session's first expand ran at ${fps} fps (${frames} frames over ${durationMs} ms, longest frame ${maxFrameMs} ms); it is reported as \`coldExpand\` and not gated until #81 brings it back in${after}.`;
   }
   // Include morphs the shell reported on its own during the drive (e.g. hover reveals).
   const all = app.morphs.slice(seen).filter((m) => m.label === 'notch' && m !== coldExpand?.morph);

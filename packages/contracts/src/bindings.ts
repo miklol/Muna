@@ -585,6 +585,7 @@ export const events = {
 	shelfChanged: makeEvent<ShelfChanged>("shelf-changed"),
 	shellLayoutChanged: makeEvent<ShellLayoutChanged>("shell-layout-changed"),
 	shellPointerDownOutside: makeEvent<ShellPointerDownOutside>("shell-pointer-down-outside"),
+	shellPointerLeft: makeEvent<ShellPointerLeft>("shell-pointer-left"),
 	shellYieldChanged: makeEvent<ShellYieldChanged>("shell-yield-changed"),
 	snapDragEnded: makeEvent<SnapDragEnded>("snap-drag-ended"),
 	snapDragLeft: makeEvent<SnapDragLeft>("snap-drag-left"),
@@ -2193,6 +2194,16 @@ export type ShellMode =
  *  the cursor poll reports it and the UI closes an unpinned panel (S4 in docs/09-testing-qa.md).
  */
 export type ShellPointerDownOutside = {
+	label: string,
+};
+
+/**
+ *  The cursor left every shape the notch `label` published, and the window turned
+ *  click-through. The webview's own `pointerleave` does not arrive when the element under a
+ *  still cursor was replaced first, as the expand replaces the strip with the panel (#75); the
+ *  UI treats this as the pointer leaving.
+ */
+export type ShellPointerLeft = {
 	label: string,
 };
 

@@ -108,6 +108,24 @@ export function useShellPointerDownOutsideSubscription(onPress: () => void) {
 }
 
 /**
+ * The cursor left every published shape and the window turned click-through
+ * (`ShellPointerLeft`). The webview's own `pointerleave` is lost when the element under a still
+ * cursor was replaced first, as the expand replaces the strip with the panel (#75).
+ */
+export function useShellPointerLeftSubscription(onLeave: () => void) {
+  useEffect(() => {
+    const label = currentWindowLabel();
+    return listenWhileMounted(() =>
+      events.shellPointerLeft.listen((event) => {
+        if (event.payload.label === label) {
+          onLeave();
+        }
+      }),
+    );
+  }, [onLeave]);
+}
+
+/**
  * Mirrors a drag carrying files over this window into the store (docs/modules/drop-actions.md):
  * `DropEntered` opens a session, `DropMoved` follows the pointer, `Dropped` marks the release
  * and `DropLeft` ends it. Every event is filtered on this window's label; the shell emits them
