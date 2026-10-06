@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use muna_core::{Settings, SettingsError, StripContent};
 use muna_lib::ipc::{IpcError, default_bindings_path, export_bindings};
-use muna_lib::paths::{legacy_profile_dir, migrate_legacy_profile, profile_dir};
+use muna_lib::paths::{
+    choose_profile_dir, legacy_profile_dir, migrate_legacy_profile, profile_dir,
+};
 use muna_lib::state::AppState;
 use muna_platform::FakePlatform;
 
@@ -164,4 +166,34 @@ fn a_failure_midway_leaves_the_legacy_profile_whole() {
     std::fs::remove_dir(to.join("settings.json")).unwrap();
     assert_eq!(migrate_legacy_profile(&from, &to).unwrap().len(), 3);
     assert!(to.join("muna.db-wal").is_file() && to.join("settings.json").is_file());
+}
+
+#[test]
+fn a_failed_move_runs_the_session_from_the_legacy_folder_so_the_next_start_retries() {
+    let root = tempfile::tempdir().unwrap();
+    let legacy = root.path().join("Muna");
+    let profile = root.path().join("miklol").join("Muna");
+    std::fs::create_dir_all(&legacy).unwrap();
+    std::fs::write(legacy.join("settings.json"), "{}").unwrap();
+    let failed: std::io::Result<Vec<std::path::PathBuf>> =
+        Err(std::io::Error::other("muna.db is held open"));
+    let fine: std::io::Result<Vec<std::path::PathBuf>> = Ok(Vec::new());
+
+    // The move failed and the legacy folder still holds the profile: run from there, so
+    // nothing lands in the new folder and the next start sees it empty and tries again.
+    assert_eq!(
+        choose_profile_dir(&failed, legacy.clone(), profile.clone()),
+        legacy
+    );
+    // A success (or nothing to do) runs from the new folder.
+    assert_eq!(
+        choose_profile_dir(&fine, legacy.clone(), profile.clone()),
+        profile
+    );
+    // A failure with no legacy profile left behind has nothing to protect: the new folder.
+    std::fs::remove_file(legacy.join("settings.json")).unwrap();
+    assert_eq!(
+        choose_profile_dir(&failed, legacy, profile.clone()),
+        profile
+    );
 }

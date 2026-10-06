@@ -43,9 +43,10 @@ fn local_app_data() -> PathBuf {
 ///
 /// All or nothing: the files move in [`MIGRATED_FILES`] order and a rename that fails (the
 /// database held open by an older build still running, say — this runs before the
-/// single-instance guard) moves back what already moved, so the legacy profile stays whole
-/// and the next start tries again. Without that, `settings.json` in the new folder would
-/// mark the profile as migrated and orphan the database.
+/// single-instance guard) moves back what already moved, so the legacy profile stays whole.
+/// The caller then runs the session from the legacy folder ([`choose_profile_dir`]) so the
+/// new one stays empty and the next start tries again. Without both, `settings.json` in the
+/// new folder would mark the profile as migrated and orphan the database.
 ///
 /// Copies the Shelf module made under the legacy folder (`shelf/`) are not carried over:
 /// the database records their absolute paths, so moving them would break every item.
@@ -84,5 +85,24 @@ fn move_back(moved: &[PathBuf], from: &Path) {
         if let Some(name) = target.file_name() {
             drop(std::fs::rename(target, from.join(name)));
         }
+    }
+}
+
+/// The directory this session runs from, given how [`migrate_legacy_profile`] went: the new
+/// profile when it succeeded (or had nothing to do), the legacy folder when it failed and
+/// still holds a profile. Writing a fresh `settings.json` to the new folder after a failed
+/// move would mark the profile as migrated on the next start and strand the legacy data;
+/// running from the legacy folder keeps the new one empty, so the next start retries.
+#[must_use]
+pub fn choose_profile_dir<T>(
+    result: &std::io::Result<T>,
+    legacy: PathBuf,
+    profile: PathBuf,
+) -> PathBuf {
+    let legacy_has_profile = PROFILE_FILES.iter().any(|name| legacy.join(name).is_file());
+    if result.is_err() && legacy_has_profile {
+        legacy
+    } else {
+        profile
     }
 }
