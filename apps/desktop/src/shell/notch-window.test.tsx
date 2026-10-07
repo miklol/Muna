@@ -992,6 +992,63 @@ describe('NotchWindow scenario suite', () => {
       expect(screen.queryByText('warm body')).toBeNull();
     });
 
+    it('#81: the hover-intent copy measures the panel, so the first expand opens to its height', async () => {
+      // As in the browser, the panel's own height reaches the shell only after the expand.
+      const observed: { node: Element; callback: ResizeObserverCallback }[] = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          readonly #callback: ResizeObserverCallback;
+          constructor(callback: ResizeObserverCallback) {
+            this.#callback = callback;
+          }
+          observe(node: Element) {
+            observed.push({ node, callback: this.#callback });
+          }
+          unobserve = vi.fn();
+          disconnect = vi.fn();
+        },
+      );
+      // Swapped by hand: `renderNotch`'s spy on the shell would take over a prototype spy.
+      const box = Object.getOwnPropertyDescriptor(Element.prototype, 'getBoundingClientRect')!;
+      Object.defineProperty(Element.prototype, 'getBoundingClientRect', {
+        ...box,
+        value(this: Element) {
+          // jsdom lays nothing out: every other box stays empty.
+          return DOMRect.fromRect(
+            this.hasAttribute('data-warmup-measure') ? { width: 960, height: 300 } : {},
+          );
+        },
+      });
+      try {
+        const { main } = renderNotch();
+        const panelRect = () => lastRects()[1]!.height - 60;
+        pointer(main, 'pointermove', ON_STRIP, 0);
+        await advance(600);
+        expect(stateOf(main)).toBe('expanded');
+        // No retarget waits for the panel's measurement: the morph heads for 300 from the start.
+        expect(panelRect()).toBe(300);
+
+        // Once the panel has measured itself, its height wins over any later copy.
+        const panel = observed.find((o) => o.node.querySelector(':scope > [role="dialog"]'));
+        const entry = { borderBoxSize: [{ blockSize: 320, inlineSize: 0 }] };
+        act(() => {
+          panel?.callback([entry as unknown as ResizeObserverEntry], {} as ResizeObserver);
+        });
+        await settle();
+        expect(panelRect()).toBe(320);
+        fireEvent.keyDown(window, { key: 'Escape' });
+        await settle();
+        expect(screen.getByTestId('panel-warmup')).toBeInTheDocument();
+        openWithHotkey(main);
+        await settle();
+        expect(panelRect()).toBe(320);
+      } finally {
+        Object.defineProperty(Element.prototype, 'getBoundingClientRect', box);
+        vi.unstubAllGlobals();
+      }
+    });
+
     it('#71: under reduced motion only a morph that moves the radius is sampled as a tween', async () => {
       const base = defaultSettings();
       cacheSettings(queryClient, { ...base, general: { ...base.general, reducedMotion: 'on' } });

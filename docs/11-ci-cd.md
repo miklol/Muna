@@ -323,12 +323,12 @@ budgets. Gates are never lowered to unblock a PR.
   window under the probe point, the foreground window, the notch's click-through bit, the
   memory target). Since [#71](https://github.com/miklol/Muna/issues/71) the shell samples the
   first expand through the retarget to the panel's measured height, which had dropped it, and
-  reports a tween that drew no frame with `frames=0`; cycle 1's expand is reported as
-  `coldExpand`, not gated (its collapse is), with the 20 measured cycles after it; the note
-  says how many of them actually ran. That
-  exclusion is temporary: it holds until a pre-warm brings cycle 1 back under the gate
-  ([#81](https://github.com/miklol/Muna/issues/81)). The gate does not change: a frameless
-  expand in a later cycle, or a cycle that never morphs, still fails.
+  reports a tween that drew no frame with `frames=0`. From #71 to
+  [#81](https://github.com/miklol/Muna/issues/81) cycle 1's expand, 39–49 fps on the runner,
+  was booked apart as `coldExpand` and not gated; since #81 the shell lays the panel out and
+  measures it while hover intent runs, so all 20 cycles are gated, the session's first
+  expand included, and `coldExpand` is `null`. A frameless expand, or a cycle that never
+  morphs, still fails.
   The workflow builds `--debug --no-bundle`, so today's nightly numbers describe the debug
   build; the 100-cycle, 10-minute idle, media-playing and 4K 150 % emulation passes and the
   release build are the target state, not yet implemented. Results are appended to the

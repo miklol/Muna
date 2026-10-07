@@ -433,10 +433,9 @@ export async function measureIdle(app, probe, host, plan, elapsedSeconds, log) {
  * guessed. On the hosted runner (Windows Server 2025, 4 vCPU, reduced motion, debug build) the
  * first expand of the session went unreported (nightly runs 37197808643, 37198821548,
  * 37200725934 and 37301497415): the panel's height, measured once it mounts, retargets the
- * shell mid-morph, and the shell used to drop that sample (#71). Cycle 1's expand comes back
- * as `coldExpand`, reported apart from the measured morphs. The exclusion is temporary: it is
- * not gated only until a pre-warm brings it back in (#81), when `coldExpand` goes back to
- * `null` and cycle 1 is measured like the rest.
+ * shell mid-morph, and the shell used to drop that sample (#71). From #71 to #81 that first
+ * expand was booked apart as `coldExpand`; since the shell lays the panel out and measures it
+ * during hover intent (#81), cycle 1 is measured and gated like the rest.
  */
 export async function driveMorphs(app, probe, host, count, log) {
   const notes = [];
@@ -446,7 +445,7 @@ export async function driveMorphs(app, probe, host, count, log) {
     notes.push(
       'No placed notch window was found (desktop locked or notch parked); morphs were not driven.',
     );
-    return { morphs: [], notes, stall: null, coldExpand: null };
+    return { morphs: [], notes, stall: null };
   }
   const point = stripProbePoint(primary);
   // Where a real approach passes first: inside the notch window's bounds but under the resting
@@ -461,9 +460,6 @@ export async function driveMorphs(app, probe, host, count, log) {
   const morphs = [];
   const seen = app.morphs.length;
   let stall = null;
-  let coldExpand = null;
-  let coldNote = -1;
-  let measuredCycles = 0;
   let mover = 'input';
   for (let cycle = 0; cycle < count; cycle += 1) {
     let expanded = await expandOnce(app, probe, approach, mover);
@@ -505,20 +501,7 @@ export async function driveMorphs(app, probe, host, count, log) {
       );
       break;
     }
-    // The session's first expand meets a cold renderer: the panel's first render and the
-    // retarget to its measured height land inside it (#71). It is booked apart as
-    // `coldExpand` — reported, not gated until #81 brings it back in — and the cycle runs
-    // again, so `count` measured cycles follow it. Its collapse is a warm morph and stays
-    // gated, as before #71 (collapses then number one more than expands). Its note is written
-    // once the drive ends, so it says only what happened after it (#75).
-    const cold = coldExpand === null;
-    if (cold) {
-      const { fps, frames, durationMs, maxFrameMs, atMs } = expanded.morph;
-      coldExpand = { morph: expanded.morph, fps, frames, durationMs, maxFrameMs, atMs };
-      coldNote = notes.push('') - 1;
-    } else {
-      morphs.push(expanded.morph);
-    }
+    morphs.push(expanded.morph);
     await sleep(400);
     const collapse = app.waitForMorph((m) => m.label === 'notch' && !m.expanded, MORPH_TIMEOUT_MS);
     await moveWith(probe, mover, away);
@@ -534,33 +517,13 @@ export async function driveMorphs(app, probe, host, count, log) {
       );
       break;
     }
-    const expandText = cold
-      ? `cold expand ${coldExpand.fps} fps (not gated until #81)`
-      : `expand ${expanded.morph.fps} fps`;
-    log(`cycle ${cycle + 1}/${count}: ${expandText}, collapse ${morphs.at(-1).fps} fps`);
-    if (cold) {
-      coldExpand.collapsed = true;
-      cycle -= 1;
-    } else {
-      measuredCycles += 1;
-    }
+    log(
+      `cycle ${cycle + 1}/${count}: expand ${expanded.morph.fps} fps, collapse ${morphs.at(-1).fps} fps`,
+    );
     await sleep(600);
   }
-  if (coldExpand) {
-    const { fps, frames, durationMs, maxFrameMs } = coldExpand;
-    const plural = (n) => `${n} measured ${n === 1 ? 'cycle' : 'cycles'}`;
-    let after = '; its collapse was not reported, so no measured cycle followed it';
-    if (coldExpand.collapsed) {
-      after =
-        measuredCycles === count
-          ? `, its collapse is measured, and ${plural(count)} followed it`
-          : `, its collapse is measured, and ${measuredCycles} of the ${plural(count)} followed it`;
-    }
-    notes[coldNote] =
-      `Cycle 1: the session's first expand ran at ${fps} fps (${frames} frames over ${durationMs} ms, longest frame ${maxFrameMs} ms); it is reported as \`coldExpand\` and not gated until #81 brings it back in${after}.`;
-  }
   // Include morphs the shell reported on its own during the drive (e.g. hover reveals).
-  const all = app.morphs.slice(seen).filter((m) => m.label === 'notch' && m !== coldExpand?.morph);
+  const all = app.morphs.slice(seen).filter((m) => m.label === 'notch');
   if (stall?.phase === 'expand') {
     // A collapse as the first morph after the stall means the strip had expanded without an
     // expand report. Since #71 the shell samples the first expand through its retarget, so
@@ -573,14 +536,7 @@ export async function driveMorphs(app, probe, host, count, log) {
       );
     }
   }
-  const booked = coldExpand && {
-    fps: coldExpand.fps,
-    frames: coldExpand.frames,
-    durationMs: coldExpand.durationMs,
-    maxFrameMs: coldExpand.maxFrameMs,
-    atMs: coldExpand.atMs,
-  };
-  return { morphs: all.length >= morphs.length ? all : morphs, notes, stall, coldExpand: booked };
+  return { morphs: all.length >= morphs.length ? all : morphs, notes, stall };
 }
 
 /** Moves the cursor to `{ x, y }` with the given mover. */

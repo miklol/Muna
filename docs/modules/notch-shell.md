@@ -187,13 +187,14 @@ applies.
   not gated (≈ 0.3 % of one core over 30 s here, 0.01 % normalised; up to 1.3 % of one core
   on the 4-vCPU runner, which is why the idle CPU gate reads the later steady state —
   [11](../11-ci-cd.md#performance-gates)). The first expand after a trim meets a cold
-  renderer, so hover intent pre-renders the panel
+  renderer, so hover intent pre-renders the panel and lays it out once, unpainted
   ([Implementation notes](#implementation-notes-m1-e1), "Morph and material"); the perf
-  harness reports a session's first expand apart as `coldExpand`
-  ([#71](https://github.com/miklol/Muna/issues/71)), not gated until a pre-warm brings it
-  back in ([#81](https://github.com/miklol/Muna/issues/81)). Still to verify on hardware:
-  the first morph after a trim
-  (Low → Normal on hover, then 250 ms + 600 ms before the panel expands) holds ≥ 58 fps.
+  harness gates a session's first expand with the rest
+  ([#81](https://github.com/miklol/Muna/issues/81)), where from
+  [#71](https://github.com/miklol/Muna/issues/71) to #81 it was booked apart as
+  `coldExpand`. Still to verify on hardware: the first morph after a trim
+  (Low → Normal on hover, then 600 ms from the pointer reaching the strip to the expand)
+  holds ≥ 58 fps on a 60 Hz 4-core laptop.
   The `webview memory target target=Low|Normal windows=N` log line marks every transition;
   the perf harness keys its idle memory value on it.
 
@@ -309,16 +310,28 @@ decided during M1-E1 and is the behaviour to test against.
   reduced motion it was dropped as instant, which left a session's first expand unreported,
   and with the spring the report lost the frames before the retarget. While hover intent runs
   (`hoverReveal`, or the pointer near a collapsed or peeking strip) the panel and module bar
-  are pre-rendered in a hidden React `Activity` — idle priority, no effects,
-  `display: none` — so the expand that follows mounts warm code (data fetches and
+  are pre-rendered in a hidden React `Activity` (`shell/panel-warmup.tsx`) — idle priority,
+  no effects, `display: none` — so the expand that follows mounts warm code (data fetches and
   subscriptions still start on the real mount); the copy goes when the panel shows or the
-  pointer leaves.
-  Hover intent rather than the Low → Normal edge of the [memory target](#memory-target): it
-  also covers the first expand after launch, and needs no new event from Rust. It is a
-  partial mitigation: the cold expand still runs at 39–49 fps on the nightly runner, so the
-  harness books it as `coldExpand` and does not gate it. That exclusion is temporary;
-  [#81](https://github.com/miklol/Muna/issues/81) tracks warming on the Low → Normal edge
-  to bring cycle 1 back under the ≥ 58 fps gate.
+  pointer leaves. Once the copy is in the document it is laid out once: React's
+  `display: none` is lifted for one forced layout and put back in the same task, so no frame
+  sees it. It lays out in an open, morphing `NotchSurface` of the panel's width, inside a node
+  styled like the shell's measurement node, so it loads the panel's fonts, fills the
+  text-shaping caches and measures the panel; that height stands in until the panel has
+  measured itself (only while the shell knows none). That removes both costs of a session's
+  first expand ([#81](https://github.com/miklol/Muna/issues/81)): the panel's first layout
+  (34 ms against 4.6 ms warm, mostly fonts and text shaping, forced in the mount's commit by
+  the module bar's width measurement) and the retarget to the measured height (a whole-shell
+  re-render of 30–50 ms inside the morph). From #71 to #81 the harness booked that expand
+  apart as `coldExpand` (39–49 fps on the nightly runner); it is now gated with the rest.
+  Hover intent rather than the Low → Normal edge of the [memory target](#memory-target): the
+  edge comes 250–400 ms earlier (window bounds versus the strip), but hover intent already
+  leads the expand by up to 600 ms, which is more than the warm-up needs, and the edge would need a
+  new event from Rust because the webview cannot see the cursor outside its shapes. The cold
+  cost is also once per session, not once per trim: before this change, three expands in one
+  session, each after a fresh two-minute Low hold, ran at 53, 72 and 92 fps (debug build, CPU
+  throttled 2×, reduced motion), so warming on every Low → Normal edge would buy nothing the
+  hover-intent warm-up does not, and hover intent also covers the first expand after launch.
 - **Window size** is 1120 × 480 CSS px (`layout::WINDOW_LOGICAL`): panel max width plus the
   20 px shadow padding and the 8 % overshoot on each side, and the height of the tallest panel.
 - **Focus.** The window keeps `WS_EX_NOACTIVATE` until a text field inside the panel takes
