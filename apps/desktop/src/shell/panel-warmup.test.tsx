@@ -125,4 +125,19 @@ describe('PanelWarmup (#81)', () => {
     expect(onMeasure).toHaveBeenCalledTimes(1);
     expect(screen.getByText('warm body')).toBe(body);
   });
+
+  it('stops waiting for the copy when the shell learns the height first', async () => {
+    const seen = layOut(240);
+    const observe = vi.spyOn(MutationObserver.prototype, 'observe');
+    const disconnect = vi.spyOn(MutationObserver.prototype, 'disconnect');
+    const { onMeasure, setLayOut } = renderWarmup();
+    // The idle-priority copy is not in the document yet, so the warm-up waits for it.
+    expect(observe).toHaveBeenCalledTimes(1);
+    setLayOut(false);
+    expect(disconnect).toHaveBeenCalledTimes(1);
+    await flushEffects();
+    expect(seen).toEqual([]);
+    expect(onMeasure).not.toHaveBeenCalled();
+    expect(screen.getByText('warm body')).not.toBeVisible();
+  });
 });

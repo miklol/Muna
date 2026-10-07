@@ -323,15 +323,15 @@ decided during M1-E1 and is the behaviour to test against.
   sees it. It lays out in an open, morphing `NotchSurface` of the panel's width, inside a node
   styled like the shell's measurement node, so it loads the panel's fonts, fills the
   text-shaping caches and measures the panel; that height stands in until the panel has
-  measured itself. The copy differs from the panel only in its handlers and pin icon, which
-  are the same size: on the release build both measured 961 × 360, and the panel reported
-  that height from its first frame in every expand, with and without reduced motion, so the
-  seed is exact and the expand does not retarget. Later hovers keep the plain hidden
-  pre-render of #71, with no host, surface or observer around it: the cost is paid once a
-  session, and a forced layout on every hover could land in the expand that follows if the
-  idle-priority commit is late. That
-  removes both costs of a session's
-  first expand ([#81](https://github.com/miklol/Muna/issues/81)): the panel's first layout
+  measured itself. The copy differs from the panel only in its handlers, its pin icon (the
+  same size) and a plain `size-full` div that stands in for the panel body's animated
+  wrapper: on the release build both measured 961 × 360, and the panel reported that height
+  from its first frame in every expand, with and without reduced motion, so the seed is exact
+  and the expand does not retarget. Later hovers keep the plain hidden pre-render of #71,
+  with no host, surface or observer around it: the cost is paid once a session, and a forced
+  layout on every hover could land in the expand that follows if the idle-priority commit is
+  late. That removes both costs of a session's first expand
+  ([#81](https://github.com/miklol/Muna/issues/81)): the panel's first layout
   (34 ms against 4.6 ms warm, mostly fonts and text shaping, forced in the mount's commit by
   the module bar's width measurement) and the retarget to the measured height (a whole-shell
   re-render of 30–50 ms inside the morph). From #71 to #81 the harness booked that expand
