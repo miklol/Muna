@@ -193,12 +193,14 @@ applies.
   ([#81](https://github.com/miklol/Muna/issues/81)), where from
   [#71](https://github.com/miklol/Muna/issues/71) to #81 it was booked apart as
   `coldExpand`. Measured (release build, i9-13900HX laptop, 165 Hz panel, the docs/09
-  harness's morph driver without CPU throttling): a session's first expand after a trim ran
-  at 121–163 fps (98–110 before #81), and at 106–140 fps with the app pinned to four cores
-  (102–103 before), with and without reduced motion; warm expands ran at 144–174 fps. Still
-  to verify on hardware: the first morph after a trim
-  (Low → Normal on hover, then 600 ms from the pointer reaching the strip to the expand)
-  holds ≥ 58 fps on a 60 Hz 4-core laptop; the only panel here runs at 165 Hz.
+  harness's morph driver without CPU throttling, reduced motion: Windows animation effects
+  are off on this machine and release builds follow them): a session's first expand after a
+  trim ran at 158–168 fps (103–121 before #81), and at 106–140 fps with the app pinned to
+  four cores (102–103 before; measured before the hit-test overlay fix under "Dev
+  switches"); later expands ran at 159–179 fps. Still to verify on hardware: the first morph
+  after a trim (Low → Normal on hover, then 600 ms from the pointer reaching the strip to the
+  expand) holds ≥ 58 fps on a 60 Hz 4-core laptop, with the springs as well as reduced
+  motion; the only panel here runs at 165 Hz, with animation effects off.
   The `webview memory target target=Low|Normal windows=N` log line marks every transition;
   the perf harness keys its idle memory value on it.
 
@@ -326,11 +328,11 @@ decided during M1-E1 and is the behaviour to test against.
   measured itself. The copy differs from the panel only in its handlers, its pin icon (the
   same size) and a plain `size-full` div that stands in for the panel body's animated
   wrapper: on the release build both measured 961 × 360, and the panel reported that height
-  from its first frame in every expand, with and without reduced motion, so the seed is exact
-  and the expand does not retarget. Later hovers keep the plain hidden pre-render of #71,
-  with no host, surface or observer around it: the cost is paid once a session, and a forced
-  layout on every hover could land in the expand that follows if the idle-priority commit is
-  late. That removes both costs of a session's first expand
+  from its first frame in every expand (reduced motion; the springs are still to check), so
+  the seed is exact and the expand does not retarget. Later hovers keep the plain hidden
+  pre-render of #71, with no host, surface or observer around it: the cost is paid once a
+  session, and a forced layout on every hover could land in the expand that follows if the
+  idle-priority commit is late. That removes both costs of a session's first expand
   ([#81](https://github.com/miklol/Muna/issues/81)): the panel's first layout
   (34 ms against 4.6 ms warm, mostly fonts and text shaping, forced in the mount's commit by
   the module bar's width measurement) and the retarget to the measured height (a whole-shell
