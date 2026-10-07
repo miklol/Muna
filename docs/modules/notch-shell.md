@@ -192,9 +192,13 @@ applies.
   harness gates a session's first expand with the rest
   ([#81](https://github.com/miklol/Muna/issues/81)), where from
   [#71](https://github.com/miklol/Muna/issues/71) to #81 it was booked apart as
-  `coldExpand`. Still to verify on hardware: the first morph after a trim
+  `coldExpand`. Measured (release build, i9-13900HX laptop, 165 Hz panel, the docs/09
+  harness's morph driver without CPU throttling): a session's first expand after a trim ran
+  at 121–154 fps (98–110 before #81), and at 106–140 fps with the app pinned to four cores
+  (102–103 before), with and without reduced motion; warm expands ran at 102–166 fps. Still
+  to verify on hardware: the first morph after a trim
   (Low → Normal on hover, then 600 ms from the pointer reaching the strip to the expand)
-  holds ≥ 58 fps on a 60 Hz 4-core laptop.
+  holds ≥ 58 fps on a 60 Hz 4-core laptop; the only panel here runs at 165 Hz.
   The `webview memory target target=Low|Normal windows=N` log line marks every transition;
   the perf harness keys its idle memory value on it.
 
@@ -319,10 +323,13 @@ decided during M1-E1 and is the behaviour to test against.
   sees it. It lays out in an open, morphing `NotchSurface` of the panel's width, inside a node
   styled like the shell's measurement node, so it loads the panel's fonts, fills the
   text-shaping caches and measures the panel; that height stands in until the panel has
-  measured itself. Later hovers keep the plain hidden pre-render: the cost is paid once a
-  session, and a forced layout on every hover can land in the expand that follows (laid out on
-  every hover, warm expands on the runner dropped from a median of 73 to 69 fps, with 31 ms
-  frames). That removes both costs of a session's
+  measured itself. The copy differs from the panel only in its handlers and pin icon, which
+  are the same size: on the release build both measured 961 × 360, and the panel reported
+  that height from its first frame in every expand, with and without reduced motion, so the
+  seed is exact and the expand does not retarget. Later hovers keep the plain hidden
+  pre-render, as before #81: the cost is paid once a session, and a forced layout on every
+  hover could land in the expand that follows if the idle-priority commit is late. That
+  removes both costs of a session's
   first expand ([#81](https://github.com/miklol/Muna/issues/81)): the panel's first layout
   (34 ms against 4.6 ms warm, mostly fonts and text shaping, forced in the mount's commit by
   the module bar's width measurement) and the retarget to the measured height (a whole-shell
