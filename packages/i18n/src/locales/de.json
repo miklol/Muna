@@ -14,7 +14,11 @@
     "collapse": "Zur Leiste einklappen",
     "empty": {
       "title": "Noch nichts anzuzeigen",
-      "body": "Module erscheinen hier, sobald sie hinzugefügt werden."
+      "body": "Module erscheinen hier, sobald sie hinzugefügt werden.",
+      "disabledTitle": "Alle Module sind ausgeschaltet",
+      "disabledBody": "Schalten Sie ein Modul in den Einstellungen ein, um es hier zu sehen.",
+      "openSettings": "Einstellungen öffnen",
+      "openSettingsFailed": "Die Einstellungen lassen sich nicht öffnen. Verwenden Sie stattdessen das Symbol im Infobereich."
     }
   },
   "strip": {

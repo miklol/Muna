@@ -1,6 +1,8 @@
 /*
- * PanelChrome primitive — padding 16, header 44 (title callout + footnote subtitle, chips,
- * right rail of 28 px icon buttons at 4 px gaps), body, optional footer.
+ * PanelChrome primitive — padding 16, header ≥ 44 (title callout + footnote subtitle wrap;
+ * chips flow beside them or onto their own row; right rail of 28 px icon buttons at 8 px gaps
+ * so their 36 px hit areas never overlap), body that scrolls inside the panel's height cap,
+ * optional footer.
  */
 
 .muna-panel {
@@ -16,47 +18,62 @@
   font-feature-settings: var(--font-features);
 }
 
+/*
+ * Heading, chips and rail share the first row while there is room; chips (then the rail) wrap
+ * to a second row when the heading needs the width (long or translated titles). The rail is
+ * always the last item, so ⤡ collapse stays right-most on whichever row it lands.
+ */
 .muna-panel__header {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
-  block-size: var(--size-panel-header);
+  gap: var(--space-2) var(--space-3);
+  min-block-size: var(--size-panel-header);
 }
 
 .muna-panel__heading {
   display: flex;
-  flex: 0 1 auto;
+  /* Content-sized basis: a short title leaves the row to chips and rail; a long one takes it. */
+  flex: 1 1 auto;
   flex-direction: column;
   min-inline-size: 0;
 }
 
-.muna-panel__title {
+.muna-panel__title,
+.muna-panel__subtitle {
   display: block;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .muna-panel__chips {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-inline-size: 0;
-  overflow: hidden;
 }
 
 .muna-panel__rail {
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   margin-inline-start: auto;
 }
 
-/* Positioned so a body swap (`AnimatePresence` popLayout) can pop the leaving body out of flow. */
+/*
+ * Positioned so a body swap (`AnimatePresence` popLayout) can pop the leaving body out of flow;
+ * scrolls when the content is taller than the panel's cap so nothing is unreachable.
+ */
 .muna-panel__body {
   position: relative;
   flex: 1 1 auto;
   min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .muna-panel__footer {

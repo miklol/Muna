@@ -37,14 +37,14 @@ describe('shell geometry', () => {
       revealGrowWidth: 16,
       revealGrowHeight: 4,
       peekHeight: 6,
-      panelMinWidth: 720,
+      panelWidth: 1000,
       panelMinHeight: 190,
       panelMaxHeight: 360,
       moduleBarWidth: 640,
       moduleBarHeight: 40,
       moduleBarGap: 12,
     });
-    expect(moduleBarSize).toEqual({ width: 640, height: 40 });
+    expect(moduleBarSize(input())).toEqual({ width: 640, height: 40 });
   });
 
   it('sizes the strip from the layout and the wide form', () => {
@@ -63,10 +63,21 @@ describe('shell geometry', () => {
 
   it('clamps the panel to the shell width bound and the content height', () => {
     expect(panelSize(input())).toEqual({ width: 1000, height: 190 });
-    expect(panelSize(input(layoutWith({ panelMaxWidth: 640 }))).width).toBe(720);
+    // The bound Rust computed for a narrow monitor wins: nothing paints past the window.
+    expect(panelSize(input(layoutWith({ panelMaxWidth: 640 }))).width).toBe(640);
     expect(panelSize(input({ panelContentHeight: 250 })).height).toBe(250);
     expect(panelSize(input({ panelContentHeight: 900 })).height).toBe(360);
     expect(panelSize(input({ panelContentHeight: 40 })).height).toBe(190);
+  });
+
+  it('keeps every silhouette inside a narrow bound (320 px work area, 200 % zoom)', () => {
+    const narrow = input({ ...layoutWith({ panelMaxWidth: 320 }), wide: true });
+    expect(stripSize(narrow).width).toBe(320);
+    expect(revealSize(narrow).width).toBe(320);
+    expect(panelSize(narrow).width).toBe(320);
+    expect(moduleBarSize(narrow)).toEqual({ width: 320, height: 40 });
+    // A bound wider than the pill leaves the pill at its design size.
+    expect(moduleBarSize(input(layoutWith({ panelMaxWidth: 800 }))).width).toBe(640);
   });
 
   it('maps every state to a target size and vertical offset', () => {

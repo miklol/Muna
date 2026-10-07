@@ -21,8 +21,12 @@ export const shellSizes = {
    * shell, whose hit tester slides the strip's rect up by the same amount.
    */
   peekHeight: PEEK_HEIGHT_PX,
-  /** Panel width clamps to `clamp(720, monitor − 80, 1000)`; the shell supplies the upper bound. */
-  panelMinWidth: 720,
+  /**
+   * Preferred panel width. Rust already clamps `panelMaxWidth` to `min(1000, monitor − 80)`
+   * (`shell/layout.rs`); the UI never widens past that bound, so a narrow work area gets a
+   * panel that fits instead of one clipped by the window edge.
+   */
+  panelWidth: 1000,
   /** Panel height follows content between these. */
   panelMinHeight: 190,
   panelMaxHeight: 360,
@@ -55,24 +59,28 @@ export interface GeometryInput {
   readonly snapContentSize?: Size | null;
 }
 
-export const stripSize = ({ layout, wide }: GeometryInput): Size => ({
-  width: wide ? shellSizes.stripWideWidth : shellSizes.stripWidth,
-  height: layout.stripHeight,
+/** Every silhouette fits the bound the shell supplied; nothing paints past the window. */
+const fit = (width: number, { layout }: GeometryInput): number =>
+  Math.min(width, layout.panelMaxWidth);
+
+export const stripSize = (input: GeometryInput): Size => ({
+  width: fit(input.wide ? shellSizes.stripWideWidth : shellSizes.stripWidth, input),
+  height: input.layout.stripHeight,
 });
 
 export const revealSize = (input: GeometryInput): Size => {
   const strip = stripSize(input);
   return {
-    width: strip.width + shellSizes.revealGrowWidth,
+    width: fit(strip.width + shellSizes.revealGrowWidth, input),
     height: strip.height + shellSizes.revealGrowHeight,
   };
 };
 
-export const panelSize = ({ layout, panelContentHeight }: GeometryInput): Size => ({
-  width: Math.max(shellSizes.panelMinWidth, layout.panelMaxWidth),
+export const panelSize = (input: GeometryInput): Size => ({
+  width: fit(shellSizes.panelWidth, input),
   height: Math.min(
     shellSizes.panelMaxHeight,
-    Math.max(shellSizes.panelMinHeight, panelContentHeight ?? 0),
+    Math.max(shellSizes.panelMinHeight, input.panelContentHeight ?? 0),
   ),
 });
 
@@ -141,10 +149,11 @@ export const showsSnap = (state: ShellState): boolean => state === 'snap';
 export const showsLarge = (state: ShellState): boolean =>
   showsPanel(state) || showsDrop(state) || showsSnap(state);
 
-export const moduleBarSize: Size = {
-  width: shellSizes.moduleBarWidth,
+/** The module bar pill, no wider than the panel it hangs under. */
+export const moduleBarSize = (input: GeometryInput): Size => ({
+  width: fit(shellSizes.moduleBarWidth, input),
   height: shellSizes.moduleBarHeight,
-};
+});
 
 /**
  * Top of the module bar relative to the shell node's top: it hangs `moduleBarGap` under the

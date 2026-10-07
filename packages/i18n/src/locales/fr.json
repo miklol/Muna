@@ -14,7 +14,11 @@
     "collapse": "Replier dans le bandeau",
     "empty": {
       "title": "Rien à afficher pour l'instant",
-      "body": "Les modules apparaissent ici au fur et à mesure qu'ils sont ajoutés."
+      "body": "Les modules apparaissent ici au fur et à mesure qu'ils sont ajoutés.",
+      "disabledTitle": "Tous les modules sont désactivés",
+      "disabledBody": "Activez un module dans les Réglages pour le voir ici.",
+      "openSettings": "Ouvrir les réglages",
+      "openSettingsFailed": "Impossible d'ouvrir les Réglages. Utilisez plutôt l'icône de la barre d'état."
     }
   },
   "strip": {

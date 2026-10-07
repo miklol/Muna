@@ -14,7 +14,11 @@
     "collapse": "Contraer a la franja",
     "empty": {
       "title": "Nada que mostrar todavía",
-      "body": "Los módulos aparecen aquí a medida que se añaden."
+      "body": "Los módulos aparecen aquí a medida que se añaden.",
+      "disabledTitle": "Todos los módulos están desactivados",
+      "disabledBody": "Activa un módulo en Ajustes para verlo aquí.",
+      "openSettings": "Abrir ajustes",
+      "openSettingsFailed": "No se pueden abrir los Ajustes. Usa el icono de la bandeja del sistema."
     }
   },
   "strip": {

@@ -14,7 +14,11 @@
     "collapse": "Recolher para a faixa",
     "empty": {
       "title": "Nada para mostrar ainda",
-      "body": "Os módulos aparecem aqui conforme são adicionados."
+      "body": "Os módulos aparecem aqui conforme são adicionados.",
+      "disabledTitle": "Todos os módulos estão desativados",
+      "disabledBody": "Ative um módulo em Configurações para vê-lo aqui.",
+      "openSettings": "Abrir configurações",
+      "openSettingsFailed": "Não foi possível abrir as Configurações. Use o ícone da bandeja do sistema."
     }
   },
   "strip": {
