@@ -992,6 +992,33 @@ describe('NotchWindow scenario suite', () => {
       expect(screen.queryByText('warm body')).toBeNull();
     });
 
+    /**
+     * Gives the hover-intent copy's measurement node a height and counts its reads, i.e. the
+     * copy's forced layouts. Swapped by hand: `renderNotch`'s spy on the shell would take over a
+     * prototype spy.
+     */
+    const measureWarmupCopy = (height: number) => {
+      let reads = 0;
+      const box = Object.getOwnPropertyDescriptor(Element.prototype, 'getBoundingClientRect')!;
+      Object.defineProperty(Element.prototype, 'getBoundingClientRect', {
+        ...box,
+        value(this: Element) {
+          if (!this.hasAttribute('data-warmup-measure')) {
+            // jsdom lays nothing out: every other box stays empty.
+            return DOMRect.fromRect({});
+          }
+          reads += 1;
+          return DOMRect.fromRect({ width: 960, height });
+        },
+      });
+      return {
+        reads: () => reads,
+        restore: () => {
+          Object.defineProperty(Element.prototype, 'getBoundingClientRect', box);
+        },
+      };
+    };
+
     it('#81: the hover-intent copy measures the panel, so the first expand opens to its height', async () => {
       // As in the browser, the panel's own height reaches the shell only after the expand.
       const observed: { node: Element; callback: ResizeObserverCallback }[] = [];
@@ -1009,17 +1036,7 @@ describe('NotchWindow scenario suite', () => {
           disconnect = vi.fn();
         },
       );
-      // Swapped by hand: `renderNotch`'s spy on the shell would take over a prototype spy.
-      const box = Object.getOwnPropertyDescriptor(Element.prototype, 'getBoundingClientRect')!;
-      Object.defineProperty(Element.prototype, 'getBoundingClientRect', {
-        ...box,
-        value(this: Element) {
-          // jsdom lays nothing out: every other box stays empty.
-          return DOMRect.fromRect(
-            this.hasAttribute('data-warmup-measure') ? { width: 960, height: 300 } : {},
-          );
-        },
-      });
+      const copy = measureWarmupCopy(300);
       try {
         const { main } = renderNotch();
         const panelRect = () => lastRects()[1]!.height - 60;
@@ -1043,9 +1060,44 @@ describe('NotchWindow scenario suite', () => {
         openWithHotkey(main);
         await settle();
         expect(panelRect()).toBe(320);
+        // The copy was laid out for the first expand only.
+        expect(copy.reads()).toBe(1);
       } finally {
-        Object.defineProperty(Element.prototype, 'getBoundingClientRect', box);
+        copy.restore();
         vi.unstubAllGlobals();
+      }
+    });
+
+    it('#81: the copy is laid out once a session, not again on later hover intents', async () => {
+      const copy = measureWarmupCopy(300);
+      try {
+        const { main } = renderNotch();
+        pointer(main, 'pointermove', ON_STRIP, 0);
+        await advance(300);
+        expect(stateOf(main)).toBe('hoverReveal');
+        expect(copy.reads()).toBe(1);
+
+        // The pointer leaves before the expand; the next hover pre-renders the panel again, hidden,
+        // but does not lay it out: the shell already knows its height.
+        pointer(main, 'pointermove', FAR_AWAY, 2000);
+        await settle();
+        expect(screen.queryByTestId('panel-warmup')).toBeNull();
+        pointer(main, 'pointermove', ON_STRIP, 4000);
+        await advance(300);
+        expect(stateOf(main)).toBe('hoverReveal');
+        const hidden = screen.getByTestId('panel-warmup').firstElementChild as HTMLElement;
+        expect(hidden.style.getPropertyValue('display')).toBe('none');
+        expect(copy.reads()).toBe(1);
+
+        // Nor after an expand, closed with the pointer still on the strip.
+        await advance(300);
+        expect(stateOf(main)).toBe('expanded');
+        fireEvent.keyDown(window, { key: 'Escape' });
+        await settle();
+        expect(screen.getByTestId('panel-warmup')).toBeInTheDocument();
+        expect(copy.reads()).toBe(1);
+      } finally {
+        copy.restore();
       }
     });
 

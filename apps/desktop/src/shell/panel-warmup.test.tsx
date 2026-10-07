@@ -23,19 +23,30 @@ const layOut = (height: number) => {
   return seen;
 };
 
-const renderWarmup = (onMeasure = vi.fn(), mounted = vi.fn()) => {
+const renderWarmup = (onMeasure = vi.fn(), mounted = vi.fn(), layOut = true) => {
   const Body = () => {
     useEffect(() => {
       mounted();
     }, []);
     return <p>warm body</p>;
   };
-  const view = render(
-    <PanelWarmup shape="notch" width={720} maxHeight={360} onMeasure={onMeasure} panel={<Body />}>
+  const warmup = (lay: boolean) => (
+    <PanelWarmup
+      shape="notch"
+      width={720}
+      maxHeight={360}
+      layOut={lay}
+      onMeasure={onMeasure}
+      panel={<Body />}
+    >
       <nav>module bar</nav>
-    </PanelWarmup>,
+    </PanelWarmup>
   );
-  return { ...view, onMeasure, mounted };
+  const view = render(warmup(layOut));
+  const setLayOut = (lay: boolean) => {
+    view.rerender(warmup(lay));
+  };
+  return { ...view, onMeasure, mounted, setLayOut };
 };
 
 afterEach(() => {
@@ -84,5 +95,30 @@ describe('PanelWarmup (#81)', () => {
     await flushEffects();
     unmount();
     expect(disconnect.mock.calls.length).toBeGreaterThanOrEqual(observe.mock.calls.length);
+  });
+
+  it('stays a plain hidden pre-render when the shell already knows the height', async () => {
+    const seen = layOut(240);
+    const observe = vi.spyOn(MutationObserver.prototype, 'observe');
+    const { onMeasure, mounted } = renderWarmup(vi.fn(), vi.fn(), false);
+    await flushEffects();
+    expect(seen).toEqual([]);
+    expect(observe).not.toHaveBeenCalled();
+    expect(onMeasure).not.toHaveBeenCalled();
+    expect(mounted).not.toHaveBeenCalled();
+    const copy = screen.getByTestId('panel-warmup').firstElementChild as HTMLElement;
+    expect(copy.style.getPropertyValue('display')).toBe('none');
+    expect(screen.getByText('warm body')).not.toBeVisible();
+  });
+
+  it('is not laid out again once the shell stops asking', async () => {
+    const seen = layOut(240);
+    const { onMeasure, setLayOut } = renderWarmup();
+    await flushEffects();
+    expect(seen).toHaveLength(1);
+    setLayOut(false);
+    await flushEffects();
+    expect(seen).toHaveLength(1);
+    expect(onMeasure).toHaveBeenCalledTimes(1);
   });
 });

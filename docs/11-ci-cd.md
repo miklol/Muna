@@ -326,9 +326,9 @@ budgets. Gates are never lowered to unblock a PR.
   reports a tween that drew no frame with `frames=0`. From #71 to
   [#81](https://github.com/miklol/Muna/issues/81) cycle 1's expand, 39–49 fps on the runner,
   was booked apart as `coldExpand` and not gated; since #81 the shell lays the panel out and
-  measures it while hover intent runs, so all 20 cycles are gated, the session's first
-  expand included, and `coldExpand` is `null`. A frameless expand, or a cycle that never
-  morphs, still fails.
+  measures it during a session's first hover intent, so all 20 cycles are gated, the
+  session's first expand included, and `coldExpand` is `null`. A frameless expand, or a cycle
+  that never morphs, still fails.
   The workflow builds `--debug --no-bundle`, so today's nightly numbers describe the debug
   build; the 100-cycle, 10-minute idle, media-playing and 4K 150 % emulation passes and the
   release build are the target state, not yet implemented. Results are appended to the

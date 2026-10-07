@@ -187,7 +187,7 @@ applies.
   not gated (≈ 0.3 % of one core over 30 s here, 0.01 % normalised; up to 1.3 % of one core
   on the 4-vCPU runner, which is why the idle CPU gate reads the later steady state —
   [11](../11-ci-cd.md#performance-gates)). The first expand after a trim meets a cold
-  renderer, so hover intent pre-renders the panel and lays it out once, unpainted
+  renderer, so hover intent pre-renders the panel and, once a session, lays it out unpainted
   ([Implementation notes](#implementation-notes-m1-e1), "Morph and material"); the perf
   harness gates a session's first expand with the rest
   ([#81](https://github.com/miklol/Muna/issues/81)), where from
@@ -313,12 +313,16 @@ decided during M1-E1 and is the behaviour to test against.
   are pre-rendered in a hidden React `Activity` (`shell/panel-warmup.tsx`) — idle priority,
   no effects, `display: none` — so the expand that follows mounts warm code (data fetches and
   subscriptions still start on the real mount); the copy goes when the panel shows or the
-  pointer leaves. Once the copy is in the document it is laid out once: React's
+  pointer leaves. Until the shell knows the panel's height — so on a session's first hover
+  intent — the copy is also laid out once when it reaches the document: React's
   `display: none` is lifted for one forced layout and put back in the same task, so no frame
   sees it. It lays out in an open, morphing `NotchSurface` of the panel's width, inside a node
   styled like the shell's measurement node, so it loads the panel's fonts, fills the
   text-shaping caches and measures the panel; that height stands in until the panel has
-  measured itself (only while the shell knows none). That removes both costs of a session's
+  measured itself. Later hovers keep the plain hidden pre-render: the cost is paid once a
+  session, and a forced layout on every hover can land in the expand that follows (laid out on
+  every hover, warm expands on the runner dropped from a median of 73 to 69 fps, with 31 ms
+  frames). That removes both costs of a session's
   first expand ([#81](https://github.com/miklol/Muna/issues/81)): the panel's first layout
   (34 ms against 4.6 ms warm, mostly fonts and text shaping, forced in the mount's commit by
   the module bar's width measurement) and the retarget to the measured height (a whole-shell

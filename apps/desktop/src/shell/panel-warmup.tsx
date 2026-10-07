@@ -8,6 +8,12 @@ interface PanelWarmupProps {
   readonly width: number;
   /** The panel's height cap, as on the shell's measurement node. */
   readonly maxHeight: number;
+  /**
+   * Lay the copy out and measure it. The shell asks only while it knows no panel height, so
+   * once a session: the cold cost is paid once, and a forced layout on every hover could land
+   * in the expand that follows. Otherwise the copy stays a plain hidden pre-render.
+   */
+  readonly layOut: boolean;
   /** Gets the panel's height once the copy has laid out, as the shell would measure it. */
   readonly onMeasure: (height: number) => void;
   /** The panel: laid out and measured. */
@@ -35,18 +41,19 @@ const layOutOnce = (host: HTMLElement): number | null => {
 /**
  * The panel, pre-rendered while hover intent runs so the expand after it mounts warm (#71,
  * #81). React renders the copy hidden at idle priority: its effects never run, so no module
- * starts a timer, a frame loop or a capture for it. Once the copy is in the document it is
- * laid out once — in an open, morphing surface of the panel's width, as the panel is when it
- * mounts — then hidden again before the task ends. That loads the panel's fonts and fills the
- * text-shaping caches, which a session's first expand otherwise pays in its first frame (a
- * 34 ms layout against 4 ms warm), and measures the panel, so the first expand opens to its
- * height instead of re-rendering the shell mid-morph to retarget it. Nothing is painted; the
- * observer that waits for the copy goes when the pre-render does.
+ * starts a timer, a frame loop or a capture for it. With `layOut`, once the copy is in the
+ * document it is laid out once — in an open, morphing surface of the panel's width, as the
+ * panel is when it mounts — then hidden again before the task ends. That loads the panel's
+ * fonts and fills the text-shaping caches, which a session's first expand otherwise pays in
+ * its first frame (a 34 ms layout against 4 ms warm), and measures the panel, so the first
+ * expand opens to its height instead of re-rendering the shell mid-morph to retarget it.
+ * Nothing is painted; the observer that waits for the copy goes when the pre-render does.
  */
 export function PanelWarmup({
   shape,
   width,
   maxHeight,
+  layOut,
   onMeasure,
   panel,
   children,
@@ -54,7 +61,7 @@ export function PanelWarmup({
   const hostRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const host = hostRef.current;
-    if (host === null) {
+    if (!layOut || host === null) {
       return;
     }
     const warm = (): boolean => {
@@ -79,7 +86,7 @@ export function PanelWarmup({
     return () => {
       observer.disconnect();
     };
-  }, [onMeasure]);
+  }, [layOut, onMeasure]);
   return (
     <div
       ref={hostRef}

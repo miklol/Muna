@@ -1045,9 +1045,9 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const bodyKey = paletteOpen ? 'palette' : (activeModule?.id ?? 'empty');
   // The panel's first render and layout in a session are a long task inside the expand (#71,
   // #81). While hover intent runs, the panel is pre-rendered hidden — idle priority, no
-  // effects — and laid out once unpainted, so the expand that follows mounts warm code and
-  // warm fonts; the copy's height stands in until the panel has measured itself, so the
-  // first expand opens to it instead of retargeting mid-morph.
+  // effects — so the expand that follows mounts warm code. Until the shell knows the panel's
+  // height (once a session) the copy is also laid out once unpainted, which warms the fonts,
+  // and its height stands in, so the first expand opens to it instead of retargeting mid-morph.
   const warmPanel =
     !panelShown &&
     (state === 'hoverReveal' ||
@@ -1298,6 +1298,7 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
           shape={layout.shape}
           width={targetSize('expanded', geometry).width}
           maxHeight={shellSizes.panelMaxHeight}
+          layOut={panelContentHeight === null}
           onMeasure={seedPanelContentHeight}
           panel={panelWarmup.panel}
         >

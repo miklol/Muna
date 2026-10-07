@@ -215,7 +215,7 @@ is the Win32 helper (process tree, CPU time, private working set, notch window r
    was the panel's first layout — fonts and text shaping, a forced layout of 34 ms against
    4.6 ms warm — and the retarget to the panel's measured height, a whole-shell re-render of
    30–50 ms inside the morph. Since #81 the shell lays the hover-intent copy of the panel out
-   once, unpainted, and takes its height
+   once a session, unpainted, and takes its height
    ([notch-shell](modules/notch-shell.md#implementation-notes-m1-e1), "Morph and material"),
    so cycle 1 is measured and gated against ≥ 58 fps like the rest and the JSON's
    `coldExpand` is always `null`. A frameless expand in any cycle stays in the measured set,
