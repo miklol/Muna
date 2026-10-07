@@ -29,7 +29,8 @@ use super::memory_target::{Hold, MemoryTarget, MemoryTargetPolicy};
 use super::model::{Effect, PRIMARY_LABEL, ReconcilePlan, ShellLayout, ShellModel};
 use crate::ipc::{
     DropEntered, DropItem, DropLeft, DropMoved, DropPoint, Dropped, ShapeRect, ShellLayoutChanged,
-    ShellPointerDownOutside, ShellYieldChanged, SnapDragEnded, SnapDragLeft, SnapDragMoved,
+    ShellPointerDownOutside, ShellPointerLeft, ShellYieldChanged, SnapDragEnded, SnapDragLeft,
+    SnapDragMoved,
 };
 
 /// Label of the settings window in `tauri.conf.json`.
@@ -854,6 +855,11 @@ impl ShellManager {
         for label in poll.pressed_outside {
             if let Err(error) = (ShellPointerDownOutside { label }).emit(app) {
                 tracing::warn!(%error, "emit ShellPointerDownOutside failed");
+            }
+        }
+        for label in poll.left {
+            if let Err(error) = (ShellPointerLeft { label }).emit(app) {
+                tracing::warn!(%error, "emit ShellPointerLeft failed");
             }
         }
         self.report_snap_cursor(app, poll.snap_over);

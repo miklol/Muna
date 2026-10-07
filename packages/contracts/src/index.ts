@@ -149,6 +149,7 @@ export type {
   ShellLayoutChanged,
   ShellMode,
   ShellPointerDownOutside,
+  ShellPointerLeft,
   ShellSettings,
   ShellYieldChanged,
   SittingStatus,

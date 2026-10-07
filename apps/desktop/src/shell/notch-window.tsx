@@ -100,6 +100,7 @@ import {
   useHotkeySubscription,
   useShellLayoutSubscription,
   useShellPointerDownOutsideSubscription,
+  useShellPointerLeftSubscription,
   useShellReady,
   useSnapSubscription,
 } from './use-shell';
@@ -468,6 +469,12 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   useShellPointerDownOutsideSubscription(
     useCallback(() => {
       machine.send({ type: 'pressOutside' });
+    }, [machine]),
+  );
+  useShellPointerLeftSubscription(
+    useCallback(() => {
+      speed.current.reset();
+      machine.send({ type: 'pointerLeave' });
     }, [machine]),
   );
 

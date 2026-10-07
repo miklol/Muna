@@ -73,7 +73,10 @@ export class MorphSampler {
    * A sampled morph lasts from `start` to its last frame, the span the frames were counted
    * in. A tween that completed before the first frame — one long task (a cold panel mount)
    * swallowed it whole — is reported with `frames: 0` and its wall duration, so the log
-   * reads `fps=0` instead of saying nothing (#71).
+   * reads `fps=0` instead of saying nothing (#71). So is a morph whose only frame began
+   * before `start`: rAF stamps a frame with the time it began, which precedes `start` when
+   * the morph started inside a long task after that frame was due. Its span would be negative
+   * and the shell would reject the report, so the log would again say nothing (#75).
    */
   stop(expanded = false): MorphReport | null {
     const sample = this.#sample;
@@ -86,12 +89,13 @@ export class MorphSampler {
     if (sample.frames === 0 && (!sample.tweens || wallMs < SNAP_MIN_MS)) {
       return null;
     }
-    const durationMs = sample.frames === 0 ? wallMs : sample.last - sample.start;
+    const spanMs = sample.last - sample.start;
+    const timedByWall = spanMs <= 0;
     return {
       expanded,
       frames: sample.frames,
-      durationUs: Math.round(durationMs * 1000),
-      maxFrameUs: Math.round((sample.frames === 0 ? wallMs : sample.maxFrameMs) * 1000),
+      durationUs: Math.round((timedByWall ? wallMs : spanMs) * 1000),
+      maxFrameUs: Math.round((timedByWall ? wallMs : sample.maxFrameMs) * 1000),
       droppedFrames: sample.droppedFrames,
     };
   }

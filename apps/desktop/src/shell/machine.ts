@@ -429,7 +429,11 @@ export function transition(snapshot: ShellSnapshot, event: ShellEvent): Transiti
     case 'pointer':
       return onPointer(b, event.inside, event.near, event.speedPxPerS);
     case 'pointerLeave':
-      return onPointer(b, false, false, 0);
+      // The webview and the shell's cursor poll (`ShellPointerLeft`, #75) can both report the
+      // same leave; the second must not restart the grace timer.
+      return snapshot.pointerInside || snapshot.pointerNear
+        ? onPointer(b, false, false, 0)
+        : b.build();
     case 'press':
     case 'scrollDown':
       return STRIP_STATES.includes(snapshot.state) ? b.open().build() : b.build();

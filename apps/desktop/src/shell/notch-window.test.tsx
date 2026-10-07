@@ -106,6 +106,7 @@ const ipc = vi.hoisted(() => {
     yield: channel<{ label: string; state: YieldState }>(),
     hotkey: channel<{ action: string; label: string }>(),
     pressOutside: channel<{ label: string }>(),
+    pointerLeft: channel<{ label: string }>(),
     settings: channel<{ settings: Settings }>(),
     dropEntered: channel<DropEntered>(),
     dropMoved: channel<DropMoved>(),
@@ -126,6 +127,7 @@ vi.mock('@muna/contracts', async (importOriginal) => ({
     shellYieldChanged: { listen: ipc.yield.listen },
     hotkeyPressed: { listen: ipc.hotkey.listen },
     shellPointerDownOutside: { listen: ipc.pressOutside.listen },
+    shellPointerLeft: { listen: ipc.pointerLeft.listen },
     settingsChanged: { listen: ipc.settings.listen },
     dropEntered: { listen: ipc.dropEntered.listen },
     dropMoved: { listen: ipc.dropMoved.listen },
@@ -476,6 +478,44 @@ describe('NotchWindow scenario suite', () => {
     act(() => {
       ipc.pressOutside.emit({ label: 'notch' });
     });
+    expect(stateOf(main)).toBe('collapsed');
+  });
+
+  it('#75: the shell reports the leave the webview lost after the expand, and the panel collapses', async () => {
+    const { main } = renderNotch();
+    pointer(main, 'pointermove', ON_STRIP, 0);
+    await advance(600);
+    expect(stateOf(main)).toBe('expanded');
+    await settle();
+    expect(ipc.commands.reportMorph.mock.calls.at(-1)?.[0]).toMatchObject({ expanded: true });
+
+    // The expand replaced the strip under the still cursor, then the cursor jumped away: the
+    // webview sends no pointer event at all, only the shell's cursor poll sees the leave.
+    act(() => {
+      ipc.pointerLeft.emit({ label: 'notch-1' });
+    });
+    await advance(1000);
+    expect(stateOf(main)).toBe('expanded');
+    act(() => {
+      ipc.pointerLeft.emit({ label: 'notch' });
+    });
+    await advance(299);
+    expect(stateOf(main)).toBe('expanded');
+    await advance(1);
+    expect(stateOf(main)).toBe('collapsed');
+    await settle();
+    expect(ipc.commands.reportMorph.mock.calls.at(-1)?.[0]).toMatchObject({ expanded: false });
+
+    // When the webview does see the leave, the shell's report of it 100 ms later keeps the grace.
+    pointer(main, 'pointermove', ON_STRIP, 5000);
+    await advance(600);
+    expect(stateOf(main)).toBe('expanded');
+    fireEvent.pointerLeave(main);
+    await advance(100);
+    act(() => {
+      ipc.pointerLeft.emit({ label: 'notch' });
+    });
+    await advance(200);
     expect(stateOf(main)).toBe('collapsed');
   });
 

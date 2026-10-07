@@ -758,11 +758,18 @@ describe('stall notes', () => {
 });
 
 describe('morph drive', () => {
-  /** A shell that expands while the cursor sits on the strip and collapses when it leaves. */
-  const fakeSession = (expands) => {
+  /**
+   * A shell that expands while the cursor sits on the strip and collapses when it leaves; the
+   * expands numbered in `lost` (0 = the cold one) never see the leave, as in #75.
+   */
+  const fakeSession = (expands, lost = []) => {
     const listeners = new Set();
     const app = {
       morphs: [],
+      memoryTargets: [],
+      memoryTarget: 'normal',
+      elapsedMs: 0,
+      recentLog: () => [],
       waitForMorph(predicate, timeoutMs) {
         return new Promise((resolve, reject) => {
           const listener = (record) => {
@@ -784,11 +791,13 @@ describe('morph drive', () => {
       for (const listener of [...listeners]) listener(record);
     };
     let open = false;
+    let opened = -1;
     const move = async (_x, y) => {
       if (!open && y < 10) {
         open = true;
+        opened += 1;
         emit({ expanded: true, ...expands.shift() });
-      } else if (open && y > 500) {
+      } else if (open && y > 500 && !lost.includes(opened)) {
         open = false;
         emit({ expanded: false, fps: 74, frames: 10, durationMs: 135, maxFrameMs: 15 });
       }
@@ -803,10 +812,10 @@ describe('morph drive', () => {
   const slow = { fps: 40, frames: 7, durationMs: 175, maxFrameMs: 80 };
   const frameless = { fps: 0, frames: 0, durationMs: 180, maxFrameMs: 180 };
 
-  const drive = async (expands, count) => {
+  const drive = async (expands, count, lost = []) => {
     vi.useFakeTimers();
     try {
-      const { app, probe } = fakeSession(expands);
+      const { app, probe } = fakeSession(expands, lost);
       const driven = driveMorphs(app, probe, host, count, () => {});
       await vi.runAllTimersAsync();
       return await driven;
@@ -827,8 +836,29 @@ describe('morph drive', () => {
     expect(morphSummary(driven.morphs).minFps).toBe(70);
     expect(driven.stall).toBeNull();
     expect(driven.notes.join('\n')).toContain(
-      'reported as `coldExpand` and not gated until #81 brings it back in',
+      'reported as `coldExpand` and not gated until #81 brings it back in, its collapse is measured, and 2 measured cycles followed it.',
     );
+  });
+
+  it('says only what followed the cold expand when its collapse never came (#75)', async () => {
+    const driven = await drive([slow, warm, warm], 2, [0]);
+    expect(driven.coldExpand).toEqual({ ...slow, atMs: 0 });
+    expect(driven.morphs).toEqual([]);
+    expect(driven.stall).toMatchObject({ phase: 'collapse' });
+    const notes = driven.notes.join('\n');
+    expect(notes).toContain(
+      'not gated until #81 brings it back in; its collapse was not reported, so no measured cycle followed it.',
+    );
+    expect(notes).not.toContain('its collapse is measured');
+    expect(notes).toContain('Cycle 1: the panel did not collapse');
+  });
+
+  it('counts the measured cycles that ran when a later collapse never came', async () => {
+    const driven = await drive([slow, warm, warm, warm], 3, [2]);
+    expect(driven.notes.join('\n')).toContain(
+      'its collapse is measured, and 1 of the 3 measured cycles followed it.',
+    );
+    expect(driven.notes.join('\n')).toContain('Cycle 2: the panel did not collapse');
   });
 
   it('keeps a frameless expand after the first cycle in the measured set', async () => {
