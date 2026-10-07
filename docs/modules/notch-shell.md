@@ -327,8 +327,9 @@ decided during M1-E1 and is the behaviour to test against.
   are the same size: on the release build both measured 961 × 360, and the panel reported
   that height from its first frame in every expand, with and without reduced motion, so the
   seed is exact and the expand does not retarget. Later hovers keep the plain hidden
-  pre-render, as before #81: the cost is paid once a session, and a forced layout on every
-  hover could land in the expand that follows if the idle-priority commit is late. That
+  pre-render of #71, with no host, surface or observer around it: the cost is paid once a
+  session, and a forced layout on every hover could land in the expand that follows if the
+  idle-priority commit is late. That
   removes both costs of a session's
   first expand ([#81](https://github.com/miklol/Muna/issues/81)): the panel's first layout
   (34 ms against 4.6 ms warm, mostly fonts and text shaping, forced in the mount's commit by

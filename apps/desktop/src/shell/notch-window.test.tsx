@@ -1019,6 +1019,12 @@ describe('NotchWindow scenario suite', () => {
       };
     };
 
+    /** The hover-intent copy: a panel outside the shell, pre-rendered hidden. */
+    const warmCopy = () =>
+      [...document.querySelectorAll<HTMLElement>('.muna-panel')].find(
+        (panel) => panel.closest('[data-testid="shell"]') === null,
+      ) ?? null;
+
     it('#81: the hover-intent copy measures the panel, so the first expand opens to its height', async () => {
       // As in the browser, the panel's own height reaches the shell only after the expand.
       const observed: { node: Element; callback: ResizeObserverCallback }[] = [];
@@ -1056,7 +1062,9 @@ describe('NotchWindow scenario suite', () => {
         expect(panelRect()).toBe(320);
         fireEvent.keyDown(window, { key: 'Escape' });
         await settle();
-        expect(screen.getByTestId('panel-warmup')).toBeInTheDocument();
+        // The next copy is the plain hidden pre-render: no layout host around it.
+        expect(warmCopy()).not.toBeVisible();
+        expect(screen.queryByTestId('panel-warmup')).toBeNull();
         openWithHotkey(main);
         await settle();
         expect(panelRect()).toBe(320);
@@ -1075,18 +1083,19 @@ describe('NotchWindow scenario suite', () => {
         pointer(main, 'pointermove', ON_STRIP, 0);
         await advance(300);
         expect(stateOf(main)).toBe('hoverReveal');
+        expect(screen.getByTestId('panel-warmup')).toBeInTheDocument();
         expect(copy.reads()).toBe(1);
 
-        // The pointer leaves before the expand; the next hover pre-renders the panel again, hidden,
-        // but does not lay it out: the shell already knows its height.
+        // The pointer leaves before the expand; the next hover pre-renders the panel again, hidden
+        // and bare as before #81: the shell already knows its height.
         pointer(main, 'pointermove', FAR_AWAY, 2000);
         await settle();
-        expect(screen.queryByTestId('panel-warmup')).toBeNull();
+        expect(warmCopy()).toBeNull();
         pointer(main, 'pointermove', ON_STRIP, 4000);
         await advance(300);
         expect(stateOf(main)).toBe('hoverReveal');
-        const hidden = screen.getByTestId('panel-warmup').firstElementChild as HTMLElement;
-        expect(hidden.style.getPropertyValue('display')).toBe('none');
+        expect(warmCopy()).not.toBeVisible();
+        expect(screen.queryByTestId('panel-warmup')).toBeNull();
         expect(copy.reads()).toBe(1);
 
         // Nor after an expand, closed with the pointer still on the strip.
@@ -1094,7 +1103,8 @@ describe('NotchWindow scenario suite', () => {
         expect(stateOf(main)).toBe('expanded');
         fireEvent.keyDown(window, { key: 'Escape' });
         await settle();
-        expect(screen.getByTestId('panel-warmup')).toBeInTheDocument();
+        expect(warmCopy()).not.toBeVisible();
+        expect(screen.queryByTestId('panel-warmup')).toBeNull();
         expect(copy.reads()).toBe(1);
       } finally {
         copy.restore();

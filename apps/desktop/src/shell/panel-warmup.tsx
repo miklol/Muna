@@ -1,5 +1,5 @@
 import { type NotchShape, NotchSurface } from '@muna/ui/primitives';
-import { Activity, type ReactNode, useEffect, useRef } from 'react';
+import { Activity, type ReactNode, useEffect, useRef, useState } from 'react';
 
 interface PanelWarmupProps {
   /** The shell's shape: the copy lays out in the surface the panel opens in. */
@@ -11,7 +11,8 @@ interface PanelWarmupProps {
   /**
    * Lay the copy out and measure it. The shell asks only while it knows no panel height, so
    * once a session: the cold cost is paid once, and a forced layout on every hover could land
-   * in the expand that follows. Otherwise the copy stays a plain hidden pre-render.
+   * in the expand that follows. Read when the copy mounts: without it the copy is the plain
+   * hidden pre-render of #71, with no host, surface or observer.
    */
   readonly layOut: boolean;
   /** Gets the panel's height once the copy has laid out, as the shell would measure it. */
@@ -59,6 +60,8 @@ export function PanelWarmup({
   children,
 }: PanelWarmupProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  // Fixed for this copy's life, so learning the height mid-hover does not remount it.
+  const [measured] = useState(layOut);
   useEffect(() => {
     const host = hostRef.current;
     if (!layOut || host === null) {
@@ -87,6 +90,14 @@ export function PanelWarmup({
       observer.disconnect();
     };
   }, [layOut, onMeasure]);
+  if (!measured) {
+    return (
+      <Activity mode="hidden">
+        {panel}
+        {children}
+      </Activity>
+    );
+  }
   return (
     <div
       ref={hostRef}

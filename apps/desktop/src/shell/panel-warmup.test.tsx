@@ -97,7 +97,7 @@ describe('PanelWarmup (#81)', () => {
     expect(disconnect.mock.calls.length).toBeGreaterThanOrEqual(observe.mock.calls.length);
   });
 
-  it('stays a plain hidden pre-render when the shell already knows the height', async () => {
+  it('is the plain hidden pre-render when the shell already knows the height', async () => {
     const seen = layOut(240);
     const observe = vi.spyOn(MutationObserver.prototype, 'observe');
     const { onMeasure, mounted } = renderWarmup(vi.fn(), vi.fn(), false);
@@ -106,19 +106,23 @@ describe('PanelWarmup (#81)', () => {
     expect(observe).not.toHaveBeenCalled();
     expect(onMeasure).not.toHaveBeenCalled();
     expect(mounted).not.toHaveBeenCalled();
-    const copy = screen.getByTestId('panel-warmup').firstElementChild as HTMLElement;
-    expect(copy.style.getPropertyValue('display')).toBe('none');
+    // As before #81: no host, surface or measurement node around the hidden copy.
+    expect(screen.queryByTestId('panel-warmup')).toBeNull();
+    expect(measureNode()).toBeNull();
     expect(screen.getByText('warm body')).not.toBeVisible();
+    expect(screen.getByText('module bar')).not.toBeVisible();
   });
 
-  it('is not laid out again once the shell stops asking', async () => {
+  it('is not laid out again or remounted once the shell stops asking', async () => {
     const seen = layOut(240);
     const { onMeasure, setLayOut } = renderWarmup();
     await flushEffects();
     expect(seen).toHaveLength(1);
+    const body = screen.getByText('warm body');
     setLayOut(false);
     await flushEffects();
     expect(seen).toHaveLength(1);
     expect(onMeasure).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('warm body')).toBe(body);
   });
 });
