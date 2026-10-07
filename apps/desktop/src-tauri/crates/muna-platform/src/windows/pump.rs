@@ -13,9 +13,11 @@
 //! thread with a message loop, which is why everything shares this pump. Nothing here touches
 //! the Tauri/tao windows or their threads.
 
-use std::cell::RefCell;
-use std::sync::mpsc;
+use std::cell::{Cell, RefCell};
+use std::fmt;
+use std::sync::{Mutex, PoisonError, mpsc};
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 use tokio::sync::broadcast;
 use tracing::{debug, warn};
@@ -43,54 +45,231 @@ use crate::events::PlatformEvent;
 
 const CLASS_NAME: PCWSTR = w!("MunaPlatformPump");
 
+/// How long stopping the pump may take: the product's expectation for shutdown.
+pub(super) const STOP_BUDGET: Duration = Duration::from_millis(500);
+
 thread_local! {
     /// The pump thread's event sender, reachable from the `extern "system"` callbacks.
     static SENDER: RefCell<Option<broadcast::Sender<PlatformEvent>>> = const { RefCell::new(None) };
+    /// When each shutdown step finished on the pump thread, handed back once it has cleaned up.
+    static MARKS: Cell<Marks> = Cell::new(Marks::default());
 }
 
-/// Owns the pump thread; dropping it closes the hidden window and joins the thread.
+/// Owns the pump thread. Dropping it closes the hidden window and waits until the thread has
+/// removed its hooks and session notifications, but not until the OS has ended the thread:
+/// a thread's exit runs `DLL_THREAD_DETACH` under the process's loader lock, which a DLL load
+/// anywhere else in the process can hold for a second (#97). The thread finishes on its own.
 #[derive(Debug)]
 pub(super) struct Pump {
     window: isize,
+    /// Delivers the thread's [`Marks`] once it has cleaned up, just before it returns. Only
+    /// reached through `&mut self`; the mutex just keeps the pump `Sync`.
+    cleaned_up: Mutex<mpsc::Receiver<Marks>>,
     thread: Option<JoinHandle<()>>,
+}
+
+/// The instants the pump thread passed while shutting down, plus its last few `WinEvent`
+/// callbacks so a stop can tell whether one of them held up `WM_CLOSE`.
+#[derive(Clone, Copy, Debug, Default)]
+struct Marks {
+    close: Option<Instant>,
+    quit_posted: Option<Instant>,
+    destroyed: Option<Instant>,
+    loop_left: Option<Instant>,
+    unhooked: [Option<Instant>; 2],
+    unregistered: Option<Instant>,
+    cleaned_up: Option<Instant>,
+    callbacks: [Option<(Instant, Instant)>; 4],
+    next_callback: usize,
+}
+
+fn mark(update: impl FnOnce(&mut Marks)) {
+    MARKS.with(|marks| {
+        let mut value = marks.get();
+        update(&mut value);
+        marks.set(value);
+    });
+}
+
+fn note_callback(started: Instant) {
+    mark(|marks| {
+        marks.callbacks[marks.next_callback] = Some((started, Instant::now()));
+        marks.next_callback = (marks.next_callback + 1) % marks.callbacks.len();
+    });
+}
+
+/// How long each step of one pump stop took, from posting `WM_CLOSE` until the owner hears
+/// that the thread has cleaned up.
+#[derive(Clone, Debug)]
+pub(super) struct StopReport {
+    pub(super) total: Duration,
+    phases: Vec<(&'static str, Option<Duration>)>,
+    /// `WinEvent` callbacks that were still running or ran after `WM_CLOSE` was posted.
+    late_callbacks: usize,
+    late_callback_time: Duration,
+    /// How long the OS then took to end the thread; only [`Pump::stop`] waits for it, and it
+    /// is not part of `total`.
+    exit: Option<Duration>,
+}
+
+impl StopReport {
+    fn new(posted: Instant, marks: &Marks, heard: Instant) -> Self {
+        let steps = [
+            ("WM_CLOSE dispatch", marks.close),
+            ("DestroyWindow to PostQuitMessage", marks.quit_posted),
+            ("rest of DestroyWindow", marks.destroyed),
+            ("leaving GetMessageW", marks.loop_left),
+            ("UnhookWinEvent foreground", marks.unhooked[0]),
+            ("UnhookWinEvent move/size", marks.unhooked[1]),
+            ("WTSUnRegisterSessionNotification", marks.unregistered),
+            ("pump cleanup", marks.cleaned_up),
+            ("handing back", Some(heard)),
+        ];
+        let mut previous = posted;
+        let phases = steps
+            .into_iter()
+            .map(|(name, at)| {
+                let took = at.map(|at| at.saturating_duration_since(previous));
+                previous = at.unwrap_or(previous);
+                (name, took)
+            })
+            .collect();
+        let late: Vec<Duration> = marks
+            .callbacks
+            .iter()
+            .flatten()
+            .filter(|(_, ended)| *ended > posted)
+            .map(|(started, ended)| ended.saturating_duration_since((*started).max(posted)))
+            .collect();
+        Self {
+            total: heard.saturating_duration_since(posted),
+            phases,
+            late_callbacks: late.len(),
+            late_callback_time: late.iter().sum(),
+            exit: None,
+        }
+    }
+
+    /// The step that took longest, by name.
+    pub(super) fn slowest(&self) -> &'static str {
+        self.phases
+            .iter()
+            .max_by_key(|(_, took)| took.unwrap_or_default())
+            .map_or("none", |(name, _)| name)
+    }
+}
+
+impl fmt::Display for StopReport {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "stopped in {:?}:", self.total)?;
+        for (name, took) in &self.phases {
+            match took {
+                Some(took) => write!(f, " {name} {took:?},")?,
+                None => write!(f, " {name} skipped,")?,
+            }
+        }
+        write!(
+            f,
+            " {} WinEvent callback(s) after the close was posted ({:?}); slowest: {}",
+            self.late_callbacks,
+            self.late_callback_time,
+            self.slowest()
+        )?;
+        if let Some(exit) = self.exit {
+            write!(
+                f,
+                "; the OS ended the thread {exit:?} later, outside the stop"
+            )?;
+        }
+        Ok(())
+    }
 }
 
 impl Pump {
     /// Starts the pump and waits until the hidden window exists (or creation failed).
     pub(super) fn start(events: broadcast::Sender<PlatformEvent>) -> PlatformResult<Self> {
+        Self::start_with(events, || {})
+    }
+
+    /// [`Pump::start`], running `first` on the new thread before anything else.
+    fn start_with(
+        events: broadcast::Sender<PlatformEvent>,
+        first: impl FnOnce() + Send + 'static,
+    ) -> PlatformResult<Self> {
         let (ready_tx, ready_rx) = mpsc::channel::<PlatformResult<isize>>();
+        let (cleaned_up_tx, cleaned_up) = mpsc::channel::<Marks>();
         let thread = std::thread::Builder::new()
             .name("muna-platform-pump".into())
-            .spawn(move || run(events, &ready_tx))
+            .spawn(move || {
+                first();
+                run(events, &ready_tx, &cleaned_up_tx);
+            })
             .map_err(|_| PlatformError::Unsupported("platform pump thread"))?;
         let window = ready_rx
             .recv()
             .map_err(|_| PlatformError::Unsupported("platform pump thread exited early"))??;
         Ok(Self {
             window,
+            cleaned_up: Mutex::new(cleaned_up),
             thread: Some(thread),
         })
     }
-}
 
-impl Drop for Pump {
-    fn drop(&mut self) {
+    /// Stops the pump and reports how long each shutdown step took, then also waits for the
+    /// OS to end the thread and reports that separately.
+    #[cfg(test)]
+    pub(super) fn stop(mut self) -> Option<StopReport> {
+        let (mut report, thread) = self.shutdown()?;
+        let heard = Instant::now();
+        thread.join().ok()?;
+        report.exit = Some(heard.elapsed());
+        Some(report)
+    }
+
+    /// Closes the window and waits until the thread has cleaned up; returns the thread's handle
+    /// unjoined. `None` when the pump was already stopped or its thread panicked.
+    fn shutdown(&mut self) -> Option<(StopReport, JoinHandle<()>)> {
+        let thread = self.thread.take()?;
         let hwnd = HWND(self.window as *mut core::ffi::c_void);
+        let posted = Instant::now();
         // SAFETY: `PostMessageW` only queues a message for the pump thread; the handle belongs
         // to a window this struct created and destroys in its own `WM_CLOSE` handler.
         #[allow(unsafe_code)]
         if let Err(error) = unsafe { PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0)) } {
             warn!(%error, "platform pump: WM_CLOSE could not be posted");
         }
-        if let Some(thread) = self.thread.take()
-            && thread.join().is_err()
-        {
+        let cleaned_up = self
+            .cleaned_up
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner);
+        let Ok(marks) = cleaned_up.recv() else {
+            // The thread dropped its sender without cleaning up, so it is unwinding.
+            let _ = thread.join();
             warn!("platform pump thread panicked");
+            return None;
+        };
+        Some((StopReport::new(posted, &marks, Instant::now()), thread))
+    }
+}
+
+impl Drop for Pump {
+    fn drop(&mut self) {
+        // Dropping the handle detaches the thread; see the struct docs for why it is not joined.
+        if let Some((report, _thread)) = self.shutdown() {
+            if report.total > STOP_BUDGET {
+                warn!(%report, "platform pump: slow stop");
+            } else {
+                debug!(%report, "platform pump: stop");
+            }
         }
     }
 }
 
-fn run(events: broadcast::Sender<PlatformEvent>, ready: &mpsc::Sender<PlatformResult<isize>>) {
+fn run(
+    events: broadcast::Sender<PlatformEvent>,
+    ready: &mpsc::Sender<PlatformResult<isize>>,
+    cleaned_up: &mpsc::Sender<Marks>,
+) {
     SENDER.with(|sender| *sender.borrow_mut() = Some(events));
 
     let window = match create_window() {
@@ -127,18 +306,25 @@ fn run(events: broadcast::Sender<PlatformEvent>, ready: &mpsc::Sender<PlatformRe
             let _ = TranslateMessage(&raw const message);
             DispatchMessageW(&raw const message);
         }
-        for hook in hooks.into_iter().flatten() {
-            if !UnhookWinEvent(hook).as_bool() {
+        mark(|marks| marks.loop_left = Some(Instant::now()));
+        for (index, hook) in hooks.into_iter().enumerate() {
+            if let Some(hook) = hook
+                && !UnhookWinEvent(hook).as_bool()
+            {
                 warn!("platform pump: UnhookWinEvent failed");
             }
+            mark(|marks| marks.unhooked[index] = Some(Instant::now()));
         }
         // The window is already destroyed by now; un-registration is best effort.
         if session_notifications {
             let _ = WTSUnRegisterSessionNotification(window);
         }
+        mark(|marks| marks.unregistered = Some(Instant::now()));
     }
     SENDER.with(|sender| sender.borrow_mut().take());
-    debug!("platform pump stopped");
+    mark(|marks| marks.cleaned_up = Some(Instant::now()));
+    // A closed receiver only means the owner is gone; nobody is left to tell.
+    let _ = cleaned_up.send(MARKS.with(Cell::get));
 }
 
 fn create_window() -> PlatformResult<HWND> {
@@ -265,15 +451,18 @@ unsafe extern "system" fn window_proc(
             LRESULT(1)
         }
         WM_CLOSE => {
+            mark(|marks| marks.close = Some(Instant::now()));
             // SAFETY: `hwnd` is the pump window handed to us by the OS for this message.
             if unsafe { DestroyWindow(hwnd) }.is_err() {
                 warn!("platform pump: DestroyWindow failed");
             }
+            mark(|marks| marks.destroyed = Some(Instant::now()));
             LRESULT(0)
         }
         WM_DESTROY => {
             // SAFETY: posting WM_QUIT to the current thread has no preconditions.
             unsafe { PostQuitMessage(0) };
+            mark(|marks| marks.quit_posted = Some(Instant::now()));
             LRESULT(0)
         }
         // SAFETY: forwarding the exact arguments the OS gave us.
@@ -291,10 +480,11 @@ unsafe extern "system" fn foreground_proc(
     _thread: u32,
     _time: u32,
 ) {
-    if id_object != OBJID_WINDOW.0 || id_child != CHILDID_SELF.cast_signed() || hwnd.is_invalid() {
-        return;
+    let started = Instant::now();
+    if id_object == OBJID_WINDOW.0 && id_child == CHILDID_SELF.cast_signed() && !hwnd.is_invalid() {
+        publish(PlatformEvent::ForegroundChanged(foreground::snapshot(hwnd)));
     }
-    publish(PlatformEvent::ForegroundChanged(foreground::snapshot(hwnd)));
+    note_callback(started);
 }
 
 #[allow(unsafe_code)]
@@ -307,13 +497,14 @@ unsafe extern "system" fn move_size_proc(
     _thread: u32,
     _time: u32,
 ) {
-    if id_object != OBJID_WINDOW.0 || id_child != CHILDID_SELF.cast_signed() || hwnd.is_invalid() {
-        return;
+    let started = Instant::now();
+    if id_object == OBJID_WINDOW.0 && id_child == CHILDID_SELF.cast_signed() && !hwnd.is_invalid() {
+        publish(PlatformEvent::MoveSizeChanged {
+            started: event == EVENT_SYSTEM_MOVESIZESTART,
+            window: hwnd.0 as isize,
+        });
     }
-    publish(PlatformEvent::MoveSizeChanged {
-        started: event == EVENT_SYSTEM_MOVESIZESTART,
-        window: hwnd.0 as isize,
-    });
+    note_callback(started);
 }
 
 #[cfg(test)]
@@ -333,15 +524,99 @@ mod tests {
         drop(pump);
     }
 
+    #[test]
+    fn a_stop_report_names_each_step_and_the_slowest() {
+        let origin = Instant::now();
+        let posted = origin + Duration::from_millis(10);
+        let at = |ms: u64| Some(posted + Duration::from_millis(ms));
+        let marks = Marks {
+            close: at(1),
+            quit_posted: at(2),
+            destroyed: at(40),
+            loop_left: at(40),
+            unhooked: [at(41), None],
+            unregistered: at(42),
+            cleaned_up: at(42),
+            callbacks: [
+                Some((origin, origin + Duration::from_millis(1))),
+                Some((
+                    origin + Duration::from_millis(9),
+                    posted + Duration::from_millis(1),
+                )),
+                None,
+                None,
+            ],
+            next_callback: 2,
+        };
+        let mut report = StopReport::new(posted, &marks, posted + Duration::from_millis(43));
+
+        assert_eq!(report.total, Duration::from_millis(43));
+        assert_eq!(report.slowest(), "rest of DestroyWindow");
+        assert_eq!(report.late_callbacks, 1);
+        assert_eq!(report.late_callback_time, Duration::from_millis(1));
+        let text = report.to_string();
+        assert!(text.contains("WM_CLOSE dispatch 1ms,"), "{text}");
+        assert!(text.contains("rest of DestroyWindow 38ms,"), "{text}");
+        assert!(text.contains("UnhookWinEvent move/size skipped,"), "{text}");
+        assert!(
+            text.contains("WTSUnRegisterSessionNotification 1ms,"),
+            "{text}"
+        );
+        assert!(text.contains("handing back 1ms,"), "{text}");
+        assert!(text.ends_with("slowest: rest of DestroyWindow"), "{text}");
+
+        report.exit = Some(Duration::from_millis(900));
+        let text = report.to_string();
+        assert_eq!(report.slowest(), "rest of DestroyWindow");
+        assert!(
+            text.ends_with("; the OS ended the thread 900ms later, outside the stop"),
+            "{text}"
+        );
+    }
+
+    /// The OS runs `DLL_THREAD_DETACH` and Rust's thread-local destructors after the thread's
+    /// function returns, under the loader lock; a DLL load elsewhere in the process stretched
+    /// that past a second on CI (#97). A destructor that sleeps stands in for that wait here.
+    #[test]
+    #[cfg_attr(
+        not(feature = "platform-tests"),
+        ignore = "requires a real Windows session"
+    )]
+    fn a_thread_slow_to_end_does_not_hold_up_the_stop() {
+        struct SlowExit;
+        impl Drop for SlowExit {
+            fn drop(&mut self) {
+                std::thread::sleep(STOP_BUDGET * 2);
+            }
+        }
+        thread_local! {
+            static SLOW_EXIT: RefCell<Option<SlowExit>> = const { RefCell::new(None) };
+        }
+        let (events, _rx) = broadcast::channel(8);
+        let pump = Pump::start_with(events, || {
+            SLOW_EXIT.with(|slot| *slot.borrow_mut() = Some(SlowExit));
+        })
+        .unwrap();
+
+        let report = pump.stop().expect("the pump thread did not panic");
+
+        assert!(report.total < STOP_BUDGET, "{report}");
+        assert!(
+            report.exit.is_some_and(|exit| exit >= STOP_BUDGET * 2),
+            "the destructor ran after the stop: {report}"
+        );
+    }
+
     /// Spike S3 (docs/spikes/m4-snap.md): a real title-bar drag of a window in *another*
     /// process must reach the pump's subscribers as `MoveSizeChanged { started: true }`
-    /// within one frame, and dropping the pump must join its thread. The other process is this
-    /// test binary re-run as [`s3_helper_window`]; the drag is injected with `SendInput`, so
-    /// the cursor moves for a moment and is put back afterwards. Holds the desktop lock so no
-    /// other input test shares the cursor. A system prompt would dim the desktop and take the
-    /// click for longer than any lock is held, so the one test that can raise one — location
-    /// consent — is an integration test, `tests/location.rs`, which cargo runs after this binary
-    /// (#89).
+    /// within one frame, and stopping the pump must remove its window, hooks and session
+    /// notifications within [`STOP_BUDGET`]; the OS ends the thread afterwards, outside the
+    /// stop (#97). The other process is this test binary re-run as [`s3_helper_window`]; the
+    /// drag is injected with `SendInput`, so the cursor moves for a moment and is put back
+    /// afterwards. Holds the desktop lock so no other input test shares the cursor. A system
+    /// prompt would dim the desktop and take the click for longer than any lock is held, so the
+    /// one test that can raise one — location consent — is an integration test,
+    /// `tests/location.rs`, which cargo runs after this binary (#89).
     #[test]
     #[cfg_attr(
         not(feature = "platform-tests"),
@@ -360,13 +635,14 @@ mod tests {
         for round in 0..5 {
             let timing = s3::drag_round(&runtime);
             eprintln!(
-                "S3 round {round}: MOVESIZESTART after {:?}, MOVESIZEEND after {:?}, pump \
-                 stopped in {:?}",
+                "S3 round {round}: MOVESIZESTART after {:?}, MOVESIZEEND after {:?}, pump {}",
                 timing.start, timing.end, timing.stop
             );
             assert!(
-                timing.stop < Duration::from_millis(500),
-                "the pump thread took {:?} to stop",
+                timing.stop.total < super::STOP_BUDGET,
+                "the pump took {:?} to stop, longer than {:?}; {}",
+                timing.stop.total,
+                super::STOP_BUDGET,
                 timing.stop
             );
             rounds.push(timing);
@@ -432,7 +708,7 @@ mod tests {
         };
         use windows::core::{PCWSTR, w};
 
-        use super::super::Pump;
+        use super::super::{Pump, StopReport};
         use crate::events::PlatformEvent;
         use crate::types::WindowHandle;
         use crate::windows::foreground;
@@ -445,8 +721,8 @@ mod tests {
             pub(super) start: Duration,
             /// Button up → `MoveSizeChanged { started: false }` received.
             pub(super) end: Duration,
-            /// `drop(pump)` → thread joined.
-            pub(super) stop: Duration,
+            /// `WM_CLOSE` posted → pump cleaned up, step by step, plus the thread's exit.
+            pub(super) stop: StopReport,
         }
 
         /// The helper window as its process reported it.
@@ -679,9 +955,7 @@ mod tests {
             await_move_size(runtime, &mut rx, false);
             let end = released_at.elapsed();
 
-            let stopping_at = Instant::now();
-            drop(pump);
-            let stop = stopping_at.elapsed();
+            let stop = pump.stop().expect("the pump thread did not panic");
             let _ = helper.child.kill();
             let _ = helper.child.wait();
             Timing { start, end, stop }
