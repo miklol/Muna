@@ -335,7 +335,12 @@ decided during M1-E1 and is the behaviour to test against.
   (34 ms against 4.6 ms warm, mostly fonts and text shaping, forced in the mount's commit by
   the module bar's width measurement) and the retarget to the measured height (a whole-shell
   re-render of 30–50 ms inside the morph). From #71 to #81 the harness booked that expand
-  apart as `coldExpand` (39–49 fps on the nightly runner); it is now gated with the rest.
+  apart as `coldExpand` (39–49 fps on the nightly runner); it is now gated with the rest
+  (76–78 fps there), and no expand re-renders the shell for the hit-test overlay's rects any
+  more ("Dev switches" below). The copy runs no effects, so text a widget loads after it
+  mounts is not in it: locally a now-playing title in a script whose fallback font had not
+  loaded yet still cost a 33 ms layout inside the first expand (debug, CPU throttled 2×); the
+  runner plays no media.
   Hover intent rather than the Low → Normal edge of the [memory target](#memory-target): the
   edge comes 250–400 ms earlier (window bounds versus the strip), but hover intent already
   leads the expand by up to 600 ms, which is more than the warm-up needs, and the edge would need a
@@ -357,7 +362,8 @@ decided during M1-E1 and is the behaviour to test against.
   Rust. Storing them re-rendered the whole shell, panel included, from the effect that
   publishes the in-flight rects, about 10 ms into every expand: a 16–21 ms task and a 33 ms
   frame in a debug build with the CPU throttled 2×
-  ([#81](https://github.com/miklol/Muna/issues/81)).
+  ([#81](https://github.com/miklol/Muna/issues/81)). On the nightly runner that put a frame of
+  31 ms or more into up to 6 of a run's 20 expands; in the first two runs without it, none.
 - **Measured (Win11 25H2, 2560 × 1600 at 150 %, 165 Hz):** expand 158–167 fps, 110–116
   frames, 693–697 ms, max frame 6–24 ms, 0 dropped; collapse 157–167 fps, 123–131 frames,
   781–787 ms; peek slide 166–167 fps, 58–66 frames, 349–395 ms. Under OS reduced motion the
