@@ -195,7 +195,7 @@ applies.
   `coldExpand`. Measured (release build, i9-13900HX laptop, 165 Hz panel, the docs/09
   harness's morph driver without CPU throttling): a session's first expand after a trim ran
   at 121–163 fps (98–110 before #81), and at 106–140 fps with the app pinned to four cores
-  (102–103 before), with and without reduced motion; warm expands ran at 102–176 fps. Still
+  (102–103 before), with and without reduced motion; warm expands ran at 144–174 fps. Still
   to verify on hardware: the first morph after a trim
   (Low → Normal on hover, then 600 ms from the pointer reaching the strip to the expand)
   holds ≥ 58 fps on a 60 Hz 4-core laptop; the only panel here runs at 165 Hz.
