@@ -1111,6 +1111,44 @@ describe('NotchWindow scenario suite', () => {
       }
     });
 
+    it('#81: handing Rust the in-flight rects does not re-render the panel inside the expand', async () => {
+      let renders = 0;
+      const CountedBody = () => {
+        renders += 1;
+        return <p>counted body</p>;
+      };
+      // As in the browser, the panel's own measurement arrives after the expand has started.
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          observe = vi.fn();
+          unobserve = vi.fn();
+          disconnect = vi.fn();
+        },
+      );
+      const publish = ipc.commands.publishShapeRects.getMockImplementation()!;
+      try {
+        const { main } = renderNotch(undefined, [{ ...fakeModules[0]!, panel: CountedBody }]);
+        // The body's renders when the expand publishes the strip plus the span it morphs over.
+        let atPublish: number | null = null;
+        ipc.commands.publishShapeRects.mockImplementation((rects) => {
+          if (atPublish === null && stateOf(main) === 'expanded' && rects.length === 2) {
+            atPublish = renders;
+          }
+          return publish(rects);
+        });
+        pointer(main, 'pointermove', ON_STRIP, 0);
+        await advance(600);
+        expect(stateOf(main)).toBe('expanded');
+        expect(surfaceOf(main).morphing).toBe(true);
+        expect(atPublish).not.toBeNull();
+        expect(renders).toBe(atPublish);
+      } finally {
+        ipc.commands.publishShapeRects.mockImplementation(publish);
+        vi.unstubAllGlobals();
+      }
+    });
+
     it('#71: under reduced motion only a morph that moves the radius is sampled as a tween', async () => {
       const base = defaultSettings();
       cacheSettings(queryClient, { ...base, general: { ...base.general, reducedMotion: 'on' } });

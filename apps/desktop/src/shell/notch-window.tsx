@@ -415,6 +415,9 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   const [snapContentSize, setSnapContentSize] = useState<Size | null>(null);
   const [lastMorph, setLastMorph] = useState<MorphReport | null>(null);
   const [publishedRects, setPublishedRects] = useState<readonly ShapeRect[]>([]);
+  // Only the dev overlay draws the published rects, so only it keeps them in state: in the
+  // product that state re-rendered the whole shell, the panel included, inside every morph (#81).
+  const setOverlayRects = hitTestOverlayEnabled ? setPublishedRects : undefined;
   const [radii, setRadii] = useState({ strip: 14, panel: 28 });
 
   useEffect(() => {
@@ -803,14 +806,17 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     };
   }, [snapShown, snapSessionId]);
 
-  const publish = useCallback((rects: ShapeRect[]) => {
-    if (rects.length === 0 || sameRects(rects, lastPublished.current)) {
-      return;
-    }
-    lastPublished.current = rects;
-    setPublishedRects(rects);
-    publishShapeRects(rects);
-  }, []);
+  const publish = useCallback(
+    (rects: ShapeRect[]) => {
+      if (rects.length === 0 || sameRects(rects, lastPublished.current)) {
+        return;
+      }
+      lastPublished.current = rects;
+      setOverlayRects?.(rects);
+      publishShapeRects(rects);
+    },
+    [setOverlayRects],
+  );
 
   /**
    * Publishes what the pointer may hit. The strip at rest — wide or not — comes first: the

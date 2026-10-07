@@ -352,7 +352,12 @@ decided during M1-E1 and is the behaviour to test against.
 - **Dev switches.** `scripts/dev.ps1 -HitTest` draws the published rects over the notch;
   `-FullMotion` ignores the OS *animation effects off* setting in dev builds so springs can be
   measured on a machine with reduced motion. Release builds always follow the OS, and the
-  *Reduced motion* setting wins in every build.
+  *Reduced motion* setting wins in every build. Only the hit-test overlay reads the rects in
+  React state, so they are kept there only while it is on; elsewhere they go straight to
+  Rust. Storing them re-rendered the whole shell, panel included, from the effect that
+  publishes the in-flight rects, about 10 ms into every expand: a 16–21 ms task and a 33 ms
+  frame in a debug build with the CPU throttled 2×
+  ([#81](https://github.com/miklol/Muna/issues/81)).
 - **Measured (Win11 25H2, 2560 × 1600 at 150 %, 165 Hz):** expand 158–167 fps, 110–116
   frames, 693–697 ms, max frame 6–24 ms, 0 dropped; collapse 157–167 fps, 123–131 frames,
   781–787 ms; peek slide 166–167 fps, 58–66 frames, 349–395 ms. Under OS reduced motion the
