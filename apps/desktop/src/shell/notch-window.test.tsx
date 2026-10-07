@@ -992,6 +992,163 @@ describe('NotchWindow scenario suite', () => {
       expect(screen.queryByText('warm body')).toBeNull();
     });
 
+    /**
+     * Gives the hover-intent copy's measurement node a height and counts its reads, i.e. the
+     * copy's forced layouts. Swapped by hand: `renderNotch`'s spy on the shell would take over a
+     * prototype spy.
+     */
+    const measureWarmupCopy = (height: number) => {
+      let reads = 0;
+      const box = Object.getOwnPropertyDescriptor(Element.prototype, 'getBoundingClientRect')!;
+      Object.defineProperty(Element.prototype, 'getBoundingClientRect', {
+        ...box,
+        value(this: Element) {
+          if (!this.hasAttribute('data-warmup-measure')) {
+            // jsdom lays nothing out: every other box stays empty.
+            return DOMRect.fromRect({});
+          }
+          reads += 1;
+          return DOMRect.fromRect({ width: 960, height });
+        },
+      });
+      return {
+        reads: () => reads,
+        restore: () => {
+          Object.defineProperty(Element.prototype, 'getBoundingClientRect', box);
+        },
+      };
+    };
+
+    /** The hover-intent copy: a panel outside the shell, pre-rendered hidden. */
+    const warmCopy = () =>
+      [...document.querySelectorAll<HTMLElement>('.muna-panel')].find(
+        (panel) => panel.closest('[data-testid="shell"]') === null,
+      ) ?? null;
+
+    it('#81: the hover-intent copy measures the panel, so the first expand opens to its height', async () => {
+      // As in the browser, the panel's own height reaches the shell only after the expand.
+      const observed: { node: Element; callback: ResizeObserverCallback }[] = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          readonly #callback: ResizeObserverCallback;
+          constructor(callback: ResizeObserverCallback) {
+            this.#callback = callback;
+          }
+          observe(node: Element) {
+            observed.push({ node, callback: this.#callback });
+          }
+          unobserve = vi.fn();
+          disconnect = vi.fn();
+        },
+      );
+      const copy = measureWarmupCopy(300);
+      try {
+        const { main } = renderNotch();
+        const panelRect = () => lastRects()[1]!.height - 60;
+        pointer(main, 'pointermove', ON_STRIP, 0);
+        await advance(600);
+        expect(stateOf(main)).toBe('expanded');
+        // No retarget waits for the panel's measurement: the morph heads for 300 from the start.
+        expect(panelRect()).toBe(300);
+
+        // Once the panel has measured itself, its height wins over any later copy.
+        const panel = observed.find((o) => o.node.querySelector(':scope > [role="dialog"]'));
+        const entry = { borderBoxSize: [{ blockSize: 320, inlineSize: 0 }] };
+        act(() => {
+          panel?.callback([entry as unknown as ResizeObserverEntry], {} as ResizeObserver);
+        });
+        await settle();
+        expect(panelRect()).toBe(320);
+        fireEvent.keyDown(window, { key: 'Escape' });
+        await settle();
+        // The next copy is the plain hidden pre-render: no layout host around it.
+        expect(warmCopy()).not.toBeVisible();
+        expect(screen.queryByTestId('panel-warmup')).toBeNull();
+        openWithHotkey(main);
+        await settle();
+        expect(panelRect()).toBe(320);
+        // The copy was laid out for the first expand only.
+        expect(copy.reads()).toBe(1);
+      } finally {
+        copy.restore();
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it('#81: the copy is laid out once a session, not again on later hover intents', async () => {
+      const copy = measureWarmupCopy(300);
+      try {
+        const { main } = renderNotch();
+        pointer(main, 'pointermove', ON_STRIP, 0);
+        await advance(300);
+        expect(stateOf(main)).toBe('hoverReveal');
+        expect(screen.getByTestId('panel-warmup')).toBeInTheDocument();
+        expect(copy.reads()).toBe(1);
+
+        // The pointer leaves before the expand; the next hover pre-renders the panel again, hidden
+        // and bare as before #81: the shell already knows its height.
+        pointer(main, 'pointermove', FAR_AWAY, 2000);
+        await settle();
+        expect(warmCopy()).toBeNull();
+        pointer(main, 'pointermove', ON_STRIP, 4000);
+        await advance(300);
+        expect(stateOf(main)).toBe('hoverReveal');
+        expect(warmCopy()).not.toBeVisible();
+        expect(screen.queryByTestId('panel-warmup')).toBeNull();
+        expect(copy.reads()).toBe(1);
+
+        // Nor after an expand, closed with the pointer still on the strip.
+        await advance(300);
+        expect(stateOf(main)).toBe('expanded');
+        fireEvent.keyDown(window, { key: 'Escape' });
+        await settle();
+        expect(warmCopy()).not.toBeVisible();
+        expect(screen.queryByTestId('panel-warmup')).toBeNull();
+        expect(copy.reads()).toBe(1);
+      } finally {
+        copy.restore();
+      }
+    });
+
+    it('#81: handing Rust the in-flight rects does not re-render the panel inside the expand', async () => {
+      let renders = 0;
+      const CountedBody = () => {
+        renders += 1;
+        return <p>counted body</p>;
+      };
+      // As in the browser, the panel's own measurement arrives after the expand has started.
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          observe = vi.fn();
+          unobserve = vi.fn();
+          disconnect = vi.fn();
+        },
+      );
+      const publish = ipc.commands.publishShapeRects.getMockImplementation()!;
+      try {
+        const { main } = renderNotch(undefined, [{ ...fakeModules[0]!, panel: CountedBody }]);
+        // The body's renders when the expand publishes the strip plus the span it morphs over.
+        let atPublish: number | null = null;
+        ipc.commands.publishShapeRects.mockImplementation((rects) => {
+          if (atPublish === null && stateOf(main) === 'expanded' && rects.length === 2) {
+            atPublish = renders;
+          }
+          return publish(rects);
+        });
+        pointer(main, 'pointermove', ON_STRIP, 0);
+        await advance(600);
+        expect(stateOf(main)).toBe('expanded');
+        expect(surfaceOf(main).morphing).toBe(true);
+        expect(atPublish).not.toBeNull();
+        expect(renders).toBe(atPublish);
+      } finally {
+        ipc.commands.publishShapeRects.mockImplementation(publish);
+        vi.unstubAllGlobals();
+      }
+    });
+
     it('#71: under reduced motion only a morph that moves the radius is sampled as a tween', async () => {
       const base = defaultSettings();
       cacheSettings(queryClient, { ...base, general: { ...base.general, reducedMotion: 'on' } });

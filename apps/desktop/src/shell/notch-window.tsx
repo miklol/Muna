@@ -27,7 +27,6 @@ import {
 import { AnimatePresence, motion, type MotionStyle, type Transition } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Activity,
   type FocusEvent as ReactFocusEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -70,6 +69,7 @@ import { MorphSampler } from './morph-sampler';
 import { morphTransition } from './morph-transition';
 import { CommandPalette } from './palette';
 import { Panel, PanelEmptyState } from './panel';
+import { PanelWarmup } from './panel-warmup';
 import {
   type GeometryInput,
   moduleBarOffsetY,
@@ -408,10 +408,16 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
   );
 
   const [panelContentHeight, setPanelContentHeight] = useState<number | null>(null);
+  const seedPanelContentHeight = useCallback((height: number) => {
+    setPanelContentHeight((known) => known ?? height);
+  }, []);
   const [dropContentSize, setDropContentSize] = useState<Size | null>(null);
   const [snapContentSize, setSnapContentSize] = useState<Size | null>(null);
   const [lastMorph, setLastMorph] = useState<MorphReport | null>(null);
   const [publishedRects, setPublishedRects] = useState<readonly ShapeRect[]>([]);
+  // Only the dev overlay draws the published rects, so only it keeps them in state: in the
+  // product that state re-rendered the whole shell, the panel included, inside every morph (#81).
+  const setOverlayRects = hitTestOverlayEnabled ? setPublishedRects : undefined;
   const [radii, setRadii] = useState({ strip: 14, panel: 28 });
 
   useEffect(() => {
@@ -800,14 +806,17 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
     };
   }, [snapShown, snapSessionId]);
 
-  const publish = useCallback((rects: ShapeRect[]) => {
-    if (rects.length === 0 || sameRects(rects, lastPublished.current)) {
-      return;
-    }
-    lastPublished.current = rects;
-    setPublishedRects(rects);
-    publishShapeRects(rects);
-  }, []);
+  const publish = useCallback(
+    (rects: ShapeRect[]) => {
+      if (rects.length === 0 || sameRects(rects, lastPublished.current)) {
+        return;
+      }
+      lastPublished.current = rects;
+      setOverlayRects?.(rects);
+      publishShapeRects(rects);
+    },
+    [setOverlayRects],
+  );
 
   /**
    * Publishes what the pointer may hit. The strip at rest — wide or not — comes first: the
@@ -1040,36 +1049,40 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
       : t(activeModule.titleKey);
   const ActivePanel = activeModule?.panel;
   const bodyKey = paletteOpen ? 'palette' : (activeModule?.id ?? 'empty');
-  // The panel's first render after a quiet spell is a long task inside the expand (#71). While
-  // hover intent runs, React pre-renders the panel hidden — idle priority, no effects, no
-  // layout — so the expand that follows mounts warm code.
+  // The panel's first render and layout in a session are a long task inside the expand (#71,
+  // #81). While hover intent runs, the panel is pre-rendered hidden — idle priority, no
+  // effects — so the expand that follows mounts warm code. Until the shell knows the panel's
+  // height (once a session) the copy is also laid out once unpainted, which warms the fonts,
+  // and its height stands in, so the first expand opens to it instead of retargeting mid-morph.
   const warmPanel =
     !panelShown &&
     (state === 'hoverReveal' ||
       (snapshot.pointerNear && (state === 'collapsed' || state === 'peek')));
   const panelWarmup = useMemo(
-    () => (
-      <>
+    () => ({
+      panel: (
         <Panel title={panelTitle} pinned={false} onPinChange={noop} onCollapse={noop}>
-          {panelBody ??
-            (ActivePanel === undefined ? (
-              <PanelEmptyState reason={modules.length > 0 ? 'disabled' : 'none'} />
-            ) : (
-              <ActivePanel />
-            ))}
+          <div className="size-full">
+            {panelBody ??
+              (ActivePanel === undefined ? (
+                <PanelEmptyState reason={modules.length > 0 ? 'disabled' : 'none'} />
+              ) : (
+                <ActivePanel />
+              ))}
+          </div>
         </Panel>
-        {hasModuleBar && (
-          <ModuleBar
-            aria-label={t('notch.modules')}
-            overflowLabel={t('notch.moreModules')}
-            items={moduleBarItems}
-            activeId={activeModule?.id ?? null}
-            onActivate={noop}
-            onReorder={noop}
-          />
-        )}
-      </>
-    ),
+      ),
+      moduleBar: hasModuleBar && (
+        <ModuleBar
+          aria-label={t('notch.modules')}
+          overflowLabel={t('notch.moreModules')}
+          items={moduleBarItems}
+          activeId={activeModule?.id ?? null}
+          onActivate={noop}
+          onReorder={noop}
+        />
+      ),
+    }),
     [
       ActivePanel,
       activeModule?.id,
@@ -1286,7 +1299,18 @@ export function NotchWindow({ panelBody, modules = registeredModules }: NotchWin
           )}
         </AnimatePresence>
       )}
-      {warmPanel && <Activity mode="hidden">{panelWarmup}</Activity>}
+      {warmPanel && (
+        <PanelWarmup
+          shape={layout.shape}
+          width={targetSize('expanded', geometry).width}
+          maxHeight={shellSizes.panelMaxHeight}
+          layOut={panelContentHeight === null}
+          onMeasure={seedPanelContentHeight}
+          panel={panelWarmup.panel}
+        >
+          {panelWarmup.moduleBar}
+        </PanelWarmup>
+      )}
       {hitTestOverlayEnabled && (
         <HitTestOverlay rects={publishedRects} state={state} morph={lastMorph} />
       )}

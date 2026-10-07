@@ -409,12 +409,6 @@ export function renderMarkdown(report, baseline = null) {
         `${report.morphs.count} morphs, median ${round(report.morphs.medianFps, 0)} fps, longest frame ${report.morphs.maxFrameMs} ms, ${report.morphs.droppedFrames} dropped`,
       );
     }
-    if (report.coldExpand) {
-      const { fps, frames, durationMs } = report.coldExpand;
-      details.push(
-        `cold first expand ${fps} fps, ${frames} frames over ${durationMs} ms (not gated until #81 brings it back in)`,
-      );
-    }
     if (details.length > 0) lines.push(`Details: ${details.join(' · ')}.`, '');
     if (baseline && report.idleCpu && !baseline.idleCpu) {
       lines.push(
@@ -524,11 +518,10 @@ export function buildReport({ mode, plan, exe, host, results, notes = [], genera
     /** Desktop snapshot taken when a morph cycle stalled (`driveMorphs`); `null` when none did. */
     morphStall: results.morphStall ?? null,
     /**
-     * The session's first expand, kept apart from the gated morphs (#71) until #81 brings it
-     * back in: `{ fps, frames, durationMs, maxFrameMs, atMs }`, or `null` when no morph was
-     * driven.
+     * Always `null` since #81: the session's first expand, booked apart from the gated morphs
+     * from #71 to #81, is measured and gated with the rest. The key stays so a report says so.
      */
-    coldExpand: results.coldExpand ?? null,
+    coldExpand: null,
     evaluation,
     notes,
   };
