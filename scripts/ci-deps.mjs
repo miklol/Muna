@@ -6,7 +6,7 @@ import { repoRoot, run } from './lib.mjs';
 
 const manifest = path.join(repoRoot, 'apps', 'desktop', 'src-tauri', 'Cargo.toml');
 
-run('cargo', ['deny', '--manifest-path', manifest, '--all-features', 'check']);
+run('cargo', ['deny', '--manifest-path', manifest, '--all-features', '--locked', 'check']);
 run('pnpm', ['audit', '--prod', '--audit-level', 'high']);
 run('pnpm', ['-w', 'licenses:check']);
 console.log('ci:deps ok');
