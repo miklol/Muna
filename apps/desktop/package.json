@@ -25,7 +25,7 @@
     "@tauri-apps/plugin-log": "^2.10.0",
     "chrono-node": "^2.10.1",
     "lucide-react": "^1.50.0",
-    "motion": "^13.2.0",
+    "motion": "^14.0.0",
     "react": "^19.3.0",
     "react-aria-components": "^1.21.1",
     "react-dom": "^19.3.0",
